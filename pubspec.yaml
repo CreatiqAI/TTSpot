@@ -1,0 +1,51 @@
+name: car_meet
+description: "Malaysian car community app — discover meets, TT sessions and convoys on a map."
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.13.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # --- approved stack -------------------------------------------------------
+  supabase_flutter: ^2.9.0       # Auth, Postgres, Storage, Realtime
+  google_maps_flutter: ^2.12.0   # Map home screen
+  flutter_riverpod: ^3.4.3       # State management (no codegen)
+  go_router: ^18.0.1             # Navigation
+
+  # --- approved for the auth step (2026-09-10) ------------------------------
+  google_sign_in: ^7.2.0         # native Google sign-in → ID token → Supabase
+  image_picker: ^1.2.3           # avatar / cover / car photos
+  geolocator: ^14.0.3            # user location for map centering (added for map step)
+
+  # Not added: intl (dates formatted in lib/core/utils/dates.dart instead),
+  # cached_network_image (plain NetworkImage is enough for MVP).
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/map_style_dark.json
+    - assets/art/
+  fonts:
+    - family: Phosphor
+      fonts:
+        - asset: assets/fonts/Phosphor.ttf
+    - family: PhosphorFill
+      fonts:
+        - asset: assets/fonts/Phosphor-Fill.ttf
+    - family: BarlowCondensed
+      fonts:
+        - asset: assets/fonts/BarlowCondensed-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/BarlowCondensed-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/BarlowCondensed-ExtraBold.ttf
+          weight: 800

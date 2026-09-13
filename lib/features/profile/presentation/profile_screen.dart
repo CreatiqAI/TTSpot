@@ -19,6 +19,7 @@ import '../../friends/application/friends_providers.dart';
 import '../../friends/domain/friend.dart';
 import '../../points/application/points_providers.dart';
 import '../../safety/data/safety_repository.dart';
+import '../../vendors/application/vendors_providers.dart';
 import '../../safety/presentation/report_sheet.dart';
 import '../../social/application/chat_providers.dart';
 import '../../social/application/notification_providers.dart';
@@ -581,6 +582,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Future<void> _myMenu(BuildContext context) async {
+    // Make sure we know whether I'm a partner before the sheet renders.
+    try {
+      await ref.read(myVendorProvider.future);
+    } catch (_) {}
+    if (!context.mounted) return;
     final action = await showModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
@@ -610,12 +616,38 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 title: const Text('Points'),
                 onTap: () => Navigator.pop(ctx, 'points'),
               ),
-              if (ref.read(currentProfileProvider).value?.isAdmin ?? false)
+              ListTile(
+                leading: const Icon(AppIcons.gift),
+                title: const Text('Rewards'),
+                onTap: () => Navigator.pop(ctx, 'rewards'),
+              ),
+              ListTile(
+                leading: const Icon(AppIcons.ticket),
+                title: const Text('My vouchers'),
+                onTap: () => Navigator.pop(ctx, 'vouchers'),
+              ),
+              ListTile(
+                leading: const Icon(AppIcons.storefront),
+                title: Text(ref.read(myVendorProvider).value == null ? 'Become a partner' : 'Partner dashboard'),
+                onTap: () => Navigator.pop(ctx, 'partner'),
+              ),
+              if (ref.read(currentProfileProvider).value?.isAdmin ?? false) ...[
                 ListTile(
                   leading: const Icon(AppIcons.shieldCheck),
                   title: const Text('Review queue'),
                   onTap: () => Navigator.pop(ctx, 'review'),
                 ),
+                ListTile(
+                  leading: const Icon(AppIcons.handshake),
+                  title: const Text('Partner applications'),
+                  onTap: () => Navigator.pop(ctx, 'partners'),
+                ),
+                ListTile(
+                  leading: const Icon(AppIcons.chartBar),
+                  title: const Text('Commission report'),
+                  onTap: () => Navigator.pop(ctx, 'commission'),
+                ),
+              ],
               ListTile(
                 leading: const Icon(AppIcons.qrCode),
                 title: const Text('My QR'),
@@ -660,6 +692,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         context.push(Routes.points);
       case 'review':
         context.push(Routes.adminReview);
+      case 'rewards':
+        context.push(Routes.rewards);
+      case 'vouchers':
+        context.push(Routes.myVouchers);
+      case 'partner':
+        context.push(ref.read(myVendorProvider).value == null ? Routes.partnerApply : Routes.vendor);
+      case 'partners':
+        context.push(Routes.adminPartners);
+      case 'commission':
+        context.push(Routes.adminCommission);
       case 'qr':
         context.push(Routes.myQr);
       case 'car':

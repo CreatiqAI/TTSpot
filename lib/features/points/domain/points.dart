@@ -54,6 +54,7 @@ sealed class ScannedCode {
       final segs = uri.pathSegments.where((s) => s.isNotEmpty).toList();
       if (uri.host == 'checkin' && segs.length >= 2) return MeetCheckinCode(eventId: segs[0], code: segs[1]);
       if (uri.host == 'spot' && segs.length >= 2) return SpotCode(placeId: segs[0], code: segs[1]);
+      if (uri.host == 'voucher' && segs.length >= 2) return VoucherCode(claimId: segs[0], code: segs[1]);
       if (uri.host == 'u' && segs.isNotEmpty) return FriendCode(username: segs[0], token: uri.queryParameters['t'] ?? '');
       return null;
     }
@@ -79,5 +80,13 @@ class MeetCheckinCode extends ScannedCode {
 class SpotCode extends ScannedCode {
   const SpotCode({required this.placeId, required this.code});
   final String placeId;
+  final String code;
+}
+
+/// A member's claimed voucher (`ttspot://voucher/<claimId>/<code>`). Only the
+/// partner it belongs to can do anything with it.
+class VoucherCode extends ScannedCode {
+  const VoucherCode({required this.claimId, required this.code});
+  final String claimId;
   final String code;
 }

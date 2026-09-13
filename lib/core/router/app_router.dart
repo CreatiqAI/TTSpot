@@ -12,6 +12,17 @@ import '../../features/events/presentation/event_details_screen.dart';
 import '../../features/events/presentation/my_events_screen.dart';
 import '../../features/friends/presentation/friends_screen.dart';
 import '../../features/points/presentation/admin_review_screen.dart';
+import '../../features/vendors/presentation/admin_commission_screen.dart';
+import '../../features/vendors/presentation/admin_partners_screen.dart';
+import '../../features/vendors/presentation/my_vouchers_screen.dart';
+import '../../features/vendors/presentation/partner_apply_screen.dart';
+import '../../features/vendors/presentation/redeem_screen.dart';
+import '../../features/vendors/presentation/rewards_screen.dart';
+import '../../features/vendors/presentation/vendor_dashboard_screen.dart';
+import '../../features/vendors/presentation/vendor_edit_screen.dart';
+import '../../features/vendors/presentation/vendor_report_screen.dart';
+import '../../features/vendors/presentation/voucher_form_screen.dart';
+import '../../features/vendors/presentation/voucher_qr_screen.dart';
 import '../../features/points/presentation/event_qr_screen.dart';
 import '../../features/points/presentation/my_qr_screen.dart';
 import '../../features/points/presentation/points_screen.dart';
@@ -61,6 +72,20 @@ abstract final class Routes {
   static const myQr = '/me/qr';
   static const points = '/me/points';
   static const adminReview = '/admin/review';
+  static const adminPartners = '/admin/partners';
+  static const adminCommission = '/admin/commission';
+
+  // Partners (vendors) + rewards
+  static const partnerApply = '/partner/apply';
+  static const vendor = '/vendor';
+  static const vendorEdit = '/vendor/edit';
+  static const vendorReport = '/vendor/report';
+  static const voucherNew = '/vendor/voucher/new';
+  static String voucherEdit(String id) => '/vendor/voucher/$id/edit';
+  static String redeem(String claimId, String code) => '/vendor/redeem/$claimId?code=$code';
+  static const rewards = '/rewards';
+  static const myVouchers = '/me/vouchers';
+  static String voucherQr(String claimId) => '/voucher/$claimId';
 
   // Full-screen
   static const createEvent = '/create-event';
@@ -190,6 +215,21 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: Routes.myQr, builder: (_, _) => const MyQrScreen()),
       GoRoute(path: Routes.points, builder: (_, _) => const PointsScreen()),
       GoRoute(path: Routes.adminReview, builder: (_, _) => const AdminReviewScreen()),
+      GoRoute(path: Routes.adminPartners, builder: (_, _) => const AdminPartnersScreen()),
+      GoRoute(path: Routes.adminCommission, builder: (_, _) => const AdminCommissionScreen()),
+      GoRoute(path: Routes.partnerApply, builder: (_, _) => const PartnerApplyScreen()),
+      GoRoute(path: Routes.vendor, builder: (_, _) => const VendorDashboardScreen()),
+      GoRoute(path: Routes.vendorEdit, builder: (_, _) => const VendorEditScreen()),
+      GoRoute(path: Routes.vendorReport, builder: (_, _) => const VendorReportScreen()),
+      GoRoute(path: Routes.voucherNew, builder: (_, _) => const VoucherFormScreen()),
+      GoRoute(path: '/vendor/voucher/:id/edit', builder: (_, s) => VoucherFormScreen(voucherId: s.pathParameters['id']!)),
+      GoRoute(
+        path: '/vendor/redeem/:claim',
+        builder: (_, s) => RedeemScreen(claimId: s.pathParameters['claim']!, code: s.uri.queryParameters['code'] ?? ''),
+      ),
+      GoRoute(path: Routes.rewards, builder: (_, _) => const RewardsScreen()),
+      GoRoute(path: Routes.myVouchers, builder: (_, _) => const MyVouchersScreen()),
+      GoRoute(path: '/voucher/:claim', builder: (_, s) => VoucherQrScreen(claimId: s.pathParameters['claim']!)),
       GoRoute(
         path: '/spot/:id/verify',
         builder: (_, s) => SpotVerifyScreen(placeId: s.pathParameters['id']!, code: s.uri.queryParameters['code'] ?? ''),

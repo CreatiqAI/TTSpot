@@ -137,6 +137,8 @@ Migrations applied to TTSpot so far (all three are also recorded in `supabase_mi
 | `20260912000005_location_layer.sql` | the location layer: friendships (mutual), `user_locations` live pins, `checkins`, moments (stories with lat/lng + event/place), `tt_now()` instant meets, `places_with_counts` + regulars/busy-days RPCs, `event_recap()`, `device_tokens` for push |
 | `20260912000006_spots.sql` | Spots: `places.cover_url/description/tags/recommended`, `place_checkins` (one per person per place per day, 300 m proof via `checkin_place()`), ranked `places_with_counts` view (`score`), `place_recent_visitors()`, moments at a place count as a check-in, Explorer badge |
 | `20260914000006_points_enum.sql` | notification types `referral`, `points` |
+| `20260915000009_vendor_enums.sql` | Notification types `partner`, `voucher` |
+| `20260915000010_vendors.sql` | Partners: `platform_settings` (`commission_rate` 0.01), `partner_applications` → `vendors`, `vouchers`, `voucher_claims` (QR `ttspot://voucher/<claimId>/<code>`), `voucher_redemptions` (bill × rate), RPCs `apply_partner`, `admin_review_partner`, `save_voucher`, `claim_voucher`, `lookup_voucher_claim`, `redeem_voucher`, `shop_vouchers`, `my_vouchers`, `my_vendor*`, `vendor_monthly_report`, `admin_commission_report`, nightly claim-expiry cron |
 | `20260914000008_spot_stickers.sql` | Spot stickers: `places.sticker_secret` (printed QR `ttspot://spot/<id>/<code>`), `profiles.is_admin`, `spot_verifications` (pending → approved / rejected / review), `submit_spot_verification`, `decide_spot_verification` (service role only), `review_spot_verification` (admins), `admin_review_queue`, stale-pending cron |
 | `20260914000007_points_qr.sql` | Points + QR: append-only `point_ledger` + `award_points()` (idempotent via `idem_key`), `point_rules` (tunable values), `profiles.points`, referrals (`claim_referral`, paid on first check-in via `settle_referral`), earn triggers on meet/spot check-ins, badges and Car of the Week, friend QR (`profiles.qr_token`, `my_qr_payload`, `rotate_my_qr`, `add_friend_by_qr`), organiser check-in QR (`events.qr_secret`, HMAC over 30 s windows: `event_qr_payload`, `checkin_by_qr`, source `qr` skips the distance rule) |
 
@@ -195,7 +197,18 @@ TT Spot is a map first. The Instagram-style feed is still in the code but switch
   review automatically (cron). Secrets: `OPENAI_API_KEY` set via `supabase secrets set` from
   `C:\Users\Admin\.supabase\ttspot-openai-key.txt`; optional `OPENAI_VISION_MODEL`. Deploy with
   `supabase functions deploy verify-spot-photo --use-api`. If a sticker leaks, `admin_rotate_sticker(place_id)` and reprint.
-- Planned: vendor vouchers, points shop, lucky draw (legal check first).
+- **Partners + Rewards (2026-09-15)**: any member applies from `Me → menu → Become a partner` (name, type, address,
+  phone, optional SSM no. / logo). Admins see it under `Partner applications` (and get an Activity notification) and
+  approve or reject with a reason; approval creates the `vendors` row and the same menu item turns into
+  `Partner dashboard`. Vendors publish vouchers (% off / RM off / free item, min spend, optional points cost, stock,
+  per-member limit, end date). Members see them in `Rewards` (also the button on the Points card), claim (points are
+  deducted through the ledger, reason `redeem`), and get a QR in `My vouchers`. At the counter the vendor scans it with
+  the normal scanner (non-partners get a friendly refusal), sees who/what, **types the bill**, optionally snaps the
+  receipt, confirms. `redeem_voucher` books commission = bill × `commission_rate` (default 1 %, per-vendor override in
+  `vendors.commission_rate`; change the default with `admin_set_setting('commission_rate', '0.02')`). Vendors see a
+  monthly statement (`Statement` in the dashboard); admins see commission owed per partner per month
+  (`Commission report`). Demo partner: `weiling_gr` owns "Typeone Bar" with a "10% off drinks" voucher.
+- Planned: lucky draw (legal check first), weekly post leaderboard points.
 
 ### App structure (2026-09-12)
 
@@ -355,6 +368,9 @@ lib/
     points/   ledger + QR + stickers: domain/{points,verification}, data/points_repository,
               application/points_providers (PointsActions.handle / verifySpot / review),
               presentation (scan, my_qr, points, event_qr, spot_verify, admin_review)
+    vendors/  partners + rewards: domain/vendor, data/vendors_repository, application/vendors_providers,
+              presentation (partner_apply, admin_partners, vendor_dashboard, vendor_edit, voucher_form, redeem,
+              rewards, my_vouchers, voucher_qr, vendor_report, admin_commission)
 supabase/functions/verify-spot-photo/index.ts   Edge Function: OpenAI photo check for sticker check-ins
 tool/make_stickers.py                            printable spot stickers (PNG + PDF)
     events/   event details (place link, club row, meet chat, go live, photo wall), create event,

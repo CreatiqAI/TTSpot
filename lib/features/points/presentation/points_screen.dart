@@ -22,6 +22,7 @@ class PointsScreen extends ConsumerWidget {
         'referral_referrer' || 'referral_referee' => AppArt.hug,
         'car_of_week' => AppArt.trophy,
         'badge' => AppArt.medal,
+        'redeem' => AppArt.coffee,
         _ => AppArt.star,
       };
 
@@ -64,12 +65,17 @@ class PointsScreen extends ConsumerWidget {
                       ],
                     ),
                   ),
-                  const Text('Rewards\ncoming soon', textAlign: TextAlign.right, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black54)),
+                  FilledButton.tonalIcon(
+                    onPressed: () => context.push(Routes.rewards),
+                    style: FilledButton.styleFrom(backgroundColor: Colors.black, foregroundColor: Colors.white, visualDensity: VisualDensity.compact),
+                    icon: const Icon(AppIcons.gift, size: 16),
+                    label: const Text('Rewards'),
+                  ),
                 ],
               ),
             ),
             const _Section('HOW TO EARN'),
-            for (final r in rules)
+            for (final r in rules.where((r) => r.points > 0))
               ListTile(
                 leading: ArtIcon(_art(r.reason), size: 32),
                 title: Text(r.label, style: const TextStyle(fontWeight: FontWeight.w600)),

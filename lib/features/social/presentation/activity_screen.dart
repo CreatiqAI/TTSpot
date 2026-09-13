@@ -81,6 +81,16 @@ class _ActivityListState extends ConsumerState<ActivityList> {
   }
 }
 
+/// Partner notifications carry `applied:<name>` (to admins, with an actor),
+/// `approved:<name>` or `rejected:<reason>` (to the applicant, no actor).
+(String, String?) _partnerText(AppNotification n) {
+  final body = n.body ?? '';
+  if (body.startsWith('applied:')) return ('applied to be a partner: ${body.substring(8)}', Routes.adminPartners);
+  if (body.startsWith('approved:')) return ('${body.substring(9)} is now a TT Spot partner. Open your dashboard to publish vouchers.', Routes.vendor);
+  if (body.startsWith('rejected:')) return ('Your partner application was not approved: ${body.substring(9)}', Routes.partnerApply);
+  return (body, null);
+}
+
 class _Row extends ConsumerWidget {
   const _Row({required this.n, required this.badges, required this.me});
   final AppNotification n;
@@ -109,9 +119,16 @@ class _Row extends ConsumerWidget {
       NotificationType.checkin => ('checked in at ${n.eventTitle ?? 'your meet'}.', n.eventId == null ? null : Routes.event(n.eventId!)),
       NotificationType.referral => ('joined with your code and checked in. +${n.body ?? ''} points for you.', Routes.points),
       NotificationType.points => (n.body ?? 'You earned points.', Routes.points),
+      NotificationType.partner => _partnerText(n),
+      NotificationType.voucher => ((n.body ?? '').startsWith('redeemed:') ? 'Voucher used: ${n.body!.substring(9)}' : (n.body ?? 'Voucher update.'), Routes.myVouchers),
       NotificationType.unknown => ('did something.', null),
     };
-    final systemMessage = n.type == NotificationType.badge || n.type == NotificationType.carOfWeek || n.type == NotificationType.eventReminder;
+    final systemMessage = n.type == NotificationType.badge ||
+        n.type == NotificationType.carOfWeek ||
+        n.type == NotificationType.eventReminder ||
+        (n.type == NotificationType.partner && n.actor == null) ||
+        (n.type == NotificationType.points && n.actor == null) ||
+        n.type == NotificationType.voucher;
 
     return InkWell(
       onTap: route == null ? null : () => context.push(route),
@@ -126,7 +143,17 @@ class _Row extends ConsumerWidget {
                 height: 44,
                 alignment: Alignment.center,
                 decoration: const BoxDecoration(color: AppColors.surfaceGray, shape: BoxShape.circle),
-                child: ArtIcon.emoji(n.type == NotificationType.badge ? (badge?.emoji ?? '🏅') : (n.type == NotificationType.carOfWeek ? '🏆' : '⏰'), size: 26),
+                child: ArtIcon.emoji(
+                  switch (n.type) {
+                    NotificationType.badge => badge?.emoji ?? '🏅',
+                    NotificationType.carOfWeek => '🏆',
+                    NotificationType.partner => '🤝',
+                    NotificationType.voucher => '☕',
+                    NotificationType.points => '⭐',
+                    _ => '⏰',
+                  },
+                  size: 26,
+                ),
               )
             else
               GestureDetector(

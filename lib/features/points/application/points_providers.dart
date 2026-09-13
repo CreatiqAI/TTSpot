@@ -10,6 +10,7 @@ import '../../map/application/map_providers.dart';
 import '../../social/application/notification_providers.dart';
 import '../../social/application/community_providers.dart';
 import '../../social/application/social_providers.dart';
+import '../../vendors/application/vendors_providers.dart';
 import '../data/points_repository.dart';
 import '../domain/points.dart';
 import '../domain/verification.dart';
@@ -47,7 +48,10 @@ final myVerificationsProvider = FutureProvider<List<SpotVerification>>((ref) {
 });
 
 /// Admin: what needs a human.
-final adminReviewQueueProvider = FutureProvider<List<SpotVerification>>((ref) => ref.watch(pointsRepositoryProvider).adminQueue());
+final adminReviewQueueProvider = FutureProvider<List<SpotVerification>>((ref) {
+  ref.watch(currentUserIdProvider); // never show the previous admin's queue after a user switch
+  return ref.watch(pointsRepositoryProvider).adminQueue();
+});
 
 /// Result of handling a scanned code, for the scanner screen to show.
 /// [silent] = don't show a dialog, just go to [route].
@@ -111,6 +115,12 @@ class PointsActions {
         );
       case SpotCode(:final placeId, :final code):
         return ScanOutcome(title: 'Spot sticker', route: '/spot/$placeId/verify?code=$code', silent: true);
+      case VoucherCode(:final claimId, :final code):
+        final vendor = await _ref.read(myVendorProvider.future);
+        if (vendor == null) {
+          throw const AppException('That\'s a member\'s voucher. Only the partner shop can scan it at the counter.');
+        }
+        return ScanOutcome(title: 'Voucher', route: '/vendor/redeem/$claimId?code=$code', silent: true);
     }
   }
 

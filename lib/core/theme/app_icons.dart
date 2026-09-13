@@ -137,6 +137,15 @@ abstract final class AppIcons {
   static const IconData hash = IconData(0xe2a2, fontFamily: _family);
   static const IconData tag = IconData(0xe478, fontFamily: _family);
   static const IconData scan = IconData(0xebb6, fontFamily: _family);
+  static const IconData chartBar = IconData(0xe150, fontFamily: _family);
+  static const IconData ticket = IconData(0xe490, fontFamily: _family);
+  static const IconData receipt = IconData(0xe3ec, fontFamily: _family);
+  static const IconData gift = IconData(0xe276, fontFamily: _family);
+  static const IconData percent = IconData(0xe3b6, fontFamily: _family);
+  static const IconData coins = IconData(0xe78e, fontFamily: _family);
+  static const IconData handCoins = IconData(0xea8c, fontFamily: _family);
+  static const IconData wallet = IconData(0xe68a, fontFamily: _family);
+  static const IconData shoppingBag = IconData(0xe416, fontFamily: _family);
 
   // ---- filled twins ----
   static const IconData mapTrifoldFill = IconData(0xe31a, fontFamily: _fill);

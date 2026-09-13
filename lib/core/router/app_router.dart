@@ -11,10 +11,12 @@ import '../../features/events/presentation/create_event_screen.dart';
 import '../../features/events/presentation/event_details_screen.dart';
 import '../../features/events/presentation/my_events_screen.dart';
 import '../../features/friends/presentation/friends_screen.dart';
+import '../../features/points/presentation/admin_review_screen.dart';
 import '../../features/points/presentation/event_qr_screen.dart';
 import '../../features/points/presentation/my_qr_screen.dart';
 import '../../features/points/presentation/points_screen.dart';
 import '../../features/points/presentation/scan_screen.dart';
+import '../../features/points/presentation/spot_verify_screen.dart';
 import '../../features/map/presentation/map_screen.dart';
 import '../../features/profile/presentation/badges_screen.dart';
 import '../../features/profile/presentation/car_detail_screen.dart';
@@ -58,6 +60,7 @@ abstract final class Routes {
   static const scan = '/scan';
   static const myQr = '/me/qr';
   static const points = '/me/points';
+  static const adminReview = '/admin/review';
 
   // Full-screen
   static const createEvent = '/create-event';
@@ -186,6 +189,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: Routes.scan, builder: (_, _) => const ScanScreen()),
       GoRoute(path: Routes.myQr, builder: (_, _) => const MyQrScreen()),
       GoRoute(path: Routes.points, builder: (_, _) => const PointsScreen()),
+      GoRoute(path: Routes.adminReview, builder: (_, _) => const AdminReviewScreen()),
+      GoRoute(
+        path: '/spot/:id/verify',
+        builder: (_, s) => SpotVerifyScreen(placeId: s.pathParameters['id']!, code: s.uri.queryParameters['code'] ?? ''),
+      ),
       GoRoute(path: Routes.activity, builder: (_, _) => const ActivityScreen()),
       GoRoute(
         path: Routes.stories,

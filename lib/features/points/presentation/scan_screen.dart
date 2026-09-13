@@ -64,7 +64,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
     try {
       final outcome = await ref.read(pointsActionsProvider).handle(code);
       if (!mounted) return;
-      await _showResult(outcome);
+      if (!outcome.silent) await _showResult(outcome);
       if (mounted) {
         if (outcome.route != null) {
           context.pushReplacement(outcome.route!);

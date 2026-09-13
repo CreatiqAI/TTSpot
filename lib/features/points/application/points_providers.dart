@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/utils/friendly_error.dart';
@@ -7,8 +8,11 @@ import '../../events/application/event_providers.dart';
 import '../../friends/application/friends_providers.dart';
 import '../../map/application/map_providers.dart';
 import '../../social/application/notification_providers.dart';
+import '../../social/application/community_providers.dart';
+import '../../social/application/social_providers.dart';
 import '../data/points_repository.dart';
 import '../domain/points.dart';
+import '../domain/verification.dart';
 
 /// My balance. Invalidate after anything that earns or spends.
 final pointsBalanceProvider = FutureProvider<int>((ref) async {
@@ -36,13 +40,24 @@ final myQrPayloadProvider = FutureProvider<String>((ref) {
   return ref.watch(pointsRepositoryProvider).myQrPayload();
 });
 
+/// My sticker check-ins (pending / review / decided).
+final myVerificationsProvider = FutureProvider<List<SpotVerification>>((ref) {
+  if (ref.watch(currentUserIdProvider) == null) return Future.value(const []);
+  return ref.watch(pointsRepositoryProvider).myVerifications();
+});
+
+/// Admin: what needs a human.
+final adminReviewQueueProvider = FutureProvider<List<SpotVerification>>((ref) => ref.watch(pointsRepositoryProvider).adminQueue());
+
 /// Result of handling a scanned code, for the scanner screen to show.
+/// [silent] = don't show a dialog, just go to [route].
 class ScanOutcome {
-  const ScanOutcome({required this.title, this.subtitle, this.route, this.points = 0});
+  const ScanOutcome({required this.title, this.subtitle, this.route, this.points = 0, this.silent = false});
   final String title;
   final String? subtitle;
   final String? route;
   final int points;
+  final bool silent;
 }
 
 class PointsActions {
@@ -94,9 +109,39 @@ class PointsActions {
           route: '/event/$eventId',
           points: r.isNew ? r.points : 0,
         );
-      case SpotCode():
-        throw const AppException('Spot stickers are coming soon.');
+      case SpotCode(:final placeId, :final code):
+        return ScanOutcome(title: 'Spot sticker', route: '/spot/$placeId/verify?code=$code', silent: true);
     }
+  }
+
+  /// Sticker flow: upload the proof, create the pending row, run the AI check.
+  Future<VerifyResult> verifySpot({required String placeId, required String code, required XFile photo, void Function(String stage)? onStage}) async {
+    final me = _ref.read(currentUserIdProvider);
+    if (me == null) throw const AppException('You\'re signed out. Sign in again.');
+    onStage?.call('Uploading photo…');
+    final url = await _repo.uploadProof(userId: me, bytes: await photo.readAsBytes());
+    onStage?.call('Getting your location…');
+    final pos = await _quickFix();
+    onStage?.call('Checking the photo…');
+    final id = await _repo.submitVerification(placeId: placeId, code: code, photoUrl: url, lat: pos?.latitude, lng: pos?.longitude);
+    final result = await _repo.runVerification(id);
+    _ref.invalidate(myVerificationsProvider);
+    if (result.status == VerificationStatus.approved) {
+      refreshBalance();
+      _ref.invalidate(placeProvider(placeId));
+      _ref.invalidate(placeMomentsProvider(placeId));
+      _ref.invalidate(placeRegularsProvider(placeId));
+      _ref.invalidate(placeRecentVisitorsProvider(placeId));
+      _ref.invalidate(myPlaceCheckinTodayProvider(placeId));
+      _ref.invalidate(topSpotsProvider);
+      _ref.invalidate(notificationsProvider);
+    }
+    return result;
+  }
+
+  Future<void> review(String id, {required bool approve, String? note}) async {
+    await _repo.reviewVerification(id, approve: approve, note: note);
+    _ref.invalidate(adminReviewQueueProvider);
   }
 
   Future<Position?> _quickFix() async {

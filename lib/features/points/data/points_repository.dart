@@ -1,8 +1,10 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/supabase/supabase_client.dart';
 import '../domain/points.dart';
+import '../domain/verification.dart';
 
 /// Points ledger, earn rules, referral codes, and the QR RPCs.
 class PointsRepository {
@@ -58,6 +60,50 @@ class PointsRepository {
     final m = (v as Map).cast<String, dynamic>();
     return (isNew: m['new'] as bool? ?? false, points: (m['points'] as num?)?.toInt() ?? 0);
   }
+}
+
+extension PointsVerificationRepo on PointsRepository {
+  // ---------------------------------------------------------- stickers ---
+
+  /// Uploads the proof photo to `post-photos/<uid>/verify/…` and returns its public URL.
+  Future<String> uploadProof({required String userId, required Uint8List bytes}) async {
+    final path = '$userId/verify/${DateTime.now().microsecondsSinceEpoch}.jpg';
+    await _client.storage.from('post-photos').uploadBinary(path, bytes, fileOptions: const FileOptions(contentType: 'image/jpeg'));
+    return _client.storage.from('post-photos').getPublicUrl(path);
+  }
+
+  Future<String> submitVerification({required String placeId, required String code, required String photoUrl, double? lat, double? lng}) async {
+    final v = await _client.rpc('submit_spot_verification', params: {
+      'p_place': placeId,
+      'p_code': code,
+      'p_photo_url': photoUrl,
+      'p_lat': lat,
+      'p_lng': lng,
+    });
+    return (v as Map)['id'] as String;
+  }
+
+  /// Runs the AI check server-side. Never throws for a slow/absent AI: the
+  /// function parks the row for a human instead.
+  Future<VerifyResult> runVerification(String id) async {
+    final res = await _client.functions.invoke('verify-spot-photo', body: {'id': id});
+    final data = res.data;
+    if (data is Map && data['error'] != null) throw Exception(data['error']);
+    return VerifyResult.fromMap((data as Map).cast<String, dynamic>());
+  }
+
+  Future<List<SpotVerification>> myVerifications() async {
+    final rows = await _client.rpc('my_spot_verifications', params: {'p_limit': 30}) as List;
+    return rows.map((r) => SpotVerification.fromMap((r as Map).cast<String, dynamic>())).toList();
+  }
+
+  Future<List<SpotVerification>> adminQueue() async {
+    final rows = await _client.rpc('admin_review_queue', params: {'p_limit': 100}) as List;
+    return rows.map((r) => SpotVerification.fromMap((r as Map).cast<String, dynamic>())).toList();
+  }
+
+  Future<void> reviewVerification(String id, {required bool approve, String? note}) =>
+      _client.rpc('review_spot_verification', params: {'p_id': id, 'p_approve': approve, 'p_note': ?note});
 }
 
 final pointsRepositoryProvider = Provider<PointsRepository>((ref) => PointsRepository(ref.watch(supabaseProvider)));

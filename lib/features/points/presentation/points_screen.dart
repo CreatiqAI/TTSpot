@@ -10,6 +10,7 @@ import '../../../core/utils/dates.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../application/points_providers.dart';
 import '../domain/points.dart';
+import '../domain/verification.dart';
 
 /// Balance, how to earn, and the ledger. Rewards shop lands in a later phase.
 class PointsScreen extends ConsumerWidget {
@@ -29,6 +30,7 @@ class PointsScreen extends ConsumerWidget {
     final balance = ref.watch(pointsBalanceProvider).value ?? 0;
     final rules = ref.watch(pointRulesProvider).value ?? const <PointRule>[];
     final history = ref.watch(pointHistoryProvider);
+    final verifications = (ref.watch(myVerificationsProvider).value ?? const <SpotVerification>[]).take(5).toList();
 
     return Scaffold(
       appBar: AppBar(
@@ -75,6 +77,37 @@ class PointsScreen extends ConsumerWidget {
                 trailing: Text('+${r.points}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
                 onTap: r.reason.startsWith('referral') ? () => context.push(Routes.myQr) : null,
               ),
+            if (verifications.isNotEmpty) ...[
+              const _Section('STICKER CHECK-INS'),
+              for (final v in verifications)
+                ListTile(
+                  dense: true,
+                  leading: ClipRRect(
+                    borderRadius: BorderRadius.circular(6),
+                    child: Image.network(v.photoUrl, width: 40, height: 40, fit: BoxFit.cover, errorBuilder: (_, _, _) => const SizedBox(width: 40, height: 40)),
+                  ),
+                  title: Text(v.placeName),
+                  subtitle: Text(
+                    v.status == VerificationStatus.approved ? timeAgo(v.createdAt) : (v.reason ?? v.status.label),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                  ),
+                  trailing: Text(
+                    v.status.label,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: switch (v.status) {
+                        VerificationStatus.approved => AppColors.success,
+                        VerificationStatus.rejected => AppColors.danger,
+                        _ => AppColors.warnColor,
+                      },
+                    ),
+                  ),
+                  onTap: () => context.push(Routes.place(v.placeId)),
+                ),
+            ],
             const _Section('HISTORY'),
             history.when(
               loading: () => const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator(strokeWidth: 2))),

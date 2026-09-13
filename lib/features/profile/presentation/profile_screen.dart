@@ -13,6 +13,7 @@ import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/primary_button.dart';
 import '../../../core/widgets/user_avatar.dart';
 import '../../auth/application/auth_controller.dart';
+import '../../auth/data/auth_repository.dart';
 import '../../auth/domain/profile.dart';
 import '../../friends/application/friends_providers.dart';
 import '../../friends/domain/friend.dart';
@@ -609,6 +610,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 title: const Text('Points'),
                 onTap: () => Navigator.pop(ctx, 'points'),
               ),
+              if (ref.read(currentProfileProvider).value?.isAdmin ?? false)
+                ListTile(
+                  leading: const Icon(AppIcons.shieldCheck),
+                  title: const Text('Review queue'),
+                  onTap: () => Navigator.pop(ctx, 'review'),
+                ),
               ListTile(
                 leading: const Icon(AppIcons.qrCode),
                 title: const Text('My QR'),
@@ -651,6 +658,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         if (me != null) context.push(Routes.badges(me));
       case 'points':
         context.push(Routes.points);
+      case 'review':
+        context.push(Routes.adminReview);
       case 'qr':
         context.push(Routes.myQr);
       case 'car':

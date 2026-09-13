@@ -9,6 +9,7 @@ class Profile {
     this.homeState,
     required this.createdAt,
     this.carCount,
+    this.isAdmin = false,
   });
 
   final String id;
@@ -20,6 +21,7 @@ class Profile {
   final DateTime createdAt;
   /// Only filled when fetched with the `cars(count)` embed (own profile).
   final int? carCount;
+  final bool isAdmin;
 
   /// Step 1 of onboarding is complete once a username exists.
   bool get isOnboarded => username != null && username!.isNotEmpty;
@@ -36,6 +38,7 @@ class Profile {
         homeState: m['home_state'] as String?,
         createdAt: DateTime.parse(m['created_at'] as String),
         carCount: _count(m['cars']),
+        isAdmin: m['is_admin'] as bool? ?? false,
       );
 
   static int? _count(Object? embed) {
@@ -61,5 +64,6 @@ class Profile {
         homeState: homeState ?? this.homeState,
         createdAt: createdAt,
         carCount: carCount,
+        isAdmin: isAdmin,
       );
 }

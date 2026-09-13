@@ -206,6 +206,25 @@ class _PlaceScreenState extends ConsumerState<PlaceScreen> {
                           ),
                           const SizedBox(height: 6),
                           const Text('Check-ins need your location, within 300 m of the spot.', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                          if (p.recommended) ...[
+                            const SizedBox(height: 12),
+                            InkWell(
+                              onTap: () => context.push(Routes.scan),
+                              borderRadius: BorderRadius.circular(AppRadius.md),
+                              child: Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(color: AppColors.warnColor.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(AppRadius.md)),
+                                child: const Row(
+                                  children: [
+                                    ArtIcon(AppArt.star, size: 28),
+                                    SizedBox(width: 10),
+                                    Expanded(child: Text('Find the TT Spot sticker here and scan it with a photo of your car for a verified check-in worth more points.', style: TextStyle(fontSize: 13, height: 1.35))),
+                                    Icon(AppIcons.scan, size: 20),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),

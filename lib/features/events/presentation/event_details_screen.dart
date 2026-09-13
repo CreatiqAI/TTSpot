@@ -803,6 +803,7 @@ class _CheckInCard extends ConsumerWidget {
     final mine = ref.watch(myCheckinsProvider).value ?? const <String>{};
     final here = ref.watch(eventCheckedInProvider(e.id)).value ?? const <Profile>[];
     final checkedIn = mine.contains(e.id);
+    final isOrganiser = e.organizerId == ref.watch(currentUserIdProvider);
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -823,6 +824,10 @@ class _CheckInCard extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 12),
+          if (isOrganiser) ...[
+            PrimaryButton(label: 'Show check-in QR', onPressed: () => context.push(Routes.eventQr(e.id))),
+            const SizedBox(height: 8),
+          ],
           Row(
             children: [
               Expanded(
@@ -830,6 +835,17 @@ class _CheckInCard extends ConsumerWidget {
                     ? ElevatedButton.icon(onPressed: null, icon: const Icon(AppIcons.checkCircleFill, size: 18, color: AppColors.success), label: const Text('You\'re here', style: TextStyle(color: AppColors.textPrimary)))
                     : PrimaryButton(label: 'I\'m here · check in', loading: busy, onPressed: busy ? null : onCheckIn),
               ),
+              if (!checkedIn) ...[
+                const SizedBox(width: 8),
+                SizedBox(
+                  width: 46,
+                  child: ElevatedButton(
+                    onPressed: () => context.push(Routes.scan),
+                    style: ElevatedButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(46, 46)),
+                    child: const Icon(AppIcons.scan, size: 20),
+                  ),
+                ),
+              ],
               const SizedBox(width: 8),
               SizedBox(
                 width: 46,
@@ -844,7 +860,7 @@ class _CheckInCard extends ConsumerWidget {
           if (!checkedIn)
             const Padding(
               padding: EdgeInsets.only(top: 8),
-              child: Text('Needs your location. Within 500 m of the meet.', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
+              child: Text('Within 500 m of the meet, or scan the organiser\'s QR. Earns points.', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
             ),
         ],
       ),

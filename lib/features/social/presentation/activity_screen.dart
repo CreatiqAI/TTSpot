@@ -107,6 +107,8 @@ class _Row extends ConsumerWidget {
       NotificationType.friendAccepted => ('accepted your friend request. You\'ll see each other on the map.', Routes.profile(n.actor?.id ?? '')),
       NotificationType.ttNow => ('started TT now${n.body == null ? '' : ' @ ${n.body}'}. Otw?', n.eventId == null ? null : Routes.event(n.eventId!)),
       NotificationType.checkin => ('checked in at ${n.eventTitle ?? 'your meet'}.', n.eventId == null ? null : Routes.event(n.eventId!)),
+      NotificationType.referral => ('joined with your code and checked in. +${n.body ?? ''} points for you.', Routes.points),
+      NotificationType.points => (n.body ?? 'You earned points.', Routes.points),
       NotificationType.unknown => ('did something.', null),
     };
     final systemMessage = n.type == NotificationType.badge || n.type == NotificationType.carOfWeek || n.type == NotificationType.eventReminder;

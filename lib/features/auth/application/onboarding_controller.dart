@@ -3,6 +3,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/utils/friendly_error.dart';
+import '../../points/data/points_repository.dart';
 import '../data/auth_repository.dart';
 
 final usernamePattern = RegExp(r'^[a-z0-9_]{3,20}$');
@@ -20,6 +21,7 @@ class OnboardingController extends AsyncNotifier<void> {
     required String homeState,
     String? bio,
     XFile? avatar,
+    String? referralCode,
   }) async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
@@ -49,6 +51,12 @@ class OnboardingController extends AsyncNotifier<void> {
         bio: bio,
         avatarUrl: avatarUrl,
       );
+      final code = referralCode?.trim().toLowerCase() ?? '';
+      if (code.isNotEmpty && code != cleanUsername) {
+        try {
+          await ref.read(pointsRepositoryProvider).claimReferral(code);
+        } catch (_) {/* a bad code never blocks sign-up */}
+      }
       ref.invalidate(currentProfileProvider);
     });
   }

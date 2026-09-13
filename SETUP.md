@@ -136,6 +136,8 @@ Migrations applied to TTSpot so far (all three are also recorded in `supabase_mi
 | `20260912000004_location_enums.sql` | new notification types (friend_request, friend_accepted, tt_now, checkin) |
 | `20260912000005_location_layer.sql` | the location layer: friendships (mutual), `user_locations` live pins, `checkins`, moments (stories with lat/lng + event/place), `tt_now()` instant meets, `places_with_counts` + regulars/busy-days RPCs, `event_recap()`, `device_tokens` for push |
 | `20260912000006_spots.sql` | Spots: `places.cover_url/description/tags/recommended`, `place_checkins` (one per person per place per day, 300 m proof via `checkin_place()`), ranked `places_with_counts` view (`score`), `place_recent_visitors()`, moments at a place count as a check-in, Explorer badge |
+| `20260914000006_points_enum.sql` | notification types `referral`, `points` |
+| `20260914000007_points_qr.sql` | Points + QR: append-only `point_ledger` + `award_points()` (idempotent via `idem_key`), `point_rules` (tunable values), `profiles.points`, referrals (`claim_referral`, paid on first check-in via `settle_referral`), earn triggers on meet/spot check-ins, badges and Car of the Week, friend QR (`profiles.qr_token`, `my_qr_payload`, `rotate_my_qr`, `add_friend_by_qr`), organiser check-in QR (`events.qr_secret`, HMAC over 30 s windows: `event_qr_payload`, `checkin_by_qr`, source `qr` skips the distance rule) |
 
 ### What the social migration turned on server-side
 
@@ -167,6 +169,23 @@ TT Spot is a map first. The Instagram-style feed is still in the code but switch
   `tt_now` notification.
 - **Before layer**: `places_with_counts` view, `place_regulars()`, `place_busy_days()`, `event_recap()`.
 - Realtime: `user_locations` is in the publication; RLS filters it to friends.
+
+### Points + QR (2026-09-14)
+
+- Every earn action goes through `award_points()`; the `point_rules` table is the only place values live (edit it in the
+  dashboard, no deploy). `profiles.points` is a cached balance; the ledger is the truth.
+- Friend QR = `https://ttspot.my/u/<username>?t=<token>`. The token rotates when the user taps refresh, so old
+  screenshots stop working. Scanning it makes both people friends instantly (both are physically present) and, for a
+  brand-new member, counts as a referral.
+- Meet check-in QR = `ttspot://checkin/<eventId>/<code>`. The organiser's screen refetches every 30 s; the code is an
+  HMAC of the time window and the event's secret, so a photo of it expires within a minute. Current and previous window
+  are accepted for clock drift.
+- Referral code = username, entered at sign-up or implied by scanning a friend's QR. Paid out only after the new
+  member's first real check-in (fake accounts earn nothing).
+- Scanner (`Me → scan icon`, or from Friends / the meet's check-in card) handles every code type; it can also read a QR
+  from a saved photo. Packages: `qr_flutter` (draw), `mobile_scanner` (camera, adds the CAMERA permission).
+- Planned: spot stickers (`ttspot://spot/<placeId>/<code>`) + photo proof checked by an OpenAI vision call in an Edge
+  Function (the key goes in a Supabase secret, never the app), vendor vouchers, points shop.
 
 ### App structure (2026-09-12)
 
@@ -270,7 +289,7 @@ VS Code: add to `.vscode/launch.json` so F5 works:
 ## 6. Dependencies
 
 Approved and in use: supabase_flutter, google_maps_flutter, flutter_riverpod, go_router, google_sign_in,
-image_picker, geolocator. Deliberately not added: intl (own formatter in lib/core/utils/dates.dart),
+image_picker, geolocator, qr_flutter, mobile_scanner. Deliberately not added: intl (own formatter in lib/core/utils/dates.dart),
 cached_network_image.
 
 ## 6a. Icons and art (no packages needed)
@@ -323,6 +342,8 @@ lib/
               bubbles, place history chips (widgets/map_pins.dart), map_sheet, tt_now_sheet
     friends/  friendships + live pins: domain/friend, data/friends_repository, application (friendPinsProvider,
               LocationPublisher, nearbyMeetProvider), presentation/friends_screen
+    points/   ledger + QR: domain/points (PointEntry, PointRule, ScannedCode parser), data/points_repository,
+              application/points_providers (PointsActions.handle), presentation (scan, my_qr, points, event_qr)
     events/   event details (place link, club row, meet chat, go live, photo wall), create event,
               my events, convoy_live_screen (Realtime presence)
     profile/  profile (posts/followers/following, badges, streak), car detail + build log,

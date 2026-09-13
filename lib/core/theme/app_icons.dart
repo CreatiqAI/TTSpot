@@ -136,6 +136,7 @@ abstract final class AppIcons {
   static const IconData minus = IconData(0xe32a, fontFamily: _family);
   static const IconData hash = IconData(0xe2a2, fontFamily: _family);
   static const IconData tag = IconData(0xe478, fontFamily: _family);
+  static const IconData scan = IconData(0xebb6, fontFamily: _family);
 
   // ---- filled twins ----
   static const IconData mapTrifoldFill = IconData(0xe31a, fontFamily: _fill);

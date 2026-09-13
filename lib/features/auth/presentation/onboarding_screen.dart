@@ -31,6 +31,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   final _formKey = GlobalKey<FormState>();
   final _username = TextEditingController();
   final _displayName = TextEditingController();
+  final _referral = TextEditingController();
   String? _homeState;
   XFile? _avatar;
   bool _prefilled = false;
@@ -47,6 +48,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   void dispose() {
     _username.dispose();
     _displayName.dispose();
+    _referral.dispose();
     _make.dispose();
     _model.dispose();
     _year.dispose();
@@ -128,6 +130,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           displayName: _displayName.text,
           homeState: _homeState!,
           avatar: _avatar,
+          referralCode: _referral.text,
         );
     // On success currentProfileProvider refreshes and the router redirects to the map.
   }
@@ -236,6 +239,19 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   items: malaysianStates.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
                   onChanged: busy ? null : (v) => setState(() => _homeState = v),
                   validator: (v) => v == null ? 'Choose your state' : null,
+                ),
+                const SizedBox(height: 14),
+                TextFormField(
+                  controller: _referral,
+                  autocorrect: false,
+                  maxLength: 20,
+                  inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9_]')), _LowercaseFormatter()],
+                  decoration: const InputDecoration(
+                    labelText: 'Referral code (optional)',
+                    prefixText: '@',
+                    helperText: 'A friend\'s username. You both get points after your first check-in.',
+                    counterText: '',
+                  ),
                 ),
                 const SizedBox(height: 28),
 

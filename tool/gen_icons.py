@@ -21,7 +21,7 @@ squares-four trophy map-trifold ghost coffee fire sparkle hand-waving share-netw
 arrows-clockwise medal star confetti seal-check megaphone steering-wheel wrench gauge road-horizon compass timer hourglass
 users-four handshake smiley thumbs-up phone envelope link qr-code export download-simple house globe rocket lightning
 chat-teardrop chat-text record pulse target binoculars footprints signpost map-pin-plus map-pin-area storefront buildings
-fork-knife gas-pump tire traffic-cone police-car siren list-checks caret-up arrow-up arrow-down minus hash tag
+fork-knife gas-pump tire traffic-cone police-car siren list-checks caret-up arrow-up arrow-down minus hash tag scan
 """.split()
 
 FILL = """

@@ -20,6 +20,8 @@ dependencies:
   google_sign_in: ^7.2.0         # native Google sign-in → ID token → Supabase
   image_picker: ^1.2.3           # avatar / cover / car photos
   geolocator: ^14.0.3            # user location for map centering (added for map step)
+  qr_flutter: ^4.1.0
+  mobile_scanner: ^7.4.1
 
   # Not added: intl (dates formatted in lib/core/utils/dates.dart instead),
   # cached_network_image (plain NetworkImage is enough for MVP).

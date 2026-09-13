@@ -11,6 +11,10 @@ import '../../features/events/presentation/create_event_screen.dart';
 import '../../features/events/presentation/event_details_screen.dart';
 import '../../features/events/presentation/my_events_screen.dart';
 import '../../features/friends/presentation/friends_screen.dart';
+import '../../features/points/presentation/event_qr_screen.dart';
+import '../../features/points/presentation/my_qr_screen.dart';
+import '../../features/points/presentation/points_screen.dart';
+import '../../features/points/presentation/scan_screen.dart';
 import '../../features/map/presentation/map_screen.dart';
 import '../../features/profile/presentation/badges_screen.dart';
 import '../../features/profile/presentation/car_detail_screen.dart';
@@ -51,6 +55,9 @@ abstract final class Routes {
   static const meets = '/meets';
   static const activity = '/activity';
   static const friends = '/friends';
+  static const scan = '/scan';
+  static const myQr = '/me/qr';
+  static const points = '/me/points';
 
   // Full-screen
   static const createEvent = '/create-event';
@@ -65,6 +72,7 @@ abstract final class Routes {
 
   static String event(String id) => '/event/$id';
   static String convoy(String eventId) => '/event/$eventId/live';
+  static String eventQr(String eventId) => '/event/$eventId/qr';
   static String profile(String userId) => '/profile/$userId';
   static String followers(String userId) => '/profile/$userId/followers';
   static String following(String userId) => '/profile/$userId/following';
@@ -137,6 +145,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, s) => EventDetailsScreen(eventId: s.pathParameters['id']!),
         routes: [
           GoRoute(path: 'live', builder: (_, s) => ConvoyLiveScreen(eventId: s.pathParameters['id']!)),
+          GoRoute(path: 'qr', builder: (_, s) => EventQrScreen(eventId: s.pathParameters['id']!)),
         ],
       ),
       GoRoute(
@@ -174,6 +183,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, s) => CreateStoryScreen(eventId: s.uri.queryParameters['event'], placeId: s.uri.queryParameters['place']),
       ),
       GoRoute(path: Routes.friends, builder: (_, _) => const FriendsScreen()),
+      GoRoute(path: Routes.scan, builder: (_, _) => const ScanScreen()),
+      GoRoute(path: Routes.myQr, builder: (_, _) => const MyQrScreen()),
+      GoRoute(path: Routes.points, builder: (_, _) => const PointsScreen()),
       GoRoute(path: Routes.activity, builder: (_, _) => const ActivityScreen()),
       GoRoute(
         path: Routes.stories,

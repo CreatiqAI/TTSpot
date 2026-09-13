@@ -63,6 +63,21 @@ class CommunityRepository {
   }
 
   Future<void> joinClub(String clubId, String me) => _client.from('club_members').upsert({'club_id': clubId, 'user_id': me});
+
+  // ------------------------------------------------- invites + sharing ---
+
+  Future<void> inviteToClub(String clubId, String userId) => _client.rpc('invite_to_club', params: {'p_club': clubId, 'p_user': userId});
+
+  Future<void> respondClubInvite(String clubId, {required bool accept}) =>
+      _client.rpc('respond_club_invite', params: {'p_club': clubId, 'p_accept': accept});
+
+  /// Pending invite id for me on this club, or null.
+  Future<String?> myClubInvite(String clubId) async => await _client.rpc('my_club_invite', params: {'p_club': clubId}) as String?;
+
+  Future<bool> myClubShare(String clubId) async => await _client.rpc('my_club_share', params: {'p_club': clubId}) as bool? ?? true;
+
+  Future<void> setClubShare(String clubId, bool share) => _client.rpc('set_club_share', params: {'p_club': clubId, 'p_share': share});
+
   Future<void> leaveClub(String clubId, String me) => _client.from('club_members').delete().eq('club_id', clubId).eq('user_id', me);
 
   Future<List<Event>> clubEvents(String clubId) async {

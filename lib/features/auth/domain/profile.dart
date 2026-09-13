@@ -10,6 +10,7 @@ class Profile {
     required this.createdAt,
     this.carCount,
     this.isAdmin = false,
+    this.clubOwner = false,
   });
 
   final String id;
@@ -22,6 +23,11 @@ class Profile {
   /// Only filled when fetched with the `cars(count)` embed (own profile).
   final int? carCount;
   final bool isAdmin;
+  /// Approved to start and run car clubs (admin-reviewed application).
+  final bool clubOwner;
+
+  /// Admins can run clubs without applying.
+  bool get canRunClubs => clubOwner || isAdmin;
 
   /// Step 1 of onboarding is complete once a username exists.
   bool get isOnboarded => username != null && username!.isNotEmpty;
@@ -39,6 +45,7 @@ class Profile {
         createdAt: DateTime.parse(m['created_at'] as String),
         carCount: _count(m['cars']),
         isAdmin: m['is_admin'] as bool? ?? false,
+        clubOwner: m['club_owner'] as bool? ?? false,
       );
 
   static int? _count(Object? embed) {
@@ -65,5 +72,6 @@ class Profile {
         createdAt: createdAt,
         carCount: carCount,
         isAdmin: isAdmin,
+        clubOwner: clubOwner,
       );
 }

@@ -15,6 +15,7 @@ import '../../features/points/presentation/admin_review_screen.dart';
 import '../../features/vendors/presentation/admin_commission_screen.dart';
 import '../../features/vendors/presentation/admin_partners_screen.dart';
 import '../../features/vendors/presentation/my_vouchers_screen.dart';
+import '../../features/vendors/domain/vendor.dart';
 import '../../features/vendors/presentation/partner_apply_screen.dart';
 import '../../features/vendors/presentation/redeem_screen.dart';
 import '../../features/vendors/presentation/rewards_screen.dart';
@@ -50,6 +51,7 @@ import '../../features/social/presentation/post_detail_screen.dart';
 import '../../features/social/presentation/saved_posts_screen.dart';
 import '../../features/social/presentation/search_screen.dart';
 import '../../features/social/presentation/story_viewer_screen.dart';
+import '../location/location_gate.dart';
 import '../supabase/supabase_client.dart';
 import 'app_shell.dart';
 
@@ -77,6 +79,8 @@ abstract final class Routes {
 
   // Partners (vendors) + rewards
   static const partnerApply = '/partner/apply';
+  static const clubApply = '/club/apply';
+  static const locationGate = '/location';
   static const vendor = '/vendor';
   static const vendorEdit = '/vendor/edit';
   static const vendorReport = '/vendor/report';
@@ -139,6 +143,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   final refresh = _RouterRefresh();
   ref.listen(authStateProvider, (_, _) => refresh.poke());
   ref.listen(currentProfileProvider, (_, _) => refresh.poke());
+  ref.listen(locationGrantedProvider, (_, _) => refresh.poke());
+  ref.listen(locationGateSkippedProvider, (_, _) => refresh.poke());
   ref.onDispose(refresh.dispose);
 
   return GoRouter(
@@ -158,7 +164,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       final needsCar = profile.value?.needsCar ?? false;
       if (!onboarded || needsCar) return path == Routes.onboarding ? null : Routes.onboarding;
-      if (onAuthPage || path == Routes.onboarding) return Routes.map;
+
+      // Location first: the app is a map. Ask once per launch, with context.
+      final granted = ref.read(locationGrantedProvider);
+      final skipped = ref.read(locationGateSkippedProvider);
+      if (granted.hasValue && !granted.value! && !skipped) return path == Routes.locationGate ? null : Routes.locationGate;
+
+      if (onAuthPage || path == Routes.onboarding || path == Routes.locationGate) return Routes.map;
       return null;
     },
     routes: [
@@ -218,6 +230,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: Routes.adminPartners, builder: (_, _) => const AdminPartnersScreen()),
       GoRoute(path: Routes.adminCommission, builder: (_, _) => const AdminCommissionScreen()),
       GoRoute(path: Routes.partnerApply, builder: (_, _) => const PartnerApplyScreen()),
+      GoRoute(path: Routes.clubApply, builder: (_, _) => const PartnerApplyScreen(kind: ApplicationKind.club)),
+      GoRoute(path: Routes.locationGate, builder: (_, _) => const LocationGateScreen()),
       GoRoute(path: Routes.vendor, builder: (_, _) => const VendorDashboardScreen()),
       GoRoute(path: Routes.vendorEdit, builder: (_, _) => const VendorEditScreen()),
       GoRoute(path: Routes.vendorReport, builder: (_, _) => const VendorReportScreen()),

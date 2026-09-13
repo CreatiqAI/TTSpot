@@ -146,6 +146,9 @@ abstract final class AppIcons {
   static const IconData handCoins = IconData(0xea8c, fontFamily: _family);
   static const IconData wallet = IconData(0xe68a, fontFamily: _family);
   static const IconData shoppingBag = IconData(0xe416, fontFamily: _family);
+  static const IconData crown = IconData(0xe614, fontFamily: _family);
+  static const IconData mapPinLine = IconData(0xe318, fontFamily: _family);
+  static const IconData shareFat = IconData(0xed52, fontFamily: _family);
 
   // ---- filled twins ----
   static const IconData mapTrifoldFill = IconData(0xe31a, fontFamily: _fill);

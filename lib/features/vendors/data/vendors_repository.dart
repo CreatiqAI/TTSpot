@@ -23,6 +23,7 @@ class VendorsRepository {
   }
 
   Future<String> applyPartner({
+    required ApplicationKind kind,
     required String name,
     required String type,
     String? address,
@@ -33,6 +34,7 @@ class VendorsRepository {
     String? ssmNo,
   }) async {
     final v = await _client.rpc('apply_partner', params: {
+      'p_kind': kind.db,
       'p_name': name,
       'p_type': type,
       'p_address': address,
@@ -45,8 +47,8 @@ class VendorsRepository {
     return v as String;
   }
 
-  Future<PartnerApplication?> myApplication() async {
-    final rows = _rows(await _client.rpc('my_partner_application'));
+  Future<PartnerApplication?> myApplication(ApplicationKind kind) async {
+    final rows = _rows(await _client.rpc('my_partner_application', params: {'p_kind': kind.db}));
     return rows.isEmpty ? null : PartnerApplication.fromMap(rows.first);
   }
 

@@ -73,14 +73,11 @@ class FriendsRepository {
 
   // ------------------------------------------------------------ live pins ---
 
-  /// Friends' pins. RLS already hides ghosts, expired rows and non-friends.
+  /// Friends' and clubmates' pins (ghosts, expired rows and strangers are
+  /// filtered server-side). `via` says how I know each person.
   Future<List<FriendPin>> friendPins(String me) async {
-    final rows = await _client
-        .from('user_locations')
-        .select('*, profiles($_profileCols), places(name), events(title)')
-        .neq('user_id', me)
-        .order('updated_at', ascending: false);
-    return rows.map(FriendPin.fromMap).toList();
+    final rows = await _client.rpc('visible_pins') as List;
+    return rows.map((r) => FriendPin.fromMap((r as Map).cast<String, dynamic>())).toList();
   }
 
   Future<MyLocation> myLocation(String me) async {

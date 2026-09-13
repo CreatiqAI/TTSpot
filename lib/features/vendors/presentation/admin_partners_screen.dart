@@ -126,7 +126,7 @@ class _CardState extends ConsumerState<_Card> {
               ClipRRect(
                 borderRadius: BorderRadius.circular(AppRadius.md),
                 child: a.logoUrl == null
-                    ? Container(width: 64, height: 64, color: AppColors.surfaceGray, child: const Icon(AppIcons.storefront, color: AppColors.textSecondary))
+                    ? Container(width: 64, height: 64, color: AppColors.surfaceGray, child: Icon(a.kind == ApplicationKind.club ? AppIcons.usersThree : AppIcons.storefront, color: AppColors.textSecondary))
                     : Image.network(a.logoUrl!, width: 64, height: 64, fit: BoxFit.cover),
               ),
               const SizedBox(width: 12),
@@ -134,7 +134,19 @@ class _CardState extends ConsumerState<_Card> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(a.businessName, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                    Row(
+                      children: [
+                        Expanded(child: Text(a.businessName, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16))),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: a.kind == ApplicationKind.club ? AppColors.warnColor : AppColors.surfaceGray,
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text(a.kind == ApplicationKind.club ? 'CAR CLUB' : 'VENDOR', style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, letterSpacing: 0.6)),
+                        ),
+                      ],
+                    ),
                     Text(businessTypeLabel(a.businessType), style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
                     if (a.address != null) Text(a.address!, style: const TextStyle(fontSize: 13)),
                     if (a.phone != null) Text(a.phone!, style: const TextStyle(fontSize: 13)),

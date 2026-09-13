@@ -138,6 +138,8 @@ Migrations applied to TTSpot so far (all three are also recorded in `supabase_mi
 | `20260912000006_spots.sql` | Spots: `places.cover_url/description/tags/recommended`, `place_checkins` (one per person per place per day, 300 m proof via `checkin_place()`), ranked `places_with_counts` view (`score`), `place_recent_visitors()`, moments at a place count as a check-in, Explorer badge |
 | `20260914000006_points_enum.sql` | notification types `referral`, `points` |
 | `20260915000009_vendor_enums.sql` | Notification types `partner`, `voucher` |
+| `20260915000011_club_enum.sql` | Notification type `club_invite` |
+| `20260915000012_clubs_location.sql` | Car clubs + location rules: `partner_applications.kind` (vendor / club), `profiles.club_owner` (only owners/admins may insert into `clubs`), `club_invites` + `invite_to_club` / `respond_club_invite` / `my_club_invite`, `club_members.share_location` + `set_club_share` / `my_club_share`, `is_clubmate_sharing`, `user_locations` read policy now friends **or** sharing clubmates, `visible_pins()` (adds `via`, `club_name`), `checkin_radius_m` setting (300) and `checkin_by_qr` now requires GPS within it |
 | `20260915000010_vendors.sql` | Partners: `platform_settings` (`commission_rate` 0.01), `partner_applications` → `vendors`, `vouchers`, `voucher_claims` (QR `ttspot://voucher/<claimId>/<code>`), `voucher_redemptions` (bill × rate), RPCs `apply_partner`, `admin_review_partner`, `save_voucher`, `claim_voucher`, `lookup_voucher_claim`, `redeem_voucher`, `shop_vouchers`, `my_vouchers`, `my_vendor*`, `vendor_monthly_report`, `admin_commission_report`, nightly claim-expiry cron |
 | `20260914000008_spot_stickers.sql` | Spot stickers: `places.sticker_secret` (printed QR `ttspot://spot/<id>/<code>`), `profiles.is_admin`, `spot_verifications` (pending → approved / rejected / review), `submit_spot_verification`, `decide_spot_verification` (service role only), `review_spot_verification` (admins), `admin_review_queue`, stale-pending cron |
 | `20260914000007_points_qr.sql` | Points + QR: append-only `point_ledger` + `award_points()` (idempotent via `idem_key`), `point_rules` (tunable values), `profiles.points`, referrals (`claim_referral`, paid on first check-in via `settle_referral`), earn triggers on meet/spot check-ins, badges and Car of the Week, friend QR (`profiles.qr_token`, `my_qr_payload`, `rotate_my_qr`, `add_friend_by_qr`), organiser check-in QR (`events.qr_secret`, HMAC over 30 s windows: `event_qr_payload`, `checkin_by_qr`, source `qr` skips the distance rule) |
@@ -208,6 +210,16 @@ TT Spot is a map first. The Instagram-style feed is still in the code but switch
   `vendors.commission_rate`; change the default with `admin_set_setting('commission_rate', '0.02')`). Vendors see a
   monthly statement (`Statement` in the dashboard); admins see commission owed per partner per month
   (`Commission report`). Demo partner: `weiling_gr` owns "Typeone Bar" with a "10% off drinks" voucher.
+- **Car clubs (2026-09-15)**: the same application flow (`Me → menu → Run a car club`, or the create hub) with
+  `kind = 'club'`; admins see a CAR CLUB badge in the queue. Approval sets `profiles.club_owner`; only owners can
+  create clubs (RLS). Owners invite friends from the club page (`Invite members`); invitees get an Activity notification
+  and a banner on the club page. Members see each other on the map (`Friends & club on the map`, pins say which club)
+  and can switch it off per club with "Show me on the club map". Vendor partners are meant for parts / accessories /
+  workshop businesses; the type list reflects that.
+- **Location rules (2026-09-15)**: after onboarding the app shows a location screen (`/location`) once per launch
+  until permission is granted ("Not now" skips for that session). A meet's QR is only accepted within
+  `checkin_radius_m` (300 m, `platform_settings`) of the meet: the scanner fetches a fresh fix, sends it with the
+  code, and the server rejects "no location" or "too far" with the distance. Organiser QR still rotates every 30 s.
 - Planned: lucky draw (legal check first), weekly post leaderboard points.
 
 ### App structure (2026-09-12)
@@ -368,6 +380,7 @@ lib/
     points/   ledger + QR + stickers: domain/{points,verification}, data/points_repository,
               application/points_providers (PointsActions.handle / verifySpot / review),
               presentation (scan, my_qr, points, event_qr, spot_verify, admin_review)
+lib/core/location/location_gate.dart           first-launch location permission screen + providers
     vendors/  partners + rewards: domain/vendor, data/vendors_repository, application/vendors_providers,
               presentation (partner_apply, admin_partners, vendor_dashboard, vendor_edit, voucher_form, redeem,
               rewards, my_vouchers, voucher_qr, vendor_report, admin_commission)

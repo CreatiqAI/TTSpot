@@ -10,8 +10,6 @@ import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../../core/widgets/empty_state.dart';
-import '../../../core/widgets/primary_button.dart';
-import '../../../core/widgets/user_avatar.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../auth/domain/profile.dart';
@@ -22,6 +20,7 @@ import '../../safety/data/safety_repository.dart';
 import '../../vendors/application/vendors_providers.dart';
 import '../../safety/presentation/report_sheet.dart';
 import '../../social/application/chat_providers.dart';
+import '../../social/application/community_providers.dart';
 import '../../social/application/notification_providers.dart';
 import '../../social/application/social_providers.dart';
 import '../../social/domain/post.dart';
@@ -29,6 +28,7 @@ import '../../social/presentation/create_hub_sheet.dart';
 import '../../social/presentation/story_viewer_screen.dart';
 import '../../social/presentation/widgets/masonry_grid.dart';
 import '../application/profile_providers.dart';
+import 'widgets/profile_header.dart';
 import '../domain/car.dart';
 
 enum _Tab { garage, moments, posts }
@@ -134,195 +134,35 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             child: CustomScrollView(
               slivers: [
                 SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            UserAvatar(
-                              url: p.avatarUrl,
-                              name: p.displayName ?? p.username,
-                              size: 86,
-                            ),
-                            const SizedBox(width: 20),
-                            Expanded(
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceAround,
-                                children: [
-                                  _Stat(
-                                    value: stats?.went,
-                                    label: 'meets',
-                                    onTap: () => context.push(Routes.meets),
-                                  ),
-                                  _Stat(
-                                    value: posts.value?.length,
-                                    label: 'posts',
-                                    onTap: () =>
-                                        setState(() => _tab = _Tab.posts),
-                                  ),
-                                  _Stat(
-                                    value: friendCount,
-                                    label: 'friends',
-                                    onTap: isMe
-                                        ? () => context.push(Routes.friends)
-                                        : null,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          p.displayName ?? '@${p.username}',
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        if ((p.bio ?? '').trim().isNotEmpty) ...[
-                          const SizedBox(height: 3),
-                          Text(
-                            p.bio!.trim(),
-                            style: const TextStyle(fontSize: 14, height: 1.4),
-                          ),
-                        ],
-                        const SizedBox(height: 4),
-                        Text(
-                          [
-                            if ((p.homeState ?? '').isNotEmpty) p.homeState!,
-                            if (stats != null)
-                              '${stats.cars} car${stats.cars == 1 ? '' : 's'}',
-                            if (stats != null) '${stats.organised} organised',
-                            if (stats != null && stats.attended > stats.went)
-                              '${stats.attended - stats.went} upcoming',
-                          ].join(' · '),
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                        if (badges.isNotEmpty ||
-                            streak > 0 ||
-                            points != null) ...[
-                          const SizedBox(height: 10),
-                          GestureDetector(
-                            onTap: () => context.push(Routes.badges(id)),
-                            child: Wrap(
-                              spacing: 6,
-                              runSpacing: 6,
-                              children: [
-                                if (points != null)
-                                  GestureDetector(
-                                    onTap: () => context.push(Routes.points),
-                                    child: _Pill(
-                                      '$points pts',
-                                      art: AppArt.star,
-                                      highlight: true,
-                                    ),
-                                  ),
-                                if (streak > 0)
-                                  _Pill(
-                                    '$streak-wk TT streak',
-                                    art: AppArt.fire,
-                                  ),
-                                for (final b in badges.take(6))
-                                  _Pill(
-                                    b.badge.name,
-                                    art: AppArt.forEmoji(b.badge.emoji),
-                                  ),
-                                if (badges.length > 6)
-                                  _Pill('+${badges.length - 6}'),
-                              ],
-                            ),
-                          ),
-                        ],
-                        const SizedBox(height: 14),
-                        if (isMe)
-                          Row(
-                            children: [
-                              Expanded(
-                                child: SecondaryButton(
-                                  label: 'Edit profile',
-                                  onPressed: () =>
-                                      context.push(Routes.editProfile),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: SecondaryButton(
-                                  label: 'Friends',
-                                  onPressed: () => context.push(Routes.friends),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              SizedBox(
-                                width: 46,
-                                child: ElevatedButton(
-                                  onPressed: () => context.push(Routes.newCar),
-                                  style: ElevatedButton.styleFrom(
-                                    padding: EdgeInsets.zero,
-                                    minimumSize: const Size(46, 46),
-                                  ),
-                                  child: const Icon(AppIcons.car, size: 20),
-                                ),
-                              ),
-                            ],
-                          )
-                        else
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _FriendButton(
-                                  status: friendship,
-                                  onTap: () => _friendAction(
-                                    id,
-                                    friendship,
-                                    p.displayName ?? '@${p.username}',
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: SecondaryButton(
-                                  label: 'Message',
-                                  onPressed: () => _message(id),
-                                ),
-                              ),
-                            ],
-                          ),
-                      ],
-                    ),
+                  child: ProfileHeader(
+                    profile: p,
+                    isMe: isMe,
+                    cars: cars.value ?? const <Car>[],
+                    stats: stats,
+                    friendCount: friendCount,
+                    points: points,
+                    streak: streak,
+                    badges: badges,
+                    friendship: friendship,
+                    onMeets: () => context.push(Routes.meets),
+                    onFriends: isMe ? () => context.push(Routes.friends) : null,
+                    onPoints: () => context.push(Routes.points),
+                    onBadges: () => context.push(Routes.badges(id)),
+                    onEdit: () => context.push(Routes.editProfile),
+                    onAddCar: () => context.push(Routes.newCar),
+                    onFriendAction: () => _friendAction(id, friendship, p.displayName ?? '@${p.username}'),
+                    onMessage: () => _message(id),
                   ),
                 ),
                 SliverToBoxAdapter(
-                  child: Column(
-                    children: [
-                      const Divider(),
-                      Row(
-                        children: [
-                          _TabButton(
-                            icon: AppIcons.garage,
-                            selected: _tab == _Tab.garage,
-                            onTap: () => setState(() => _tab = _Tab.garage),
-                          ),
-                          _TabButton(
-                            icon: AppIcons.camera,
-                            selected: _tab == _Tab.moments,
-                            onTap: () => setState(() => _tab = _Tab.moments),
-                          ),
-                          if (kSocialFeed)
-                            _TabButton(
-                              icon: AppIcons.squaresFour,
-                              selected: _tab == _Tab.posts,
-                              onTap: () => setState(() => _tab = _Tab.posts),
-                            ),
-                        ],
-                      ),
+                  child: ProfileTabs(
+                    tabs: [
+                      (AppIcons.garage, 'Garage'),
+                      (AppIcons.camera, 'Moments'),
+                      if (kSocialFeed) (AppIcons.squaresFour, 'Posts'),
                     ],
+                    selected: _tab.index,
+                    onSelect: (i) => setState(() => _tab = _Tab.values[i]),
                   ),
                 ),
                 if (blocked)
@@ -585,6 +425,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     // Make sure we know whether I'm a partner before the sheet renders.
     try {
       await ref.read(myVendorProvider.future);
+      await ref.read(myClubsProvider.future);
     } catch (_) {}
     if (!context.mounted) return;
     final action = await showModalBottomSheet<String>(
@@ -630,6 +471,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 leading: const Icon(AppIcons.storefront),
                 title: Text(ref.read(myVendorProvider).value == null ? 'Become a partner' : 'Partner dashboard'),
                 onTap: () => Navigator.pop(ctx, 'partner'),
+              ),
+              ListTile(
+                leading: const Icon(AppIcons.usersThree),
+                title: Text((ref.read(currentProfileProvider).value?.canRunClubs ?? false) ? 'My car club' : 'Run a car club'),
+                onTap: () => Navigator.pop(ctx, 'club'),
               ),
               if (ref.read(currentProfileProvider).value?.isAdmin ?? false) ...[
                 ListTile(
@@ -698,6 +544,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         context.push(Routes.myVouchers);
       case 'partner':
         context.push(ref.read(myVendorProvider).value == null ? Routes.partnerApply : Routes.vendor);
+      case 'club':
+        if (ref.read(currentProfileProvider).value?.canRunClubs ?? false) {
+          final owned = (ref.read(myClubsProvider).value ?? const []).where((c) => c.ownerId == me).firstOrNull;
+          context.push(owned == null ? Routes.createClub : Routes.club(owned.id));
+        } else {
+          context.push(Routes.clubApply);
+        }
       case 'partners':
         context.push(Routes.adminPartners);
       case 'commission':
@@ -768,96 +621,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
 // ---------------------------------------------------------------- pieces ---
 
-class _Stat extends StatelessWidget {
-  const _Stat({required this.value, required this.label, this.onTap});
-  final int? value;
-  final String label;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Column(
-        children: [
-          Text(
-            value?.toString() ?? '–',
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-          ),
-          Text(
-            label,
-            style: const TextStyle(fontSize: 13, color: AppColors.textPrimary),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Pill extends StatelessWidget {
-  const _Pill(this.text, {this.art, this.highlight = false});
-  final String text;
-  final String? art;
-  final bool highlight;
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: EdgeInsets.fromLTRB(art == null ? 9 : 5, 3, 9, 3),
-    decoration: BoxDecoration(
-      color: highlight ? AppColors.warnColor : AppColors.surfaceGray,
-      borderRadius: BorderRadius.circular(999),
-    ),
-    child: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (art != null) ...[ArtIcon(art!, size: 18), const SizedBox(width: 4)],
-        Text(
-          text,
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-        ),
-      ],
-    ),
-  );
-}
-
-class _TabButton extends StatelessWidget {
-  const _TabButton({
-    required this.icon,
-    required this.selected,
-    required this.onTap,
-  });
-  final IconData icon;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: InkWell(
-        onTap: onTap,
-        child: SizedBox(
-          height: 44,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              Icon(
-                icon,
-                size: 24,
-                color: selected ? AppColors.textPrimary : AppColors.textMuted,
-              ),
-              const SizedBox(height: 8),
-              Container(
-                height: 1.5,
-                color: selected ? AppColors.textPrimary : Colors.transparent,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _CarTile extends StatelessWidget {
   const _CarTile({required this.car, required this.onTap});
   final Car car;
@@ -917,30 +680,4 @@ class _CarTile extends StatelessWidget {
       ),
     );
   }
-}
-
-class _FriendButton extends StatelessWidget {
-  const _FriendButton({required this.status, required this.onTap});
-  final FriendshipStatus status;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => switch (status) {
-    FriendshipStatus.none => PrimaryButton(
-      label: 'Add friend',
-      onPressed: onTap,
-    ),
-    FriendshipStatus.pendingOut => SecondaryButton(
-      label: 'Requested',
-      onPressed: onTap,
-    ),
-    FriendshipStatus.pendingIn => PrimaryButton(
-      label: 'Accept request',
-      onPressed: onTap,
-    ),
-    FriendshipStatus.friends => SecondaryButton(
-      label: 'Friends ✓',
-      onPressed: onTap,
-    ),
-  };
 }

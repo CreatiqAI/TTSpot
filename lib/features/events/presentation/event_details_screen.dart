@@ -860,7 +860,7 @@ class _CheckInCard extends ConsumerWidget {
           if (!checkedIn)
             const Padding(
               padding: EdgeInsets.only(top: 8),
-              child: Text('Within 500 m of the meet, or scan the organiser\'s QR. Earns points.', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
+              child: Text('Be at the meet with location on, then scan the organiser\'s QR (works within 300 m). Earns points.', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
             ),
         ],
       ),

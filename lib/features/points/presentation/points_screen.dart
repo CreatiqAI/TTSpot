@@ -67,7 +67,7 @@ class PointsScreen extends ConsumerWidget {
                   ),
                   FilledButton.tonalIcon(
                     onPressed: () => context.push(Routes.rewards),
-                    style: FilledButton.styleFrom(backgroundColor: Colors.black, foregroundColor: Colors.white, visualDensity: VisualDensity.compact),
+                    style: FilledButton.styleFrom(backgroundColor: Colors.black, foregroundColor: Colors.white, visualDensity: VisualDensity.compact, minimumSize: const Size(0, 36), padding: const EdgeInsets.symmetric(horizontal: 14)),
                     icon: const Icon(AppIcons.gift, size: 16),
                     label: const Text('Rewards'),
                   ),

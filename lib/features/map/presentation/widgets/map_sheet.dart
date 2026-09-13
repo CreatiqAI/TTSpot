@@ -102,7 +102,7 @@ class _NowContent extends ConsumerWidget {
     return SliverList(
       delegate: SliverChildListDelegate([
         _SectionHeader(
-          title: 'Friends on the map',
+          title: 'Friends & club on the map',
           count: list.length,
           action: 'Add friends',
           onAction: () => context.push(Routes.friends),
@@ -141,11 +141,12 @@ class _FriendRow extends ConsumerWidget {
     final f = pin;
     final name = f.user.displayName ?? f.user.username ?? '';
     final ago = timeAgo(f.updatedAt);
-    final where = f.eventTitle != null
+    var where = f.eventTitle != null
         ? 'At ${f.eventTitle}'
         : f.placeName != null
             ? (f.isFresh ? 'At ${f.placeName}' : 'Last seen at ${f.placeName}')
             : (f.isFresh ? 'On the move' : 'Last seen');
+    if (f.viaClub && f.clubName != null) where = '$where · ${f.clubName}';
     return InkWell(
       onTap: onTap,
       onLongPress: () => context.push(Routes.profile(f.user.id)),

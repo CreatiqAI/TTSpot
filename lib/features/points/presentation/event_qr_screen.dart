@@ -26,7 +26,7 @@ class _EventQrScreenState extends ConsumerState<EventQrScreen> {
   String? _payload;
   String? _error;
   Timer? _timer;
-  int _secondsLeft = 30;
+  int _secondsLeft = 30 - (DateTime.now().millisecondsSinceEpoch ~/ 1000) % 30;
 
   @override
   void initState() {

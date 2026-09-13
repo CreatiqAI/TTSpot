@@ -85,6 +85,9 @@ class _ActivityListState extends ConsumerState<ActivityList> {
 /// `approved:<name>` or `rejected:<reason>` (to the applicant, no actor).
 (String, String?) _partnerText(AppNotification n) {
   final body = n.body ?? '';
+  if (body.startsWith('applied-club:')) return ('applied to run a car club: ${body.substring(13)}', Routes.adminPartners);
+  if (body.startsWith('approved-club:')) return ('You can now run ${body.substring(14)} on TT Spot. Create the club and start inviting members.', Routes.createClub);
+  if (body.startsWith('rejected-club:')) return ('Your car club application was not approved: ${body.substring(14)}', Routes.clubApply);
   if (body.startsWith('applied:')) return ('applied to be a partner: ${body.substring(8)}', Routes.adminPartners);
   if (body.startsWith('approved:')) return ('${body.substring(9)} is now a TT Spot partner. Open your dashboard to publish vouchers.', Routes.vendor);
   if (body.startsWith('rejected:')) return ('Your partner application was not approved: ${body.substring(9)}', Routes.partnerApply);
@@ -121,6 +124,7 @@ class _Row extends ConsumerWidget {
       NotificationType.points => (n.body ?? 'You earned points.', Routes.points),
       NotificationType.partner => _partnerText(n),
       NotificationType.voucher => ((n.body ?? '').startsWith('redeemed:') ? 'Voucher used: ${n.body!.substring(9)}' : (n.body ?? 'Voucher update.'), Routes.myVouchers),
+      NotificationType.clubInvite => ('invited you to join ${n.clubName ?? n.body ?? 'their club'}. Open the club to accept.', n.clubId == null ? null : Routes.club(n.clubId!)),
       NotificationType.unknown => ('did something.', null),
     };
     final systemMessage = n.type == NotificationType.badge ||

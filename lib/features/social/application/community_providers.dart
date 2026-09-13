@@ -23,6 +23,18 @@ final myClubsProvider = FutureProvider<List<Club>>((ref) async {
   return ref.watch(communityRepositoryProvider).myClubs(me);
 });
 
+/// Pending invite for me on this club (id), or null.
+final myClubInviteProvider = FutureProvider.family<String?, String>((ref, clubId) {
+  if (ref.watch(currentUserIdProvider) == null) return Future.value(null);
+  return ref.watch(communityRepositoryProvider).myClubInvite(clubId);
+});
+
+/// Whether I share my live location with this club's members.
+final myClubShareProvider = FutureProvider.family<bool, String>((ref, clubId) {
+  if (ref.watch(currentUserIdProvider) == null) return Future.value(true);
+  return ref.watch(communityRepositoryProvider).myClubShare(clubId);
+});
+
 final isClubMemberProvider = FutureProvider.family<bool, String>((ref, clubId) async {
   final me = ref.watch(currentUserIdProvider);
   if (me == null) return false;
@@ -69,6 +81,22 @@ class CommunityActions {
     _ref.invalidate(clubsProvider(''));
     _ref.invalidate(myClubsProvider);
     return club;
+  }
+
+  Future<void> inviteToClub(String clubId, String userId) => _repo.inviteToClub(clubId, userId);
+
+  Future<void> respondClubInvite(String clubId, {required bool accept}) async {
+    await _repo.respondClubInvite(clubId, accept: accept);
+    _ref.invalidate(myClubInviteProvider(clubId));
+    _ref.invalidate(isClubMemberProvider(clubId));
+    _ref.invalidate(clubMembersProvider(clubId));
+    _ref.invalidate(clubProvider(clubId));
+    _ref.invalidate(myClubsProvider);
+  }
+
+  Future<void> setClubShare(String clubId, bool share) async {
+    await _repo.setClubShare(clubId, share);
+    _ref.invalidate(myClubShareProvider(clubId));
   }
 
   Future<void> toggleClubMembership(String clubId, {required bool isMember}) async {

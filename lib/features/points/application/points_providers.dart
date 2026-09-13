@@ -99,7 +99,10 @@ class PointsActions {
         return ScanOutcome(title: 'You and @$username are now friends', subtitle: 'They\'ll show up on your map.', route: '/profile/$id');
       case MeetCheckinCode(:final eventId, :final code):
         final pos = await _quickFix();
-        final r = await _repo.checkinByQr(eventId: eventId, code: code, lat: pos?.latitude, lng: pos?.longitude);
+        if (pos == null) {
+          throw const AppException('Turn on location so we can confirm you are at the meet, then scan again.');
+        }
+        final r = await _repo.checkinByQr(eventId: eventId, code: code, lat: pos.latitude, lng: pos.longitude);
         _ref.invalidate(myCheckinsProvider);
         _ref.invalidate(eventDetailProvider(eventId));
         _ref.invalidate(eventCheckedInProvider(eventId));
@@ -154,12 +157,17 @@ class PointsActions {
     _ref.invalidate(adminReviewQueueProvider);
   }
 
+  /// A recent fix, asking for permission if we never did. Null when the
+  /// member refuses or the device can't get one in time.
   Future<Position?> _quickFix() async {
     try {
+      var perm = await Geolocator.checkPermission();
+      if (perm == LocationPermission.denied) perm = await Geolocator.requestPermission();
+      if (perm == LocationPermission.denied || perm == LocationPermission.deniedForever) return null;
       final last = await Geolocator.getLastKnownPosition();
-      if (last != null && DateTime.now().difference(last.timestamp) < const Duration(minutes: 5)) return last;
+      if (last != null && DateTime.now().difference(last.timestamp) < const Duration(minutes: 2)) return last;
       return await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(accuracy: LocationAccuracy.medium, timeLimit: Duration(seconds: 5)),
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high, timeLimit: Duration(seconds: 8)),
       );
     } catch (_) {
       return null;

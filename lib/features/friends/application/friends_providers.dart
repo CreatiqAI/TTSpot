@@ -166,8 +166,8 @@ class LocationPublisher extends Notifier<bool> with WidgetsBindingObserver {
     if (ref.read(currentUserIdProvider) == null) return;
     try {
       if (!await Geolocator.isLocationServiceEnabled()) return;
-      var perm = await Geolocator.checkPermission();
-      if (perm == LocationPermission.denied) perm = await Geolocator.requestPermission();
+      // Never prompt from here: the location gate screen asks with context.
+      final perm = await Geolocator.checkPermission();
       if (perm == LocationPermission.denied || perm == LocationPermission.deniedForever) return;
     } catch (_) {
       return;

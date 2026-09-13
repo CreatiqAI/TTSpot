@@ -13,10 +13,10 @@ final myVendorProvider = FutureProvider<Vendor?>((ref) {
   return ref.watch(vendorsRepositoryProvider).myVendor();
 });
 
-/// My latest partner application (any status), or null.
-final myPartnerApplicationProvider = FutureProvider<PartnerApplication?>((ref) {
+/// My latest application of that kind (any status), or null.
+final myPartnerApplicationProvider = FutureProvider.family<PartnerApplication?, ApplicationKind>((ref, kind) {
   if (ref.watch(currentUserIdProvider) == null) return Future.value(null);
-  return ref.watch(vendorsRepositoryProvider).myApplication();
+  return ref.watch(vendorsRepositoryProvider).myApplication(kind);
 });
 
 // Every list below watches the user id so a sign-out / sign-in never shows the previous member's data.
@@ -76,6 +76,7 @@ class VendorActions {
   }
 
   Future<void> apply({
+    ApplicationKind kind = ApplicationKind.vendor,
     required String name,
     required String type,
     String? address,
@@ -86,8 +87,8 @@ class VendorActions {
     XFile? logo,
   }) async {
     final logoUrl = await _upload(logo);
-    await _repo.applyPartner(name: name, type: type, address: address, placeId: placeId, phone: phone, description: description, logoUrl: logoUrl, ssmNo: ssmNo);
-    _ref.invalidate(myPartnerApplicationProvider);
+    await _repo.applyPartner(kind: kind, name: name, type: type, address: address, placeId: placeId, phone: phone, description: description, logoUrl: logoUrl, ssmNo: ssmNo);
+    _ref.invalidate(myPartnerApplicationProvider(kind));
   }
 
   Future<void> reviewApplication(String id, {required bool approve, String? note}) async {

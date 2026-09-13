@@ -46,10 +46,10 @@ Future<void> showCreateHub(BuildContext context) {
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: const CircleAvatar(backgroundColor: AppColors.surfaceGray, child: Icon(AppIcons.shield, color: AppColors.textPrimary)),
-                title: const Text('Start a club', style: TextStyle(fontWeight: FontWeight.w600)),
-                subtitle: const Text('Bring your crew together'),
+                title: const Text('Start a car club', style: TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: const Text('Apply to run one. Approved owners invite members and share the map.'),
                 trailing: const Icon(AppIcons.caretRight, color: AppColors.textMuted),
-                onTap: () => _go(ctx, context, Routes.createClub),
+                onTap: () => _go(ctx, context, Routes.clubApply),
               ),
             ],
           ],

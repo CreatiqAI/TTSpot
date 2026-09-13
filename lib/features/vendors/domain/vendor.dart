@@ -4,19 +4,33 @@ double _num(Object? v) => (v as num?)?.toDouble() ?? 0;
 int _int(Object? v) => (v as num?)?.toInt() ?? 0;
 DateTime? _date(Object? v) => v == null ? null : DateTime.parse(v as String).toLocal();
 
-/// Options shown in the application form (db value, label).
+/// What a partner application is for.
+enum ApplicationKind {
+  vendor, club;
+  String get db => name;
+  static ApplicationKind fromDb(String? v) => v == 'club' ? club : vendor;
+}
+
+/// Options shown in the vendor application form (db value, label). Partners
+/// are the businesses car people spend on: parts, accessories, workshops.
 const kBusinessTypes = <(String, String)>[
-  ('cafe', 'Café / bar'),
-  ('restaurant', 'Restaurant / mamak'),
-  ('workshop', 'Workshop'),
-  ('detailing', 'Detailing / tint'),
   ('accessories', 'Parts & accessories'),
+  ('workshop', 'Workshop / tuning'),
+  ('detailing', 'Detailing / tint / PPF'),
   ('tyres', 'Tyres & rims'),
-  ('petrol', 'Petrol / car wash'),
+  ('bodyshop', 'Body & paint'),
+  ('audio', 'Audio & electronics'),
+  ('carwash', 'Car wash'),
+  ('cafe', 'Café / hangout'),
   ('other', 'Other'),
 ];
 
-String businessTypeLabel(String type) => kBusinessTypes.where((t) => t.$1 == type).map((t) => t.$2).firstOrNull ?? 'Other';
+String businessTypeLabel(String type) => switch (type) {
+      'club' => 'Car club',
+      'restaurant' => 'Restaurant / mamak',
+      'petrol' => 'Petrol / car wash',
+      _ => kBusinessTypes.where((t) => t.$1 == type).map((t) => t.$2).firstOrNull ?? 'Other',
+    };
 
 enum ApplicationStatus {
   pending, approved, rejected;
@@ -26,6 +40,7 @@ enum ApplicationStatus {
 class PartnerApplication {
   const PartnerApplication({
     required this.id,
+    this.kind = ApplicationKind.vendor,
     required this.businessName,
     required this.businessType,
     required this.status,
@@ -45,6 +60,7 @@ class PartnerApplication {
   });
 
   final String id;
+  final ApplicationKind kind;
   final String businessName;
   final String businessType;
   final ApplicationStatus status;
@@ -65,6 +81,7 @@ class PartnerApplication {
 
   factory PartnerApplication.fromMap(Map<String, dynamic> m) => PartnerApplication(
         id: m['id'] as String,
+        kind: ApplicationKind.fromDb(m['kind'] as String?),
         businessName: m['business_name'] as String,
         businessType: m['business_type'] as String? ?? 'other',
         status: ApplicationStatus.fromDb(m['status'] as String? ?? 'pending'),

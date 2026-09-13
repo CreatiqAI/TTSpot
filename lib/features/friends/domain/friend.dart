@@ -36,7 +36,13 @@ class FriendPin {
     this.eventId,
     this.eventTitle,
     this.ghost = false,
+    this.viaClub = false,
+    this.clubName,
   });
+
+  /// True when I only see this person because we share a car club.
+  final bool viaClub;
+  final String? clubName;
 
   final Profile user;
   final double lat;
@@ -63,6 +69,8 @@ class FriendPin {
         placeName: (m['places'] as Map<String, dynamic>?)?['name'] as String?,
         eventId: m['event_id'] as String?,
         eventTitle: (m['events'] as Map<String, dynamic>?)?['title'] as String?,
+        viaClub: m['via'] == 'club',
+        clubName: m['club_name'] as String?,
       );
 }
 

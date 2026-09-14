@@ -1,0 +1,82 @@
+name: Android build (release APK)
+
+# Builds the release APK on every push to main and publishes it to a rolling
+# GitHub Release tagged `latest`, so testers get one stable download link:
+#   https://github.com/CreatiqAI/TTSpot/releases/latest/download/TTSpot.apk
+# Secrets: ENV_JSON (contents of env.json), MAPS_API_KEY.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'lib/**'
+      - 'android/**'
+      - 'assets/**'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - '.github/workflows/android.yml'
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.2
+          cache: true
+
+      - name: Write build-time config (never committed)
+        env:
+          ENV_JSON: ${{ secrets.ENV_JSON }}
+          MAPS_API_KEY: ${{ secrets.MAPS_API_KEY }}
+        run: |
+          printf '%s' "$ENV_JSON" > env.json
+          echo "MAPS_API_KEY=${MAPS_API_KEY}" > android/local.properties
+          python3 -c "import json; json.load(open('env.json')); print('env.json ok')"
+
+      - name: Pub get
+        run: flutter pub get
+
+      - name: Build release APK
+        run: flutter build apk --release --dart-define-from-file=env.json
+
+      - name: Rename
+        run: |
+          cp build/app/outputs/flutter-apk/app-release.apk TTSpot.apk
+          cp build/app/outputs/flutter-apk/app-release.apk "TTSpot-${GITHUB_SHA::7}.apk"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TTSpot-android
+          path: TTSpot-*.apk
+          retention-days: 14
+
+      - name: Publish to the rolling "latest" release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: TT Spot · latest test build
+          prerelease: true
+          body: |
+            Rolling test build from `main` (${{ github.sha }}).
+
+            **Android**: download `TTSpot.apk`, open it on the phone, allow installing from this source.
+            **iPhone**: see SETUP.md §5b (unsigned IPA from the iOS workflow + Sideloadly, or TestFlight).
+          files: TTSpot.apk

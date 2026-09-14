@@ -95,3 +95,15 @@ open(os.path.join(v31, "styles.xml"), "w", encoding="utf-8", newline="\n").write
 </resources>
 """)
 print("launcher written")
+
+# ---- iOS app icon set (opaque, square; iOS rounds the corners itself) ----
+import json
+IOS = os.path.join(ROOT, "ios", "Runner", "Assets.xcassets", "AppIcon.appiconset")
+ios_master = Image.alpha_composite(gradient(master), car_layer(master, 0.70)).convert("RGB")
+contents = json.load(open(os.path.join(IOS, "Contents.json"), encoding="utf-8"))
+for entry in contents["images"]:
+    w = float(entry["size"].split("x")[0])
+    scale = int(entry["scale"].rstrip("x"))
+    px = int(round(w * scale))
+    ios_master.resize((px, px), Image.LANCZOS).save(os.path.join(IOS, entry["filename"]))
+print("ios icons written:", len(contents["images"]))

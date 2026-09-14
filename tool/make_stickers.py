@@ -15,7 +15,7 @@ CLI = r"C:\Users\Admin\supabase-cli\supabase.exe"
 TOKEN_FILE = r"C:\Users\Admin\.supabase\car-meet-access-token.txt"
 FONT_BOLD = os.path.join(ROOT, "assets", "fonts", "BarlowCondensed-Bold.ttf")
 FONT_SEMI = os.path.join(ROOT, "assets", "fonts", "BarlowCondensed-SemiBold.ttf")
-CAR = os.path.join(ROOT, "assets", "art", "car.png")
+LOGO = os.path.join(ROOT, "assets", "TTSpot_logo.png")
 
 ORANGE = (245, 165, 36)
 INK = (15, 17, 21)
@@ -48,11 +48,13 @@ def sticker(row):
     im = Image.new("RGB", (W, H), "white")
     d = ImageDraw.Draw(im)
     # header
-    d.rectangle((0, 0, W, 260), fill=ORANGE)
-    f_brand = ImageFont.truetype(FONT_BOLD, 150)
-    d.text((70, 45), "TT Spot", font=f_brand, fill=INK)
-    car = Image.open(CAR).convert("RGBA").resize((200, 200), Image.LANCZOS)
-    im.paste(car, (W - 270, 30), car)
+    d.rectangle((0, 0, W, 260), fill=(255, 255, 255))
+    d.rectangle((0, 250, W, 262), fill=ORANGE)
+    lg = Image.open(LOGO).convert("RGBA")
+    lg = lg.crop(lg.getbbox())
+    k = 200 / lg.height
+    lg = lg.resize((int(lg.width * k), 200), Image.LANCZOS)
+    im.paste(lg, ((W - lg.width) // 2, 25), lg)
     # title
     f_title = ImageFont.truetype(FONT_BOLD, 96)
     f_small = ImageFont.truetype(FONT_SEMI, 52)

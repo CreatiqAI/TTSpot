@@ -1,44 +1,33 @@
-"""TT Spot launcher icon: teh-tarik orange tile with the 3D car. Writes legacy
-mipmaps, adaptive foreground/background, and the anydpi-v26 XML."""
+"""TT Spot app icons from the brand logo (assets/TTSpot_logo.png).
+
+Writes: Android legacy mipmaps + adaptive layers + anydpi XML + Android 12
+splash style, the iOS AppIcon set, the iOS LaunchImage set, and a cropped
+in-app copy at assets/brand/logo.png. Run: python tool/make_launcher.py"""
+import json
 import os
-from PIL import Image, ImageDraw, ImageFilter
+
+from PIL import Image, ImageDraw
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RES = os.path.join(ROOT, "android", "app", "src", "main", "res")
-CAR = os.path.join(ROOT, "assets", "art", "car.png")
-BG = (245, 165, 36)        # #F5A524, the TT now orange
-BG_DEEP = (230, 140, 20)   # bottom of the gradient
-SCRATCH = os.path.join(ROOT, "build")
+LOGO = os.path.join(ROOT, "assets", "TTSpot_logo.png")
+BRAND = os.path.join(ROOT, "assets", "brand")
+IOS_ICONS = os.path.join(ROOT, "ios", "Runner", "Assets.xcassets", "AppIcon.appiconset")
+IOS_LAUNCH = os.path.join(ROOT, "ios", "Runner", "Assets.xcassets", "LaunchImage.imageset")
+WHITE = (255, 255, 255, 255)
 
-car = Image.open(CAR).convert("RGBA")
-
-
-def gradient(size):
-    im = Image.new("RGBA", (size, size))
-    px = im.load()
-    for y in range(size):
-        t = y / max(1, size - 1)
-        c = tuple(int(BG[i] * (1 - t) + BG_DEEP[i] * t) for i in range(3)) + (255,)
-        for x in range(size):
-            px[x, y] = c
-    return im
+src = Image.open(LOGO).convert("RGBA")
+logo = src.crop(src.getbbox())  # drop the transparent padding
 
 
-def car_layer(size, scale):
-    """Car centred on a transparent canvas, with a soft drop shadow."""
-    s = int(size * scale)
-    c = car.resize((s, s), Image.LANCZOS)
-    layer = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    # shadow
-    shadow = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    alpha = c.split()[3]
-    sh = Image.new("RGBA", c.size, (0, 0, 0, 90))
-    sh.putalpha(alpha.point(lambda a: int(a * 0.5)))
-    shadow.paste(sh, ((size - s) // 2, (size - s) // 2 + int(size * 0.03)), sh)
-    shadow = shadow.filter(ImageFilter.GaussianBlur(size * 0.03))
-    layer = Image.alpha_composite(layer, shadow)
-    layer.paste(c, ((size - s) // 2, (size - s) // 2), c)
-    return layer
+def fit(size, scale, bg=None):
+    """Logo centred on a `size`×`size` canvas, longest side = size*scale."""
+    canvas = Image.new("RGBA", (size, size), bg or (0, 0, 0, 0))
+    w, h = logo.size
+    k = size * scale / max(w, h)
+    l = logo.resize((max(1, int(w * k)), max(1, int(h * k))), Image.LANCZOS)
+    canvas.paste(l, ((size - l.width) // 2, (size - l.height) // 2), l)
+    return canvas
 
 
 def rounded_mask(size, radius):
@@ -47,23 +36,23 @@ def rounded_mask(size, radius):
     return m
 
 
-# ---- legacy full icons (rounded square, transparent corners) ----
-legacy = {"mdpi": 48, "hdpi": 72, "xhdpi": 96, "xxhdpi": 144, "xxxhdpi": 192}
+# ---- in-app asset (cropped, transparent) ----
+os.makedirs(BRAND, exist_ok=True)
+logo.save(os.path.join(BRAND, "logo.png"))
+
+# ---- Android legacy icons: white rounded tile, logo at 78 % ----
 master = 1024
-tile = Image.alpha_composite(gradient(master), car_layer(master, 0.70))
+tile = fit(master, 0.78, WHITE)
 tile.putalpha(rounded_mask(master, int(master * 0.22)))
-os.makedirs(SCRATCH, exist_ok=True)
-tile.save(os.path.join(SCRATCH, "icon-preview.png"))
-for dpi, px in legacy.items():
+for dpi, px in {"mdpi": 48, "hdpi": 72, "xhdpi": 96, "xxhdpi": 144, "xxxhdpi": 192}.items():
     d = os.path.join(RES, f"mipmap-{dpi}")
     os.makedirs(d, exist_ok=True)
     tile.resize((px, px), Image.LANCZOS).save(os.path.join(d, "ic_launcher.png"))
 
-# ---- adaptive layers (108 dp, safe zone is the central 66 %) ----
-adaptive = {"mdpi": 108, "hdpi": 162, "xhdpi": 216, "xxhdpi": 324, "xxxhdpi": 432}
-fg_master = car_layer(1024, 0.50)  # 50 % of 108 dp = 54 dp, inside the 66 dp safe circle
-bg_master = gradient(1024)
-for dpi, px in adaptive.items():
+# ---- adaptive layers (108 dp canvas, the launcher shows the central 66 %) ----
+fg_master = fit(1024, 0.56)                      # logo inside the safe circle
+bg_master = Image.new("RGBA", (1024, 1024), WHITE)
+for dpi, px in {"mdpi": 108, "hdpi": 162, "xhdpi": 216, "xxhdpi": 324, "xxxhdpi": 432}.items():
     d = os.path.join(RES, f"mipmap-{dpi}")
     fg_master.resize((px, px), Image.LANCZOS).save(os.path.join(d, "ic_launcher_foreground.png"))
     bg_master.resize((px, px), Image.LANCZOS).save(os.path.join(d, "ic_launcher_background.png"))
@@ -79,7 +68,7 @@ xml = """<?xml version="1.0" encoding="utf-8"?>
 for name in ("ic_launcher.xml", "ic_launcher_round.xml"):
     open(os.path.join(anydpi, name), "w", encoding="utf-8", newline="\n").write(xml)
 
-# ---- Android 12+ splash: white, icon centred (icon must be adaptive-sized) ----
+# ---- Android 12+ splash: white, launcher icon centred ----
 v31 = os.path.join(RES, "values-v31")
 os.makedirs(v31, exist_ok=True)
 open(os.path.join(v31, "styles.xml"), "w", encoding="utf-8", newline="\n").write("""<?xml version="1.0" encoding="utf-8"?>
@@ -94,16 +83,16 @@ open(os.path.join(v31, "styles.xml"), "w", encoding="utf-8", newline="\n").write
     </style>
 </resources>
 """)
-print("launcher written")
 
-# ---- iOS app icon set (opaque, square; iOS rounds the corners itself) ----
-import json
-IOS = os.path.join(ROOT, "ios", "Runner", "Assets.xcassets", "AppIcon.appiconset")
-ios_master = Image.alpha_composite(gradient(master), car_layer(master, 0.70)).convert("RGB")
-contents = json.load(open(os.path.join(IOS, "Contents.json"), encoding="utf-8"))
+# ---- iOS app icon set (opaque white, logo at 78 %; iOS rounds the corners) ----
+ios_master = fit(1024, 0.78, WHITE).convert("RGB")
+contents = json.load(open(os.path.join(IOS_ICONS, "Contents.json"), encoding="utf-8"))
 for entry in contents["images"]:
-    w = float(entry["size"].split("x")[0])
-    scale = int(entry["scale"].rstrip("x"))
-    px = int(round(w * scale))
-    ios_master.resize((px, px), Image.LANCZOS).save(os.path.join(IOS, entry["filename"]))
-print("ios icons written:", len(contents["images"]))
+    px = int(round(float(entry["size"].split("x")[0]) * int(entry["scale"].rstrip("x"))))
+    ios_master.resize((px, px), Image.LANCZOS).save(os.path.join(IOS_ICONS, entry["filename"]))
+
+# ---- iOS launch screen: transparent logo, 160 pt ----
+for scale, name in ((1, "LaunchImage.png"), (2, "LaunchImage@2x.png"), (3, "LaunchImage@3x.png")):
+    fit(160 * scale, 1.0).save(os.path.join(IOS_LAUNCH, name))
+
+print("icons written from", os.path.relpath(LOGO, ROOT))

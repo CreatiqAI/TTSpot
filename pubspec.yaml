@@ -36,6 +36,7 @@ flutter:
   assets:
     - assets/map_style_dark.json
     - assets/art/
+    - assets/brand/
   fonts:
     - family: Phosphor
       fonts:

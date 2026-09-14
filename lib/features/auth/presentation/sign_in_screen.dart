@@ -87,9 +87,9 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          const SizedBox(height: 24),
-                          const Text('TT Spot', textAlign: TextAlign.center, style: AppText.wordmark),
-                          const SizedBox(height: 6),
+                          const SizedBox(height: 8),
+                          Center(child: Image.asset('assets/brand/logo.png', height: 150, filterQuality: FilterQuality.medium)),
+                          const SizedBox(height: 10),
                           const Text(
                             "Malaysia's car meet spot",
                             textAlign: TextAlign.center,

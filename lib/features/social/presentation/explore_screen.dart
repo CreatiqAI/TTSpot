@@ -35,7 +35,7 @@ class ExploreScreen extends ConsumerWidget {
       child: Scaffold(
         appBar: AppBar(
           centerTitle: false,
-          title: const Text('TT Spot', style: TextStyle(fontFamily: AppFonts.display, fontWeight: FontWeight.w800, fontSize: 28, letterSpacing: -0.5)),
+          title: Image.asset('assets/brand/logo.png', height: 40, filterQuality: FilterQuality.medium),
           actions: [
             IconButton(tooltip: 'Search', icon: const Icon(AppIcons.magnifyingGlass, size: 26), onPressed: () => context.push(Routes.search)),
             IconButton(tooltip: 'Create', icon: const Icon(AppIcons.plusCircle, size: 26), onPressed: () => showCreateHub(context)),

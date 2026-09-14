@@ -115,7 +115,7 @@ class _Row extends ConsumerWidget {
       NotificationType.spottedClaim => ('claimed the car you spotted.', n.postId == null ? null : Routes.post(n.postId!)),
       NotificationType.badge => ('You earned the ${badge?.name ?? 'a new'} badge ${badge?.emoji ?? '🏅'}', me == null ? null : Routes.badges(me!)),
       NotificationType.carOfWeek => (n.body ?? 'Your build is Car of the Week!', n.postId == null ? null : Routes.post(n.postId!)),
-      NotificationType.clubJoin => ('joined ${n.clubName ?? 'your club'}.', n.clubId == null ? null : Routes.club(n.clubId!)),
+      NotificationType.clubJoin => (n.body == 'admin' ? 'now helps run ${n.clubName ?? 'your club'}.' : 'joined ${n.clubName ?? 'your club'}.', n.clubId == null ? null : Routes.club(n.clubId!)),
       NotificationType.friendRequest => ('wants to be friends.', Routes.friends),
       NotificationType.friendAccepted => ('accepted your friend request. You\'ll see each other on the map.', Routes.profile(n.actor?.id ?? '')),
       NotificationType.ttNow => ('started TT now${n.body == null ? '' : ' @ ${n.body}'}. Otw?', n.eventId == null ? null : Routes.event(n.eventId!)),
@@ -124,7 +124,12 @@ class _Row extends ConsumerWidget {
       NotificationType.points => (n.body ?? 'You earned points.', Routes.points),
       NotificationType.partner => _partnerText(n),
       NotificationType.voucher => ((n.body ?? '').startsWith('redeemed:') ? 'Voucher used: ${n.body!.substring(9)}' : (n.body ?? 'Voucher update.'), Routes.myVouchers),
-      NotificationType.clubInvite => ('invited you to join ${n.clubName ?? n.body ?? 'their club'}. Open the club to accept.', n.clubId == null ? null : Routes.club(n.clubId!)),
+      NotificationType.clubInvite => (
+          (n.body ?? '').startsWith('admin:')
+              ? 'wants you to help run ${n.clubName ?? n.body!.substring(6)} as an admin. Open the club to accept.'
+              : 'invited you to join ${n.clubName ?? n.body ?? 'their club'}. Open the club to accept.',
+          n.clubId == null ? null : Routes.club(n.clubId!)
+        ),
       NotificationType.unknown => ('did something.', null),
     };
     final systemMessage = n.type == NotificationType.badge ||

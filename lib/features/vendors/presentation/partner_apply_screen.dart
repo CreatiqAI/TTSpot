@@ -286,7 +286,7 @@ class _Approved extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           club
-              ? 'Create your club page, invite members, and your crew will see each other on the map.'
+              ? 'Create your club page, invite members, and members will see each other on the map.'
               : 'Publish vouchers, scan them at the counter, and see your statement in the partner dashboard.',
           textAlign: TextAlign.center,
           style: const TextStyle(color: AppColors.textSecondary, height: 1.4),

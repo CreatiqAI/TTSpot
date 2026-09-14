@@ -53,3 +53,24 @@ class PlacesService {
 }
 
 final placesServiceProvider = Provider<PlacesService>((ref) => PlacesService(ref));
+
+/// Live Google suggestions for a typed query (debounced inside), for lists
+/// that can't host a [PlaceSearchField]. Keyed by query + rough position.
+final placeSuggestionsProvider = FutureProvider.autoDispose.family<List<PlaceSuggestion>, PlaceQuery>((ref, q) async {
+  if (q.text.trim().length < 2) return const [];
+  await Future<void>.delayed(const Duration(milliseconds: 350));
+  return ref.read(placesServiceProvider).autocomplete(q.text.trim(), lat: q.lat, lng: q.lng);
+});
+
+class PlaceQuery {
+  const PlaceQuery(this.text, {this.lat, this.lng});
+  final String text;
+  final double? lat;
+  final double? lng;
+
+  @override
+  bool operator ==(Object other) =>
+      other is PlaceQuery && other.text == text && other.lat?.toStringAsFixed(2) == lat?.toStringAsFixed(2) && other.lng?.toStringAsFixed(2) == lng?.toStringAsFixed(2);
+  @override
+  int get hashCode => Object.hash(text, lat?.toStringAsFixed(2), lng?.toStringAsFixed(2));
+}

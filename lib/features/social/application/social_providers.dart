@@ -53,6 +53,13 @@ final savedPostsProvider = FutureProvider<List<FeedPost>>((ref) async {
   return repo.attachViewerState(await repo.fetchSaved(me), me);
 });
 
+final likedPostsProvider = FutureProvider<List<FeedPost>>((ref) async {
+  final me = ref.watch(currentUserIdProvider);
+  if (me == null) return const [];
+  final repo = ref.watch(socialRepositoryProvider);
+  return repo.attachViewerState(await repo.fetchLiked(me), me);
+});
+
 final postProvider = FutureProvider.family<FeedPost?, String>((ref, id) async {
   final me = ref.watch(currentUserIdProvider);
   final repo = ref.watch(socialRepositoryProvider);

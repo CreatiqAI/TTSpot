@@ -38,7 +38,7 @@ class ExploreScreen extends ConsumerWidget {
           title: Image.asset('assets/brand/logo.png', height: 56, filterQuality: FilterQuality.medium),
           actions: [
             IconButton(tooltip: 'Search', icon: const Icon(AppIcons.magnifyingGlass, size: 26), onPressed: () => context.push(Routes.search)),
-            IconButton(tooltip: 'Create', icon: const Icon(AppIcons.plusCircle, size: 26), onPressed: () => showCreateHub(context)),
+            IconButton(tooltip: 'Create', icon: const Icon(AppIcons.plusCircle, size: 26), onPressed: () => showCreateHub(context, ref)),
             const SizedBox(width: 4),
           ],
           bottom: const TabBar(

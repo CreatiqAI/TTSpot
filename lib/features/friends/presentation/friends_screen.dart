@@ -15,7 +15,7 @@ import '../../social/application/social_providers.dart';
 import '../application/friends_providers.dart';
 import '../domain/friend.dart';
 
-/// Friends: requests waiting, your crew, and a search box to add people.
+/// Friends: requests waiting, your friends, people you may know, and search.
 class FriendsScreen extends ConsumerStatefulWidget {
   const FriendsScreen({super.key});
 
@@ -52,7 +52,17 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
     final outgoing = ref.watch(outgoingRequestIdsProvider).value ?? const <String>{};
     final searching = _q.trim().length >= 2;
     final results = searching ? ref.watch(profileSearchProvider(_q.trim())) : const AsyncValue<List<Profile>>.data([]);
+    final suggestions = ref.watch(friendSuggestionsProvider).value ?? const <FriendSuggestion>[];
     final actions = ref.read(friendActionsProvider);
+
+    Widget addButton(Profile p) => FilledButton(
+          onPressed: () => _run(() async {
+            final s = await actions.add(p.id);
+            _snack(s == FriendshipStatus.friends ? 'You\'re now friends.' : 'Request sent.');
+          }),
+          style: FilledButton.styleFrom(minimumSize: const Size(0, 36), padding: const EdgeInsets.symmetric(horizontal: 16)),
+          child: const Text('Add'),
+        );
 
     return Scaffold(
       appBar: AppBar(
@@ -67,6 +77,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
         onRefresh: () async {
           ref.invalidate(friendsProvider);
           ref.invalidate(friendRequestsProvider);
+          ref.invalidate(friendSuggestionsProvider);
           await ref.read(friendsProvider.future);
         },
         child: ListView(
@@ -118,14 +129,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
                                           style: FilledButton.styleFrom(minimumSize: const Size(0, 36), padding: const EdgeInsets.symmetric(horizontal: 16)),
                                           child: const Text('Accept'),
                                         )
-                                      : FilledButton(
-                                          onPressed: () => _run(() async {
-                                            final s = await actions.add(p.id);
-                                            _snack(s == FriendshipStatus.friends ? 'You\'re now friends.' : 'Request sent.');
-                                          }),
-                                          style: FilledButton.styleFrom(minimumSize: const Size(0, 36), padding: const EdgeInsets.symmetric(horizontal: 16)),
-                                          child: const Text('Add'),
-                                        ),
+                                      : addButton(p),
                         ),
                     ],
                   );
@@ -161,11 +165,11 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
                 error: (e, _) => Padding(padding: const EdgeInsets.all(16), child: Text(friendlyError(e))),
                 data: (list) => list.isEmpty
                     ? const Padding(
-                        padding: EdgeInsets.only(top: 24),
+                        padding: EdgeInsets.fromLTRB(24, 24, 24, 8),
                         child: EmptyState(
                           emoji: '🫂',
-                          title: 'Your crew goes here',
-                          subtitle: 'Search a username above. Friends see each other on the map and get pinged for TT now.',
+                          title: 'No friends yet',
+                          subtitle: 'Friends see each other on the map and get pinged for TT now. Start with the people below.',
                         ),
                       )
                     : Column(
@@ -197,6 +201,23 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
                         ],
                       ),
               ),
+              if (suggestions.isNotEmpty) ...[
+                const _Section('PEOPLE YOU MAY KNOW'),
+                for (final sgg in suggestions)
+                  _PersonTile(
+                    profile: sgg.profile,
+                    subtitle: sgg.reason,
+                    trailing: outgoing.contains(sgg.profile.id)
+                        ? const _Chip('Requested')
+                        : requests.any((r) => r.from.id == sgg.profile.id)
+                            ? FilledButton(
+                                onPressed: () => _run(() => actions.accept(sgg.profile.id)),
+                                style: FilledButton.styleFrom(minimumSize: const Size(0, 36), padding: const EdgeInsets.symmetric(horizontal: 16)),
+                                child: const Text('Accept'),
+                              )
+                            : addButton(sgg.profile),
+                  ),
+              ],
             ],
           ],
         ),
@@ -206,9 +227,11 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
 }
 
 class _PersonTile extends StatelessWidget {
-  const _PersonTile({required this.profile, required this.trailing});
+  const _PersonTile({required this.profile, required this.trailing, this.subtitle});
   final Profile profile;
   final Widget trailing;
+  /// Replaces the @handle line (e.g. "2 mutual friends").
+  final String? subtitle;
 
   @override
   Widget build(BuildContext context) {
@@ -217,7 +240,7 @@ class _PersonTile extends StatelessWidget {
       onTap: () => context.push(Routes.profile(p.id)),
       leading: UserAvatar(url: p.avatarUrl, name: p.displayName ?? p.username, size: 44),
       title: Text(p.displayName ?? '@${p.username}', style: const TextStyle(fontWeight: FontWeight.w600)),
-      subtitle: Text('@${p.username ?? ''}', style: const TextStyle(color: AppColors.textSecondary)),
+      subtitle: Text(subtitle ?? '@${p.username ?? ''}', style: const TextStyle(color: AppColors.textSecondary, fontSize: 12.5)),
       trailing: trailing,
     );
   }

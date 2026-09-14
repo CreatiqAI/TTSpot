@@ -44,6 +44,12 @@ final friendCountProvider = FutureProvider.family<int, String>((ref, userId) {
 });
 
 /// Set of my friends' ids, for quick "is this a friend" checks.
+final friendSuggestionsProvider = FutureProvider<List<FriendSuggestion>>((ref) async {
+  final me = ref.watch(currentUserIdProvider);
+  if (me == null) return const [];
+  return ref.watch(friendsRepositoryProvider).suggestions();
+});
+
 final friendIdsProvider = Provider<Set<String>>((ref) {
   return ref.watch(friendsProvider).value?.map((p) => p.id).toSet() ?? const {};
 });
@@ -79,6 +85,7 @@ class FriendActions {
     _ref.invalidate(friendsProvider);
     _ref.invalidate(friendRequestsProvider);
     _ref.invalidate(outgoingRequestIdsProvider);
+    _ref.invalidate(friendSuggestionsProvider);
     _ref.invalidate(friendshipStatusProvider(userId));
     _ref.invalidate(friendCountProvider(userId));
     _ref.invalidate(friendPinsProvider);

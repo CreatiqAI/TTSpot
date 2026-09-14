@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/config/features.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../accounts/presentation/account_switcher.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../social/application/community_providers.dart';
@@ -40,15 +40,13 @@ Future<void> showProfileMenu(BuildContext context, WidgetRef ref) async {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _Group('ACCOUNT'),
+              _Item(AppIcons.arrowsClockwise, 'Switch account', 'switch'),
               _Item(AppIcons.pencilSimple, 'Edit profile', 'edit'),
-              _Item(AppIcons.car, 'Add a car', 'car'),
               _Item(AppIcons.users, 'Friends', 'friends'),
-              _Item(AppIcons.qrCode, 'My QR', 'qr'),
               _Group('REWARDS'),
               _Item(AppIcons.star, 'Points', 'points'),
               _Item(AppIcons.gift, 'Rewards & vouchers', 'rewards'),
               _Item(AppIcons.trophy, 'Badges', 'badges'),
-              if (kSocialFeed) _Item(AppIcons.bookmarkSimple, 'Saved posts', 'saved'),
               _Group('PARTNERS & CLUBS'),
               _Item(AppIcons.storefront, isVendor ? 'Partner dashboard' : 'Become a partner', 'partner'),
               _Item(AppIcons.usersThree, canRunClubs ? 'My car club' : 'Run a car club', 'club'),
@@ -70,6 +68,8 @@ Future<void> showProfileMenu(BuildContext context, WidgetRef ref) async {
   if (!context.mounted || action == null) return;
   final me = ref.read(currentUserIdProvider);
   switch (action) {
+    case 'switch':
+      await showAccountSwitcher(context, ref);
     case 'edit':
       context.push(Routes.editProfile);
     case 'friends':

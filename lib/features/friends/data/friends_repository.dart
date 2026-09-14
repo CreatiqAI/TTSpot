@@ -14,6 +14,14 @@ class FriendsRepository {
 
   // -------------------------------------------------------------- friends ---
 
+  /// People you may know, best match first. Excludes friends, pending and blocked.
+  Future<List<FriendSuggestion>> suggestions({int limit = 12}) async {
+    final rows = await _client.rpc('suggest_friends', params: {'p_limit': limit}) as List;
+    return rows
+        .map((r) => FriendSuggestion(profile: Profile.fromMap(r as Map<String, dynamic>), reason: r['reason'] as String? ?? ''))
+        .toList();
+  }
+
   /// Everyone I'm friends with, name order.
   Future<List<Profile>> friends(String me) async {
     final rows = await _client

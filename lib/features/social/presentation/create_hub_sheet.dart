@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/config/features.dart';
@@ -6,10 +7,16 @@ import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_art.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../accounts/application/active_account.dart';
 import '../domain/post.dart';
 
-/// The "+" tab: what do you want to create?
-Future<void> showCreateHub(BuildContext context) {
+/// The "+" sheet: what do you want to create? While a club account is active
+/// everything here is made as the club.
+Future<void> showCreateHub(BuildContext context, WidgetRef ref) {
+  final account = ref.read(activeAccountProvider);
+  final club = account is ClubAccount ? account.club : null;
+  final clubId = club?.id;
+  final asClub = clubId != null;
   return showModalBottomSheet<void>(
     context: context,
     showDragHandle: true,
@@ -20,7 +27,7 @@ Future<void> showCreateHub(BuildContext context) {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Create', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+            Text(club == null ? 'Create' : 'Create as ${club.name}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
             const SizedBox(height: 12),
             GridView.count(
               crossAxisCount: 3,
@@ -30,18 +37,18 @@ Future<void> showCreateHub(BuildContext context) {
               crossAxisSpacing: 10,
               childAspectRatio: 1.05,
               children: [
-                _Tile(art: AppArt.flag, label: 'Meet', onTap: () => _go(ctx, context, Routes.createEvent)),
-                _Tile(art: AppArt.camera, label: 'Moment', onTap: () => _go(ctx, context, Routes.createMoment())),
-                _Tile(art: AppArt.car, label: 'Car', onTap: () => _go(ctx, context, Routes.newCar)),
+                _Tile(art: AppArt.flag, label: 'Meet', onTap: () => _go(ctx, context, Routes.createEventAs(clubId: clubId))),
+                if (!asClub) _Tile(art: AppArt.camera, label: 'Moment', onTap: () => _go(ctx, context, Routes.createMoment())),
+                if (!asClub) _Tile(art: AppArt.car, label: 'Car', onTap: () => _go(ctx, context, Routes.newCar)),
                 if (kSocialFeed) ...[
-                  _Tile(art: AppArt.picture, label: 'Post', onTap: () => _go(ctx, context, Routes.createPost(PostKind.post))),
-                  _Tile(art: AppArt.eyes, label: 'Spotted', onTap: () => _go(ctx, context, Routes.createPost(PostKind.spotted))),
-                  _Tile(art: AppArt.chart, label: 'Poll', onTap: () => _go(ctx, context, Routes.createPost(PostKind.poll))),
-                  _Tile(art: AppArt.map, label: 'Guide', onTap: () => _go(ctx, context, Routes.createPost(PostKind.guide))),
+                  _Tile(art: AppArt.picture, label: 'Post', onTap: () => _go(ctx, context, Routes.createPost(PostKind.post, clubId: clubId, asClub: asClub))),
+                  _Tile(art: AppArt.eyes, label: 'Spotted', onTap: () => _go(ctx, context, Routes.createPost(PostKind.spotted, clubId: clubId, asClub: asClub))),
+                  _Tile(art: AppArt.chart, label: 'Poll', onTap: () => _go(ctx, context, Routes.createPost(PostKind.poll, clubId: clubId, asClub: asClub))),
+                  _Tile(art: AppArt.map, label: 'Guide', onTap: () => _go(ctx, context, Routes.createPost(PostKind.guide, clubId: clubId, asClub: asClub))),
                 ],
               ],
             ),
-            if (kSocialFeed) ...[
+            if (kSocialFeed && !asClub) ...[
               const SizedBox(height: 10),
               ListTile(
                 contentPadding: EdgeInsets.zero,

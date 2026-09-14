@@ -94,7 +94,7 @@ class MapEventSheet extends ConsumerWidget {
                           : _Message(
                               art: AppArt.flag,
                               title: 'No meets nearby yet',
-                              subtitle: 'Start one and the crew will come.',
+                              subtitle: 'Start one and your friends will come.',
                               actionLabel: 'Create meet',
                               onAction: () => context.push(Routes.createEvent),
                             ),

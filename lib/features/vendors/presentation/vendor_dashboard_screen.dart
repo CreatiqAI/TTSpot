@@ -10,21 +10,29 @@ import '../../../core/utils/dates.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/user_avatar.dart';
+import '../../accounts/presentation/account_switcher.dart';
+import '../../accounts/presentation/account_title.dart';
 import '../application/vendors_providers.dart';
 import '../domain/vendor.dart';
 
 /// The partner's home: headline numbers, scan-to-redeem, vouchers, recent
 /// redemptions, and the monthly statement.
 class VendorDashboardScreen extends ConsumerWidget {
-  const VendorDashboardScreen({super.key});
+  const VendorDashboardScreen({super.key, this.embedded = false});
+  /// Shown as the Me tab (partner account active): no back arrow, the title
+  /// opens the account switcher.
+  final bool embedded;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final vendor = ref.watch(myVendorProvider);
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(icon: const Icon(AppIcons.arrowLeft), onPressed: () => context.pop()),
-        title: const Text('Partner dashboard'),
+        automaticallyImplyLeading: false,
+        leading: embedded ? null : IconButton(icon: const Icon(AppIcons.arrowLeft), onPressed: () => context.pop()),
+        title: embedded
+            ? AccountTitle(text: vendor.value?.name ?? 'Partner', onTap: () => showAccountSwitcher(context, ref))
+            : const Text('Partner dashboard'),
         actions: [
           IconButton(tooltip: 'Statement', icon: const Icon(AppIcons.chartBar), onPressed: () => context.push(Routes.vendorReport)),
         ],

@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -22,9 +22,11 @@ import '../../social/application/community_providers.dart';
 import '../application/create_event_controller.dart';
 import '../domain/event.dart';
 
-/// "New meet" form, Instagram new-post style: X / title / blue "Publish".
+/// "New meet" form. Title, when, where, who can see it. Nothing else to think
+/// about. `clubId` set means the meet is hosted under that club.
 class CreateEventScreen extends ConsumerStatefulWidget {
-  const CreateEventScreen({super.key});
+  const CreateEventScreen({super.key, this.clubId});
+  final String? clubId;
 
   @override
   ConsumerState<CreateEventScreen> createState() => _CreateEventScreenState();
@@ -34,12 +36,11 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
   final _title = TextEditingController();
   final _venue = TextEditingController();
   final _description = TextEditingController();
-  final _maxAttendees = TextEditingController();
   EventType _type = EventType.meet;
   late DateTime _startsAt;
+  late bool _friendsOnly = widget.clubId == null;
   XFile? _cover;
   LatLng? _pin;
-  String? _clubId;
   GoogleMapController? _map;
   String? _mapStyle;
 
@@ -62,7 +63,6 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
     _title.dispose();
     _venue.dispose();
     _description.dispose();
-    _maxAttendees.dispose();
     _map?.dispose();
     super.dispose();
   }
@@ -149,9 +149,9 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
           startsAt: _startsAt,
           venueName: _venue.text,
           location: _pin,
-          maxAttendees: int.tryParse(_maxAttendees.text.trim()),
           cover: _cover,
-          clubId: _clubId,
+          clubId: widget.clubId,
+          friendsOnly: _friendsOnly,
         );
     if (id != null && mounted) {
       context.pushReplacement(Routes.event(id));
@@ -165,6 +165,7 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
     });
     final busy = ref.watch(createEventControllerProvider).isLoading;
     final start = ref.watch(userLocationProvider).value ?? kualaLumpur;
+    final club = widget.clubId == null ? null : ref.watch(clubProvider(widget.clubId!)).value;
 
     return Scaffold(
       appBar: AppBar(
@@ -189,33 +190,29 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  if (club != null) ...[
+                    _HostingAs(name: club.name),
+                    const SizedBox(height: 14),
+                  ],
                   TextField(
                     controller: _title,
                     maxLength: 80,
                     textCapitalization: TextCapitalization.sentences,
-                    decoration: const InputDecoration(labelText: 'Title', hintText: 'e.g. Sunway Night Meet', counterText: ''),
+                    decoration: const InputDecoration(labelText: 'What\'s the meet?', hintText: 'e.g. Sunway Night Meet', counterText: ''),
                   ),
-                  const SizedBox(height: 18),
-                  const _Label('TYPE'),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    height: 38,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: EventType.values.length,
-                      separatorBuilder: (_, _) => const SizedBox(width: 8),
-                      itemBuilder: (_, i) {
-                        final t = EventType.values[i];
-                        final selected = t == _type;
-                        return ChoiceChip(
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    children: [
+                      for (final t in EventType.pickable)
+                        ChoiceChip(
                           avatar: ArtIcon(t.art, size: 20),
                           label: Text(t.label),
-                          selected: selected,
+                          selected: t == _type,
                           showCheckmark: false,
                           onSelected: busy ? null : (_) => setState(() => _type = t),
-                        );
-                      },
-                    ),
+                        ),
+                    ],
                   ),
                   const SizedBox(height: 18),
                   const _Label('WHEN'),
@@ -241,7 +238,7 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
                     onPicked: (d) {
                       final target = LatLng(d.lat, d.lng);
                       setState(() => _pin = target);
-                      if (_venue.text.trim().isEmpty) _venue.text = d.name;
+                      _venue.text = d.name;
                       _map?.animateCamera(CameraUpdate.newLatLngZoom(target, 16));
                     },
                   ),
@@ -267,49 +264,26 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
                     ),
                   ),
                   const SizedBox(height: 18),
+                  const _Label('WHO CAN SEE IT'),
+                  const SizedBox(height: 8),
+                  _Audience(
+                    friendsOnly: _friendsOnly,
+                    clubName: club?.name,
+                    onChanged: busy ? null : (v) => setState(() => _friendsOnly = v),
+                  ),
+                  const SizedBox(height: 18),
                   TextField(
                     controller: _description,
                     maxLength: 2000,
-                    minLines: 3,
+                    minLines: 2,
                     maxLines: 8,
                     textCapitalization: TextCapitalization.sentences,
                     decoration: const InputDecoration(
-                      labelText: 'Description',
-                      hintText: 'Parking, rules, who it\'s for, what to bring…',
+                      labelText: 'Details (optional)',
+                      hintText: 'Parking, what to bring, who it\'s for…',
                       alignLabelWithHint: true,
                       counterText: '',
                     ),
-                  ),
-                  const SizedBox(height: 14),
-                  TextField(
-                    controller: _maxAttendees,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(4)],
-                    decoration: const InputDecoration(
-                      labelText: 'Max attendees (optional)',
-                      hintText: 'Leave empty for no limit',
-                      prefixIcon: Icon(AppIcons.users),
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  const _Label('CLUB (OPTIONAL)'),
-                  const SizedBox(height: 8),
-                  Consumer(
-                    builder: (context, ref, _) {
-                      final clubs = ref.watch(myClubsProvider).value ?? const [];
-                      if (clubs.isEmpty) {
-                        return const Text('Join or start a club to host meets under its name.', style: TextStyle(fontSize: 13, color: AppColors.textSecondary));
-                      }
-                      return Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          ChoiceChip(label: const Text('None'), selected: _clubId == null, showCheckmark: false, onSelected: (_) => setState(() => _clubId = null)),
-                          for (final c in clubs)
-                            ChoiceChip(label: Text(c.name), selected: _clubId == c.id, showCheckmark: false, onSelected: (_) => setState(() => _clubId = c.id)),
-                        ],
-                      );
-                    },
                   ),
                   const SizedBox(height: 20),
                   const Text(
@@ -324,6 +298,75 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
       ),
     );
   }
+}
+
+/// Two big options, one tap. Friends (default) or everyone on TT Spot.
+class _Audience extends StatelessWidget {
+  const _Audience({required this.friendsOnly, required this.onChanged, this.clubName});
+  final bool friendsOnly;
+  final String? clubName;
+  final ValueChanged<bool>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget option({required bool value, required IconData icon, required String title, required String subtitle}) {
+      final on = friendsOnly == value;
+      return Expanded(
+        child: GestureDetector(
+          onTap: onChanged == null ? null : () => onChanged!(value),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+            decoration: BoxDecoration(
+              color: on ? AppColors.ink : AppColors.surfaceRaised,
+              borderRadius: BorderRadius.circular(AppRadius.md),
+              border: Border.all(color: on ? AppColors.ink : AppColors.border),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(icon, size: 20, color: on ? Colors.white : AppColors.textPrimary),
+                const SizedBox(height: 8),
+                Text(title, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: on ? Colors.white : AppColors.textPrimary)),
+                const SizedBox(height: 2),
+                Text(subtitle, style: TextStyle(fontSize: 11.5, height: 1.3, color: on ? Colors.white70 : AppColors.textSecondary)),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Row(
+      children: [
+        option(
+          value: true,
+          icon: AppIcons.users,
+          title: 'Friends',
+          subtitle: clubName == null ? 'Your friends and people who join.' : 'Your friends and $clubName members.',
+        ),
+        const SizedBox(width: 10),
+        option(value: false, icon: AppIcons.globe, title: 'Everyone', subtitle: 'Shows on the map for all of TT Spot.'),
+      ],
+    );
+  }
+}
+
+class _HostingAs extends StatelessWidget {
+  const _HostingAs({required this.name});
+  final String name;
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(color: AppColors.surfaceGray, borderRadius: BorderRadius.circular(AppRadius.md)),
+        child: Row(
+          children: [
+            const Icon(AppIcons.shieldCheck, size: 18),
+            const SizedBox(width: 8),
+            Expanded(child: Text('Hosting as $name', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5))),
+          ],
+        ),
+      );
 }
 
 // ---------------------------------------------------------------- pieces ---

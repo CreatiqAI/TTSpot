@@ -18,6 +18,13 @@ enum FriendshipStatus {
 }
 
 /// A pending request someone sent me.
+/// Someone worth adding, and the one-line reason why.
+class FriendSuggestion {
+  const FriendSuggestion({required this.profile, required this.reason});
+  final Profile profile;
+  final String reason;
+}
+
 class FriendRequest {
   const FriendRequest({required this.from, required this.createdAt});
   final Profile from;

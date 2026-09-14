@@ -6,12 +6,13 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/user_avatar.dart';
 import '../../../auth/domain/profile.dart';
 import '../../../friends/domain/friend.dart';
-import '../../../social/domain/notification.dart';
+import '../../../../core/utils/dates.dart';
+import '../../../social/domain/post.dart';
 import '../../domain/car.dart';
 
-/// Identity block: centered avatar in the brand ring, name, one row of
-/// tappable numbers, two actions, bio, badge chips, then the cars as a row of
-/// circles you can tap into. Calm, symmetrical, everything above the fold.
+/// Identity block: centered avatar (red ring only while a moment is live),
+/// name, one row of tappable numbers, two actions, bio, then the moments as
+/// a row of circles. Clean: no badges, no cars up here, the garage has a tab.
 class ProfileHeader extends StatelessWidget {
   const ProfileHeader({
     super.key,
@@ -21,18 +22,17 @@ class ProfileHeader extends StatelessWidget {
     required this.stats,
     required this.friendCount,
     required this.points,
-    required this.streak,
-    required this.badges,
+    required this.moments,
     required this.friendship,
     required this.onMeets,
     required this.onFriends,
     required this.onPoints,
-    required this.onBadges,
     required this.onEdit,
     required this.onRewards,
     required this.onQr,
-    required this.onAddCar,
-    required this.onCar,
+    required this.onAvatar,
+    required this.onMoment,
+    required this.onAddMoment,
     required this.onFriendAction,
     required this.onMessage,
   });
@@ -43,18 +43,17 @@ class ProfileHeader extends StatelessWidget {
   final ProfileStats? stats;
   final int? friendCount;
   final int? points;
-  final int streak;
-  final List<EarnedBadge> badges;
+  final List<Story> moments;
   final FriendshipStatus friendship;
   final VoidCallback onMeets;
   final VoidCallback? onFriends;
   final VoidCallback onPoints;
-  final VoidCallback onBadges;
   final VoidCallback onEdit;
   final VoidCallback onRewards;
   final VoidCallback onQr;
-  final VoidCallback onAddCar;
-  final ValueChanged<Car> onCar;
+  final VoidCallback onAvatar;
+  final ValueChanged<Story> onMoment;
+  final VoidCallback onAddMoment;
   final VoidCallback onFriendAction;
   final VoidCallback onMessage;
 
@@ -63,17 +62,21 @@ class ProfileHeader extends StatelessWidget {
     final p = profile;
     final name = p.displayName ?? '@${p.username}';
     final where = (p.homeState ?? '').isNotEmpty ? ' · ${p.homeState}' : '';
+    final live = moments.any((m) => m.isLive);
     return Column(
       children: [
         const SizedBox(height: 6),
         // ---------------------------------------------------------- avatar ---
-        Container(
-          padding: const EdgeInsets.all(3),
-          decoration: const BoxDecoration(shape: BoxShape.circle, color: AppColors.brand),
+        GestureDetector(
+          onTap: onAvatar,
           child: Container(
             padding: const EdgeInsets.all(3),
-            decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.white),
-            child: UserAvatar(url: p.avatarUrl, name: name, size: 84),
+            decoration: BoxDecoration(shape: BoxShape.circle, color: live ? AppColors.brand : AppColors.border),
+            child: Container(
+              padding: const EdgeInsets.all(3),
+              decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.white),
+              child: UserAvatar(url: p.avatarUrl, name: name, size: 84),
+            ),
           ),
         ),
         const SizedBox(height: 10),
@@ -127,24 +130,8 @@ class ProfileHeader extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(28, 12, 28, 0),
             child: Text(p.bio!.trim(), textAlign: TextAlign.center, style: const TextStyle(fontSize: 13.5, height: 1.4)),
           ),
-        // ---------------------------------------------------------- badges ---
-        if (streak > 0 || badges.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(top: 12),
-            child: SizedBox(
-              height: 30,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                children: [
-                  if (streak > 0) _Chip(text: '$streak-wk streak', art: AppArt.fire, accent: true, onTap: onBadges),
-                  for (final b in badges) _Chip(text: b.badge.name, art: AppArt.forEmoji(b.badge.emoji), onTap: onBadges),
-                ],
-              ),
-            ),
-          ),
-        // ------------------------------------------------------------ cars ---
-        if (cars.isNotEmpty || isMe)
+        // --------------------------------------------------------- moments ---
+        if (moments.isNotEmpty || isMe)
           Padding(
             padding: const EdgeInsets.only(top: 14),
             child: SizedBox(
@@ -153,14 +140,56 @@ class ProfileHeader extends StatelessWidget {
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 children: [
-                  for (final c in cars) _CarCircle(car: c, onTap: () => onCar(c)),
-                  if (isMe) _CarCircle(onTap: onAddCar),
+                  if (isMe) _MomentCircle(onTap: onAddMoment),
+                  for (final m in moments) _MomentCircle(moment: m, onTap: () => onMoment(m)),
                 ],
               ),
             ),
           ),
         const SizedBox(height: 4),
       ],
+    );
+  }
+}
+
+/// A moment as a story-style circle. No moment = the "new" tile on my own profile.
+class _MomentCircle extends StatelessWidget {
+  const _MomentCircle({this.moment, required this.onTap});
+  final Story? moment;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final m = moment;
+    final label = m == null ? 'New' : (m.whereLabel ?? relativeShort(m.createdAt));
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      child: GestureDetector(
+        onTap: onTap,
+        child: SizedBox(
+          width: 64,
+          child: Column(
+            children: [
+              Container(
+                width: 60,
+                height: 60,
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: m == null ? AppColors.border : (m.isLive ? AppColors.brand : AppColors.ink), width: 1.5),
+                ),
+                child: ClipOval(
+                  child: m == null
+                      ? const ColoredBox(color: AppColors.surfaceGray, child: Icon(AppIcons.plus, size: 22, color: AppColors.textSecondary))
+                      : Image.network(m.photoUrl, fit: BoxFit.cover, errorBuilder: (_, _, _) => const ColoredBox(color: AppColors.surfaceGray)),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -226,80 +255,6 @@ class _Action extends StatelessWidget {
       ),
     );
     return tooltip == null ? child : Tooltip(message: tooltip!, child: child);
-  }
-}
-
-class _Chip extends StatelessWidget {
-  const _Chip({required this.text, required this.art, this.accent = false, this.onTap});
-  final String text;
-  final String? art;
-  final bool accent;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(right: 6),
-        child: GestureDetector(
-          onTap: onTap,
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(6, 0, 10, 0),
-            decoration: BoxDecoration(
-              color: accent ? AppColors.brand : Colors.transparent,
-              border: Border.all(color: accent ? AppColors.brand : AppColors.border),
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: Row(
-              children: [
-                if (art != null) ...[ArtIcon(art!, size: 17), const SizedBox(width: 5)],
-                Text(text, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: accent ? Colors.white : AppColors.textPrimary)),
-              ],
-            ),
-          ),
-        ),
-      );
-}
-
-/// A car as a story-style circle: cover photo inside a thin ring. No car
-/// (the `+`) is the add tile for my own profile.
-class _CarCircle extends StatelessWidget {
-  const _CarCircle({this.car, required this.onTap});
-  final Car? car;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = car;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 6),
-      child: GestureDetector(
-        onTap: onTap,
-        child: SizedBox(
-          width: 64,
-          child: Column(
-            children: [
-              Container(
-                width: 60,
-                height: 60,
-                padding: const EdgeInsets.all(2),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: c == null ? AppColors.border : AppColors.ink, width: 1.5),
-                ),
-                child: ClipOval(
-                  child: c == null
-                      ? const ColoredBox(color: AppColors.surfaceGray, child: Icon(AppIcons.plus, size: 22, color: AppColors.textSecondary))
-                      : c.cover == null
-                          ? const ColoredBox(color: AppColors.surfaceGray, child: Center(child: ArtIcon(AppArt.car, size: 30)))
-                          : Image.network(c.cover!, fit: BoxFit.cover, errorBuilder: (_, _, _) => const ColoredBox(color: AppColors.surfaceGray)),
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(c == null ? 'Add car' : c.model, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 }
 
@@ -431,8 +386,10 @@ class ShowroomCard extends StatelessWidget {
                           ],
                         ),
                       ),
-                      const SizedBox(width: 10),
-                      _Plate(text: car.year?.toString() ?? 'TT SPOT'),
+                      if (car.year != null) ...[
+                        const SizedBox(width: 10),
+                        _Plate(text: car.year.toString()),
+                      ],
                     ],
                   ),
                 ),

@@ -22,9 +22,10 @@ class CreateEventController extends AsyncNotifier<void> {
     required DateTime startsAt,
     required String venueName,
     required LatLng? location,
-    required int? maxAttendees,
+    int? maxAttendees,
     XFile? cover,
     String? clubId,
+    bool friendsOnly = false,
   }) async {
     state = const AsyncLoading();
     String? createdId;
@@ -54,6 +55,7 @@ class CreateEventController extends AsyncNotifier<void> {
         location: location,
         maxAttendees: maxAttendees,
         clubId: clubId,
+        friendsOnly: friendsOnly,
       );
       createdId = event.id;
       ref.invalidate(mapEventsProvider);

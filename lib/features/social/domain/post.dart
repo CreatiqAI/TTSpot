@@ -47,10 +47,11 @@ class CarRef {
 }
 
 class NamedRef {
-  const NamedRef({required this.id, required this.name, this.handle});
+  const NamedRef({required this.id, required this.name, this.handle, this.avatarUrl});
   final String id;
   final String name;
   final String? handle;
+  final String? avatarUrl;
 }
 
 /// A row from `posts` with embeds and counts.
@@ -67,6 +68,7 @@ class Post {
     this.place,
     this.event,
     this.club,
+    this.asClub = false,
     this.lat,
     this.lng,
     this.claimedBy,
@@ -92,6 +94,8 @@ class Post {
   final NamedRef? place;
   final NamedRef? event;
   final NamedRef? club;
+  /// Published under the club's name (by its owner or an admin).
+  final bool asClub;
   final double? lat;
   final double? lng;
   final String? claimedBy;
@@ -133,7 +137,8 @@ class Post {
       car: carM == null ? null : CarRef(id: carM['id'] as String, make: carM['make'] as String, model: carM['model'] as String),
       place: placeM == null ? null : NamedRef(id: placeM['id'] as String, name: placeM['name'] as String),
       event: eventM == null ? null : NamedRef(id: eventM['id'] as String, name: eventM['title'] as String),
-      club: clubM == null ? null : NamedRef(id: clubM['id'] as String, name: clubM['name'] as String, handle: clubM['handle'] as String?),
+      club: clubM == null ? null : NamedRef(id: clubM['id'] as String, name: clubM['name'] as String, handle: clubM['handle'] as String?, avatarUrl: clubM['avatar_url'] as String?),
+      asClub: m['as_club'] as bool? ?? false,
       lat: (m['lat'] as num?)?.toDouble(),
       lng: (m['lng'] as num?)?.toDouble(),
       claimedBy: m['claimed_by'] as String?,

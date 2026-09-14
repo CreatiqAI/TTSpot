@@ -13,7 +13,7 @@ const _storySelect = '*, profiles:profiles!stories_author_id_fkey($profileCols),
 const _postSelect = '*, '
     'author:profiles!posts_author_id_fkey($profileCols), '
     'claimer:profiles!posts_claimed_by_fkey($profileCols), '
-    'car:cars(id, make, model), place:places(id, name), event:events(id, title), club:clubs(id, name, handle), '
+    'car:cars(id, make, model), place:places(id, name), event:events(id, title), club:clubs(id, name, handle, avatar_url), '
     'likes:post_likes(count), comments:post_comments(count), votes:poll_votes(count)';
 
 /// Posts, likes, saves, comments, polls, follows, stories, car of the week.
@@ -52,6 +52,17 @@ class SocialRepository {
 
   Future<List<Post>> fetchSaved(String me) async {
     final ids = (await _client.from('post_saves').select('post_id').eq('user_id', me).order('created_at', ascending: false).limit(100))
+        .map((r) => r['post_id'] as String)
+        .toList();
+    if (ids.isEmpty) return const [];
+    final rows = await _client.from('posts').select(_postSelect).inFilter('id', ids);
+    final byId = {for (final r in rows) r['id'] as String: Post.fromMap(r)};
+    return ids.map((id) => byId[id]).whereType<Post>().toList();
+  }
+
+  /// Posts I liked, newest like first.
+  Future<List<Post>> fetchLiked(String me) async {
+    final ids = (await _client.from('post_likes').select('post_id').eq('user_id', me).order('created_at', ascending: false).limit(100))
         .map((r) => r['post_id'] as String)
         .toList();
     if (ids.isEmpty) return const [];
@@ -117,6 +128,7 @@ class SocialRepository {
     String? eventId,
     String? placeId,
     String? clubId,
+    bool asClub = false,
     LatLng? location,
     List<PollOption>? pollOptions,
     DateTime? pollEndsAt,
@@ -125,6 +137,7 @@ class SocialRepository {
     final row = await _client
         .from('posts')
         .insert({
+          'as_club': asClub && clubId != null,
           'author_id': authorId,
           'kind': kind.db,
           'title': ?title?.trim(),

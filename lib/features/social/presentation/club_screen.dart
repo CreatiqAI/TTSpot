@@ -11,19 +11,25 @@ import '../../../core/utils/friendly_error.dart';
 import '../../../core/widgets/event_list_tile.dart';
 import '../../../core/widgets/primary_button.dart';
 import '../../../core/widgets/user_avatar.dart';
+import '../../accounts/presentation/account_switcher.dart';
+import '../../accounts/presentation/account_title.dart';
 import '../../auth/domain/profile.dart';
 import '../../friends/application/friends_providers.dart';
 import '../application/community_providers.dart';
 import '../application/social_providers.dart';
 import '../domain/club.dart';
 import '../domain/post.dart';
+import '../../profile/presentation/profile_menu.dart';
+import 'create_hub_sheet.dart';
 import 'widgets/masonry_grid.dart';
 
-/// A car club's page. Owners invite members; members see each other on the
-/// map and can switch that off per club.
+/// A car club's page. Owners invite members and admins; members see each
+/// other on the map and can switch that off per club. `embedded` = shown as
+/// the Me tab while the club account is active.
 class ClubScreen extends ConsumerWidget {
-  const ClubScreen({super.key, required this.clubId});
+  const ClubScreen({super.key, required this.clubId, this.embedded = false});
   final String clubId;
+  final bool embedded;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -31,28 +37,42 @@ class ClubScreen extends ConsumerWidget {
     final me = ref.watch(currentUserIdProvider);
     final isMember = ref.watch(isClubMemberProvider(clubId)).value ?? false;
     final members = ref.watch(clubMembersProvider(clubId)).value ?? const <Profile>[];
+    final roles = ref.watch(clubMemberRolesProvider(clubId)).value ?? const <String, String>{};
     final events = ref.watch(clubEventsProvider(clubId)).value ?? const [];
     final posts = ref.watch(postsWhereProvider((column: 'club_id', value: clubId))).value ?? const <FeedPost>[];
     final invite = ref.watch(myClubInviteProvider(clubId)).value;
+    final inviteRole = ref.watch(myClubInviteRoleProvider(clubId)).value;
     final sharing = ref.watch(myClubShareProvider(clubId)).value ?? true;
+    final isOwner = club.value?.ownerId == me;
+    final isManager = isOwner || roles[me] == 'admin' || roles[me] == 'owner';
 
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(icon: const Icon(AppIcons.arrowLeft), onPressed: () => context.pop()),
-        title: Text(club.value?.handle == null ? '' : '@${club.value!.handle}'),
+        automaticallyImplyLeading: false,
+        leading: embedded ? null : IconButton(icon: const Icon(AppIcons.arrowLeft), onPressed: () => context.pop()),
+        title: embedded
+            ? AccountTitle(text: club.value?.handle == null ? '' : '@${club.value!.handle}', onTap: () => showAccountSwitcher(context, ref))
+            : Text(club.value?.handle == null ? '' : '@${club.value!.handle}'),
+        actions: [
+          if (embedded) ...[
+            IconButton(tooltip: 'Create', icon: const Icon(AppIcons.plusCircle), onPressed: () => showCreateHub(context, ref)),
+            IconButton(tooltip: 'Menu', icon: const Icon(AppIcons.list), onPressed: () => showProfileMenu(context, ref)),
+          ],
+        ],
       ),
       body: club.when(
         loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
         error: (e, _) => Center(child: Text(friendlyError(e))),
         data: (c) {
           if (c == null) return const Center(child: Text('This club no longer exists.'));
-          final isOwner = c.ownerId == me;
           return RefreshIndicator(
             onRefresh: () async {
               ref.invalidate(clubProvider(clubId));
               ref.invalidate(clubMembersProvider(clubId));
+              ref.invalidate(clubMemberRolesProvider(clubId));
               ref.invalidate(clubEventsProvider(clubId));
               ref.invalidate(myClubInviteProvider(clubId));
+              ref.invalidate(myClubInviteRoleProvider(clubId));
               ref.invalidate(myClubShareProvider(clubId));
               ref.invalidate(postsWhereProvider((column: 'club_id', value: clubId)));
               await ref.read(clubProvider(clubId).future);
@@ -61,13 +81,13 @@ class ClubScreen extends ConsumerWidget {
               padding: const EdgeInsets.only(bottom: 32),
               children: [
                 _Header(club: c, meets: events.length, posts: posts.length),
-                if (invite != null && !isMember) _InviteBanner(clubId: clubId, clubName: c.name),
+                if (invite != null && (!isMember || inviteRole == 'admin')) _InviteBanner(clubId: clubId, clubName: c.name, admin: inviteRole == 'admin'),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
                   child: Row(
                     children: [
                       Expanded(
-                        child: isOwner
+                        child: isManager
                             ? PrimaryButton(label: 'Invite members', onPressed: () => _invite(context, ref, c))
                             : isMember
                                 ? SecondaryButton(label: 'Member', icon: AppIcons.checkCircle, onPressed: () => _leave(context, ref))
@@ -76,15 +96,20 @@ class ClubScreen extends ConsumerWidget {
                       const SizedBox(width: 8),
                       Expanded(
                         child: SecondaryButton(
-                          label: 'Post',
+                          label: isManager ? 'Post as club' : 'Post',
                           icon: AppIcons.cameraPlus,
-                          onPressed: isMember || isOwner ? () => context.push(Routes.createPost(PostKind.post, clubId: clubId)) : null,
+                          onPressed: isMember || isManager ? () => context.push(Routes.createPost(PostKind.post, clubId: clubId, asClub: isManager)) : null,
                         ),
                       ),
                     ],
                   ),
                 ),
-                if (isMember || isOwner)
+                if (isManager)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                    child: SecondaryButton(label: 'Schedule a meet as ${c.name}', icon: AppIcons.flagCheckered, onPressed: () => context.push(Routes.createEventAs(clubId: clubId))),
+                  ),
+                if (isMember || isManager)
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
                     child: Container(
@@ -111,35 +136,27 @@ class ClubScreen extends ConsumerWidget {
                 if (members.isNotEmpty) ...[
                   _Section('MEMBERS · ${members.length}'),
                   SizedBox(
-                    height: 88,
+                    height: 96,
                     child: ListView(
                       scrollDirection: Axis.horizontal,
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       children: [
                         for (final m in members)
-                          GestureDetector(
-                            onTap: () => context.push(Routes.profile(m.id)),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 6),
-                              child: Column(
-                                children: [
-                                  Stack(
-                                    clipBehavior: Clip.none,
-                                    children: [
-                                      UserAvatar(url: m.avatarUrl, name: m.displayName ?? m.username, size: 54),
-                                      if (m.id == c.ownerId)
-                                        const Positioned(right: -2, top: -4, child: Icon(AppIcons.crown, size: 18, color: AppColors.warnColor)),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 4),
-                                  SizedBox(width: 62, child: Text(m.username ?? '', maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center, style: const TextStyle(fontSize: 11))),
-                                ],
-                              ),
-                            ),
+                          _MemberTile(
+                            profile: m,
+                            role: m.id == c.ownerId ? 'owner' : (roles[m.id] ?? 'member'),
+                            onTap: () => isManager && m.id != me && m.id != c.ownerId
+                                ? _manageMember(context, ref, c, m, roles[m.id] ?? 'member', isOwner: isOwner)
+                                : context.push(Routes.profile(m.id)),
                           ),
                       ],
                     ),
                   ),
+                  if (isOwner)
+                    const Padding(
+                      padding: EdgeInsets.fromLTRB(16, 0, 16, 0),
+                      child: Text('Tap a member to make them an admin. Admins can post and schedule meets as the club.', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                    ),
                 ],
                 const _Section('MEETS'),
                 if (events.isEmpty)
@@ -157,6 +174,60 @@ class ClubScreen extends ConsumerWidget {
         },
       ),
     );
+  }
+
+  Future<void> _manageMember(BuildContext context, WidgetRef ref, Club c, Profile m, String role, {required bool isOwner}) async {
+    final name = m.displayName ?? '@${m.username}';
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: UserAvatar(url: m.avatarUrl, name: name, size: 40),
+              title: Text(name, style: const TextStyle(fontWeight: FontWeight.w700)),
+              subtitle: Text(role == 'admin' ? 'Admin · helps run ${c.name}' : 'Member', style: const TextStyle(fontSize: 12)),
+              onTap: () => Navigator.pop(ctx, 'profile'),
+            ),
+            const Divider(height: 8),
+            if (isOwner && role != 'admin')
+              ListTile(
+                leading: const Icon(AppIcons.shieldCheck),
+                title: const Text('Make admin'),
+                subtitle: const Text('They accept from Activity, then they can post and schedule meets as the club.', style: TextStyle(fontSize: 12)),
+                onTap: () => Navigator.pop(ctx, 'admin'),
+              ),
+            if (isOwner && role == 'admin')
+              ListTile(leading: const Icon(AppIcons.shield), title: const Text('Remove as admin'), onTap: () => Navigator.pop(ctx, 'member')),
+            ListTile(
+              leading: const Icon(AppIcons.userMinus, color: AppColors.danger),
+              title: const Text('Remove from club', style: TextStyle(color: AppColors.danger)),
+              onTap: () => Navigator.pop(ctx, 'remove'),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (action == null || !context.mounted) return;
+    final actions = ref.read(communityActionsProvider);
+    try {
+      switch (action) {
+        case 'profile':
+          context.push(Routes.profile(m.id));
+        case 'admin':
+          await actions.inviteToClub(clubId, m.id, role: 'admin');
+          if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Invite sent. $name becomes an admin once they accept.')));
+        case 'member':
+          await actions.setClubRole(clubId, m.id, 'member');
+        case 'remove':
+          await actions.removeClubMember(clubId, m.id);
+      }
+    } catch (e) {
+      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
+    }
   }
 
   Future<void> _leave(BuildContext context, WidgetRef ref) async {
@@ -187,6 +258,51 @@ class ClubScreen extends ConsumerWidget {
       showDragHandle: true,
       isScrollControlled: true,
       builder: (ctx) => _InviteSheet(clubId: clubId, clubName: c.name, memberIds: memberIds),
+    );
+  }
+}
+
+/// Avatar + handle, crown for the owner, small shield for admins.
+class _MemberTile extends StatelessWidget {
+  const _MemberTile({required this.profile, required this.role, required this.onTap});
+  final Profile profile;
+  final String role;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final m = profile;
+    return GestureDetector(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6),
+        child: Column(
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                UserAvatar(url: m.avatarUrl, name: m.displayName ?? m.username, size: 54),
+                if (role == 'owner')
+                  const Positioned(right: -2, top: -4, child: Icon(AppIcons.crown, size: 18, color: AppColors.warnColor))
+                else if (role == 'admin')
+                  Positioned(
+                    right: -2,
+                    bottom: -2,
+                    child: Container(
+                      padding: const EdgeInsets.all(3),
+                      decoration: const BoxDecoration(color: AppColors.ink, shape: BoxShape.circle),
+                      child: const Icon(AppIcons.shieldCheck, size: 12, color: Colors.white),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            SizedBox(width: 62, child: Text(m.username ?? '', maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center, style: const TextStyle(fontSize: 11))),
+            if (role != 'member')
+              Text(role == 'owner' ? 'Owner' : 'Admin', style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, color: AppColors.textSecondary)),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -288,9 +404,10 @@ class _Stat extends StatelessWidget {
 }
 
 class _InviteBanner extends ConsumerStatefulWidget {
-  const _InviteBanner({required this.clubId, required this.clubName});
+  const _InviteBanner({required this.clubId, required this.clubName, this.admin = false});
   final String clubId;
   final String clubName;
+  final bool admin;
   @override
   ConsumerState<_InviteBanner> createState() => _InviteBannerState();
 }
@@ -303,7 +420,9 @@ class _InviteBannerState extends ConsumerState<_InviteBanner> {
     try {
       await ref.read(communityActionsProvider).respondClubInvite(widget.clubId, accept: accept);
       ref.invalidate(friendPinsProvider);
-      if (mounted && accept) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Welcome to ${widget.clubName}.')));
+      if (mounted && accept) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(widget.admin ? 'You now help run ${widget.clubName}. Switch to it from your @handle.' : 'Welcome to ${widget.clubName}.')));
+      }
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
     } finally {
@@ -319,15 +438,20 @@ class _InviteBannerState extends ConsumerState<_InviteBanner> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('You\'re invited', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: Colors.white)),
+            Text(widget.admin ? 'Help run ${widget.clubName}?' : 'You\'re invited', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: Colors.white)),
             const SizedBox(height: 4),
-            Text('Join ${widget.clubName} to see your clubmates on the map and get their meets first.', style: const TextStyle(fontSize: 13, height: 1.35, color: Colors.white70)),
+            Text(
+              widget.admin
+                  ? 'The owner wants you as an admin. You\'ll be able to post and schedule meets as the club.'
+                  : 'Join ${widget.clubName} to see your clubmates on the map and get their meets first.',
+              style: const TextStyle(fontSize: 13, height: 1.35, color: Colors.white70),
+            ),
             const SizedBox(height: 10),
             Row(
               children: [
                 Expanded(child: OutlinedButton(onPressed: _busy ? null : () => _respond(false), style: OutlinedButton.styleFrom(foregroundColor: Colors.white, side: const BorderSide(color: Colors.white54)), child: const Text('Decline'))),
                 const SizedBox(width: 8),
-                Expanded(child: FilledButton(onPressed: _busy ? null : () => _respond(true), style: FilledButton.styleFrom(backgroundColor: Colors.black), child: const Text('Join club'))),
+                Expanded(child: FilledButton(onPressed: _busy ? null : () => _respond(true), style: FilledButton.styleFrom(backgroundColor: Colors.black), child: Text(widget.admin ? 'Accept' : 'Join club'))),
               ],
             ),
           ],

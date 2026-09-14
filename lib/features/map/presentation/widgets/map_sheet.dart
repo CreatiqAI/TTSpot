@@ -5,6 +5,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_art.dart';
+import '../../../../core/places/places_service.dart';
 import '../../../../core/theme/app_icons.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/dates.dart';
@@ -108,10 +109,10 @@ class _NowContent extends ConsumerWidget {
           onAction: () => context.push(Routes.friends),
         ),
         if (pins.isLoading && list.isEmpty)
-          const _Hint('Finding your crew…')
+          const _Hint('Finding your friends…')
         else if (list.isEmpty)
           _Hint(friendCount == 0
-              ? 'No friends yet. Add your crew and see them here when they open the app.'
+              ? 'No friends yet. Add friends and see them here when they open the app.'
               : 'None of your $friendCount friend${friendCount == 1 ? '' : 's'} has opened the app in the last day. Ping them with TT now.')
         else
           for (final f in list) _FriendRow(pin: f, distanceKm: distanceKm(origin, f.latLng), onTap: () => onFocus(f.latLng)),
@@ -292,7 +293,7 @@ class _UpcomingContent extends ConsumerWidget {
               ? SliverToBoxAdapter(
                   child: hasSearch
                       ? const _Message(title: 'No matches', subtitle: 'Try a different name or venue.')
-                      : _Message(title: 'No meets planned here yet', subtitle: 'Plan one and the crew will come.', actionLabel: 'Plan a meet', onAction: () => context.push(Routes.createEvent)),
+                      : _Message(title: 'No meets planned here yet', subtitle: 'Plan one and your friends will come.', actionLabel: 'Plan a meet', onAction: () => context.push(Routes.createEvent)),
                 )
               : SliverPadding(
                   padding: const EdgeInsets.only(bottom: 24),
@@ -319,22 +320,29 @@ class _SpotsContent extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final places = ref.watch(visibleSpotsProvider);
     final origin = ref.watch(mapOriginProvider);
+    final query = ref.watch(mapSearchProvider).trim();
+    final searching = query.length >= 2;
 
     return SliverMainAxisGroup(
       slivers: [
         SliverToBoxAdapter(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: _SearchField(hint: 'Spots to check in: mamak, touge, viewpoint…', onTap: expand),
+            child: _SearchField(hint: 'Search a spot, place or address', onTap: expand),
           ),
         ),
+        if (searching) _GoogleSuggestions(query: query, origin: origin, onFocus: onFocus),
         places.when(
           loading: () => const SliverToBoxAdapter(child: _Hint('Finding spots…')),
           error: (e, _) => SliverToBoxAdapter(
             child: _Message(title: 'Couldn\'t load spots', subtitle: 'Check your connection.', actionLabel: 'Retry', onAction: () => ref.invalidate(spotsProvider)),
           ),
           data: (list) => list.isEmpty
-              ? const SliverToBoxAdapter(child: _Message(title: 'No spots around here yet', subtitle: 'Post a moment at a place and it becomes a spot.'))
+              ? SliverToBoxAdapter(
+                  child: searching
+                      ? const _Hint('No check-in spots match. Pick a place above to jump there.')
+                      : const _Message(title: 'No spots around here yet', subtitle: 'Post a moment at a place and it becomes a spot.'),
+                )
               : SliverPadding(
                   padding: const EdgeInsets.only(bottom: 24),
                   sliver: SliverList.separated(
@@ -351,6 +359,53 @@ class _SpotsContent extends ConsumerWidget {
                 ),
         ),
       ],
+    );
+  }
+}
+
+/// Google Places matches for what's typed. Tap one: the map jumps there.
+class _GoogleSuggestions extends ConsumerWidget {
+  const _GoogleSuggestions({required this.query, required this.origin, required this.onFocus});
+  final String query;
+  final LatLng origin;
+  final void Function(LatLng) onFocus;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final items = ref.watch(placeSuggestionsProvider(PlaceQuery(query, lat: origin.latitude, lng: origin.longitude)));
+    final list = items.value ?? const <PlaceSuggestion>[];
+    if (list.isEmpty) {
+      return SliverToBoxAdapter(child: items.isLoading ? const _Hint('Searching places…') : const SizedBox.shrink());
+    }
+    return SliverPadding(
+      padding: const EdgeInsets.only(bottom: 8),
+      sliver: SliverList.builder(
+        itemCount: list.length,
+        itemBuilder: (_, i) {
+          final s = list[i];
+          return ListTile(
+            dense: true,
+            leading: Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(10)),
+              child: const Icon(AppIcons.mapPin, size: 18, color: AppColors.mapText),
+            ),
+            title: Text(s.main, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: AppColors.mapText, fontWeight: FontWeight.w600, fontSize: 14)),
+            subtitle: Text(s.secondary, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: AppColors.mapTextSecondary, fontSize: 12)),
+            trailing: const Icon(AppIcons.navigationArrow, size: 16, color: AppColors.mapTextSecondary),
+            onTap: () async {
+              FocusManager.instance.primaryFocus?.unfocus();
+              try {
+                final d = await ref.read(placesServiceProvider).details(s.placeId);
+                onFocus(LatLng(d.lat, d.lng));
+              } catch (_) {
+                if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Couldn\'t open that place.')));
+              }
+            },
+          );
+        },
+      ),
     );
   }
 }

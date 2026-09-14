@@ -10,18 +10,35 @@ import '../theme/app_theme.dart';
 /// "Search an address or place" with live suggestions. On pick, hands back the
 /// resolved place (name, address, coordinates) so the form can move the pin.
 class PlaceSearchField extends ConsumerStatefulWidget {
-  const PlaceSearchField({super.key, required this.onPicked, this.near, this.enabled = true, this.hint = 'Search a place or address'});
+  const PlaceSearchField({
+    super.key,
+    required this.onPicked,
+    this.near,
+    this.enabled = true,
+    this.hint = 'Search a place or address',
+    this.label,
+    this.icon = AppIcons.magnifyingGlass,
+    this.controller,
+    this.onChanged,
+    this.autofocus = false,
+  });
   final ValueChanged<PlaceDetails> onPicked;
   final (double, double)? near;
   final bool enabled;
   final String hint;
+  final String? label;
+  final IconData icon;
+  /// Pass one to read the free text back (when nothing was picked).
+  final TextEditingController? controller;
+  final ValueChanged<String>? onChanged;
+  final bool autofocus;
 
   @override
   ConsumerState<PlaceSearchField> createState() => _PlaceSearchFieldState();
 }
 
 class _PlaceSearchFieldState extends ConsumerState<PlaceSearchField> {
-  final _ctrl = TextEditingController();
+  late final TextEditingController _ctrl = widget.controller ?? TextEditingController();
   final _focus = FocusNode();
   Timer? _debounce;
   List<PlaceSuggestion> _items = const [];
@@ -31,12 +48,13 @@ class _PlaceSearchFieldState extends ConsumerState<PlaceSearchField> {
   @override
   void dispose() {
     _debounce?.cancel();
-    _ctrl.dispose();
+    if (widget.controller == null) _ctrl.dispose();
     _focus.dispose();
     super.dispose();
   }
 
   void _onChanged(String v) {
+    widget.onChanged?.call(v);
     _debounce?.cancel();
     if (v.trim().length < 2) {
       setState(() => _items = const []);
@@ -84,11 +102,14 @@ class _PlaceSearchFieldState extends ConsumerState<PlaceSearchField> {
           controller: _ctrl,
           focusNode: _focus,
           enabled: widget.enabled,
+          autofocus: widget.autofocus,
           textInputAction: TextInputAction.search,
+          textCapitalization: TextCapitalization.words,
           onChanged: _onChanged,
           decoration: InputDecoration(
+            labelText: widget.label,
             hintText: widget.hint,
-            prefixIcon: const Icon(AppIcons.magnifyingGlass),
+            prefixIcon: Icon(widget.icon),
             suffixIcon: _loading
                 ? const Padding(padding: EdgeInsets.all(12), child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)))
                 : _ctrl.text.isEmpty

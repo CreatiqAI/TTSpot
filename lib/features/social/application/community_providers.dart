@@ -30,6 +30,22 @@ final myClubInviteProvider = FutureProvider.family<String?, String>((ref, clubId
 });
 
 /// Whether I share my live location with this club's members.
+/// club id -> my role. Clubs I own or admin are accounts I can switch into.
+final myClubRolesProvider = FutureProvider<Map<String, String>>((ref) {
+  if (ref.watch(currentUserIdProvider) == null) return Future.value(const {});
+  return ref.watch(communityRepositoryProvider).myClubRoles();
+});
+
+final clubMemberRolesProvider = FutureProvider.family<Map<String, String>, String>((ref, clubId) {
+  ref.watch(currentUserIdProvider);
+  return ref.watch(communityRepositoryProvider).clubMemberRoles(clubId);
+});
+
+final myClubInviteRoleProvider = FutureProvider.family<String?, String>((ref, clubId) {
+  if (ref.watch(currentUserIdProvider) == null) return Future.value(null);
+  return ref.watch(communityRepositoryProvider).myClubInviteRole(clubId);
+});
+
 final myClubShareProvider = FutureProvider.family<bool, String>((ref, clubId) {
   if (ref.watch(currentUserIdProvider) == null) return Future.value(true);
   return ref.watch(communityRepositoryProvider).myClubShare(clubId);
@@ -83,15 +99,30 @@ class CommunityActions {
     return club;
   }
 
-  Future<void> inviteToClub(String clubId, String userId) => _repo.inviteToClub(clubId, userId);
+  Future<void> inviteToClub(String clubId, String userId, {String role = 'member'}) => _repo.inviteToClub(clubId, userId, role: role);
 
   Future<void> respondClubInvite(String clubId, {required bool accept}) async {
     await _repo.respondClubInvite(clubId, accept: accept);
     _ref.invalidate(myClubInviteProvider(clubId));
+    _ref.invalidate(myClubInviteRoleProvider(clubId));
     _ref.invalidate(isClubMemberProvider(clubId));
     _ref.invalidate(clubMembersProvider(clubId));
+    _ref.invalidate(clubMemberRolesProvider(clubId));
     _ref.invalidate(clubProvider(clubId));
     _ref.invalidate(myClubsProvider);
+    _ref.invalidate(myClubRolesProvider);
+  }
+
+  Future<void> setClubRole(String clubId, String userId, String role) async {
+    await _repo.setClubRole(clubId, userId, role);
+    _ref.invalidate(clubMemberRolesProvider(clubId));
+  }
+
+  Future<void> removeClubMember(String clubId, String userId) async {
+    await _repo.removeClubMember(clubId, userId);
+    _ref.invalidate(clubMembersProvider(clubId));
+    _ref.invalidate(clubMemberRolesProvider(clubId));
+    _ref.invalidate(clubProvider(clubId));
   }
 
   Future<void> setClubShare(String clubId, bool share) async {

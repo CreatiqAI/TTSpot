@@ -66,7 +66,29 @@ class CommunityRepository {
 
   // ------------------------------------------------- invites + sharing ---
 
-  Future<void> inviteToClub(String clubId, String userId) => _client.rpc('invite_to_club', params: {'p_club': clubId, 'p_user': userId});
+  Future<void> inviteToClub(String clubId, String userId, {String role = 'member'}) =>
+      _client.rpc('invite_to_club', params: {'p_club': clubId, 'p_user': userId, 'p_role': role});
+
+  /// Role of my pending invite on this club ('member' | 'admin'), or null.
+  Future<String?> myClubInviteRole(String clubId) async => await _client.rpc('my_club_invite_role', params: {'p_club': clubId}) as String?;
+
+  /// user id -> role for everyone in the club.
+  Future<Map<String, String>> clubMemberRoles(String clubId) async {
+    final rows = await _client.rpc('club_member_roles', params: {'p_club': clubId}) as List;
+    return {for (final r in rows) r['user_id'] as String: r['role'] as String};
+  }
+
+  /// club id -> my role ('owner' | 'admin' | 'member').
+  Future<Map<String, String>> myClubRoles() async {
+    final rows = await _client.rpc('my_club_roles') as List;
+    return {for (final r in rows) r['club_id'] as String: r['role'] as String};
+  }
+
+  Future<void> setClubRole(String clubId, String userId, String role) =>
+      _client.rpc('set_club_role', params: {'p_club': clubId, 'p_user': userId, 'p_role': role});
+
+  Future<void> removeClubMember(String clubId, String userId) =>
+      _client.rpc('remove_club_member', params: {'p_club': clubId, 'p_user': userId});
 
   Future<void> respondClubInvite(String clubId, {required bool accept}) =>
       _client.rpc('respond_club_invite', params: {'p_club': clubId, 'p_accept': accept});

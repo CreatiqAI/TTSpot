@@ -37,6 +37,7 @@ import '../../features/profile/presentation/car_form_screen.dart';
 import '../../features/profile/presentation/car_mod_form_screen.dart';
 import '../../features/profile/presentation/edit_profile_screen.dart';
 import '../../features/profile/presentation/follow_list_screen.dart';
+import '../../features/accounts/presentation/me_tab.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/social/domain/post.dart';
 import '../../features/social/presentation/activity_screen.dart';
@@ -95,6 +96,7 @@ abstract final class Routes {
 
   // Full-screen
   static const createEvent = '/create-event';
+  static String createEventAs({String? clubId}) => clubId == null ? createEvent : '$createEvent?club=$clubId';
   static const editProfile = '/edit-profile';
   static const newCar = '/car/new';
   static const search = '/search';
@@ -115,12 +117,13 @@ abstract final class Routes {
   static String editCar(String id) => '/car/$id/edit';
   static String newCarMod(String carId) => '/car/$carId/mods/new';
   static String post(String id) => '/post/$id';
-  static String createPost(PostKind kind, {String? eventId, String? carId, String? placeId, String? clubId}) {
+  static String createPost(PostKind kind, {String? eventId, String? carId, String? placeId, String? clubId, bool asClub = false}) {
     final q = <String, String>{
       'event': ?eventId,
       'car': ?carId,
       'place': ?placeId,
       'club': ?clubId,
+      if (asClub && clubId != null) 'as': 'club',
     };
     return Uri(path: '/create/post/${kind.db}', queryParameters: q.isEmpty ? null : q).toString();
   }
@@ -190,7 +193,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       // Full-screen routes (no bottom nav)
       GoRoute(path: Routes.meets, builder: (_, _) => const MyEventsScreen()),
-      GoRoute(path: Routes.createEvent, builder: (_, _) => const CreateEventScreen()),
+      GoRoute(path: Routes.createEvent, builder: (_, s) => CreateEventScreen(clubId: s.uri.queryParameters['club'])),
       GoRoute(
         path: '/event/:id',
         builder: (_, s) => EventDetailsScreen(eventId: s.pathParameters['id']!),
@@ -227,6 +230,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           carId: s.uri.queryParameters['car'],
           placeId: s.uri.queryParameters['place'],
           clubId: s.uri.queryParameters['club'],
+          asClub: s.uri.queryParameters['as'] == 'club',
         ),
       ),
       GoRoute(
@@ -280,7 +284,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(routes: [GoRoute(path: Routes.explore, builder: (_, _) => const ExploreScreen())]),
           StatefulShellBranch(routes: [GoRoute(path: Routes.map, builder: (_, _) => const MapScreen())]),
           StatefulShellBranch(routes: [GoRoute(path: Routes.inbox, builder: (_, _) => const InboxScreen())]),
-          StatefulShellBranch(routes: [GoRoute(path: Routes.garage, builder: (_, _) => const ProfileScreen())]),
+          StatefulShellBranch(routes: [GoRoute(path: Routes.garage, builder: (_, _) => const MeTab())]),
         ],
       ),
     ],

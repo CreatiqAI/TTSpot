@@ -22,6 +22,9 @@ enum EventType {
   final String art;
   final Color color;
 
+  /// What the New meet form offers. TT is the instant "TT now" kind.
+  static const pickable = [EventType.meet, EventType.convoy, EventType.trackday];
+
   static EventType fromDb(String value) =>
       EventType.values.firstWhere((t) => t.db == value, orElse: () => EventType.meet);
 }
@@ -50,6 +53,7 @@ class Event {
     this.placeId,
     this.clubId,
     this.isInstant = false,
+    this.friendsOnly = false,
   });
 
   final String id;
@@ -71,6 +75,8 @@ class Event {
   final String? placeId;
   final String? clubId;
   final bool isInstant;
+  /// `visibility = 'friends'`: only the organiser's friends, club members and attendees see it.
+  final bool friendsOnly;
 
   LatLng get latLng => LatLng(lat, lng);
   bool get isCancelled => status == EventStatus.cancelled;
@@ -109,5 +115,6 @@ class Event {
         placeId: m['place_id'] as String?,
         clubId: m['club_id'] as String?,
         isInstant: m['is_instant'] as bool? ?? false,
+        friendsOnly: m['visibility'] == 'friends',
       );
 }

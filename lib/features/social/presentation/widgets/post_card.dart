@@ -120,6 +120,9 @@ class _PostCardState extends ConsumerState<PostCard> {
     final p = f.post;
     final author = p.author;
     final username = author?.username ?? 'user';
+    // Posted as a club: the club is the face of the post, the person is a byline.
+    final club = p.asClub ? p.club : null;
+    final headRoute = club != null ? Routes.club(club.id) : Routes.profile(p.authorId);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -130,18 +133,30 @@ class _PostCardState extends ConsumerState<PostCard> {
           child: Row(
             children: [
               GestureDetector(
-                onTap: () => context.push(Routes.profile(p.authorId)),
-                child: UserAvatar(url: author?.avatarUrl, name: author?.displayName ?? username, size: 34),
+                onTap: () => context.push(headRoute),
+                child: club != null
+                    ? UserAvatar(url: club.avatarUrl, name: club.name, size: 34, borderColor: AppColors.brand)
+                    : UserAvatar(url: author?.avatarUrl, name: author?.displayName ?? username, size: 34),
               ),
               const SizedBox(width: 10),
               Expanded(
                 child: GestureDetector(
-                  onTap: () => context.push(Routes.profile(p.authorId)),
+                  onTap: () => context.push(headRoute),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(username, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                      _Subtitle(post: p),
+                      Row(
+                        children: [
+                          Flexible(child: Text(club?.name ?? username, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600))),
+                          if (club != null) ...[
+                            const SizedBox(width: 4),
+                            const Icon(AppIcons.sealCheck, size: 14, color: AppColors.brand),
+                          ],
+                        ],
+                      ),
+                      club != null
+                          ? Text('by @$username', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary))
+                          : _Subtitle(post: p),
                     ],
                   ),
                 ),

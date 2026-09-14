@@ -28,12 +28,14 @@ import '../domain/post.dart';
 
 /// New post / spotted / poll / guide. Instagram "New post" style: X, title, blue Share.
 class CreatePostScreen extends ConsumerStatefulWidget {
-  const CreatePostScreen({super.key, required this.kind, this.eventId, this.carId, this.placeId, this.clubId});
+  const CreatePostScreen({super.key, required this.kind, this.eventId, this.carId, this.placeId, this.clubId, this.asClub = false});
   final PostKind kind;
   final String? eventId;
   final String? carId;
   final String? placeId;
   final String? clubId;
+  /// Publish under the club's name (owner / admin only).
+  final bool asClub;
 
   @override
   ConsumerState<CreatePostScreen> createState() => _CreatePostScreenState();
@@ -170,6 +172,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
         eventId: _eventId,
         placeId: _place?.id,
         clubId: _clubId,
+        asClub: widget.asClub && _clubId == widget.clubId,
         location: _kind == PostKind.spotted ? _pin : null,
         pollOptions: options,
         pollEndsAt: _kind == PostKind.poll ? DateTime.now().add(Duration(days: _pollDays)) : null,

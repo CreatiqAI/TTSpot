@@ -180,10 +180,12 @@ class EventsRepository {
     required LatLng location,
     int? maxAttendees,
     String? clubId,
+    bool friendsOnly = false,
   }) async {
     final row = await _client
         .from('events')
         .insert({
+          'visibility': friendsOnly ? 'friends' : 'public',
           'organizer_id': organizerId,
           'title': title.trim(),
           'description': ?description?.trim(),

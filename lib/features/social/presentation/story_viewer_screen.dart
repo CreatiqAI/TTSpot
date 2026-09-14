@@ -11,11 +11,14 @@ import '../../../core/utils/dates.dart';
 import '../../../core/widgets/user_avatar.dart';
 import '../application/social_providers.dart';
 import '../domain/post.dart';
+import 'moment_sheets.dart';
+import 'share_sheet.dart';
 
 class StoryViewerArgs {
-  const StoryViewerArgs({required this.groups, required this.initialGroup});
+  const StoryViewerArgs({required this.groups, required this.initialGroup, this.initialIndex = 0});
   final List<StoryGroup> groups;
   final int initialGroup;
+  final int initialIndex;
 }
 
 /// Full-screen moment player. Finger down pauses at once, lift resumes; a
@@ -47,6 +50,7 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> with Sing
   void initState() {
     super.initState();
     _group = widget.args.initialGroup;
+    _index = widget.args.initialIndex.clamp(0, _g.stories.length - 1);
     _start();
   }
 
@@ -192,6 +196,13 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> with Sing
     }
   }
 
+  /// Pause while a sheet is up, resume when it closes.
+  Future<void> _hold(Future<void> Function() open) async {
+    _ctrl.stop();
+    await open();
+    if (mounted) _ctrl.forward();
+  }
+
   Future<bool> _confirm(String title, String? body) async {
     final ok = await showDialog<bool>(
       context: context,
@@ -306,19 +317,77 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> with Sing
                     const Spacer(),
                     if ((s.caption ?? '').trim().isNotEmpty)
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
+                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                           decoration: BoxDecoration(color: Colors.black45, borderRadius: BorderRadius.circular(12)),
                           child: Text(s.caption!.trim(), textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontSize: 15, height: 1.4)),
                         ),
                       ),
+                    _BottomBar(
+                      mine: s.authorId == me,
+                      viewers: s.authorId == me ? (ref.watch(storyViewersProvider(s.id)).value?.length) : null,
+                      onViewers: () => _hold(() => showMomentViewers(context, s.id)),
+                      onAlbum: () => _hold(() => showAddToAlbum(context, s.id)),
+                      onSend: () => _hold(() => showShareSheet(context, storyId: s.id)),
+                      onReply: () => _hold(() => showShareSheet(context, storyId: s.id, preset: s.authorId)),
+                    ),
                   ],
                 ),
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+
+/// Instagram-style strip at the bottom. Mine: viewers · add to album · send.
+/// Someone else's: reply · send.
+class _BottomBar extends StatelessWidget {
+  const _BottomBar({required this.mine, required this.viewers, required this.onViewers, required this.onAlbum, required this.onSend, required this.onReply});
+  final bool mine;
+  final int? viewers;
+  final VoidCallback onViewers;
+  final VoidCallback onAlbum;
+  final VoidCallback onSend;
+  final VoidCallback onReply;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget item(IconData icon, String label, VoidCallback onTap) => Expanded(
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, color: Colors.white, size: 24),
+                  const SizedBox(height: 4),
+                  Text(label, style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w600)),
+                ],
+              ),
+            ),
+          ),
+        );
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 4, 12, 10),
+      decoration: const BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.transparent, Color(0xAA000000)])),
+      child: Row(
+        children: mine
+            ? [
+                item(AppIcons.eye, viewers == null ? 'Viewers' : '$viewers viewer${viewers == 1 ? '' : 's'}', onViewers),
+                item(AppIcons.images, 'Add to album', onAlbum),
+                item(AppIcons.paperPlaneTilt, 'Send', onSend),
+              ]
+            : [
+                item(AppIcons.chatCircle, 'Reply', onReply),
+                item(AppIcons.paperPlaneTilt, 'Send', onSend),
+              ],
       ),
     );
   }

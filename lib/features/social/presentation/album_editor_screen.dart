@@ -14,8 +14,10 @@ import '../domain/post.dart';
 /// Make or edit a moment album: name it, tick the moments, pick a cover.
 /// Selected moments keep the order you tapped them in.
 class AlbumEditorScreen extends ConsumerStatefulWidget {
-  const AlbumEditorScreen({super.key, this.albumId});
+  const AlbumEditorScreen({super.key, this.albumId, this.preselect});
   final String? albumId;
+  /// A moment to tick from the start (from "Add to album" → "New album").
+  final String? preselect;
 
   @override
   ConsumerState<AlbumEditorScreen> createState() => _AlbumEditorScreenState();
@@ -135,7 +137,7 @@ class _AlbumEditorScreenState extends ConsumerState<AlbumEditorScreen> {
   Widget build(BuildContext context) {
     final me = ref.watch(currentUserIdProvider);
     if (me == null) return const Scaffold();
-    final mine = ref.watch(userMomentsProvider(me));
+    final mine = ref.watch(myMomentsArchiveProvider);
     final album = _editing ? ref.watch(albumProvider(widget.albumId!)).value : null;
     final inAlbum = _editing ? (ref.watch(albumMomentsProvider(widget.albumId!)).value ?? const <Story>[]) : const <Story>[];
 
@@ -150,6 +152,15 @@ class _AlbumEditorScreenState extends ConsumerState<AlbumEditorScreen> {
     // Everything I can put in: my moments plus whatever is already in the album (may be expired).
     final all = <String, Story>{for (final s in inAlbum) s.id: s, for (final s in (mine.value ?? const <Story>[])) s.id: s}.values.toList()
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    if (!_editing && !_loaded && widget.preselect != null && all.isNotEmpty) {
+      _loaded = true;
+      final pre = all.where((s) => s.id == widget.preselect).firstOrNull;
+      if (pre != null && !_selected.contains(pre.id)) {
+        _selected.add(pre.id);
+        _cover ??= pre.photoUrl;
+        if (_name.text.trim().isEmpty && pre.whereLabel != null) _name.text = pre.whereLabel!;
+      }
+    }
 
     return Scaffold(
       appBar: AppBar(

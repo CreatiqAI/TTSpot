@@ -257,6 +257,13 @@ class StoryGroup {
   final String? albumId;
 }
 
+/// Someone who viewed a moment, and when.
+class StoryViewer {
+  const StoryViewer({required this.profile, required this.viewedAt});
+  final Profile profile;
+  final DateTime viewedAt;
+}
+
 class WeeklyWinner {
   const WeeklyWinner({required this.weekStart, required this.post, required this.likeCount});
   final DateTime weekStart;

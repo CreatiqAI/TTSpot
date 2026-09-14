@@ -24,6 +24,8 @@ final myClubsProvider = FutureProvider<List<Club>>((ref) async {
 });
 
 /// Pending invite for me on this club (id), or null.
+final clubsOfUserProvider = FutureProvider.family<List<Club>, String>((ref, userId) => ref.watch(communityRepositoryProvider).myClubs(userId));
+
 final myClubInviteProvider = FutureProvider.family<String?, String>((ref, clubId) {
   if (ref.watch(currentUserIdProvider) == null) return Future.value(null);
   return ref.watch(communityRepositoryProvider).myClubInvite(clubId);

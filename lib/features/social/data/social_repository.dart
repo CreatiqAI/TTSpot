@@ -312,16 +312,36 @@ class SocialRepository {
   }
 
   /// Someone's moments that were kept (tagged to a meet or place) plus live ones.
-  Future<List<Story>> fetchUserMoments(String userId, {int limit = 90}) async {
-    final rows = await _client
-        .from('stories')
-        .select(_storySelect)
-        .eq('author_id', userId)
-        .or('event_id.not.is.null,place_id.not.is.null,expires_at.gt.${DateTime.now().toUtc().toIso8601String()}')
-        .order('created_at', ascending: false)
-        .limit(limit);
+  Future<List<Story>> fetchUserMoments(String userId, {int limit = 90, bool all = false}) async {
+    var q = _client.from('stories').select(_storySelect).eq('author_id', userId);
+    if (!all) q = q.or('event_id.not.is.null,place_id.not.is.null,expires_at.gt.${DateTime.now().toUtc().toIso8601String()}');
+    final rows = await q.order('created_at', ascending: false).limit(limit);
     return rows.map(Story.fromMap).toList();
   }
+
+  Future<Story?> fetchStory(String id) async {
+    final row = await _client.from('stories').select(_storySelect).eq('id', id).maybeSingle();
+    return row == null ? null : Story.fromMap(row);
+  }
+
+  /// Who viewed my moment (author only; the database enforces it).
+  Future<List<StoryViewer>> storyViewers(String storyId) async {
+    final rows = await _client.rpc('story_viewers', params: {'p_story': storyId}) as List;
+    return rows.map((r) => StoryViewer(profile: Profile.fromMap(r as Map<String, dynamic>), viewedAt: DateTime.parse(r['viewed_at'] as String).toLocal())).toList();
+  }
+
+  Future<Set<String>> albumsContaining(String storyId) async {
+    final rows = await _client.from('moment_album_items').select('album_id').eq('story_id', storyId);
+    return rows.map((r) => r['album_id'] as String).toSet();
+  }
+
+  Future<void> addToAlbum(String albumId, String storyId) async {
+    final n = await _client.from('moment_album_items').count().eq('album_id', albumId);
+    await _client.from('moment_album_items').upsert({'album_id': albumId, 'story_id': storyId, 'sort': n});
+  }
+
+  Future<void> removeFromAlbum(String albumId, String storyId) =>
+      _client.from('moment_album_items').delete().eq('album_id', albumId).eq('story_id', storyId);
 
   // --------------------------------------------------------------- albums ---
 

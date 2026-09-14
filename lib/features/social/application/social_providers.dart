@@ -68,6 +68,16 @@ final commentedPostsProvider = FutureProvider<List<FeedPost>>((ref) async {
   return repo.attachViewerState(await repo.fetchCommented(me), me);
 });
 
+/// Every moment I posted, live or not (author-only read).
+final myMomentsArchiveProvider = FutureProvider<List<Story>>((ref) {
+  final me = ref.watch(currentUserIdProvider);
+  if (me == null) return Future.value(const []);
+  return ref.watch(socialRepositoryProvider).fetchUserMoments(me, all: true, limit: 300);
+});
+final storyProvider = FutureProvider.family<Story?, String>((ref, id) => ref.watch(socialRepositoryProvider).fetchStory(id));
+final storyViewersProvider = FutureProvider.family<List<StoryViewer>, String>((ref, id) => ref.watch(socialRepositoryProvider).storyViewers(id));
+final albumsContainingProvider = FutureProvider.family<Set<String>, String>((ref, id) => ref.watch(socialRepositoryProvider).albumsContaining(id));
+
 final userAlbumsProvider = FutureProvider.family<List<MomentAlbum>, String>((ref, userId) => ref.watch(socialRepositoryProvider).fetchAlbums(userId));
 final albumProvider = FutureProvider.family<MomentAlbum?, String>((ref, id) => ref.watch(socialRepositoryProvider).fetchAlbum(id));
 final albumMomentsProvider = FutureProvider.family<List<Story>, String>((ref, id) => ref.watch(socialRepositoryProvider).fetchAlbumMoments(id));
@@ -233,6 +243,7 @@ class SocialActions {
     await _repo.deleteStory(storyId);
     _ref.invalidate(storiesProvider);
     _ref.invalidate(userMomentsProvider(_me));
+    _ref.invalidate(myMomentsArchiveProvider);
     _ref.invalidate(userAlbumsProvider(_me));
   }
 
@@ -244,6 +255,17 @@ class SocialActions {
     _ref.invalidate(albumProvider(albumId));
     _ref.invalidate(albumMomentsProvider(albumId));
     return albumId;
+  }
+
+  Future<void> toggleInAlbum(String albumId, String storyId, {required bool add}) async {
+    if (add) {
+      await _repo.addToAlbum(albumId, storyId);
+    } else {
+      await _repo.removeFromAlbum(albumId, storyId);
+    }
+    _ref.invalidate(albumsContainingProvider(storyId));
+    _ref.invalidate(albumMomentsProvider(albumId));
+    _ref.invalidate(userAlbumsProvider(_me));
   }
 
   Future<void> deleteAlbum(String id) async {

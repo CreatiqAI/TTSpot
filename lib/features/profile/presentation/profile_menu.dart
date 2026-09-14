@@ -43,6 +43,7 @@ Future<void> showProfileMenu(BuildContext context, WidgetRef ref) async {
               _Item(AppIcons.arrowsClockwise, 'Switch account', 'switch'),
               _Item(AppIcons.pencilSimple, 'Edit profile', 'edit'),
               _Item(AppIcons.users, 'Friends', 'friends'),
+              _Item(AppIcons.camera, 'My moments', 'moments'),
               _Group('REWARDS'),
               _Item(AppIcons.star, 'Points', 'points'),
               _Item(AppIcons.gift, 'Rewards & vouchers', 'rewards'),
@@ -74,6 +75,8 @@ Future<void> showProfileMenu(BuildContext context, WidgetRef ref) async {
       context.push(Routes.editProfile);
     case 'friends':
       context.push(Routes.friends);
+    case 'moments':
+      context.push(Routes.myMoments);
     case 'saved':
       context.push(Routes.saved);
     case 'badges':

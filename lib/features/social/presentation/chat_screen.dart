@@ -10,6 +10,9 @@ import '../../../core/utils/dates.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../../core/widgets/user_avatar.dart';
 import '../application/chat_providers.dart';
+import 'story_viewer_screen.dart';
+import '../domain/post.dart';
+import '../application/social_providers.dart';
 import '../domain/chat.dart';
 
 /// One conversation. Bubbles like Instagram DMs; meet chats show sender names.
@@ -96,6 +99,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             ],
           ),
         ),
+        actions: [
+          IconButton(tooltip: 'Chat info', icon: const Icon(AppIcons.dotsThreeVertical), onPressed: () => context.push(Routes.chatInfo(widget.conversationId))),
+        ],
       ),
       body: Column(
         children: [
@@ -191,7 +197,16 @@ class _Bubble extends StatelessWidget {
           bottomRight: Radius.circular(mine ? 4 : 18),
         ),
       ),
-      child: Text(message.body, style: TextStyle(color: mine ? Colors.white : AppColors.textPrimary, fontSize: 15, height: 1.35)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (message.postId != null) _SharedPost(postId: message.postId!, mine: mine),
+          if (message.storyId != null) _SharedMoment(storyId: message.storyId!, mine: mine),
+          if (message.postId == null && message.storyId == null || !(message.body == 'Shared a post' || message.body == 'Shared a moment'))
+            Text(message.body, style: TextStyle(color: mine ? Colors.white : AppColors.textPrimary, fontSize: 15, height: 1.35)),
+        ],
+      ),
     );
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
@@ -208,6 +223,87 @@ class _Bubble extends StatelessWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+
+/// A shared post inside a bubble: cover, title line, tap to open.
+class _SharedPost extends ConsumerWidget {
+  const _SharedPost({required this.postId, required this.mine});
+  final String postId;
+  final bool mine;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final post = ref.watch(postProvider(postId)).value?.post;
+    final fg = mine ? Colors.white : AppColors.textPrimary;
+    final sub = mine ? Colors.white70 : AppColors.textSecondary;
+    return GestureDetector(
+      onTap: () => context.push(Routes.post(postId)),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 6),
+        width: 220,
+        decoration: BoxDecoration(color: mine ? Colors.white.withValues(alpha: 0.14) : Colors.white, borderRadius: BorderRadius.circular(12)),
+        clipBehavior: Clip.antiAlias,
+        child: post == null
+            ? const SizedBox(height: 60, child: Center(child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))))
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (post.cover != null) AspectRatio(aspectRatio: 4 / 3, child: Image.network(post.cover!, fit: BoxFit.cover)),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('@${post.author?.username ?? 'post'}', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: fg)),
+                        if ((post.title ?? post.caption ?? '').isNotEmpty)
+                          Text(post.title ?? post.caption!, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12.5, color: sub)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+      ),
+    );
+  }
+}
+
+/// A shared moment inside a bubble: the photo, tap to play it.
+class _SharedMoment extends ConsumerWidget {
+  const _SharedMoment({required this.storyId, required this.mine});
+  final String storyId;
+  final bool mine;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final story = ref.watch(storyProvider(storyId)).value;
+    return GestureDetector(
+      onTap: story?.author == null
+          ? null
+          : () => context.push(Routes.stories, extra: StoryViewerArgs(groups: [StoryGroup(author: story!.author!, stories: [story], allSeen: true)], initialGroup: 0)),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 6),
+        width: 180,
+        height: 240,
+        decoration: BoxDecoration(color: mine ? Colors.white.withValues(alpha: 0.14) : AppColors.surfaceGray, borderRadius: BorderRadius.circular(12)),
+        clipBehavior: Clip.antiAlias,
+        child: story == null
+            ? const Center(child: Text('Moment no longer available', textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: AppColors.textSecondary)))
+            : Stack(
+                fit: StackFit.expand,
+                children: [
+                  Image.network(story.photoUrl, fit: BoxFit.cover),
+                  Positioned(
+                    left: 8,
+                    bottom: 8,
+                    right: 8,
+                    child: Text('@${story.author?.username ?? ''}${story.whereLabel == null ? '' : ' · ${story.whereLabel}'}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w700, shadows: [Shadow(blurRadius: 6, color: Colors.black)])),
+                  ),
+                ],
+              ),
       ),
     );
   }

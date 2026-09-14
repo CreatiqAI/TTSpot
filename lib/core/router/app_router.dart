@@ -42,6 +42,8 @@ import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/social/domain/post.dart';
 import '../../features/social/presentation/activity_screen.dart';
 import '../../features/social/presentation/album_editor_screen.dart';
+import '../../features/social/presentation/my_moments_screen.dart';
+import '../../features/social/presentation/chat_info_screen.dart';
 import '../../features/social/presentation/chat_screen.dart';
 import '../../features/social/presentation/club_screen.dart';
 import '../../features/social/presentation/create_club_screen.dart';
@@ -106,6 +108,8 @@ abstract final class Routes {
   static const createStory = '/create/story';
   static const createClub = '/create/club';
   static const newAlbum = '/me/albums/new';
+  static String newAlbumWith(String storyId) => '/me/albums/new?with=$storyId';
+  static const myMoments = '/me/moments';
   static String editAlbum(String id) => '/me/albums/$id/edit';
   static const clubs = '/clubs';
 
@@ -138,6 +142,7 @@ abstract final class Routes {
   }
 
   static String chat(String conversationId) => '/chat/$conversationId';
+  static String chatInfo(String conversationId) => '/chat/$conversationId/info';
   static String club(String id) => '/club/$id';
   static String place(String id) => '/place/$id';
 }
@@ -240,7 +245,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: Routes.createStory,
         builder: (_, s) => CreateStoryScreen(eventId: s.uri.queryParameters['event'], placeId: s.uri.queryParameters['place']),
       ),
-      GoRoute(path: Routes.newAlbum, builder: (_, _) => const AlbumEditorScreen()),
+      GoRoute(path: Routes.newAlbum, builder: (_, s) => AlbumEditorScreen(preselect: s.uri.queryParameters['with'])),
+      GoRoute(path: Routes.myMoments, builder: (_, _) => const MyMomentsScreen()),
       GoRoute(path: '/me/albums/:id/edit', builder: (_, s) => AlbumEditorScreen(albumId: s.pathParameters['id']!)),
       GoRoute(path: Routes.friends, builder: (_, _) => const FriendsScreen()),
       GoRoute(path: Routes.scan, builder: (_, _) => const ScanScreen()),
@@ -276,7 +282,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(path: Routes.search, builder: (_, _) => const SearchScreen()),
-      GoRoute(path: '/chat/:id', builder: (_, s) => ChatScreen(conversationId: s.pathParameters['id']!)),
+      GoRoute(
+        path: '/chat/:id',
+        builder: (_, s) => ChatScreen(conversationId: s.pathParameters['id']!),
+        routes: [GoRoute(path: 'info', builder: (_, s) => ChatInfoScreen(conversationId: s.pathParameters['id']!))],
+      ),
       GoRoute(path: Routes.saved, builder: (_, _) => const SavedPostsScreen()),
       GoRoute(path: Routes.createClub, builder: (_, _) => const CreateClubScreen()),
       GoRoute(path: '/club/:id', builder: (_, s) => ClubScreen(clubId: s.pathParameters['id']!)),

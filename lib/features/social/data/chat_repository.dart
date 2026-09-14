@@ -20,13 +20,30 @@ class ChatRepository {
     return id as String;
   }
 
+  Future<void> setPin(String conversationId, bool pin) => _client.rpc('set_conversation_pin', params: {'p_conversation': conversationId, 'p_pin': pin});
+  Future<void> hide(String conversationId) => _client.rpc('hide_conversation', params: {'p_conversation': conversationId});
+
+  /// Posts and moments shared in a chat, newest first.
+  Future<List<Message>> shared(String conversationId) async {
+    final rows = await _client
+        .from('messages')
+        .select('*')
+        .eq('conversation_id', conversationId)
+        .or('post_id.not.is.null,story_id.not.is.null')
+        .order('created_at', ascending: false)
+        .limit(60);
+    return rows.map(Message.fromMap).toList();
+  }
+
   Future<void> markRead(String conversationId) => _client.rpc('mark_conversation_read', params: {'p_conversation': conversationId});
 
   Future<List<Conversation>> inbox(String me) async {
-    final mine = await _client.from('conversation_members').select('conversation_id, last_read_at').eq('user_id', me);
+    final mine = await _client.from('conversation_members').select('conversation_id, last_read_at, pinned_at, hidden_at').eq('user_id', me);
     if (mine.isEmpty) return const [];
     final ids = mine.map((r) => r['conversation_id'] as String).toList();
     final lastRead = {for (final r in mine) r['conversation_id'] as String: DateTime.parse(r['last_read_at'] as String)};
+    final pinnedAt = {for (final r in mine) if (r['pinned_at'] != null) r['conversation_id'] as String: DateTime.parse(r['pinned_at'] as String)};
+    final hiddenAt = {for (final r in mine) if (r['hidden_at'] != null) r['conversation_id'] as String: DateTime.parse(r['hidden_at'] as String)};
 
     final results = await Future.wait<dynamic>([
       _client
@@ -72,10 +89,19 @@ class ChatRepository {
         members: members,
         lastMessage: lastByConv[id],
         unread: unreadByConv[id] ?? 0,
+        pinnedAt: pinnedAt[id],
+        hiddenAt: hiddenAt[id],
       );
+    }).where((c) {
+      // "Deleted" chats stay hidden until a newer message arrives.
+      final h = c.hiddenAt;
+      if (h == null) return true;
+      final last = c.lastMessage?.createdAt;
+      return last != null && last.toUtc().isAfter(h.toUtc());
     }).toList();
 
     convs.sort((a, b) {
+      if (a.pinned != b.pinned) return a.pinned ? -1 : 1;
       final ta = a.lastMessage?.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
       final tb = b.lastMessage?.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
       return tb.compareTo(ta);
@@ -98,8 +124,8 @@ class ChatRepository {
     return rows.map(Message.fromMap).toList();
   }
 
-  Future<void> send({required String conversationId, required String me, required String body}) =>
-      _client.from('messages').insert({'conversation_id': conversationId, 'sender_id': me, 'body': body.trim()});
+  Future<void> send({required String conversationId, required String me, required String body, String? postId, String? storyId}) =>
+      _client.from('messages').insert({'conversation_id': conversationId, 'sender_id': me, 'body': body.trim(), 'post_id': ?postId, 'story_id': ?storyId});
 
   RealtimeChannel subscribe(String conversationId, void Function(Message) onMessage) {
     return _client

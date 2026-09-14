@@ -30,7 +30,7 @@ class StoriesRow extends ConsumerWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         children: [
           _StoryBubble(
-            label: 'Your moment',
+            label: 'You',
             avatarUrl: myProfile?.avatarUrl,
             name: myProfile?.displayName ?? myProfile?.username,
             ring: mineIndex >= 0 ? (groups[mineIndex].allSeen ? _Ring.seen : _Ring.unseen) : _Ring.none,

@@ -125,8 +125,10 @@ class _ChatList extends ConsumerWidget {
                     onAction: () => context.push(Routes.friends),
                   ),
                 ),
-              if (list.isNotEmpty) const _Section('CHATS'),
-              for (final c in list) _ChatTile(c: c),
+              if (list.any((c) => c.pinned)) const _Section('PINNED'),
+              for (final c in list.where((c) => c.pinned)) _SwipeRow(c: c, child: _ChatTile(c: c)),
+              if (list.any((c) => !c.pinned)) const _Section('CHATS'),
+              for (final c in list.where((c) => !c.pinned)) _SwipeRow(c: c, child: _ChatTile(c: c)),
               if (unchatted.isNotEmpty) ...[
                 _Section(list.isEmpty ? 'SAY HI' : 'NOT CHATTED YET'),
                 for (final f in unchatted)
@@ -230,6 +232,71 @@ class _FriendStrip extends StatelessWidget {
   }
 }
 
+/// Swipe right = pin / unpin. Swipe left = delete (asks first).
+class _SwipeRow extends ConsumerWidget {
+  const _SwipeRow({required this.c, required this.child});
+  final Conversation c;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    void snack(String m) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
+    return Dismissible(
+      key: ValueKey('conv-${c.id}'),
+      background: Container(
+        color: AppColors.ink,
+        alignment: Alignment.centerLeft,
+        padding: const EdgeInsets.only(left: 24),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(c.pinned ? AppIcons.pushPinSlash : AppIcons.pushPin, color: Colors.white),
+          const SizedBox(width: 8),
+          Text(c.pinned ? 'Unpin' : 'Pin', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+        ]),
+      ),
+      secondaryBackground: Container(
+        color: AppColors.danger,
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 24),
+        child: const Row(mainAxisSize: MainAxisSize.min, children: [
+          Text('Delete', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+          SizedBox(width: 8),
+          Icon(AppIcons.trash, color: Colors.white),
+        ]),
+      ),
+      confirmDismiss: (dir) async {
+        if (dir == DismissDirection.startToEnd) {
+          try {
+            await ref.read(chatActionsProvider).setPin(c.id, !c.pinned);
+          } catch (e) {
+            snack(friendlyError(e));
+          }
+          return false; // row stays, list re-sorts
+        }
+        final ok = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Delete this chat?'),
+            content: const Text('It leaves your list. It comes back if they message you again.'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Keep')),
+              TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete', style: TextStyle(color: AppColors.danger))),
+            ],
+          ),
+        );
+        if (ok != true) return false;
+        try {
+          await ref.read(chatActionsProvider).hide(c.id);
+          return true;
+        } catch (e) {
+          snack(friendlyError(e));
+          return false;
+        }
+      },
+      child: child,
+    );
+  }
+}
+
 class _ChatTile extends StatelessWidget {
   const _ChatTile({required this.c});
   final Conversation c;
@@ -250,7 +317,12 @@ class _ChatTile extends StatelessWidget {
               ),
             )
           : UserAvatar(url: c.other?.avatarUrl, name: c.other?.displayName ?? c.other?.username, size: 48),
-      title: Text(c.title, style: TextStyle(fontWeight: c.unread > 0 ? FontWeight.w700 : FontWeight.w600)),
+      title: Row(
+        children: [
+          Flexible(child: Text(c.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontWeight: c.unread > 0 ? FontWeight.w700 : FontWeight.w600))),
+          if (c.pinned) ...[const SizedBox(width: 6), const Icon(AppIcons.pushPin, size: 14, color: AppColors.textMuted)],
+        ],
+      ),
       subtitle: Text(
         last == null ? (c.isMeet ? 'Group chat · ${c.members.length} members' : 'Say hi') : last.body,
         maxLines: 1,

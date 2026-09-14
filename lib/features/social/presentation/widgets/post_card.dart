@@ -13,6 +13,7 @@ import '../../../safety/data/safety_repository.dart';
 import '../../../safety/presentation/report_sheet.dart';
 import '../../application/social_providers.dart';
 import '../../domain/post.dart';
+import '../share_sheet.dart';
 import 'poll_widget.dart';
 
 /// Instagram feed card. [expanded] shows the full caption (post detail).
@@ -184,6 +185,11 @@ class _PostCardState extends ConsumerState<PostCard> {
               IconButton(
                 icon: const Icon(AppIcons.chatCircle, size: 24),
                 onPressed: widget.onOpen ?? () => context.push(Routes.post(p.id)),
+              ),
+              IconButton(
+                tooltip: 'Send to a friend',
+                icon: const Icon(AppIcons.paperPlaneTilt, size: 24),
+                onPressed: () => showShareSheet(context, postId: p.id),
               ),
               if (p.kind == PostKind.spotted && p.latLng != null)
                 IconButton(

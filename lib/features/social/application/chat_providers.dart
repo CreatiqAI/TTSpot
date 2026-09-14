@@ -20,6 +20,8 @@ final conversationProvider = FutureProvider.family<Conversation?, String>((ref, 
 });
 
 /// Live message list: initial fetch, then realtime inserts appended.
+final sharedInChatProvider = FutureProvider.family<List<Message>, String>((ref, id) => ref.watch(chatRepositoryProvider).shared(id));
+
 final messagesProvider = StreamProvider.family<List<Message>, String>((ref, conversationId) {
   final repo = ref.watch(chatRepositoryProvider);
   final controller = StreamController<List<Message>>();
@@ -76,6 +78,24 @@ class ChatActions {
   Future<void> send(String conversationId, String body) async {
     if (body.trim().isEmpty) return;
     await _ref.read(chatRepositoryProvider).send(conversationId: conversationId, me: _me, body: body);
+  }
+
+  /// Drop a post or moment into a chat, with an optional note.
+  Future<void> share(String conversationId, {String? postId, String? storyId, String note = ''}) async {
+    final body = note.trim().isEmpty ? (postId != null ? 'Shared a post' : 'Shared a moment') : note;
+    await _ref.read(chatRepositoryProvider).send(conversationId: conversationId, me: _me, body: body, postId: postId, storyId: storyId);
+    _ref.invalidate(inboxProvider);
+  }
+
+  Future<void> setPin(String conversationId, bool pin) async {
+    await _ref.read(chatRepositoryProvider).setPin(conversationId, pin);
+    _ref.invalidate(inboxProvider);
+    _ref.invalidate(conversationProvider(conversationId));
+  }
+
+  Future<void> hide(String conversationId) async {
+    await _ref.read(chatRepositoryProvider).hide(conversationId);
+    _ref.invalidate(inboxProvider);
   }
 
   Future<void> markRead(String conversationId) async {

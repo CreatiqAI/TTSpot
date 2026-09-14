@@ -53,3 +53,4 @@ android/local.properties
 
 # Supabase CLI link state
 supabase/.temp/
+ios/Flutter/Secrets.xcconfig

@@ -71,6 +71,23 @@
 	<key>NSCameraUsageDescription</key>
 	<string>Take a photo for your avatar, your cars or an event cover.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Show car meets near you on the map.</string>
+	<string>TT Spot runs on location: see friends and your club on the map, check in at meets and spots, and scan a meet's QR when you're there. Only while the app is open.</string>
+	<key>MapsApiKey</key>
+	<string>$(MAPS_API_KEY)</string>
+	<key>GIDClientID</key>
+	<string>$(GOOGLE_IOS_CLIENT_ID)</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>$(GOOGLE_IOS_REVERSED_CLIENT_ID)</string>
+			</array>
+		</dict>
+	</array>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 </dict>
 </plist>

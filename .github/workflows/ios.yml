@@ -1,0 +1,73 @@
+name: iOS build (unsigned IPA)
+
+# Builds the iPhone app on GitHub's macOS runners (free for public repos) and
+# uploads an UNSIGNED .ipa. Install it from Windows with Sideloadly (free Apple
+# ID = re-sign every 7 days) or sign it with a paid Apple Developer account.
+# Secrets: ENV_JSON (contents of env.json), MAPS_API_KEY, GOOGLE_IOS_CLIENT_ID.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'lib/**'
+      - 'ios/**'
+      - 'assets/**'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - '.github/workflows/ios.yml'
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.2
+          cache: true
+
+      - name: Write build-time config (never committed)
+        env:
+          ENV_JSON: ${{ secrets.ENV_JSON }}
+          MAPS_API_KEY: ${{ secrets.MAPS_API_KEY }}
+          GOOGLE_IOS_CLIENT_ID: ${{ secrets.GOOGLE_IOS_CLIENT_ID }}
+        run: |
+          printf '%s' "$ENV_JSON" > env.json
+          REV=$(echo "${GOOGLE_IOS_CLIENT_ID:-ttspot}" | awk -F. '{ for (i=NF; i>0; i--) printf "%s%s", $i, (i>1 ? "." : "") }')
+          {
+            echo "MAPS_API_KEY=${MAPS_API_KEY}"
+            echo "GOOGLE_IOS_CLIENT_ID=${GOOGLE_IOS_CLIENT_ID}"
+            echo "GOOGLE_IOS_REVERSED_CLIENT_ID=${REV}"
+          } > ios/Flutter/Secrets.xcconfig
+          python3 -c "import json; json.load(open('env.json')); print('env.json ok')"
+
+      - name: Flutter doctor
+        run: flutter doctor -v
+
+      - name: Pub get
+        run: flutter pub get
+
+      - name: Build iOS (release, no signing)
+        run: flutter build ios --release --no-codesign --dart-define-from-file=env.json
+
+      - name: Package .ipa
+        run: |
+          set -e
+          mkdir -p out/Payload
+          cp -R build/ios/iphoneos/Runner.app out/Payload/
+          cd out && zip -qry "TTSpot-unsigned-${GITHUB_SHA::7}.ipa" Payload
+          ls -la
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TTSpot-ios-unsigned
+          path: out/*.ipa
+          retention-days: 14

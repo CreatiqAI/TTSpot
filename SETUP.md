@@ -321,6 +321,31 @@ VS Code: add to `.vscode/launch.json` so F5 works:
 }
 ```
 
+## 5b. On a real phone
+
+**Android** (any tester): `flutter build apk --release --dart-define-from-file=env.json` → copy
+`build/app/outputs/flutter-apk/app-release.apk` to the phone (WhatsApp / Drive / USB), tap it, allow "install from
+this source". Release builds are signed with the debug key, which is fine for sideloading. With USB debugging on:
+`flutter install` or `adb install -r <apk>`. Release builds need the **full email** to log in (`testing@ttspot.my`);
+only debug builds expand a bare username.
+
+**iPhone** (no Mac needed): iOS can only be compiled on macOS, so `.github/workflows/ios.yml` builds it on GitHub's
+macOS runners (free for public repos) on every push that touches `lib/`, `ios/`, `assets/` or `pubspec.*`, or from
+Actions → "iOS build (unsigned IPA)" → Run workflow. It downloads an **unsigned** `TTSpot-unsigned-<sha>.ipa` artifact.
+Build-time config comes from repo secrets `ENV_JSON` (= env.json), `MAPS_API_KEY`, `GOOGLE_IOS_CLIENT_ID`
+(`gh secret set NAME < file`). Then:
+
+1. On Windows install **Sideloadly** (sideloadly.io) and Apple's **iTunes** or **Apple Devices** app (USB driver).
+2. Plug the iPhone in, trust the computer, open Sideloadly, sign in with your Apple ID, drag the `.ipa` in, Start.
+3. On the phone: Settings → General → VPN & Device Management → trust the developer profile → open TT Spot.
+4. Free Apple ID = the app expires after **7 days** (re-run Sideloadly to refresh). A paid Apple Developer account
+   (USD 99/yr) gives 1-year sideloads and, better, **TestFlight**: add signing certs to the workflow and upload with
+   `xcrun altool`; testers then install from the TestFlight app with no cable.
+
+iOS reads the Maps key and Google client id from `ios/Flutter/Secrets.xcconfig` (gitignored; generated locally from
+env.json + local.properties, written by CI from the secrets). Google sign-in on iPhone needs an iOS client id in
+Google Cloud first (see 3b); email login works without it.
+
 ## 6. Dependencies
 
 Approved and in use: supabase_flutter, google_maps_flutter, flutter_riverpod, go_router, google_sign_in,

@@ -17,6 +17,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/dates.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../../core/utils/geo.dart';
+import '../../../core/widgets/pin_picker_screen.dart';
 import '../../../core/widgets/place_search_field.dart';
 import '../../../core/widgets/wheel_picker.dart';
 import '../../map/application/map_providers.dart';
@@ -147,6 +148,14 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
     _map?.animateCamera(CameraUpdate.newLatLngZoom(loc, 15));
   }
 
+  Future<void> _expandMap() async {
+    final r = await pickPinFullScreen(context, start: _pin ?? (ref.read(userLocationProvider).value ?? kualaLumpur));
+    if (r == null || !mounted) return;
+    setState(() => _pin = r.latLng);
+    if (r.name != null && r.name!.isNotEmpty) _venue.text = r.name!;
+    _map?.animateCamera(CameraUpdate.newLatLngZoom(r.latLng, 16));
+  }
+
   Future<void> _submit() async {
     FocusScope.of(context).unfocus();
     final id = await ref.read(createEventControllerProvider.notifier).submit(
@@ -257,6 +266,7 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
                     onCreated: (c) => _map = c,
                     onIdle: (target) => setState(() => _pin = target),
                     onMyLocation: busy ? null : _useMyLocation,
+                    onExpand: busy ? null : _expandMap,
                   ),
                   const SizedBox(height: 10),
                   TextField(
@@ -473,6 +483,7 @@ class _PinMap extends StatelessWidget {
     required this.onCreated,
     required this.onIdle,
     required this.onMyLocation,
+    required this.onExpand,
   });
 
   final LatLng start;
@@ -481,6 +492,7 @@ class _PinMap extends StatelessWidget {
   final void Function(GoogleMapController) onCreated;
   final void Function(LatLng) onIdle;
   final VoidCallback? onMyLocation;
+  final VoidCallback? onExpand;
 
   @override
   Widget build(BuildContext context) {
@@ -488,7 +500,7 @@ class _PinMap extends StatelessWidget {
       borderRadius: BorderRadius.circular(AppRadius.md),
       child: SizedBox(
         height: 220,
-        child: _PinMapBody(start: start, style: style, hasPin: hasPin, onCreated: onCreated, onIdle: onIdle, onMyLocation: onMyLocation),
+        child: _PinMapBody(start: start, style: style, hasPin: hasPin, onCreated: onCreated, onIdle: onIdle, onMyLocation: onMyLocation, onExpand: onExpand),
       ),
     );
   }
@@ -502,6 +514,7 @@ class _PinMapBody extends StatefulWidget {
     required this.onCreated,
     required this.onIdle,
     required this.onMyLocation,
+    required this.onExpand,
   });
 
   final LatLng start;
@@ -510,6 +523,7 @@ class _PinMapBody extends StatefulWidget {
   final void Function(GoogleMapController) onCreated;
   final void Function(LatLng) onIdle;
   final VoidCallback? onMyLocation;
+  final VoidCallback? onExpand;
 
   @override
   State<_PinMapBody> createState() => _PinMapBodyState();
@@ -562,8 +576,22 @@ class _PinMapBodyState extends State<_PinMapBody> {
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.72), borderRadius: BorderRadius.circular(8)),
             child: Text(
-              widget.hasPin ? 'Pin dropped · drag map to adjust' : 'Drag the map to the meet spot',
+              widget.hasPin ? 'Drag to adjust · expand for a big map' : 'Drag the map to the meet spot',
               style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ),
+        Positioned(
+          right: 10,
+          top: 10,
+          child: Material(
+            color: Colors.white,
+            shape: const CircleBorder(),
+            elevation: 3,
+            child: InkWell(
+              onTap: widget.onExpand,
+              customBorder: const CircleBorder(),
+              child: const SizedBox(width: 40, height: 40, child: Icon(AppIcons.arrowsOut, size: 20, color: AppColors.textPrimary)),
             ),
           ),
         ),

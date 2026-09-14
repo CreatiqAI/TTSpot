@@ -272,7 +272,15 @@ class _SharedThumb extends ConsumerWidget {
     String? url;
     VoidCallback? open;
     String tag = '';
-    if (message.postId != null) {
+    if (message.imageUrl != null) {
+      url = message.imageUrl;
+      tag = 'Photo';
+      open = () => showDialog<void>(
+            context: context,
+            barrierColor: Colors.black,
+            builder: (ctx) => GestureDetector(onTap: () => Navigator.pop(ctx), child: InteractiveViewer(child: Center(child: Image.network(message.imageUrl!)))),
+          );
+    } else if (message.postId != null) {
       final post = ref.watch(postProvider(message.postId!)).value?.post;
       url = post?.cover;
       tag = 'Post';

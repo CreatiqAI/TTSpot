@@ -9,6 +9,7 @@ Files are simply `TTSpot-<version>.ipa` / `.apk`, kept in `build/ios-artifact/` 
 
 | Version | Date | Commit | What changed |
 |---|---|---|---|
+| 0.2.5 | 2026-09-15 | _next build_ | Chat composer like Instagram: camera button, photo from gallery, stickers, + to attach a meet / spot / car; own bubbles now black; shared cards stand alone without a bubble. |
 | 0.2.4 | 2026-09-15 | 1f34310 | Moment viewer bottom bar (viewers, add to album, send / reply); send posts and moments to friends' chats as preview cards; My moments archive (Me menu); Chats: swipe right to pin (max 3), swipe left to delete, ⋯ chat info page (person or meet, shared items, clubs in common, block / report). |
 | 0.2.3 | 2026-09-15 | bd4b144 | Moment albums on the profile (create, edit, delete; kept past 24 h); smoother moment viewer (finger-down pauses at once, next photo preloaded); Create sheet redesigned; Saved tab gains Commented; "story" wording gone. |
 | 0.2.2 | 2026-09-15 | 794e53e | Meet form map has an expand button: full-screen pin picker with search, my-location and Use this spot. |

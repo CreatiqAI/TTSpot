@@ -1,7 +1,7 @@
 import '../../auth/domain/profile.dart';
 
 class Message {
-  const Message({required this.id, required this.conversationId, required this.senderId, required this.body, required this.createdAt, this.sender, this.postId, this.storyId});
+  const Message({required this.id, required this.conversationId, required this.senderId, required this.body, required this.createdAt, this.sender, this.postId, this.storyId, this.imageUrl, this.sticker, this.eventId, this.placeId, this.carId});
   final String id;
   final String conversationId;
   final String senderId;
@@ -11,6 +11,16 @@ class Message {
   /// A shared post / moment, rendered as a preview card above the text.
   final String? postId;
   final String? storyId;
+  final String? imageUrl;
+  final String? sticker;
+  final String? eventId;
+  final String? placeId;
+  final String? carId;
+
+  /// Anything other than plain text.
+  bool get hasAttachment => postId != null || storyId != null || imageUrl != null || sticker != null || eventId != null || placeId != null || carId != null;
+  /// Body was generated for the attachment, not typed by the sender.
+  bool get autoBody => const {'Shared a post', 'Shared a moment', 'Sent a photo', 'Sent a sticker', 'Shared a meet', 'Shared a spot', 'Shared a car'}.contains(body);
 
   factory Message.fromMap(Map<String, dynamic> m) => Message(
         id: m['id'] as String,
@@ -21,6 +31,11 @@ class Message {
         sender: m['profiles'] == null ? null : Profile.fromMap(m['profiles'] as Map<String, dynamic>),
         postId: m['post_id'] as String?,
         storyId: m['story_id'] as String?,
+        imageUrl: m['image_url'] as String?,
+        sticker: m['sticker'] as String?,
+        eventId: m['event_id'] as String?,
+        placeId: m['place_id'] as String?,
+        carId: m['car_id'] as String?,
       );
 }
 

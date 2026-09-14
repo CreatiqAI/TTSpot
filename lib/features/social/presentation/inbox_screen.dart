@@ -324,7 +324,7 @@ class _ChatTile extends StatelessWidget {
         ],
       ),
       subtitle: Text(
-        last == null ? (c.isMeet ? 'Group chat · ${c.members.length} members' : 'Say hi') : last.body,
+        last == null ? (c.isMeet ? 'Group chat · ${c.members.length} members' : 'Say hi') : (last.sticker != null ? 'Sticker' : last.body),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(color: c.unread > 0 ? AppColors.textPrimary : AppColors.textSecondary, fontWeight: c.unread > 0 ? FontWeight.w500 : FontWeight.w400),

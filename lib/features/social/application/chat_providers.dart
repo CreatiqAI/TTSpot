@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/utils/friendly_error.dart';
@@ -95,6 +96,24 @@ class ChatActions {
 
   Future<void> hide(String conversationId) async {
     await _ref.read(chatRepositoryProvider).hide(conversationId);
+    _ref.invalidate(inboxProvider);
+  }
+
+  Future<void> sendPhoto(String conversationId, XFile file) async {
+    final repo = _ref.read(chatRepositoryProvider);
+    final url = await repo.uploadPhoto(me: _me, bytes: await file.readAsBytes());
+    await repo.send(conversationId: conversationId, me: _me, body: 'Sent a photo', imageUrl: url);
+    _ref.invalidate(inboxProvider);
+  }
+
+  Future<void> sendSticker(String conversationId, String key) async {
+    await _ref.read(chatRepositoryProvider).send(conversationId: conversationId, me: _me, body: 'Sent a sticker', sticker: key);
+    _ref.invalidate(inboxProvider);
+  }
+
+  Future<void> attach(String conversationId, {String? eventId, String? placeId, String? carId}) async {
+    final body = eventId != null ? 'Shared a meet' : (placeId != null ? 'Shared a spot' : 'Shared a car');
+    await _ref.read(chatRepositoryProvider).send(conversationId: conversationId, me: _me, body: body, eventId: eventId, placeId: placeId, carId: carId);
     _ref.invalidate(inboxProvider);
   }
 

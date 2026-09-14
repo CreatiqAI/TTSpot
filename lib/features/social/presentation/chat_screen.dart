@@ -9,7 +9,15 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/dates.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../../core/widgets/user_avatar.dart';
+import 'package:image_picker/image_picker.dart';
+
+import '../../../core/theme/app_art.dart';
+import '../../events/application/create_event_controller.dart' show pickCoverImage;
+import '../../events/application/event_providers.dart';
+import '../../profile/application/profile_providers.dart';
 import '../application/chat_providers.dart';
+import '../application/community_providers.dart';
+import 'chat_attach.dart';
 import 'story_viewer_screen.dart';
 import '../domain/post.dart';
 import '../application/social_providers.dart';
@@ -54,6 +62,35 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     } finally {
       if (mounted) setState(() => _sending = false);
     }
+  }
+
+  Future<void> _guard(Future<void> Function() f) async {
+    setState(() => _sending = true);
+    try {
+      await f();
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  Future<void> _photo(ImageSource source) async {
+    final f = await pickCoverImage(source);
+    if (f == null) return;
+    await _guard(() => ref.read(chatActionsProvider).sendPhoto(widget.conversationId, f));
+  }
+
+  Future<void> _sticker() async {
+    final key = await showStickerSheet(context);
+    if (key == null) return;
+    await _guard(() => ref.read(chatActionsProvider).sendSticker(widget.conversationId, key));
+  }
+
+  Future<void> _attach() async {
+    final a = await showAttachSheet(context);
+    if (a == null) return;
+    await _guard(() => ref.read(chatActionsProvider).attach(widget.conversationId, eventId: a.eventId, placeId: a.placeId, carId: a.carId));
   }
 
   @override
@@ -137,33 +174,66 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               top: false,
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _text,
-                        minLines: 1,
-                        maxLines: 5,
-                        textCapitalization: TextCapitalization.sentences,
-                        decoration: InputDecoration(
-                          hintText: 'Message…',
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(22), borderSide: const BorderSide(color: AppColors.border)),
-                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(22), borderSide: const BorderSide(color: AppColors.border)),
-                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(22), borderSide: const BorderSide(color: AppColors.textMuted)),
+                child: ValueListenableBuilder<TextEditingValue>(
+                  valueListenable: _text,
+                  builder: (_, v, _) {
+                    final typing = v.text.trim().isNotEmpty;
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        // camera, Instagram-style, on the left
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 2),
+                          child: Material(
+                            color: AppColors.brand,
+                            shape: const CircleBorder(),
+                            child: InkWell(
+                              customBorder: const CircleBorder(),
+                              onTap: _sending ? null : () => _photo(ImageSource.camera),
+                              child: const SizedBox(width: 40, height: 40, child: Icon(AppIcons.camera, color: Colors.white, size: 20)),
+                            ),
+                          ),
                         ),
-                        onSubmitted: (_) => _send(),
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    IconButton(
-                      icon: _sending
-                          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                          : const Icon(AppIcons.paperPlaneTiltFill, color: AppColors.primary),
-                      onPressed: _sending ? null : _send,
-                    ),
-                  ],
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: TextField(
+                            controller: _text,
+                            minLines: 1,
+                            maxLines: 5,
+                            textCapitalization: TextCapitalization.sentences,
+                            decoration: InputDecoration(
+                              hintText: 'Message…',
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(22), borderSide: const BorderSide(color: AppColors.border)),
+                              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(22), borderSide: const BorderSide(color: AppColors.border)),
+                              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(22), borderSide: const BorderSide(color: AppColors.textMuted)),
+                              suffixIcon: typing
+                                  ? null
+                                  : Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        IconButton(tooltip: 'Photo', visualDensity: VisualDensity.compact, icon: const Icon(AppIcons.image, size: 22), onPressed: _sending ? null : () => _photo(ImageSource.gallery)),
+                                        IconButton(tooltip: 'Sticker', visualDensity: VisualDensity.compact, icon: const Icon(AppIcons.smiley, size: 22), onPressed: _sending ? null : _sticker),
+                                        IconButton(tooltip: 'Attach a meet, spot or car', visualDensity: VisualDensity.compact, icon: const Icon(AppIcons.plusCircle, size: 22), onPressed: _sending ? null : _attach),
+                                        const SizedBox(width: 4),
+                                      ],
+                                    ),
+                            ),
+                            onSubmitted: (_) => _send(),
+                          ),
+                        ),
+                        if (typing || _sending) ...[
+                          const SizedBox(width: 4),
+                          IconButton(
+                            icon: _sending
+                                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                                : const Icon(AppIcons.paperPlaneTiltFill, color: AppColors.primary),
+                            onPressed: _sending ? null : _send,
+                          ),
+                        ],
+                      ],
+                    );
+                  },
                 ),
               ),
             ),
@@ -185,29 +255,42 @@ class _Bubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bubble = Container(
-      constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * 0.72),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-      decoration: BoxDecoration(
-        color: mine ? AppColors.primary : AppColors.surfaceGray,
-        borderRadius: BorderRadius.only(
-          topLeft: const Radius.circular(18),
-          topRight: const Radius.circular(18),
-          bottomLeft: Radius.circular(mine ? 18 : 4),
-          bottomRight: Radius.circular(mine ? 4 : 18),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (message.postId != null) _SharedPost(postId: message.postId!, mine: mine),
-          if (message.storyId != null) _SharedMoment(storyId: message.storyId!, mine: mine),
-          if (message.postId == null && message.storyId == null || !(message.body == 'Shared a post' || message.body == 'Shared a moment'))
-            Text(message.body, style: TextStyle(color: mine ? Colors.white : AppColors.textPrimary, fontSize: 15, height: 1.35)),
-        ],
-      ),
-    );
+    final isShare = message.hasAttachment;
+    final auto = message.autoBody;
+    final maxW = MediaQuery.sizeOf(context).width * 0.72;
+
+    Widget textBubble(String text) => Container(
+          constraints: BoxConstraints(maxWidth: maxW),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+          decoration: BoxDecoration(
+            color: mine ? AppColors.ink : AppColors.surfaceGray,
+            borderRadius: BorderRadius.only(
+              topLeft: const Radius.circular(18),
+              topRight: const Radius.circular(18),
+              bottomLeft: Radius.circular(mine ? 18 : 4),
+              bottomRight: Radius.circular(mine ? 4 : 18),
+            ),
+          ),
+          child: Text(text, style: TextStyle(color: mine ? Colors.white : AppColors.textPrimary, fontSize: 15, height: 1.35)),
+        );
+
+    // A shared post / moment sits on its own, no bubble around it. A note, if any, follows underneath.
+    final bubble = isShare
+        ? Column(
+            crossAxisAlignment: mine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (message.postId != null) _SharedPost(postId: message.postId!, mine: mine),
+              if (message.storyId != null) _SharedMoment(storyId: message.storyId!, mine: mine),
+              if (message.imageUrl != null) _Photo(url: message.imageUrl!),
+              if (message.sticker != null) Padding(padding: const EdgeInsets.only(bottom: 4), child: ArtIcon(kStickers[message.sticker!] ?? AppArt.car, size: 96)),
+              if (message.eventId != null) _SharedEvent(eventId: message.eventId!),
+              if (message.placeId != null) _SharedPlace(placeId: message.placeId!),
+              if (message.carId != null) _SharedCar(carId: message.carId!),
+              if (!auto) textBubble(message.body),
+            ],
+          )
+        : textBubble(message.body);
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
       child: Column(
@@ -238,14 +321,14 @@ class _SharedPost extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final post = ref.watch(postProvider(postId)).value?.post;
-    final fg = mine ? Colors.white : AppColors.textPrimary;
-    final sub = mine ? Colors.white70 : AppColors.textSecondary;
+    const fg = AppColors.textPrimary;
+    const sub = AppColors.textSecondary;
     return GestureDetector(
       onTap: () => context.push(Routes.post(postId)),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 6),
+        margin: const EdgeInsets.only(bottom: 4),
         width: 220,
-        decoration: BoxDecoration(color: mine ? Colors.white.withValues(alpha: 0.14) : Colors.white, borderRadius: BorderRadius.circular(12)),
+        decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border)),
         clipBehavior: Clip.antiAlias,
         child: post == null
             ? const SizedBox(height: 60, child: Center(child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))))
@@ -285,10 +368,10 @@ class _SharedMoment extends ConsumerWidget {
           ? null
           : () => context.push(Routes.stories, extra: StoryViewerArgs(groups: [StoryGroup(author: story!.author!, stories: [story], allSeen: true)], initialGroup: 0)),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 6),
+        margin: const EdgeInsets.only(bottom: 4),
         width: 180,
         height: 240,
-        decoration: BoxDecoration(color: mine ? Colors.white.withValues(alpha: 0.14) : AppColors.surfaceGray, borderRadius: BorderRadius.circular(12)),
+        decoration: BoxDecoration(color: AppColors.surfaceGray, borderRadius: BorderRadius.circular(14)),
         clipBehavior: Clip.antiAlias,
         child: story == null
             ? const Center(child: Text('Moment no longer available', textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: AppColors.textSecondary)))
@@ -305,6 +388,124 @@ class _SharedMoment extends ConsumerWidget {
                 ],
               ),
       ),
+    );
+  }
+}
+
+
+/// A photo sent in chat. Tap to see it full screen.
+class _Photo extends StatelessWidget {
+  const _Photo({required this.url});
+  final String url;
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+        onTap: () => showDialog<void>(
+          context: context,
+          barrierColor: Colors.black,
+          builder: (ctx) => GestureDetector(onTap: () => Navigator.pop(ctx), child: InteractiveViewer(child: Center(child: Image.network(url)))),
+        ),
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 4),
+          constraints: const BoxConstraints(maxWidth: 240, maxHeight: 320),
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(color: AppColors.surfaceGray, borderRadius: BorderRadius.circular(14)),
+          child: Image.network(url, fit: BoxFit.cover),
+        ),
+      );
+}
+
+/// Small card shared for a meet, a spot or a car. Same shape for all three.
+class _Card extends StatelessWidget {
+  const _Card({required this.image, required this.fallback, required this.eyebrow, required this.title, required this.subtitle, required this.onTap});
+  final String? image;
+  final String fallback;
+  final String eyebrow;
+  final String title;
+  final String? subtitle;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+        onTap: onTap,
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 4),
+          width: 240,
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border)),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 72,
+                height: 72,
+                child: image == null ? ColoredBox(color: AppColors.surfaceGray, child: Center(child: ArtIcon(fallback, size: 34))) : Image.network(image!, fit: BoxFit.cover),
+              ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(eyebrow, style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: AppColors.brand)),
+                      Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, height: 1.2)),
+                      if (subtitle != null) Text(subtitle!, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11.5, color: AppColors.textSecondary)),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+}
+
+class _SharedEvent extends ConsumerWidget {
+  const _SharedEvent({required this.eventId});
+  final String eventId;
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final e = ref.watch(eventDetailProvider(eventId)).value?.event;
+    return _Card(
+      image: e?.coverUrl,
+      fallback: e?.type.art ?? AppArt.flag,
+      eyebrow: 'MEET',
+      title: e?.title ?? 'Meet',
+      subtitle: e == null ? null : '${formatEventDate(e.startsAt)} · ${e.venueName}',
+      onTap: () => context.push(Routes.event(eventId)),
+    );
+  }
+}
+
+class _SharedPlace extends ConsumerWidget {
+  const _SharedPlace({required this.placeId});
+  final String placeId;
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final p = ref.watch(placeProvider(placeId)).value;
+    return _Card(
+      image: p?.coverUrl,
+      fallback: p?.kindArt ?? AppArt.pin,
+      eyebrow: 'SPOT',
+      title: p?.name ?? 'Spot',
+      subtitle: p == null ? null : '${p.kindLabel} · ${p.totalCheckins} check-ins',
+      onTap: () => context.push(Routes.place(placeId)),
+    );
+  }
+}
+
+class _SharedCar extends ConsumerWidget {
+  const _SharedCar({required this.carId});
+  final String carId;
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = ref.watch(carProvider(carId)).value;
+    return _Card(
+      image: c?.cover,
+      fallback: AppArt.car,
+      eyebrow: 'CAR',
+      title: c == null ? 'Car' : '${c.make} ${c.model}',
+      subtitle: c?.year?.toString(),
+      onTap: () => context.push(Routes.car(carId)),
     );
   }
 }

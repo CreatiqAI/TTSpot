@@ -107,9 +107,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               if (_q.isEmpty)
                 ListTile(
                   leading: const CircleAvatar(backgroundColor: AppColors.surfaceGray, child: Icon(AppIcons.plus, color: AppColors.textPrimary)),
-                  title: const Text('Start a club', style: TextStyle(fontWeight: FontWeight.w600)),
-                  subtitle: const Text('For your crew, make, or area'),
-                  onTap: () => context.push(Routes.createClub),
+                  title: const Text('Start a car club', style: TextStyle(fontWeight: FontWeight.w600)),
+                  subtitle: const Text('Apply to run one. Owners invite members and share the map.'),
+                  onTap: () => context.push(Routes.clubApply),
                 ),
             ],
             orElse: () => const [],

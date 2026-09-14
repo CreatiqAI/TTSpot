@@ -7,7 +7,8 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 const URL = Deno.env.get("SUPABASE_URL")!;
 const ANON = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SERVICE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const RESET_REDIRECT = "ttspot://reset-password";
+// A web page (GitHub Pages) so the link works on any device; on phones it offers "Open in the app".
+const RESET_REDIRECT = "https://creatiqai.github.io/TTSpot/reset.html";
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });

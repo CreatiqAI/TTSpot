@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reset your TT Spot password</title>
+<link rel="icon" href="logo.png">
+<style>
+  :root { --ink:#0F1115; --muted:#737373; --line:#E5E5E5; --red:#E11D2B; --blue:#0095F6; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; background:#F5F5F7; color:var(--ink); }
+  .wrap { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px 16px; }
+  .card { width:100%; max-width:420px; background:#fff; border-radius:20px; padding:32px 28px; box-shadow:0 10px 40px rgba(0,0,0,.08); text-align:center; }
+  .logo { width:120px; height:auto; }
+  h1 { font-size:22px; margin:18px 0 6px; }
+  p { color:var(--muted); line-height:1.5; margin:0 0 18px; font-size:15px; }
+  label { display:block; text-align:left; font-size:13px; font-weight:600; margin:14px 0 6px; }
+  input { width:100%; font-size:16px; padding:14px; border:1px solid var(--line); border-radius:12px; background:#FAFAFA; }
+  input:focus { outline:none; border-color:var(--ink); background:#fff; }
+  button, .btn { display:block; width:100%; margin-top:18px; padding:15px; font-size:16px; font-weight:700; border:0; border-radius:14px; cursor:pointer; text-decoration:none; }
+  .primary { background:var(--ink); color:#fff; }
+  .app { background:var(--red); color:#fff; }
+  .ghost { background:#F0F0F0; color:var(--ink); margin-top:10px; }
+  .err { color:var(--red); font-size:14px; margin-top:12px; min-height:18px; }
+  .ok { color:#1DA750; }
+  .hidden { display:none; }
+  small { display:block; color:var(--muted); margin-top:22px; font-size:12px; }
+</style>
+</head>
+<body>
+<div class="wrap"><div class="card">
+  <img class="logo" src="logo.png" alt="TT Spot">
+
+  <div id="loading"><h1>One moment…</h1><p>Checking your reset link.</p></div>
+
+  <div id="bad" class="hidden">
+    <h1>This link has expired</h1>
+    <p id="badMsg">Reset links work once and only for an hour. Ask for a new one from the app's login screen.</p>
+  </div>
+
+  <div id="form" class="hidden">
+    <h1>Choose a new password</h1>
+    <p>You're resetting the password for <b id="who"></b>.</p>
+    <a id="openApp" class="btn app hidden" href="#">Open in the TT Spot app</a>
+    <p id="orText" class="hidden" style="margin:14px 0 0">or set it right here:</p>
+    <form id="f" autocomplete="on">
+      <label for="p1">New password</label>
+      <input id="p1" type="password" minlength="6" required autocomplete="new-password" placeholder="At least 6 characters">
+      <label for="p2">Repeat new password</label>
+      <input id="p2" type="password" minlength="6" required autocomplete="new-password">
+      <div id="err" class="err"></div>
+      <button id="save" class="primary" type="submit">Save password</button>
+    </form>
+  </div>
+
+  <div id="done" class="hidden">
+    <h1>Password updated</h1>
+    <p>Open TT Spot and log in with your new password.</p>
+    <a class="btn app" href="ttspot://login-callback">Open TT Spot</a>
+  </div>
+
+  <small>TT Spot · Malaysia's car meet spot</small>
+</div></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+(async () => {
+  const SUPABASE_URL = 'https://gsoaoabefjavdaiqhahu.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_IRiO2T_APtDv9rIxUBauBg_28WWkoar'; // public key, safe in a page
+  const show = id => ['loading','bad','form','done'].forEach(x => document.getElementById(x).classList.toggle('hidden', x !== id));
+
+  const hash = new URLSearchParams(location.hash.replace(/^#/, ''));
+  const query = new URLSearchParams(location.search);
+  const errDesc = hash.get('error_description') || query.get('error_description');
+  const access = hash.get('access_token'), refresh = hash.get('refresh_token');
+
+  if (errDesc || !access || !refresh) {
+    if (errDesc) document.getElementById('badMsg').textContent = errDesc.replace(/\+/g, ' ');
+    show('bad'); return;
+  }
+
+  // On a phone with the app installed, offer to finish inside the app (same tokens).
+  if (/iPhone|iPad|Android/i.test(navigator.userAgent)) {
+    const a = document.getElementById('openApp');
+    a.href = 'ttspot://reset-password' + location.hash;
+    a.classList.remove('hidden');
+    document.getElementById('orText').classList.remove('hidden');
+  }
+
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } });
+  const { data, error } = await sb.auth.setSession({ access_token: access, refresh_token: refresh });
+  if (error || !data.user) { show('bad'); return; }
+  document.getElementById('who').textContent = data.user.email || 'your account';
+  show('form');
+
+  document.getElementById('f').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const p1 = document.getElementById('p1').value, p2 = document.getElementById('p2').value, err = document.getElementById('err');
+    err.textContent = '';
+    if (p1.length < 6) { err.textContent = 'Use at least 6 characters.'; return; }
+    if (p1 !== p2) { err.textContent = "Passwords don't match."; return; }
+    const btn = document.getElementById('save'); btn.disabled = true; btn.textContent = 'Saving…';
+    const { error } = await sb.auth.updateUser({ password: p1 });
+    if (error) { err.textContent = error.message; btn.disabled = false; btn.textContent = 'Save password'; return; }
+    await sb.auth.signOut();
+    show('done');
+  });
+})();
+</script>
+</body>
+</html>

@@ -249,11 +249,15 @@ If you ever reset the database: `init.sql` → `social.sql` → `events_view_col
 are resolved by the `login` Edge Function (deployed with `--no-verify-jwt`, it runs before sign-in): it looks the
 username up with the service role, signs in server-side, and returns the session; the phone installs it with
 `auth.setSession`. The email is never sent back, so usernames can't be used to harvest emails. "Forgot password?"
-takes an email or username too; the function calls `resetPasswordForEmail` with `redirectTo: ttspot://reset-password`
-and always answers "ok". The link opens the app (Android `ttspot` intent filter, iOS `CFBundleURLSchemes`),
-supabase_flutter picks the tokens from the URL (auth flow is **implicit** for this reason), fires
-`passwordRecovery`, and the router opens `/reset-password` where the member sets a new password. Allowed redirect
-URLs live in the Supabase auth config (`uri_allow_list`, set via the management API). Emails go out through
+takes an email or username too; the function calls `resetPasswordForEmail` with
+`redirectTo: https://creatiqai.github.io/TTSpot/reset.html` and always answers "ok". That page (`docs/reset.html`,
+served by **GitHub Pages** from the `docs/` folder) reads the tokens from the URL fragment, lets the member set a new
+password right there (works on a PC), and on a phone also offers "Open in the TT Spot app" (`ttspot://reset-password`
++ the same fragment; Android `ttspot` intent filter, iOS `CFBundleURLSchemes`). In the app supabase_flutter picks the
+tokens from the URL (auth flow is **implicit** for this reason), fires `passwordRecovery`, and the router opens
+`/reset-password`. Allowed redirect URLs and the branded email templates (recovery, confirmation, magic link, email
+change) live in the Supabase auth config, pushed with `python tool/email_templates.py` (PATCH to
+`api.supabase.com/v1/projects/<ref>/config/auth`). `docs/index.html` is a tiny landing page with the Android download. Emails go out through
 Supabase's built-in mailer, which is capped at **2 per hour** and lands in spam sometimes; before launch, plug in a
 real SMTP provider (Resend / Brevo / SES) under Auth → SMTP settings.
 

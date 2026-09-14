@@ -243,8 +243,19 @@ hides the feed if you ever want the map-only version back.
 If you ever reset the database: `init.sql` → `social.sql` → `events_view_columns.sql` → `location_enums.sql` →
 `location_layer.sql` → `spots.sql` → `seed.sql` → `seed_social.sql` → `seed_location.sql` → `seed_spots.sql`.
 
-**Quick test login:** username `testing`, password `12341234`. (Debug builds expand a bare
-name to `<name>@ttspot.my`; the real email is `testing@ttspot.my`. Release builds need the full email.)
+**Quick test login:** username `testing`, password `12341234` (email `testing@ttspot.my` also works).
+
+**Login + password reset (2026-09-14):** the sign-in form takes an email **or a username** in every build. Usernames
+are resolved by the `login` Edge Function (deployed with `--no-verify-jwt`, it runs before sign-in): it looks the
+username up with the service role, signs in server-side, and returns the session; the phone installs it with
+`auth.setSession`. The email is never sent back, so usernames can't be used to harvest emails. "Forgot password?"
+takes an email or username too; the function calls `resetPasswordForEmail` with `redirectTo: ttspot://reset-password`
+and always answers "ok". The link opens the app (Android `ttspot` intent filter, iOS `CFBundleURLSchemes`),
+supabase_flutter picks the tokens from the URL (auth flow is **implicit** for this reason), fires
+`passwordRecovery`, and the router opens `/reset-password` where the member sets a new password. Allowed redirect
+URLs live in the Supabase auth config (`uri_allow_list`, set via the management API). Emails go out through
+Supabase's built-in mailer, which is capped at **2 per hour** and lands in spam sometimes; before launch, plug in a
+real SMTP provider (Resend / Brevo / SES) under Auth → SMTP settings.
 
 Other demo logins (password `password123` for all): amir@example.com, weiling@example.com,
 kumar@example.com, farah@example.com, jason@example.com.
@@ -428,6 +439,8 @@ lib/core/location/location_gate.dart           first-launch location permission 
               rewards, my_vouchers, voucher_qr, vendor_report, admin_commission)
 supabase/functions/verify-spot-photo/index.ts   Edge Function: OpenAI photo check for sticker check-ins
 supabase/functions/places/index.ts              Edge Function: Google Places autocomplete + details proxy
+supabase/functions/login/index.ts               Edge Function: username login + password reset email
+lib/features/auth/presentation/reset_password_screen.dart   opened by the ttspot://reset-password link
 lib/core/places/places_service.dart             client for it; lib/core/widgets/place_search_field.dart = the UI
 lib/core/widgets/picker_field.dart               bottom-sheet picker used instead of dropdowns
 tool/make_stickers.py                            printable spot stickers (PNG + PDF)

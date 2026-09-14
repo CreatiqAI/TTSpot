@@ -20,18 +20,31 @@ class AuthRepository {
 
   // ---------------------------------------------------------------- email ---
 
-  /// Dev convenience: in debug builds a bare name like `testing` becomes
-  /// `testing@ttspot.my`, so test accounts can be typed as usernames.
-  static const devLoginDomain = 'ttspot.my';
-
-  static String normalizeLogin(String input) {
-    final s = input.trim().toLowerCase();
-    if (kDebugMode && s.isNotEmpty && !s.contains('@')) return '$s@$devLoginDomain';
-    return s;
+  /// Log in with an email **or a username**. Emails go straight to Supabase;
+  /// usernames are resolved server-side by the `login` Edge Function (which
+  /// never reveals the email) and the returned session is installed here.
+  Future<void> signInWithEmail({required String email, required String password}) async {
+    final id = email.trim().toLowerCase();
+    if (id.contains('@')) {
+      await _client.auth.signInWithPassword(email: id, password: password);
+      return;
+    }
+    final res = await _client.functions.invoke('login', body: {'action': 'password', 'identifier': id, 'password': password});
+    final data = res.data as Map?;
+    if (data == null || data['error'] != null) throw AppException(data?['error'] as String? ?? 'Wrong username or password.');
+    await _client.auth.setSession(data['refresh_token'] as String);
   }
 
-  Future<void> signInWithEmail({required String email, required String password}) =>
-      _client.auth.signInWithPassword(email: normalizeLogin(email), password: password);
+  /// Sends the reset email for an email or username. Always succeeds from the
+  /// caller's point of view so nobody can probe which accounts exist.
+  Future<void> requestPasswordReset(String identifier) async {
+    final res = await _client.functions.invoke('login', body: {'action': 'reset', 'identifier': identifier.trim().toLowerCase()});
+    final data = res.data as Map?;
+    if (data != null && data['error'] != null) throw AppException(data['error'] as String);
+  }
+
+  /// After the reset link signed the member in.
+  Future<void> updatePassword(String password) => _client.auth.updateUser(UserAttributes(password: password));
 
   /// [termsAcceptedAt] is stored in the user's metadata as an audit trail.
   Future<void> signUpWithEmail({

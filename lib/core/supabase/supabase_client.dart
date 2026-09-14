@@ -9,7 +9,9 @@ Future<void> initSupabase() async {
   await Supabase.initialize(
     url: Env.supabaseUrl,
     publishableKey: Env.supabasePublishableKey,
-    authOptions: const FlutterAuthClientOptions(authFlowType: AuthFlowType.pkce),
+    // Implicit flow: the password-reset link (sent server-side by the login function) carries
+    // its tokens in the URL fragment, which this flow parses; PKCE would need a phone-side verifier.
+    authOptions: const FlutterAuthClientOptions(authFlowType: AuthFlowType.implicit),
   );
 }
 

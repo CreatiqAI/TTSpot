@@ -20,6 +20,10 @@ class AuthController extends AsyncNotifier<void> {
             ),
       );
 
+  Future<void> requestPasswordReset(String identifier) => _run(
+        () => ref.read(authRepositoryProvider).requestPasswordReset(identifier),
+      );
+
   Future<void> signInWithGoogle() => _run(
         () => ref.read(authRepositoryProvider).signInWithGoogle(),
       );

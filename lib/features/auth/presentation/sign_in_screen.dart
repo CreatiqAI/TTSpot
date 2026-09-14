@@ -6,7 +6,6 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../../core/widgets/primary_button.dart';
 import '../application/auth_controller.dart';
-import '../data/auth_repository.dart';
 
 enum _Mode { signIn, signUp }
 
@@ -58,6 +57,44 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
     }
   }
 
+  Future<void> _forgotPassword() async {
+    FocusScope.of(context).unfocus();
+    final ctrl = TextEditingController(text: _email.text.trim());
+    final id = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.fromLTRB(24, 0, 24, 24 + MediaQuery.viewInsetsOf(ctx).bottom),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text('Reset your password', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 6),
+            const Text("We'll email you a link. Open it on this phone and choose a new password.", style: TextStyle(color: AppColors.textSecondary, height: 1.4)),
+            const SizedBox(height: 16),
+            TextField(
+              controller: ctrl,
+              autofocus: true,
+              keyboardType: TextInputType.emailAddress,
+              autocorrect: false,
+              textInputAction: TextInputAction.send,
+              onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
+              decoration: const InputDecoration(hintText: 'Email or username'),
+            ),
+            const SizedBox(height: 14),
+            PrimaryButton(label: 'Send reset link', onPressed: () => Navigator.pop(ctx, ctrl.text.trim())),
+          ],
+        ),
+      ),
+    );
+    if (id == null || id.isEmpty || !mounted) return;
+    await ref.read(authControllerProvider.notifier).requestPasswordReset(id);
+    if (!mounted || ref.read(authControllerProvider).hasError) return;
+    _snack('If that account exists, a reset link is on its way. Check your inbox (and spam).');
+  }
+
   void _snack(String msg) {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
@@ -107,9 +144,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                             validator: (v) {
                               final s = v?.trim() ?? '';
                               if (s.isEmpty) return _isSignUp ? 'Enter your email' : 'Enter your email or username';
-                              // Log in accepts a bare username in debug builds (see AuthRepository.normalizeLogin).
-                              final resolved = _isSignUp ? s : AuthRepository.normalizeLogin(s);
-                              if (!resolved.contains('@') || !resolved.contains('.')) return 'Enter a valid email';
+                              if (_isSignUp && (!s.contains('@') || !s.contains('.'))) return 'Enter a valid email';
                               return null;
                             },
                           ),
@@ -149,7 +184,14 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                                       onChanged: busy ? null : (v) => setState(() => _acceptedTerms = v),
                                     ),
                                   )
-                                : const SizedBox(width: double.infinity),
+                                : Align(
+                                    alignment: Alignment.centerRight,
+                                    child: TextButton(
+                                      onPressed: busy ? null : _forgotPassword,
+                                      style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 4), visualDensity: VisualDensity.compact),
+                                      child: const Text('Forgot password?', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                                    ),
+                                  ),
                           ),
                           const SizedBox(height: 20),
 

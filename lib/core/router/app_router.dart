@@ -2,9 +2,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show AuthChangeEvent;
 
 import '../../features/auth/data/auth_repository.dart';
 import '../../features/auth/presentation/onboarding_screen.dart';
+import '../../features/auth/presentation/reset_password_screen.dart';
 import '../../features/auth/presentation/sign_in_screen.dart';
 import '../../features/events/presentation/convoy_live_screen.dart';
 import '../../features/events/presentation/create_event_screen.dart';
@@ -59,6 +61,7 @@ import 'app_shell.dart';
 abstract final class Routes {
   static const signIn = '/sign-in';
   static const onboarding = '/onboarding';
+  static const resetPassword = '/reset-password';
 
   // Shell tabs: Posts · Map · Chats · Me
   static const explore = '/posts';
@@ -141,13 +144,20 @@ class _RouterRefresh extends ChangeNotifier {
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final refresh = _RouterRefresh();
-  ref.listen(authStateProvider, (_, _) => refresh.poke());
+  late final GoRouter router;
+  ref.listen(authStateProvider, (_, next) {
+    refresh.poke();
+    // The reset link signs the member in and fires this event: go set a new password.
+    if (next.value?.event == AuthChangeEvent.passwordRecovery) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => router.go(Routes.resetPassword));
+    }
+  });
   ref.listen(currentProfileProvider, (_, _) => refresh.poke());
   ref.listen(locationGrantedProvider, (_, _) => refresh.poke());
   ref.listen(locationGateSkippedProvider, (_, _) => refresh.poke());
   ref.onDispose(refresh.dispose);
 
-  return GoRouter(
+  router = GoRouter(
     initialLocation: Routes.map,
     refreshListenable: refresh,
     debugLogDiagnostics: kDebugMode,
@@ -157,6 +167,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final onAuthPage = path == Routes.signIn;
 
       if (!signedIn) return onAuthPage ? null : Routes.signIn;
+      if (path == Routes.resetPassword) return null;
 
       final profile = ref.read(currentProfileProvider);
       if (profile.isLoading) return null;
@@ -176,6 +187,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(path: Routes.signIn, builder: (_, _) => const SignInScreen()),
       GoRoute(path: Routes.onboarding, builder: (_, _) => const OnboardingScreen()),
+      GoRoute(path: Routes.resetPassword, builder: (_, _) => const ResetPasswordScreen()),
 
       // Full-screen routes (no bottom nav)
       GoRoute(path: Routes.meets, builder: (_, _) => const MyEventsScreen()),
@@ -275,4 +287,5 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
     ],
   );
+  return router;
 });

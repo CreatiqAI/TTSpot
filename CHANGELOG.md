@@ -9,7 +9,7 @@ Files are simply `TTSpot-<version>.ipa` / `.apk`, kept in `build/ios-artifact/` 
 
 | Version | Date | Commit | What changed |
 |---|---|---|---|
-| 0.2.2 | 2026-09-15 | _next build_ | Meet form map has an expand button: full-screen pin picker with search, my-location and Use this spot. |
+| 0.2.2 | 2026-09-15 | 794e53e | Meet form map has an expand button: full-screen pin picker with search, my-location and Use this spot. |
 | 0.2.1 | 2026-09-15 | 613a3c6 | iPhone-style wheel for meet date/time; @handle moved to the left on the Me tab with a moments hint; Chats gets a friends row (green dot = on the map) and a Say hi list for friends you haven't messaged. |
 | 0.2.0 | 2026-09-15 | 8885da2 | TT now one field; Places search in Spots; meet visibility (friends / everyone) + trimmed form; friend suggestions; profile Posts · Garage · Saved with moments row; account switcher (personal / club / partner); club admins; post as club. |
 | 0.1.1 | 2026-09-15 | 3f2a5eb | Same features as 0.2.0, built before versioning started (shows as 0.1.0 on the phone). |

@@ -255,11 +255,12 @@ served by **GitHub Pages** from the `docs/` folder) reads the tokens from the UR
 password right there (works on a PC), and on a phone also offers "Open in the TT Spot app" (`ttspot://reset-password`
 + the same fragment; Android `ttspot` intent filter, iOS `CFBundleURLSchemes`). In the app supabase_flutter picks the
 tokens from the URL (auth flow is **implicit** for this reason), fires `passwordRecovery`, and the router opens
-`/reset-password`. Allowed redirect URLs and the branded email templates (recovery, confirmation, magic link, email
-change) live in the Supabase auth config, pushed with `python tool/email_templates.py` (PATCH to
-`api.supabase.com/v1/projects/<ref>/config/auth`). `docs/index.html` is a tiny landing page with the Android download. Emails go out through
-Supabase's built-in mailer, which is capped at **2 per hour** and lands in spam sometimes; before launch, plug in a
-real SMTP provider (Resend / Brevo / SES) under Auth → SMTP settings.
+`/reset-password`. Allowed redirect URLs live in the Supabase auth config. `docs/index.html` is a tiny landing page
+with the Android download. Branded email templates (recovery, confirmation, magic link, email change) are ready in
+`tool/email_templates.py`, but Supabase's free tier only accepts custom templates **after a custom SMTP provider is
+configured** (Dashboard → Authentication → SMTP settings; Resend / Brevo free tiers work). Until then emails come from
+"Supabase Auth", use the default template, and are capped at **2 per hour**. Once SMTP is set, run
+`python tool/email_templates.py` to push the templates.
 
 Other demo logins (password `password123` for all): amir@example.com, weiling@example.com,
 kumar@example.com, farah@example.com, jason@example.com.

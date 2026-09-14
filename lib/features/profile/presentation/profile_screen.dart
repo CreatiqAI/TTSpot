@@ -23,6 +23,7 @@ import '../../safety/data/safety_repository.dart';
 import '../../safety/presentation/report_sheet.dart';
 import '../../social/application/chat_providers.dart';
 import '../../social/application/social_providers.dart';
+import '../../social/domain/album.dart';
 import '../../social/domain/post.dart';
 import '../../social/presentation/create_hub_sheet.dart';
 import '../../social/presentation/story_viewer_screen.dart';
@@ -33,6 +34,8 @@ import 'profile_menu.dart';
 import 'widgets/profile_header.dart';
 
 enum _Tab { posts, garage, saved }
+
+enum _SavedKind { saved, liked, commented }
 
 /// Profile: identity on top, moments, then Posts · Garage · Saved.
 /// `userId == null` means "me".
@@ -46,7 +49,7 @@ class ProfileScreen extends ConsumerStatefulWidget {
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   _Tab _tab = _Tab.posts;
-  bool _liked = false; // Saved tab: saved (false) or liked (true)
+  _SavedKind _savedKind = _SavedKind.saved;
 
   void _snack(String msg) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
 
@@ -61,6 +64,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final cars = ref.watch(userCarsProvider(id));
     final posts = ref.watch(userPostsProvider(id));
     final moments = ref.watch(userMomentsProvider(id)).value ?? const <Story>[];
+    final albums = ref.watch(userAlbumsProvider(id)).value ?? const <MomentAlbum>[];
     final stats = ref.watch(profileStatsProvider(id)).value;
     final friendCount = ref.watch(friendCountProvider(id)).value;
     final friendship = ref.watch(friendshipStatusProvider(id)).value ?? FriendshipStatus.none;
@@ -77,12 +81,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       ref.invalidate(userCarsProvider(id));
       ref.invalidate(userPostsProvider(id));
       ref.invalidate(userMomentsProvider(id));
+      ref.invalidate(userAlbumsProvider(id));
       ref.invalidate(profileStatsProvider(id));
       ref.invalidate(friendCountProvider(id));
       ref.invalidate(friendshipStatusProvider(id));
       if (isMe) {
         ref.invalidate(savedPostsProvider);
         ref.invalidate(likedPostsProvider);
+        ref.invalidate(commentedPostsProvider);
       }
       await ref.read(profileProvider(id).future);
     }
@@ -123,6 +129,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     friendCount: friendCount,
                     points: points,
                     moments: moments,
+                    albums: albums,
                     friendship: friendship,
                     onMeets: () => context.push(Routes.meets),
                     onFriends: isMe ? () => context.push(Routes.friends) : null,
@@ -131,8 +138,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     onRewards: () => context.push(Routes.rewards),
                     onQr: () => context.push(Routes.myQr),
                     onAvatar: () => _avatarSheet(p, isMe, moments),
-                    onMoment: (m) => _openMoments(moments, moments.indexOf(m)),
-                    onAddMoment: () => context.push(Routes.createMoment()),
+                    onAlbum: (a) => _openAlbum(p, a),
+                    onAddAlbum: () => context.push(Routes.newAlbum),
                     onFriendAction: () => _friendAction(id, friendship, p.displayName ?? '@${p.username}'),
                     onMessage: () => _message(id),
                   ),
@@ -159,7 +166,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ),
                     layoutBuilder: (current, previous) => Stack(alignment: Alignment.topCenter, children: [...previous, ?current]),
                     child: KeyedSubtree(
-                      key: ValueKey(blocked ? 'blocked' : '$_tab$_liked'),
+                      key: ValueKey(blocked ? 'blocked' : '$_tab$_savedKind'),
                       child: blocked
                           ? const _Fill(
                               child: EmptyState(art: AppArt.prohibited, title: 'You blocked this user', subtitle: 'Unblock from the menu to see their garage.'),
@@ -227,18 +234,29 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
-  /// Saved tab: what I bookmarked, or what I liked. One small switch.
+  /// Saved tab: bookmarked, liked, or commented on. One row of pills.
   Widget _savedBody() {
-    final items = ref.watch(_liked ? likedPostsProvider : savedPostsProvider);
+    final items = ref.watch(switch (_savedKind) {
+      _SavedKind.saved => savedPostsProvider,
+      _SavedKind.liked => likedPostsProvider,
+      _SavedKind.commented => commentedPostsProvider,
+    });
+    final (title, subtitle) = switch (_savedKind) {
+      _SavedKind.saved => ('Nothing saved yet', 'Tap the bookmark on a post to keep it here.'),
+      _SavedKind.liked => ('Nothing liked yet', 'Double-tap a post to like it. It shows up here.'),
+      _SavedKind.commented => ('No comments yet', 'Posts you comment on collect here so you can find them again.'),
+    };
     return Column(
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
           child: Row(
             children: [
-              _Pill(label: 'Saved', icon: AppIcons.bookmarkSimple, on: !_liked, onTap: () => setState(() => _liked = false)),
+              _Pill(label: 'Saved', icon: AppIcons.bookmarkSimple, on: _savedKind == _SavedKind.saved, onTap: () => setState(() => _savedKind = _SavedKind.saved)),
               const SizedBox(width: 8),
-              _Pill(label: 'Liked', icon: AppIcons.heart, on: _liked, onTap: () => setState(() => _liked = true)),
+              _Pill(label: 'Liked', icon: AppIcons.heart, on: _savedKind == _SavedKind.liked, onTap: () => setState(() => _savedKind = _SavedKind.liked)),
+              const SizedBox(width: 8),
+              _Pill(label: 'Commented', icon: AppIcons.chatCircle, on: _savedKind == _SavedKind.commented, onTap: () => setState(() => _savedKind = _SavedKind.commented)),
             ],
           ),
         ),
@@ -246,13 +264,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           loading: () => const _Fill(child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
           error: (e, _) => _Fill(child: Center(child: Text(friendlyError(e)))),
           data: (list) => list.isEmpty
-              ? _Fill(
-                  child: EmptyState(
-                    art: _liked ? AppArt.heartYellow : AppArt.bookmark,
-                    title: _liked ? 'Nothing liked yet' : 'Nothing saved yet',
-                    subtitle: _liked ? 'Double-tap a post to like it. It shows up here.' : 'Tap the bookmark on a post to keep it here.',
-                  ),
-                )
+              ? _Fill(child: EmptyState(art: _savedKind == _SavedKind.liked ? AppArt.heartYellow : (_savedKind == _SavedKind.commented ? AppArt.speech : AppArt.bookmark), title: title, subtitle: subtitle))
               : MasonryGrid(items: list),
         ),
       ],
@@ -260,6 +272,23 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   // --------------------------------------------------------------- avatar ---
+
+  Future<void> _openAlbum(Profile p, MomentAlbum a) async {
+    try {
+      final list = await ref.read(albumMomentsProvider(a.id).future);
+      if (!mounted) return;
+      if (list.isEmpty) {
+        if (p.id == ref.read(currentUserIdProvider)) context.push(Routes.editAlbum(a.id));
+        return;
+      }
+      context.push(
+        Routes.stories,
+        extra: StoryViewerArgs(groups: [StoryGroup(author: p, stories: list, allSeen: true, label: a.name, albumId: a.id)], initialGroup: 0),
+      );
+    } catch (e) {
+      _snack(friendlyError(e));
+    }
+  }
 
   void _openMoments(List<Story> moments, int index) {
     final author = moments.isEmpty ? null : moments.first.author;

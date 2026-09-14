@@ -6,6 +6,7 @@ import '../../../core/utils/friendly_error.dart';
 import '../../auth/domain/profile.dart';
 import '../../safety/data/safety_repository.dart';
 import '../data/social_repository.dart';
+import '../domain/album.dart';
 import '../domain/post.dart';
 
 // ------------------------------------------------------------------ feeds ---
@@ -59,6 +60,17 @@ final likedPostsProvider = FutureProvider<List<FeedPost>>((ref) async {
   final repo = ref.watch(socialRepositoryProvider);
   return repo.attachViewerState(await repo.fetchLiked(me), me);
 });
+
+final commentedPostsProvider = FutureProvider<List<FeedPost>>((ref) async {
+  final me = ref.watch(currentUserIdProvider);
+  if (me == null) return const [];
+  final repo = ref.watch(socialRepositoryProvider);
+  return repo.attachViewerState(await repo.fetchCommented(me), me);
+});
+
+final userAlbumsProvider = FutureProvider.family<List<MomentAlbum>, String>((ref, userId) => ref.watch(socialRepositoryProvider).fetchAlbums(userId));
+final albumProvider = FutureProvider.family<MomentAlbum?, String>((ref, id) => ref.watch(socialRepositoryProvider).fetchAlbum(id));
+final albumMomentsProvider = FutureProvider.family<List<Story>, String>((ref, id) => ref.watch(socialRepositoryProvider).fetchAlbumMoments(id));
 
 final postProvider = FutureProvider.family<FeedPost?, String>((ref, id) async {
   final me = ref.watch(currentUserIdProvider);
@@ -220,6 +232,23 @@ class SocialActions {
   Future<void> deleteStory(String storyId) async {
     await _repo.deleteStory(storyId);
     _ref.invalidate(storiesProvider);
+    _ref.invalidate(userMomentsProvider(_me));
+    _ref.invalidate(userAlbumsProvider(_me));
+  }
+
+  Future<String> saveAlbum({String? id, required String name, String? coverUrl, required List<String> storyIds}) async {
+    if (name.trim().isEmpty) throw const AppException('Give the album a name.');
+    if (storyIds.isEmpty) throw const AppException('Pick at least one moment.');
+    final albumId = await _repo.saveAlbum(id: id, me: _me, name: name, coverUrl: coverUrl, storyIds: storyIds);
+    _ref.invalidate(userAlbumsProvider(_me));
+    _ref.invalidate(albumProvider(albumId));
+    _ref.invalidate(albumMomentsProvider(albumId));
+    return albumId;
+  }
+
+  Future<void> deleteAlbum(String id) async {
+    await _repo.deleteAlbum(id);
+    _ref.invalidate(userAlbumsProvider(_me));
   }
 }
 

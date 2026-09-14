@@ -247,10 +247,14 @@ class Story {
 
 /// One author's stories, in order, with whether the viewer has seen them all.
 class StoryGroup {
-  const StoryGroup({required this.author, required this.stories, required this.allSeen});
+  const StoryGroup({required this.author, required this.stories, required this.allSeen, this.label, this.albumId});
   final Profile author;
   final List<Story> stories;
   final bool allSeen;
+  /// Shown instead of the time (an album name).
+  final String? label;
+  /// Set when these moments come from an album (owner gets Edit / Delete).
+  final String? albumId;
 }
 
 class WeeklyWinner {

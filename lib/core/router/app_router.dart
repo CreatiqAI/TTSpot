@@ -41,6 +41,7 @@ import '../../features/accounts/presentation/me_tab.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/social/domain/post.dart';
 import '../../features/social/presentation/activity_screen.dart';
+import '../../features/social/presentation/album_editor_screen.dart';
 import '../../features/social/presentation/chat_screen.dart';
 import '../../features/social/presentation/club_screen.dart';
 import '../../features/social/presentation/create_club_screen.dart';
@@ -104,6 +105,8 @@ abstract final class Routes {
   static const stories = '/stories';
   static const createStory = '/create/story';
   static const createClub = '/create/club';
+  static const newAlbum = '/me/albums/new';
+  static String editAlbum(String id) => '/me/albums/$id/edit';
   static const clubs = '/clubs';
 
   static String event(String id) => '/event/$id';
@@ -237,6 +240,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: Routes.createStory,
         builder: (_, s) => CreateStoryScreen(eventId: s.uri.queryParameters['event'], placeId: s.uri.queryParameters['place']),
       ),
+      GoRoute(path: Routes.newAlbum, builder: (_, _) => const AlbumEditorScreen()),
+      GoRoute(path: '/me/albums/:id/edit', builder: (_, s) => AlbumEditorScreen(albumId: s.pathParameters['id']!)),
       GoRoute(path: Routes.friends, builder: (_, _) => const FriendsScreen()),
       GoRoute(path: Routes.scan, builder: (_, _) => const ScanScreen()),
       GoRoute(path: Routes.myQr, builder: (_, _) => const MyQrScreen()),

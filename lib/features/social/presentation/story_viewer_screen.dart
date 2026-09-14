@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -20,7 +18,10 @@ class StoryViewerArgs {
   final int initialGroup;
 }
 
-/// Full-screen story player: progress bars, tap left/right, hold to pause, swipe down to close.
+/// Full-screen moment player. Finger down pauses at once, lift resumes; a
+/// quick tap goes back / forward; swipe down closes. Progress runs on an
+/// AnimationController so it never stutters, and the next photo is
+/// pre-loaded while the current one plays.
 class StoryViewerScreen extends ConsumerStatefulWidget {
   const StoryViewerScreen({super.key, required this.args});
   final StoryViewerArgs args;
@@ -29,13 +30,15 @@ class StoryViewerScreen extends ConsumerStatefulWidget {
   ConsumerState<StoryViewerScreen> createState() => _StoryViewerScreenState();
 }
 
-class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> {
+class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> with SingleTickerProviderStateMixin {
   static const _duration = Duration(seconds: 5);
+  late final AnimationController _ctrl = AnimationController(vsync: this, duration: _duration)
+    ..addStatusListener((st) {
+      if (st == AnimationStatus.completed) _next();
+    });
   late int _group;
   int _index = 0;
-  double _progress = 0;
-  Timer? _timer;
-  bool _paused = false;
+  DateTime? _downAt;
 
   StoryGroup get _g => widget.args.groups[_group];
   Story get _story => _g.stories[_index];
@@ -48,20 +51,39 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _precacheAround();
+  }
+
+  @override
   void dispose() {
-    _timer?.cancel();
+    _ctrl.dispose();
     super.dispose();
   }
 
+  void _precacheAround() {
+    Story? at(int g, int i) {
+      if (g < 0 || g >= widget.args.groups.length) return null;
+      final list = widget.args.groups[g].stories;
+      if (i < 0 || i >= list.length) return null;
+      return list[i];
+    }
+
+    final next = at(_group, _index + 1) ?? at(_group + 1, 0);
+    final prev = at(_group, _index - 1);
+    for (final s in [next, prev]) {
+      if (s != null) precacheImage(NetworkImage(s.photoUrl), context);
+    }
+  }
+
   void _start() {
-    _timer?.cancel();
-    _progress = 0;
     ref.read(socialActionsProvider).markStoryViewed(_story.id).catchError((_) {});
-    _timer = Timer.periodic(const Duration(milliseconds: 50), (t) {
-      if (_paused) return;
-      setState(() => _progress += 50 / _duration.inMilliseconds);
-      if (_progress >= 1) _next();
-    });
+    _ctrl
+      ..stop()
+      ..reset()
+      ..forward();
+    if (mounted) _precacheAround();
   }
 
   void _next() {
@@ -80,7 +102,7 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> {
   }
 
   void _prev() {
-    if (_progress > 0.15 || (_index == 0 && _group == 0)) {
+    if (_ctrl.value > 0.15 || (_index == 0 && _group == 0)) {
       _start();
       return;
     }
@@ -96,44 +118,109 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> {
   }
 
   void _close() {
-    _timer?.cancel();
+    _ctrl.stop();
     ref.invalidate(storiesProvider);
     if (mounted) context.pop();
   }
 
-  Future<void> _delete() async {
-    _paused = true;
+  // ---- touch: down = pause now; up within 250 ms = tap; later = resume.
+  void _down(TapDownDetails d) {
+    _downAt = DateTime.now();
+    _ctrl.stop();
+  }
+
+  void _up(TapUpDetails d) {
+    final held = DateTime.now().difference(_downAt ?? DateTime.now());
+    _downAt = null;
+    if (held < const Duration(milliseconds: 250)) {
+      d.localPosition.dx < MediaQuery.sizeOf(context).width / 3 ? _prev() : _next();
+    } else {
+      _ctrl.forward();
+    }
+  }
+
+  void _cancel() {
+    _downAt = null;
+    _ctrl.forward();
+  }
+
+  Future<void> _menu() async {
+    _ctrl.stop();
+    final me = ref.read(currentUserIdProvider);
+    final mine = _story.authorId == me;
+    final albumId = _g.albumId;
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (albumId != null && mine) ListTile(leading: const Icon(AppIcons.pencilSimple), title: const Text('Edit album'), onTap: () => Navigator.pop(ctx, 'edit')),
+            if (albumId != null && mine)
+              ListTile(leading: const Icon(AppIcons.trash, color: AppColors.danger), title: const Text('Delete album', style: TextStyle(color: AppColors.danger)), onTap: () => Navigator.pop(ctx, 'deleteAlbum')),
+            if (mine)
+              ListTile(leading: const Icon(AppIcons.trash, color: AppColors.danger), title: const Text('Delete this moment', style: TextStyle(color: AppColors.danger)), onTap: () => Navigator.pop(ctx, 'delete')),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (!mounted) return;
+    switch (action) {
+      case 'edit':
+        _ctrl.stop();
+        context.pushReplacement(Routes.editAlbum(albumId!));
+      case 'deleteAlbum':
+        final ok = await _confirm('Delete this album?', 'The moments themselves stay.');
+        if (ok) {
+          await ref.read(socialActionsProvider).deleteAlbum(albumId!);
+          _close();
+        } else {
+          _ctrl.forward();
+        }
+      case 'delete':
+        final ok = await _confirm('Delete this moment?', null);
+        if (ok) {
+          await ref.read(socialActionsProvider).deleteStory(_story.id);
+          _close();
+        } else {
+          _ctrl.forward();
+        }
+      default:
+        _ctrl.forward();
+    }
+  }
+
+  Future<bool> _confirm(String title, String? body) async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete story?'),
+        title: Text(title),
+        content: body == null ? null : Text(body),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
           TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete', style: TextStyle(color: AppColors.danger))),
         ],
       ),
     );
-    if (ok == true) {
-      await ref.read(socialActionsProvider).deleteStory(_story.id);
-      _close();
-      return;
-    }
-    _paused = false;
+    return ok == true;
   }
 
   @override
   Widget build(BuildContext context) {
     final me = ref.watch(currentUserIdProvider);
     final s = _story;
-    final width = MediaQuery.sizeOf(context).width;
+    final label = _g.label;
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light,
       child: Scaffold(
         backgroundColor: Colors.black,
         body: GestureDetector(
-          onTapUp: (d) => d.localPosition.dx < width / 3 ? _prev() : _next(),
-          onLongPressStart: (_) => setState(() => _paused = true),
-          onLongPressEnd: (_) => setState(() => _paused = false),
+          behavior: HitTestBehavior.opaque,
+          onTapDown: _down,
+          onTapUp: _up,
+          onTapCancel: _cancel,
           onVerticalDragEnd: (d) {
             if ((d.primaryVelocity ?? 0) > 300) _close();
           },
@@ -143,30 +230,46 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> {
               Image.network(
                 s.photoUrl,
                 fit: BoxFit.contain,
+                gaplessPlayback: true,
                 loadingBuilder: (_, child, prog) => prog == null ? child : const Center(child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
                 errorBuilder: (_, _, _) => const Center(child: Icon(AppIcons.imageBroken, color: Colors.white54, size: 48)),
+              ),
+              // top fade so the bars and name read on bright photos
+              const Positioned(
+                left: 0,
+                right: 0,
+                top: 0,
+                height: 140,
+                child: IgnorePointer(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0x99000000), Colors.transparent])),
+                  ),
+                ),
               ),
               SafeArea(
                 child: Column(
                   children: [
                     Padding(
                       padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
-                      child: Row(
-                        children: [
-                          for (var i = 0; i < _g.stories.length; i++)
-                            Expanded(
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 2),
-                                child: LinearProgressIndicator(
-                                  value: i < _index ? 1 : (i == _index ? _progress : 0),
-                                  minHeight: 2.5,
-                                  backgroundColor: Colors.white30,
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(2),
+                      child: AnimatedBuilder(
+                        animation: _ctrl,
+                        builder: (_, _) => Row(
+                          children: [
+                            for (var i = 0; i < _g.stories.length; i++)
+                              Expanded(
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 2),
+                                  child: LinearProgressIndicator(
+                                    value: i < _index ? 1 : (i == _index ? _ctrl.value : 0),
+                                    minHeight: 2.5,
+                                    backgroundColor: Colors.white30,
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(2),
+                                  ),
                                 ),
                               ),
-                            ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                     Padding(
@@ -175,17 +278,27 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> {
                         children: [
                           GestureDetector(
                             onTap: () {
-                              _timer?.cancel();
+                              _ctrl.stop();
                               context.push(Routes.profile(_g.author.id));
                             },
                             child: UserAvatar(url: _g.author.avatarUrl, name: _g.author.displayName ?? _g.author.username, size: 34, borderColor: Colors.white),
                           ),
                           const SizedBox(width: 10),
-                          Text(_g.author.username ?? '', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14)),
-                          const SizedBox(width: 8),
-                          Text(timeAgo(s.createdAt), style: const TextStyle(color: Colors.white70, fontSize: 13)),
-                          const Spacer(),
-                          if (s.authorId == me) IconButton(icon: const Icon(AppIcons.trash, color: Colors.white), onPressed: _delete),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(label ?? (_g.author.username ?? ''), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14)),
+                                Text(
+                                  label != null ? '${_g.author.username ?? ''} · ${s.whereLabel ?? timeAgo(s.createdAt)}' : (s.whereLabel != null ? '${s.whereLabel} · ${timeAgo(s.createdAt)}' : timeAgo(s.createdAt)),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(color: Colors.white70, fontSize: 12),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (s.authorId == me) IconButton(icon: const Icon(AppIcons.dotsThree, color: Colors.white), onPressed: _menu),
                           IconButton(icon: const Icon(AppIcons.x, color: Colors.white), onPressed: _close),
                         ],
                       ),

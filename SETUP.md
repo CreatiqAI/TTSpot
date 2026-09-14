@@ -302,7 +302,7 @@ Migration `20260916000013_accounts_simplify.sql` (the 16 in the name is only the
 - **TT now.** One field (Places autocomplete, prefilled with your current spot) + Start. Fixed 3 hours.
 - **Spots search.** Typing shows Google Places matches; tap one to jump the map there.
 - **Friends.** `suggest_friends()` → "People you may know" (mutual friends, same club, same car make, same state, newest). No more "crew" wording.
-- **Profile.** Posts · Garage · Saved (Saved has a Saved/Liked switch). Moments row replaces car circles; avatar ring is red only while a moment is live; tap avatar → view / change photo. Badge chips removed (still under Me menu → Badges). Showroom plate only when the year is set.
+- **Profile.** Posts · Garage · Saved (Saved has Saved / Liked / Commented pills). **Moment albums** (migration 0014: `moment_albums`, `moment_album_items`, view `moment_albums_with_counts`; moments inside an album stay readable after they expire) show as circles under the bio; owner creates from the + tile or the Create sheet, edits/deletes from the viewer's ⋯ menu. Moments row replaces car circles; avatar ring is red only while a moment is live; tap avatar → view / change photo. Badge chips removed (still under Me menu → Badges). Showroom plate only when the year is set.
 
 ## 3b. Google sign-in (one-time, ~15 min)
 

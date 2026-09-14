@@ -11,7 +11,7 @@ import '../../../auth/data/auth_repository.dart';
 import '../../application/social_providers.dart';
 import '../story_viewer_screen.dart';
 
-/// Instagram stories strip: "Your story" first, then people with live stories.
+/// Moments strip: "Your moment" first, then friends with live moments.
 class StoriesRow extends ConsumerWidget {
   const StoriesRow({super.key});
 
@@ -30,7 +30,7 @@ class StoriesRow extends ConsumerWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         children: [
           _StoryBubble(
-            label: 'Your story',
+            label: 'Your moment',
             avatarUrl: myProfile?.avatarUrl,
             name: myProfile?.displayName ?? myProfile?.username,
             ring: mineIndex >= 0 ? (groups[mineIndex].allSeen ? _Ring.seen : _Ring.unseen) : _Ring.none,

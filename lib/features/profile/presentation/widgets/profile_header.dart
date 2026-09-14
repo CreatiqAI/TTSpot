@@ -6,7 +6,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/user_avatar.dart';
 import '../../../auth/domain/profile.dart';
 import '../../../friends/domain/friend.dart';
-import '../../../../core/utils/dates.dart';
+import '../../../social/domain/album.dart';
 import '../../../social/domain/post.dart';
 import '../../domain/car.dart';
 
@@ -23,6 +23,7 @@ class ProfileHeader extends StatelessWidget {
     required this.friendCount,
     required this.points,
     required this.moments,
+    required this.albums,
     required this.friendship,
     required this.onMeets,
     required this.onFriends,
@@ -31,8 +32,8 @@ class ProfileHeader extends StatelessWidget {
     required this.onRewards,
     required this.onQr,
     required this.onAvatar,
-    required this.onMoment,
-    required this.onAddMoment,
+    required this.onAlbum,
+    required this.onAddAlbum,
     required this.onFriendAction,
     required this.onMessage,
   });
@@ -44,6 +45,7 @@ class ProfileHeader extends StatelessWidget {
   final int? friendCount;
   final int? points;
   final List<Story> moments;
+  final List<MomentAlbum> albums;
   final FriendshipStatus friendship;
   final VoidCallback onMeets;
   final VoidCallback? onFriends;
@@ -52,8 +54,8 @@ class ProfileHeader extends StatelessWidget {
   final VoidCallback onRewards;
   final VoidCallback onQr;
   final VoidCallback onAvatar;
-  final ValueChanged<Story> onMoment;
-  final VoidCallback onAddMoment;
+  final ValueChanged<MomentAlbum> onAlbum;
+  final VoidCallback onAddAlbum;
   final VoidCallback onFriendAction;
   final VoidCallback onMessage;
 
@@ -130,8 +132,8 @@ class ProfileHeader extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(28, 12, 28, 0),
             child: Text(p.bio!.trim(), textAlign: TextAlign.center, style: const TextStyle(fontSize: 13.5, height: 1.4)),
           ),
-        // --------------------------------------------------------- moments ---
-        if (moments.isNotEmpty || isMe)
+        // ---------------------------------------------------------- albums ---
+        if (albums.isNotEmpty || isMe)
           Padding(
             padding: const EdgeInsets.only(top: 14),
             child: SizedBox(
@@ -140,17 +142,17 @@ class ProfileHeader extends StatelessWidget {
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 children: [
-                  if (isMe) _MomentCircle(onTap: onAddMoment),
-                  for (final m in moments) _MomentCircle(moment: m, onTap: () => onMoment(m)),
-                  if (isMe && moments.isEmpty)
+                  if (isMe) _AlbumCircle(onTap: onAddAlbum),
+                  for (final a in albums) _AlbumCircle(album: a, onTap: () => onAlbum(a)),
+                  if (isMe && albums.isEmpty)
                     GestureDetector(
-                      onTap: onAddMoment,
+                      onTap: onAddAlbum,
                       child: const SizedBox(
                         width: 220,
                         child: Padding(
                           padding: EdgeInsets.only(left: 4, top: 8),
                           child: Text(
-                            'Snap a moment at a meet or a spot.\nIt stays 24 hours, then lives in that place\'s album.',
+                            'Group your moments into albums.\nThey stay here after the 24 hours.',
                             style: TextStyle(fontSize: 12, height: 1.35, color: AppColors.textSecondary),
                           ),
                         ),
@@ -166,16 +168,15 @@ class ProfileHeader extends StatelessWidget {
   }
 }
 
-/// A moment as a story-style circle. No moment = the "new" tile on my own profile.
-class _MomentCircle extends StatelessWidget {
-  const _MomentCircle({this.moment, required this.onTap});
-  final Story? moment;
+/// An album as a circle: cover photo in a thin ring. No album = the "new" tile.
+class _AlbumCircle extends StatelessWidget {
+  const _AlbumCircle({this.album, required this.onTap});
+  final MomentAlbum? album;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final m = moment;
-    final label = m == null ? 'New' : (m.whereLabel ?? relativeShort(m.createdAt));
+    final a = album;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 6),
       child: GestureDetector(
@@ -188,18 +189,17 @@ class _MomentCircle extends StatelessWidget {
                 width: 60,
                 height: 60,
                 padding: const EdgeInsets.all(2),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: m == null ? AppColors.border : (m.isLive ? AppColors.brand : AppColors.ink), width: 1.5),
-                ),
+                decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: a == null ? AppColors.border : AppColors.ink, width: 1.5)),
                 child: ClipOval(
-                  child: m == null
+                  child: a == null
                       ? const ColoredBox(color: AppColors.surfaceGray, child: Icon(AppIcons.plus, size: 22, color: AppColors.textSecondary))
-                      : Image.network(m.photoUrl, fit: BoxFit.cover, errorBuilder: (_, _, _) => const ColoredBox(color: AppColors.surfaceGray)),
+                      : a.coverUrl == null
+                          ? const ColoredBox(color: AppColors.surfaceGray, child: Icon(AppIcons.images, size: 22, color: AppColors.textSecondary))
+                          : Image.network(a.coverUrl!, fit: BoxFit.cover, errorBuilder: (_, _, _) => const ColoredBox(color: AppColors.surfaceGray)),
                 ),
               ),
               const SizedBox(height: 4),
-              Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+              Text(a == null ? 'New' : a.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
             ],
           ),
         ),

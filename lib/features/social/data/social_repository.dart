@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/supabase/supabase_client.dart';
 import '../../auth/domain/profile.dart';
+import '../domain/album.dart';
 import '../domain/post.dart';
 
 const profileCols = 'id, username, display_name, bio, avatar_url, home_state, created_at';
@@ -320,6 +321,61 @@ class SocialRepository {
         .order('created_at', ascending: false)
         .limit(limit);
     return rows.map(Story.fromMap).toList();
+  }
+
+  // --------------------------------------------------------------- albums ---
+
+  Future<List<MomentAlbum>> fetchAlbums(String userId) async {
+    final rows = await _client.from('moment_albums_with_counts').select().eq('owner_id', userId).order('created_at', ascending: false);
+    return rows.map(MomentAlbum.fromMap).toList();
+  }
+
+  Future<MomentAlbum?> fetchAlbum(String id) async {
+    final row = await _client.from('moment_albums_with_counts').select().eq('id', id).maybeSingle();
+    return row == null ? null : MomentAlbum.fromMap(row);
+  }
+
+  /// Moments inside an album, in the order they were added.
+  Future<List<Story>> fetchAlbumMoments(String albumId) async {
+    final items = await _client.from('moment_album_items').select('story_id, sort').eq('album_id', albumId).order('sort');
+    final ids = items.map((r) => r['story_id'] as String).toList();
+    if (ids.isEmpty) return const [];
+    final rows = await _client.from('stories').select(_storySelect).inFilter('id', ids);
+    final byId = {for (final r in rows) r['id'] as String: Story.fromMap(r)};
+    return ids.map((id) => byId[id]).whereType<Story>().toList();
+  }
+
+  /// Create or update an album and replace its moments.
+  Future<String> saveAlbum({String? id, required String me, required String name, String? coverUrl, required List<String> storyIds}) async {
+    String albumId;
+    if (id == null) {
+      final row = await _client.from('moment_albums').insert({'owner_id': me, 'name': name.trim(), 'cover_url': ?coverUrl}).select('id').single();
+      albumId = row['id'] as String;
+    } else {
+      await _client.from('moment_albums').update({'name': name.trim(), 'cover_url': coverUrl, 'updated_at': DateTime.now().toUtc().toIso8601String()}).eq('id', id);
+      albumId = id;
+      await _client.from('moment_album_items').delete().eq('album_id', id);
+    }
+    if (storyIds.isNotEmpty) {
+      await _client.from('moment_album_items').insert([for (var i = 0; i < storyIds.length; i++) {'album_id': albumId, 'story_id': storyIds[i], 'sort': i}]);
+    }
+    return albumId;
+  }
+
+  Future<void> deleteAlbum(String id) => _client.from('moment_albums').delete().eq('id', id);
+
+  /// Posts I commented on, newest comment first.
+  Future<List<Post>> fetchCommented(String me) async {
+    final rows0 = await _client.from('post_comments').select('post_id, created_at').eq('user_id', me).order('created_at', ascending: false).limit(200);
+    final ids = <String>[];
+    for (final r in rows0) {
+      final id = r['post_id'] as String;
+      if (!ids.contains(id)) ids.add(id);
+    }
+    if (ids.isEmpty) return const [];
+    final rows = await _client.from('posts').select(_postSelect).inFilter('id', ids.take(100).toList());
+    final byId = {for (final r in rows) r['id'] as String: Post.fromMap(r)};
+    return ids.map((id) => byId[id]).whereType<Post>().toList();
   }
 
   Future<void> markStoryViewed(String storyId, String me) =>

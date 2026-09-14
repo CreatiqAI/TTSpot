@@ -10,17 +10,13 @@ import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../../core/widgets/empty_state.dart';
-import '../../auth/application/auth_controller.dart';
-import '../../auth/data/auth_repository.dart';
 import '../../auth/domain/profile.dart';
 import '../../friends/application/friends_providers.dart';
 import '../../friends/domain/friend.dart';
 import '../../points/application/points_providers.dart';
 import '../../safety/data/safety_repository.dart';
-import '../../vendors/application/vendors_providers.dart';
 import '../../safety/presentation/report_sheet.dart';
 import '../../social/application/chat_providers.dart';
-import '../../social/application/community_providers.dart';
 import '../../social/application/notification_providers.dart';
 import '../../social/application/social_providers.dart';
 import '../../social/domain/post.dart';
@@ -28,6 +24,7 @@ import '../../social/presentation/create_hub_sheet.dart';
 import '../../social/presentation/story_viewer_screen.dart';
 import '../../social/presentation/widgets/masonry_grid.dart';
 import '../application/profile_providers.dart';
+import 'profile_menu.dart';
 import 'widgets/profile_header.dart';
 import '../domain/car.dart';
 
@@ -109,7 +106,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             IconButton(
               tooltip: 'Menu',
               icon: const Icon(AppIcons.list),
-              onPressed: () => _myMenu(context),
+              onPressed: () => showProfileMenu(context, ref),
             ),
           ] else if (profile.value != null)
             IconButton(
@@ -154,6 +151,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     onMessage: () => _message(id),
                   ),
                 ),
+                if (isMe)
+                  SliverToBoxAdapter(
+                    child: ProfileQuickActions(
+                      points: points ?? 0,
+                      onPoints: () => context.push(Routes.points),
+                      onRewards: () => context.push(Routes.rewards),
+                      onVouchers: () => context.push(Routes.myVouchers),
+                      onQr: () => context.push(Routes.myQr),
+                      onScan: () => context.push(Routes.scan),
+                    ),
+                  ),
                 SliverToBoxAdapter(
                   child: ProfileTabs(
                     tabs: [
@@ -432,149 +440,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       if (mounted) context.push(Routes.chat(conv));
     } catch (e) {
       _snack(friendlyError(e));
-    }
-  }
-
-  Future<void> _myMenu(BuildContext context) async {
-    // Make sure we know whether I'm a partner before the sheet renders.
-    try {
-      await ref.read(myVendorProvider.future);
-      await ref.read(myClubsProvider.future);
-    } catch (_) {}
-    if (!context.mounted) return;
-    final action = await showModalBottomSheet<String>(
-      context: context,
-      showDragHandle: true,
-      builder: (ctx) => SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(AppIcons.pencilSimple),
-                title: const Text('Edit profile'),
-                onTap: () => Navigator.pop(ctx, 'edit'),
-              ),
-              ListTile(
-                leading: const Icon(AppIcons.users),
-                title: const Text('Friends'),
-                onTap: () => Navigator.pop(ctx, 'friends'),
-              ),
-              if (kSocialFeed)
-                ListTile(
-                  leading: const Icon(AppIcons.bookmarkSimple),
-                  title: const Text('Saved'),
-                  onTap: () => Navigator.pop(ctx, 'saved'),
-                ),
-              ListTile(
-                leading: const Icon(AppIcons.star),
-                title: const Text('Points'),
-                onTap: () => Navigator.pop(ctx, 'points'),
-              ),
-              ListTile(
-                leading: const Icon(AppIcons.gift),
-                title: const Text('Rewards'),
-                onTap: () => Navigator.pop(ctx, 'rewards'),
-              ),
-              ListTile(
-                leading: const Icon(AppIcons.ticket),
-                title: const Text('My vouchers'),
-                onTap: () => Navigator.pop(ctx, 'vouchers'),
-              ),
-              ListTile(
-                leading: const Icon(AppIcons.storefront),
-                title: Text(ref.read(myVendorProvider).value == null ? 'Become a partner' : 'Partner dashboard'),
-                onTap: () => Navigator.pop(ctx, 'partner'),
-              ),
-              ListTile(
-                leading: const Icon(AppIcons.usersThree),
-                title: Text((ref.read(currentProfileProvider).value?.canRunClubs ?? false) ? 'My car club' : 'Run a car club'),
-                onTap: () => Navigator.pop(ctx, 'club'),
-              ),
-              if (ref.read(currentProfileProvider).value?.isAdmin ?? false) ...[
-                ListTile(
-                  leading: const Icon(AppIcons.shieldCheck),
-                  title: const Text('Review queue'),
-                  onTap: () => Navigator.pop(ctx, 'review'),
-                ),
-                ListTile(
-                  leading: const Icon(AppIcons.handshake),
-                  title: const Text('Partner applications'),
-                  onTap: () => Navigator.pop(ctx, 'partners'),
-                ),
-                ListTile(
-                  leading: const Icon(AppIcons.chartBar),
-                  title: const Text('Commission report'),
-                  onTap: () => Navigator.pop(ctx, 'commission'),
-                ),
-              ],
-              ListTile(
-                leading: const Icon(AppIcons.qrCode),
-                title: const Text('My QR'),
-                onTap: () => Navigator.pop(ctx, 'qr'),
-              ),
-              ListTile(
-                leading: const Icon(AppIcons.trophy),
-                title: const Text('Badges'),
-                onTap: () => Navigator.pop(ctx, 'badges'),
-              ),
-              ListTile(
-                leading: const Icon(AppIcons.plusCircle),
-                title: const Text('Add car'),
-                onTap: () => Navigator.pop(ctx, 'car'),
-              ),
-              ListTile(
-                leading: const Icon(AppIcons.signOut, color: AppColors.danger),
-                title: const Text(
-                  'Log out',
-                  style: TextStyle(color: AppColors.danger),
-                ),
-                onTap: () => Navigator.pop(ctx, 'logout'),
-              ),
-              const SizedBox(height: 8),
-            ],
-          ),
-        ),
-      ),
-    );
-    if (!context.mounted || action == null) return;
-    final me = ref.read(currentUserIdProvider);
-    switch (action) {
-      case 'edit':
-        context.push(Routes.editProfile);
-      case 'friends':
-        context.push(Routes.friends);
-      case 'saved':
-        context.push(Routes.saved);
-      case 'badges':
-        if (me != null) context.push(Routes.badges(me));
-      case 'points':
-        context.push(Routes.points);
-      case 'review':
-        context.push(Routes.adminReview);
-      case 'rewards':
-        context.push(Routes.rewards);
-      case 'vouchers':
-        context.push(Routes.myVouchers);
-      case 'partner':
-        context.push(ref.read(myVendorProvider).value == null ? Routes.partnerApply : Routes.vendor);
-      case 'club':
-        if (ref.read(currentProfileProvider).value?.canRunClubs ?? false) {
-          final owned = (ref.read(myClubsProvider).value ?? const []).where((c) => c.ownerId == me).firstOrNull;
-          context.push(owned == null ? Routes.createClub : Routes.club(owned.id));
-        } else {
-          context.push(Routes.clubApply);
-        }
-      case 'partners':
-        context.push(Routes.adminPartners);
-      case 'commission':
-        context.push(Routes.adminCommission);
-      case 'qr':
-        context.push(Routes.myQr);
-      case 'car':
-        context.push(Routes.newCar);
-      case 'logout':
-        await ref.read(authControllerProvider.notifier).signOut();
     }
   }
 

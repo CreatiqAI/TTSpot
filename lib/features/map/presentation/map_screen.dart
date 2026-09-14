@@ -508,7 +508,7 @@ class _TtNowButton extends StatelessWidget {
             children: [
               ArtIcon(AppArt.coffee, size: 26),
               SizedBox(width: 8),
-              Text('TT now', style: TextStyle(color: Colors.black, fontSize: 16, fontWeight: FontWeight.w800)),
+              Text('TT now', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800)),
             ],
           ),
         ),

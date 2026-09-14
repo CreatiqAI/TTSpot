@@ -96,7 +96,7 @@ class _SpotVerifyScreenState extends ConsumerState<SpotVerifyScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                 decoration: BoxDecoration(color: AppColors.warnColor, borderRadius: BorderRadius.circular(999)),
-                child: Text('+${r.points} points', style: const TextStyle(fontWeight: FontWeight.w800, color: Colors.black)),
+                child: Text('+${r.points} points', style: const TextStyle(fontWeight: FontWeight.w800, color: Colors.white)),
               ),
             ],
           ],

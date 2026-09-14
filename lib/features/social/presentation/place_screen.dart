@@ -143,7 +143,7 @@ class _PlaceScreenState extends ConsumerState<PlaceScreen> {
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                                       decoration: BoxDecoration(color: AppColors.warnColor, borderRadius: BorderRadius.circular(999)),
-                                      child: const Text('★ Recommended', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: Colors.black)),
+                                      child: const Text('★ Recommended', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: Colors.white)),
                                     ),
                                   ],
                                 ],

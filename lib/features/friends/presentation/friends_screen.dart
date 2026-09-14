@@ -113,12 +113,17 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
                               : outgoing.contains(p.id)
                                   ? const _Chip('Requested')
                                   : requests.any((r) => r.from.id == p.id)
-                                      ? FilledButton(onPressed: () => _run(() => actions.accept(p.id)), child: const Text('Accept'))
+                                      ? FilledButton(
+                                          onPressed: () => _run(() => actions.accept(p.id)),
+                                          style: FilledButton.styleFrom(minimumSize: const Size(0, 36), padding: const EdgeInsets.symmetric(horizontal: 16)),
+                                          child: const Text('Accept'),
+                                        )
                                       : FilledButton(
                                           onPressed: () => _run(() async {
                                             final s = await actions.add(p.id);
                                             _snack(s == FriendshipStatus.friends ? 'You\'re now friends.' : 'Request sent.');
                                           }),
+                                          style: FilledButton.styleFrom(minimumSize: const Size(0, 36), padding: const EdgeInsets.symmetric(horizontal: 16)),
                                           child: const Text('Add'),
                                         ),
                         ),

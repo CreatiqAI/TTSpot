@@ -319,13 +319,13 @@ class _InviteBannerState extends ConsumerState<_InviteBanner> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('You\'re invited', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+            const Text('You\'re invited', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: Colors.white)),
             const SizedBox(height: 4),
-            Text('Join ${widget.clubName} to see your clubmates on the map and get their meets first.', style: const TextStyle(fontSize: 13, height: 1.35, color: Colors.black87)),
+            Text('Join ${widget.clubName} to see your clubmates on the map and get their meets first.', style: const TextStyle(fontSize: 13, height: 1.35, color: Colors.white70)),
             const SizedBox(height: 10),
             Row(
               children: [
-                Expanded(child: OutlinedButton(onPressed: _busy ? null : () => _respond(false), style: OutlinedButton.styleFrom(foregroundColor: Colors.black, side: const BorderSide(color: Colors.black26)), child: const Text('Decline'))),
+                Expanded(child: OutlinedButton(onPressed: _busy ? null : () => _respond(false), style: OutlinedButton.styleFrom(foregroundColor: Colors.white, side: const BorderSide(color: Colors.white54)), child: const Text('Decline'))),
                 const SizedBox(width: 8),
                 Expanded(child: FilledButton(onPressed: _busy ? null : () => _respond(true), style: FilledButton.styleFrom(backgroundColor: Colors.black), child: const Text('Join club'))),
               ],

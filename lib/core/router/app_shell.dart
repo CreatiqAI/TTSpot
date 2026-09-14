@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/friends/application/friends_providers.dart';
+import '../../features/profile/presentation/profile_menu.dart';
 import '../../features/social/application/chat_providers.dart';
 import '../../features/social/application/notification_providers.dart';
 import '../theme/app_icons.dart';
@@ -38,7 +39,14 @@ class _AppShellState extends ConsumerState<AppShell> {
         ),
         child: NavigationBar(
           selectedIndex: shell.currentIndex,
-          onDestinationSelected: (i) => shell.goBranch(i, initialLocation: i == shell.currentIndex),
+          onDestinationSelected: (i) {
+            // Me tab tapped while already on it: open the menu, no hamburger needed.
+            if (i == 3 && shell.currentIndex == 3) {
+              showProfileMenu(context, ref);
+              return;
+            }
+            shell.goBranch(i, initialLocation: i == shell.currentIndex);
+          },
           destinations: [
             const NavigationDestination(icon: Icon(AppIcons.house), selectedIcon: Icon(AppIcons.houseFill), label: 'Posts'),
             const NavigationDestination(icon: Icon(AppIcons.mapTrifold), selectedIcon: Icon(AppIcons.mapTrifoldFill), label: 'Map'),

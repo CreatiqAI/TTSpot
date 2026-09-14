@@ -39,6 +39,10 @@ abstract final class AppArt {
   static const bookmark = '$_dir/bookmark.png';
   static const search = '$_dir/search.png';
   static const picture = '$_dir/picture.png';
+  static const ticket = '$_dir/ticket.png';
+  static const gift = '$_dir/gift.png';
+  static const phone = '$_dir/phone.png';
+  static const coins = '$_dir/coins.png';
   static const wrench = '$_dir/wrench.png';
   static const rocket = '$_dir/rocket.png';
   static const wave = '$_dir/wave.png';

@@ -154,7 +154,7 @@ class MapPinFactory {
 
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder)..scale(devicePixelRatio);
-    final borderPaint = Paint()..color = recommended ? const Color(0xFFF5A524) : const Color(0xFF8A919E);
+    final borderPaint = Paint()..color = recommended ? const Color(0xFFE00008) : const Color(0xFF8A919E);
     final outerRect = RRect.fromRectAndRadius(Rect.fromLTWH(cx - outer / 2, 1, outer, outer), const Radius.circular(radius + border));
     canvas.drawRRect(outerRect, borderPaint);
     final tailTop = 1 + outer - 1;
@@ -182,8 +182,8 @@ class MapPinFactory {
       // small star badge, top-right
       final c = Offset(cardRect.right - 2, cardRect.top + 2);
       canvas.drawCircle(c, 9, Paint()..color = const Color(0xFF151820));
-      canvas.drawCircle(c, 7, Paint()..color = const Color(0xFFF5A524));
-      final star = _text('★', 9, FontWeight.w700, Colors.black);
+      canvas.drawCircle(c, 7, Paint()..color = const Color(0xFFE00008));
+      final star = _text('★', 9, FontWeight.w700, Colors.white);
       star.paint(canvas, c - Offset(star.width / 2, star.height / 2));
     }
     final chipTop = tailTop + tail + gap;

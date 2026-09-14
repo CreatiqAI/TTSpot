@@ -59,9 +59,9 @@ class PointsScreen extends ConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('$balance', style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w800, color: Colors.black, height: 1)),
+                        Text('$balance', style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w800, color: Colors.white, height: 1)),
                         const SizedBox(height: 2),
-                        const Text('points', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.black87)),
+                        const Text('points', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white70)),
                       ],
                     ),
                   ),

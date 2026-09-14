@@ -83,9 +83,9 @@ class _ClaimTile extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(c.headline, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, height: 1)),
+                  Text(c.headline, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, height: 1, color: ready ? Colors.white : AppColors.textPrimary)),
                   const SizedBox(height: 4),
-                  Text(c.vendorName, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black87)),
+                  Text(c.vendorName, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: ready ? Colors.white70 : AppColors.textSecondary)),
                 ],
               ),
               const SizedBox(width: 14),
@@ -93,15 +93,15 @@ class _ClaimTile extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(c.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700)),
+                    Text(c.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontWeight: FontWeight.w700, color: ready ? Colors.white : AppColors.textPrimary)),
                     Text(
                       ready ? 'Valid till ${formatDate(c.expiresAt)}' : (c.status == ClaimStatus.redeemed && c.redeemedAt != null ? 'Used ${timeAgo(c.redeemedAt!)}' : c.status.label),
-                      style: const TextStyle(fontSize: 12, color: Colors.black87),
+                      style: TextStyle(fontSize: 12, color: ready ? Colors.white70 : AppColors.textSecondary),
                     ),
                   ],
                 ),
               ),
-              Icon(ready ? AppIcons.qrCode : AppIcons.checkCircle, size: 26, color: Colors.black87),
+              Icon(ready ? AppIcons.qrCode : AppIcons.checkCircle, size: 26, color: ready ? Colors.white : AppColors.textSecondary),
             ],
           ),
         ),

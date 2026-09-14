@@ -143,7 +143,7 @@ class _CardState extends ConsumerState<_Card> {
                             color: a.kind == ApplicationKind.club ? AppColors.warnColor : AppColors.surfaceGray,
                             borderRadius: BorderRadius.circular(999),
                           ),
-                          child: Text(a.kind == ApplicationKind.club ? 'CAR CLUB' : 'VENDOR', style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, letterSpacing: 0.6)),
+                          child: Text(a.kind == ApplicationKind.club ? 'CAR CLUB' : 'VENDOR', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, letterSpacing: 0.6, color: a.kind == ApplicationKind.club ? Colors.white : AppColors.textPrimary)),
                         ),
                       ],
                     ),

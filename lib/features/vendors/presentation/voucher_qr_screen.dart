@@ -36,10 +36,10 @@ class VoucherQrScreen extends ConsumerWidget {
               child: Column(
                 children: [
                   if (claim != null) ...[
-                    Text(claim.headline, style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w800, height: 1)),
+                    Text(claim.headline, style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w800, height: 1, color: Colors.white)),
                     const SizedBox(height: 4),
-                    Text(claim.title, textAlign: TextAlign.center, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                    Text(claim.vendorName, style: const TextStyle(fontSize: 13, color: Colors.black87)),
+                    Text(claim.title, textAlign: TextAlign.center, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white)),
+                    Text(claim.vendorName, style: const TextStyle(fontSize: 13, color: Colors.white70)),
                     const SizedBox(height: 16),
                   ],
                   Container(
@@ -48,10 +48,10 @@ class VoucherQrScreen extends ConsumerWidget {
                     child: QrImageView(data: data, size: 224, padding: EdgeInsets.zero, backgroundColor: Colors.white, errorCorrectionLevel: QrErrorCorrectLevel.M),
                   ),
                   const SizedBox(height: 14),
-                  const Text('Show this to the staff. They scan it in TT Spot and apply the discount to your bill.', textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: Colors.black87, height: 1.4)),
+                  const Text('Show this to the staff. They scan it in TT Spot and apply the discount to your bill.', textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: Colors.white70, height: 1.4)),
                   if (claim != null) ...[
                     const SizedBox(height: 8),
-                    Text('Valid till ${formatDate(claim.expiresAt)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.black87)),
+                    Text('Valid till ${formatDate(claim.expiresAt)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white)),
                   ],
                 ],
               ),

@@ -231,6 +231,11 @@ TT Spot is a map first. The Instagram-style feed is still in the code but switch
   5 meets (4 upcoming + 1 past TTDI Thursday TT), 11 places (8 recommended), 1 poll post. Backup of what was removed:
   `C:\Users\Admin\.supabase\ttspot-seed-backup-2026-09-14.json`. `seed*.sql` files still hold the full original set for a
   fresh database.
+- **Brand theme (2026-09-14)**: `AppColors.brand` = logo red `#E00008`, `ink` = `#101010`. `primary`, `accent` and the
+  highlight surface (`warnColor`, kept for its many call sites) are all the brand red; text on those surfaces is white.
+  Profile: tapping the **Me tab again** opens the menu (`showProfileMenu` in `profile/presentation/profile_menu.dart`,
+  grouped Account / Rewards / Partners & clubs / Admin), quick-action tiles (Points, Rewards, Vouchers, My QR, Scan)
+  sit under the action buttons. `PickerField` opens from anywhere in the box (the arrow included).
 - Planned: lucky draw (legal check first), weekly post leaderboard points.
 
 ### App structure (2026-09-12)

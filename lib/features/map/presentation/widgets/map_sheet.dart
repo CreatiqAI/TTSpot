@@ -403,7 +403,7 @@ class SpotRow extends StatelessWidget {
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                           decoration: BoxDecoration(color: AppColors.warnColor, borderRadius: BorderRadius.circular(6)),
-                          child: const Text('★', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Colors.black)),
+                          child: const Text('★', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Colors.white)),
                         ),
                       ),
                   ],

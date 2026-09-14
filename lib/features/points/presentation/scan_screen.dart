@@ -106,7 +106,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                 decoration: BoxDecoration(color: AppColors.warnColor, borderRadius: BorderRadius.circular(999)),
-                child: Text('+${o.points} points', style: const TextStyle(fontWeight: FontWeight.w800, color: Colors.black)),
+                child: Text('+${o.points} points', style: const TextStyle(fontWeight: FontWeight.w800, color: Colors.white)),
               ),
             ],
           ],

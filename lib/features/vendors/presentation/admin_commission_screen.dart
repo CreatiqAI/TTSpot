@@ -65,17 +65,17 @@ class _AdminCommissionScreenState extends ConsumerState<AdminCommissionScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(rm(total), style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800, height: 1)),
+                                Text(rm(total), style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800, height: 1, color: Colors.white)),
                                 const SizedBox(height: 4),
-                                const Text('commission this month', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black87)),
+                                const Text('commission this month', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white70)),
                               ],
                             ),
                           ),
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
-                              Text('$count redemptions', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
-                              Text('bills ${rm(bills)}', style: const TextStyle(fontSize: 12, color: Colors.black87)),
+                              Text('$count redemptions', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white)),
+                              Text('bills ${rm(bills)}', style: const TextStyle(fontSize: 12, color: Colors.white70)),
                             ],
                           ),
                         ],

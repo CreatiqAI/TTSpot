@@ -21,30 +21,32 @@ class PickerField<T> extends FormField<T> {
           initialValue: value,
           builder: (state) {
             final selected = options.where((o) => o.$1 == state.value).firstOrNull;
-            return InputDecorator(
-              decoration: InputDecoration(
-                labelText: label,
-                errorText: state.errorText,
-                prefixIcon: icon == null ? null : Icon(icon),
-                suffixIcon: const Icon(AppIcons.caretDown, color: AppColors.textSecondary, size: 18),
-                enabled: enabled,
-              ),
-              isEmpty: selected == null,
-              child: InkWell(
-                onTap: !enabled
-                    ? null
-                    : () async {
-                        FocusScope.of(state.context).unfocus();
-                        final picked = await showModalBottomSheet<T>(
-                          context: state.context,
-                          showDragHandle: true,
-                          isScrollControlled: true,
-                          builder: (ctx) => _PickerSheet<T>(title: label, options: options, selected: state.value),
-                        );
-                        if (picked == null) return;
-                        state.didChange(picked);
-                        onChanged?.call(picked);
-                      },
+            Future<void> open() async {
+              FocusScope.of(state.context).unfocus();
+              final picked = await showModalBottomSheet<T>(
+                context: state.context,
+                showDragHandle: true,
+                isScrollControlled: true,
+                builder: (ctx) => _PickerSheet<T>(title: label, options: options, selected: state.value),
+              );
+              if (picked == null) return;
+              state.didChange(picked);
+              onChanged?.call(picked);
+            }
+
+            // The whole box (icon, text and arrow) is one tap target.
+            return GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: enabled ? open : null,
+              child: InputDecorator(
+                decoration: InputDecoration(
+                  labelText: label,
+                  errorText: state.errorText,
+                  prefixIcon: icon == null ? null : Icon(icon),
+                  suffixIcon: const Icon(AppIcons.caretDown, color: AppColors.textSecondary, size: 18),
+                  enabled: enabled,
+                ),
+                isEmpty: selected == null,
                 child: Text(
                   selected?.$2 ?? hint ?? '',
                   style: TextStyle(fontSize: 15, color: selected == null ? AppColors.textSecondary : AppColors.textPrimary),

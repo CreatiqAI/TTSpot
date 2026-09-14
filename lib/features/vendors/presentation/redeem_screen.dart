@@ -130,20 +130,20 @@ class _RedeemScreenState extends ConsumerState<RedeemScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(c.headline, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800, height: 1)),
+                    Text(c.headline, style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, height: 1, color: usable ? Colors.white : AppColors.textPrimary)),
                     const SizedBox(height: 4),
-                    Text(c.title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                    if (c.terms != null) ...[const SizedBox(height: 6), Text(c.terms!, style: const TextStyle(fontSize: 13, color: Colors.black87))],
-                    if (c.minSpend > 0) Text('Min spend ${rm(c.minSpend)}', style: const TextStyle(fontSize: 13, color: Colors.black87)),
+                    Text(c.title, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: usable ? Colors.white : AppColors.textPrimary)),
+                    if (c.terms != null) ...[const SizedBox(height: 6), Text(c.terms!, style: TextStyle(fontSize: 13, color: usable ? Colors.white70 : AppColors.textSecondary))],
+                    if (c.minSpend > 0) Text('Min spend ${rm(c.minSpend)}', style: TextStyle(fontSize: 13, color: usable ? Colors.white70 : AppColors.textSecondary)),
                     const SizedBox(height: 12),
                     Row(
                       children: [
                         UserAvatar(url: c.avatarUrl, name: c.displayName ?? c.username, size: 32),
                         const SizedBox(width: 8),
-                        Expanded(child: Text('@${c.username ?? ''} · ${c.displayName ?? ''}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600))),
+                        Expanded(child: Text('@${c.username ?? ''} · ${c.displayName ?? ''}', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontWeight: FontWeight.w600, color: usable ? Colors.white : AppColors.textPrimary))),
                         Text(
                           usable ? 'valid till ${formatDate(c.expiresAt)}' : c.status.label.toUpperCase(),
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: usable ? Colors.black87 : AppColors.danger),
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: usable ? Colors.white70 : AppColors.danger),
                         ),
                       ],
                     ),

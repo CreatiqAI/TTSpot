@@ -81,6 +81,12 @@ class ProfileHeader extends StatelessWidget {
                   fit: StackFit.expand,
                   children: [
                     const ColoredBox(color: AppColors.mapBg),
+                    // brand glow so a profile without car photos still has depth
+                    const DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: RadialGradient(center: Alignment(1.1, -0.9), radius: 1.1, colors: [Color(0x80E11D2B), Color(0x00E11D2B)]),
+                      ),
+                    ),
                     if (cover != null)
                       ImageFiltered(
                         imageFilter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
@@ -256,9 +262,9 @@ class _Stat extends StatelessWidget {
           ),
           child: Column(
             children: [
-              Text(value?.toString() ?? '–', style: const TextStyle(fontFamily: AppFonts.display, fontSize: 24, fontWeight: FontWeight.w700, height: 1)),
+              Text(value?.toString() ?? '–', style: TextStyle(fontFamily: AppFonts.display, fontSize: 24, fontWeight: FontWeight.w700, height: 1, color: highlight ? Colors.white : AppColors.textPrimary)),
               const SizedBox(height: 2),
-              Text(label, style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: AppColors.textSecondary, letterSpacing: 0.3)),
+              Text(label, style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: highlight ? Colors.white70 : AppColors.textSecondary, letterSpacing: 0.3)),
             ],
           ),
         ),
@@ -296,6 +302,68 @@ class _Action extends StatelessWidget {
       ),
     );
     return tooltip == null ? child : Tooltip(message: tooltip!, child: child);
+  }
+}
+
+/// Shortcuts to the things a member opens most: wallet-style tiles.
+class ProfileQuickActions extends StatelessWidget {
+  const ProfileQuickActions({
+    super.key,
+    required this.points,
+    required this.onPoints,
+    required this.onRewards,
+    required this.onVouchers,
+    required this.onQr,
+    required this.onScan,
+  });
+  final int points;
+  final VoidCallback onPoints;
+  final VoidCallback onRewards;
+  final VoidCallback onVouchers;
+  final VoidCallback onQr;
+  final VoidCallback onScan;
+
+  @override
+  Widget build(BuildContext context) {
+    final items = <(String, String, VoidCallback, String?)>[
+      (AppArt.coins, 'Points', onPoints, '$points'),
+      (AppArt.gift, 'Rewards', onRewards, null),
+      (AppArt.ticket, 'Vouchers', onVouchers, null),
+      (AppArt.phone, 'My QR', onQr, null),
+      (AppArt.camera, 'Scan', onScan, null),
+    ];
+    return SizedBox(
+      height: 92,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+        itemCount: items.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (_, i) {
+          final (art, label, onTap, badge) = items[i];
+          return Material(
+            color: AppColors.surfaceGray,
+            borderRadius: BorderRadius.circular(16),
+            child: InkWell(
+              onTap: onTap,
+              borderRadius: BorderRadius.circular(16),
+              child: SizedBox(
+                width: 78,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    ArtIcon(art, size: 30),
+                    const SizedBox(height: 6),
+                    Text(badge == null ? label : '$badge pts', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                    if (badge != null) Text(label, style: const TextStyle(fontSize: 10.5, color: AppColors.textSecondary)),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
   }
 }
 

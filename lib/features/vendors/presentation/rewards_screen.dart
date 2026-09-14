@@ -53,8 +53,8 @@ class RewardsScreen extends ConsumerWidget {
                   children: [
                     const ArtIcon(AppArt.star, size: 32),
                     const SizedBox(width: 10),
-                    Expanded(child: Text('$balance points to spend', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16))),
-                    TextButton(onPressed: () => context.push(Routes.points), child: const Text('Earn more', style: TextStyle(color: Colors.black))),
+                    Expanded(child: Text('$balance points to spend', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: Colors.white))),
+                    TextButton(onPressed: () => context.push(Routes.points), child: const Text('Earn more', style: TextStyle(color: Colors.white))),
                   ],
                 ),
               ),
@@ -146,7 +146,7 @@ class _VoucherCardState extends ConsumerState<_VoucherCard> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(color: v.pointsCost == 0 ? AppColors.success : AppColors.warnColor, borderRadius: BorderRadius.circular(999)),
-                  child: Text(v.pointsCost == 0 ? 'FREE' : '${v.pointsCost} pts', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: v.pointsCost == 0 ? Colors.white : Colors.black)),
+                  child: Text(v.pointsCost == 0 ? 'FREE' : '${v.pointsCost} pts', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Colors.white)),
                 ),
               ],
             ),

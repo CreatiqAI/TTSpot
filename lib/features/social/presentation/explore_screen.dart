@@ -304,7 +304,7 @@ class _SpotsHeader extends StatelessWidget {
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                               decoration: BoxDecoration(color: AppColors.warnColor, borderRadius: BorderRadius.circular(999)),
-                              child: const Text('★ Recommended', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Colors.black)),
+                              child: const Text('★ Recommended', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Colors.white)),
                             ),
                           ),
                       ],

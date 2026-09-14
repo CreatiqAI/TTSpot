@@ -2,7 +2,8 @@ import 'package:flutter/cupertino.dart' show CupertinoPageTransitionsBuilder;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-/// Instagram-style light palette. Flat, white, thin gray borders, blue actions.
+/// TT Spot palette: white ground, near-black text, brand red for actions and
+/// highlights (sampled from the logo). Flat, thin gray borders.
 abstract final class AppColors {
   // Ground
   static const bg = Color(0xFFFFFFFF);
@@ -17,17 +18,22 @@ abstract final class AppColors {
   static const textSecondary = Color(0xFF737373);
   static const textMuted = Color(0xFFA8A8A8);
 
-  // Actions
-  static const primary = Color(0xFF0095F6);          // Instagram blue
-  static const primaryPressed = Color(0xFF1877F2);
-  static const danger = Color(0xFFED4956);
-  static const success = Color(0xFF58C322);
-  static const warnColor = Color(0xFFF5A524);
+  // Brand
+  static const brand = Color(0xFFE00008);            // logo red
+  static const brandDeep = Color(0xFFB80006);
+  static const ink = Color(0xFF101010);              // logo black
 
-  // Brand (used sparingly: map markers, story-style rings)
-  static const accent = Color(0xFFFF3D1F);
+  // Actions
+  static const primary = brand;
+  static const primaryPressed = brandDeep;
+  static const danger = Color(0xFFC4000A);
+  static const success = Color(0xFF1DA750);
+  /// Highlight surface (points, live pills, vouchers). White text on it.
+  static const warnColor = brand;
+
+  static const accent = brand;
   static const storyGradient = LinearGradient(
-    colors: [Color(0xFFF9CE34), Color(0xFFEE2A7B), Color(0xFF6228D7)],
+    colors: [Color(0xFFE00008), Color(0xFF7A0004), Color(0xFF101010)],
     begin: Alignment.bottomLeft,
     end: Alignment.topRight,
   );

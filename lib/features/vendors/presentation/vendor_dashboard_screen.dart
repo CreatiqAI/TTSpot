@@ -178,9 +178,9 @@ class _Stat extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(value, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800))),
+              FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(value, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: highlight ? Colors.white : AppColors.textPrimary))),
               const SizedBox(height: 2),
-              Text(label, style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+              Text(label, style: TextStyle(fontSize: 11, color: highlight ? Colors.white70 : AppColors.textSecondary)),
             ],
           ),
         ),

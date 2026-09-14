@@ -16,7 +16,6 @@ import '../../features/friends/presentation/friends_screen.dart';
 import '../../features/points/presentation/admin_review_screen.dart';
 import '../../features/vendors/presentation/admin_commission_screen.dart';
 import '../../features/vendors/presentation/admin_partners_screen.dart';
-import '../../features/vendors/presentation/my_vouchers_screen.dart';
 import '../../features/vendors/domain/vendor.dart';
 import '../../features/vendors/presentation/partner_apply_screen.dart';
 import '../../features/vendors/presentation/redeem_screen.dart';
@@ -91,7 +90,7 @@ abstract final class Routes {
   static String voucherEdit(String id) => '/vendor/voucher/$id/edit';
   static String redeem(String claimId, String code) => '/vendor/redeem/$claimId?code=$code';
   static const rewards = '/rewards';
-  static const myVouchers = '/me/vouchers';
+  static const myVouchers = '/rewards?tab=vouchers';
   static String voucherQr(String claimId) => '/voucher/$claimId';
 
   // Full-screen
@@ -253,8 +252,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/vendor/redeem/:claim',
         builder: (_, s) => RedeemScreen(claimId: s.pathParameters['claim']!, code: s.uri.queryParameters['code'] ?? ''),
       ),
-      GoRoute(path: Routes.rewards, builder: (_, _) => const RewardsScreen()),
-      GoRoute(path: Routes.myVouchers, builder: (_, _) => const MyVouchersScreen()),
+      GoRoute(path: Routes.rewards, builder: (_, s) => RewardsScreen(initialTab: s.uri.queryParameters['tab'] == 'vouchers' ? 1 : 0)),
       GoRoute(path: '/voucher/:claim', builder: (_, s) => VoucherQrScreen(claimId: s.pathParameters['claim']!)),
       GoRoute(
         path: '/spot/:id/verify',

@@ -146,24 +146,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     onPoints: () => context.push(Routes.points),
                     onBadges: () => context.push(Routes.badges(id)),
                     onEdit: () => context.push(Routes.editProfile),
+                    onRewards: () => context.push(Routes.rewards),
+                    onQr: () => context.push(Routes.myQr),
                     onAddCar: () => context.push(Routes.newCar),
+                    onCar: (c) => context.push(Routes.car(c.id)),
                     onFriendAction: () => _friendAction(id, friendship, p.displayName ?? '@${p.username}'),
                     onMessage: () => _message(id),
                   ),
                 ),
-                if (isMe)
-                  SliverToBoxAdapter(
-                    child: ProfileQuickActions(
-                      points: points ?? 0,
-                      onPoints: () => context.push(Routes.points),
-                      onRewards: () => context.push(Routes.rewards),
-                      onVouchers: () => context.push(Routes.myVouchers),
-                      onQr: () => context.push(Routes.myQr),
-                      onScan: () => context.push(Routes.scan),
-                    ),
-                  ),
-                SliverToBoxAdapter(
-                  child: ProfileTabs(
+                SliverPersistentHeader(
+                  pinned: true,
+                  delegate: ProfileTabBar(
                     tabs: [
                       (AppIcons.garage, 'Garage'),
                       (AppIcons.camera, 'Moments'),
@@ -217,44 +210,25 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   Widget _garageSliver(AsyncValue<List<Car>> cars, bool isMe) {
     return cars.when(
-      loading: () => const _Fill(
-        child: Center(
-          child: Padding(
-            padding: EdgeInsets.all(32),
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
-        ),
-      ),
-      error: (e, _) => _Fill(
-        child: Center(child: Text(friendlyError(e))),
-      ),
+      loading: () => const _Fill(child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
+      error: (e, _) => _Fill(child: Center(child: Text(friendlyError(e)))),
       data: (list) => list.isEmpty
           ? _Fill(
               child: EmptyState(
                 art: AppArt.car,
                 title: isMe ? 'Your garage is empty' : 'No cars yet',
-                subtitle: isMe
-                    ? 'Add your daily, your project, your weekend toy.'
-                    : 'Nothing parked here so far.',
+                subtitle: isMe ? 'Add your daily, your project, your weekend toy.' : 'Nothing parked here so far.',
                 actionLabel: isMe ? 'Add your first car' : null,
                 onAction: isMe ? () => context.push(Routes.newCar) : null,
               ),
             )
-          : _Grid(
-              child: GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                padding: const EdgeInsets.only(bottom: 24),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3,
-                  mainAxisSpacing: 1.5,
-                  crossAxisSpacing: 1.5,
-                ),
-                itemCount: list.length,
-                itemBuilder: (_, i) => _CarTile(
-                  car: list[i],
-                  onTap: () => context.push(Routes.car(list[i].id)),
-                ),
+          : Padding(
+              padding: const EdgeInsets.only(bottom: 24),
+              child: Column(
+                children: [
+                  for (final c in list) ShowroomCard(car: c, onTap: () => context.push(Routes.car(c.id))),
+                  if (isMe) AddCarCard(onTap: () => context.push(Routes.newCar)),
+                ],
               ),
             ),
     );
@@ -323,8 +297,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 padding: const EdgeInsets.only(bottom: 24),
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 3,
-                  mainAxisSpacing: 1.5,
-                  crossAxisSpacing: 1.5,
+                  mainAxisSpacing: 2,
+                  crossAxisSpacing: 2,
                   childAspectRatio: 0.8,
                 ),
                 itemCount: list.length,
@@ -499,67 +473,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 }
 
 // ---------------------------------------------------------------- pieces ---
-
-class _CarTile extends StatelessWidget {
-  const _CarTile({required this.car, required this.onTap});
-  final Car car;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          if (car.cover != null)
-            Image.network(
-              car.cover!,
-              fit: BoxFit.cover,
-              errorBuilder: (_, _, _) =>
-                  const ColoredBox(color: AppColors.surfaceGray),
-            )
-          else
-            const ColoredBox(
-              color: AppColors.surfaceGray,
-              child: Center(child: ArtIcon(AppArt.car, size: 44)),
-            ),
-          if (car.photoUrls.length > 1)
-            const Positioned(
-              top: 6,
-              right: 6,
-              child: Icon(AppIcons.images, size: 16, color: Colors.white),
-            ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(6, 14, 6, 6),
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Colors.transparent, Color(0x99000000)],
-                ),
-              ),
-              child: Text(
-                car.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 /// Box-sized stand-in for the old SliverFillRemaining so tab bodies can animate.
 class _Fill extends StatelessWidget {

@@ -46,8 +46,7 @@ Future<void> showProfileMenu(BuildContext context, WidgetRef ref) async {
               _Item(AppIcons.qrCode, 'My QR', 'qr'),
               _Group('REWARDS'),
               _Item(AppIcons.star, 'Points', 'points'),
-              _Item(AppIcons.gift, 'Rewards shop', 'rewards'),
-              _Item(AppIcons.ticket, 'My vouchers', 'vouchers'),
+              _Item(AppIcons.gift, 'Rewards & vouchers', 'rewards'),
               _Item(AppIcons.trophy, 'Badges', 'badges'),
               if (kSocialFeed) _Item(AppIcons.bookmarkSimple, 'Saved posts', 'saved'),
               _Group('PARTNERS & CLUBS'),
@@ -85,8 +84,6 @@ Future<void> showProfileMenu(BuildContext context, WidgetRef ref) async {
       context.push(Routes.adminReview);
     case 'rewards':
       context.push(Routes.rewards);
-    case 'vouchers':
-      context.push(Routes.myVouchers);
     case 'partner':
       context.push(isVendor ? Routes.vendor : Routes.partnerApply);
     case 'club':

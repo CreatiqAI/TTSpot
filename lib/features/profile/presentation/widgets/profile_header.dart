@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_art.dart';
@@ -11,9 +9,9 @@ import '../../../friends/domain/friend.dart';
 import '../../../social/domain/notification.dart';
 import '../../domain/car.dart';
 
-/// The garage card. A dark hero built from the member's own car photo (blurred
-/// and dimmed), the name set in the display face, and the numbers that matter
-/// on TT Spot: meets, friends, points. Nothing borrowed from a photo feed.
+/// Identity block: centered avatar in the brand ring, name, one row of
+/// tappable numbers, two actions, bio, badge chips, then the cars as a row of
+/// circles you can tap into. Calm, symmetrical, everything above the fold.
 class ProfileHeader extends StatelessWidget {
   const ProfileHeader({
     super.key,
@@ -31,7 +29,10 @@ class ProfileHeader extends StatelessWidget {
     required this.onPoints,
     required this.onBadges,
     required this.onEdit,
+    required this.onRewards,
+    required this.onQr,
     required this.onAddCar,
+    required this.onCar,
     required this.onFriendAction,
     required this.onMessage,
   });
@@ -50,176 +51,59 @@ class ProfileHeader extends StatelessWidget {
   final VoidCallback onPoints;
   final VoidCallback onBadges;
   final VoidCallback onEdit;
+  final VoidCallback onRewards;
+  final VoidCallback onQr;
   final VoidCallback onAddCar;
+  final ValueChanged<Car> onCar;
   final VoidCallback onFriendAction;
   final VoidCallback onMessage;
 
   @override
   Widget build(BuildContext context) {
     final p = profile;
-    final cover = cars.map((c) => c.cover).whereType<String>().firstOrNull;
     final name = p.displayName ?? '@${p.username}';
-    final subtitle = [
-      if ((p.homeState ?? '').isNotEmpty) p.homeState!,
-      if (stats != null) '${stats!.cars} car${stats!.cars == 1 ? '' : 's'}',
-      if (stats != null && stats!.organised > 0) '${stats!.organised} organised',
-    ].join(' · ');
-
+    final where = (p.homeState ?? '').isNotEmpty ? ' · ${p.homeState}' : '';
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ----------------------------------------------------------- hero ---
-        Stack(
-          clipBehavior: Clip.none,
-          children: [
-            ClipRRect(
-              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(28)),
-              child: SizedBox(
-                height: 196,
-                width: double.infinity,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    const ColoredBox(color: AppColors.mapBg),
-                    // brand glow so a profile without car photos still has depth
-                    const DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: RadialGradient(center: Alignment(1.1, -0.9), radius: 1.1, colors: [Color(0x80E11D2B), Color(0x00E11D2B)]),
-                      ),
-                    ),
-                    if (cover != null)
-                      ImageFiltered(
-                        imageFilter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
-                        child: Image.network(cover, fit: BoxFit.cover, errorBuilder: (_, _, _) => const SizedBox.shrink()),
-                      ),
-                    const DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [Color(0x66000000), Color(0xCC0F1115)],
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      left: 20,
-                      right: 20,
-                      bottom: 66,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontFamily: AppFonts.display, fontSize: 40, fontWeight: FontWeight.w700, color: Colors.white, height: 1),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '@${p.username}${subtitle.isEmpty ? '' : '  ·  $subtitle'}',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 13, color: Colors.white70, fontWeight: FontWeight.w500),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (streak > 0)
-                      Positioned(
-                        top: 14,
-                        right: 16,
-                        child: Container(
-                          padding: const EdgeInsets.fromLTRB(6, 4, 10, 4),
-                          decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(999)),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const ArtIcon(AppArt.fire, size: 18),
-                              const SizedBox(width: 4),
-                              Text('$streak-wk streak', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700)),
-                            ],
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-            // avatar overlapping the hero's bottom edge
-            Positioned(
-              left: 20,
-              bottom: -30,
-              child: Container(
-                padding: const EdgeInsets.all(3),
-                decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                child: UserAvatar(url: p.avatarUrl, name: name, size: 74),
-              ),
-            ),
-            // the three numbers, sitting on the hero edge
-            Positioned(
-              right: 16,
-              bottom: -26,
-              child: Row(
-                children: [
-                  _Stat(value: stats?.went, label: 'meets', onTap: onMeets),
-                  const SizedBox(width: 8),
-                  _Stat(value: friendCount, label: 'friends', onTap: onFriends),
-                  if (points != null) ...[
-                    const SizedBox(width: 8),
-                    _Stat(value: points, label: 'points', onTap: onPoints, highlight: true),
-                  ],
-                ],
-              ),
-            ),
-          ],
+        const SizedBox(height: 6),
+        // ---------------------------------------------------------- avatar ---
+        Container(
+          padding: const EdgeInsets.all(3),
+          decoration: const BoxDecoration(shape: BoxShape.circle, color: AppColors.brand),
+          child: Container(
+            padding: const EdgeInsets.all(3),
+            decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.white),
+            child: UserAvatar(url: p.avatarUrl, name: name, size: 84),
+          ),
         ),
-        const SizedBox(height: 40),
-        // ------------------------------------------------------------ bio ---
-        if ((p.bio ?? '').trim().isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
-            child: Text(p.bio!.trim(), style: const TextStyle(fontSize: 14, height: 1.4)),
-          ),
-        // --------------------------------------------------------- badges ---
-        if (badges.isNotEmpty)
-          SizedBox(
-            height: 34,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              children: [
-                for (final b in badges)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 6),
-                    child: GestureDetector(
-                      onTap: onBadges,
-                      child: Container(
-                        padding: const EdgeInsets.fromLTRB(6, 4, 11, 4),
-                        decoration: BoxDecoration(border: Border.all(color: AppColors.border), borderRadius: BorderRadius.circular(999)),
-                        child: Row(
-                          children: [
-                            ArtIcon(AppArt.forEmoji(b.badge.emoji), size: 18),
-                            const SizedBox(width: 5),
-                            Text(b.badge.name, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        // -------------------------------------------------------- actions ---
+        const SizedBox(height: 10),
+        Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w800, height: 1.1)),
+        const SizedBox(height: 3),
+        Text('@${p.username}$where', style: const TextStyle(fontSize: 13, color: AppColors.textSecondary, fontWeight: FontWeight.w500)),
+        // ----------------------------------------------------------- stats ---
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
+          padding: const EdgeInsets.fromLTRB(24, 14, 24, 0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _Stat(value: stats?.went, label: 'Meets', onTap: onMeets),
+              _Stat(value: friendCount, label: 'Friends', onTap: onFriends),
+              _Stat(value: stats?.cars ?? cars.length, label: 'Cars'),
+              if (points != null) _Stat(value: points, label: 'Points', onTap: onPoints, accent: true),
+            ],
+          ),
+        ),
+        // --------------------------------------------------------- actions ---
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
           child: isMe
               ? Row(
                   children: [
-                    Expanded(child: _Action(label: 'Edit profile', icon: AppIcons.pencilSimple, onTap: onEdit, dark: true)),
+                    Expanded(child: _Action(label: 'Edit profile', onTap: onEdit, dark: true)),
                     const SizedBox(width: 8),
-                    Expanded(child: _Action(label: 'Friends', icon: AppIcons.users, onTap: onFriends ?? () {})),
+                    Expanded(child: _Action(label: 'Rewards', icon: AppIcons.gift, onTap: onRewards)),
                     const SizedBox(width: 8),
-                    _Action(icon: AppIcons.plus, onTap: onAddCar, tooltip: 'Add car'),
+                    _Action(icon: AppIcons.qrCode, onTap: onQr, tooltip: 'My QR'),
                   ],
                 )
               : Row(
@@ -237,44 +121,83 @@ class ProfileHeader extends StatelessWidget {
                   ],
                 ),
         ),
+        // ------------------------------------------------------------- bio ---
+        if ((p.bio ?? '').trim().isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(28, 12, 28, 0),
+            child: Text(p.bio!.trim(), textAlign: TextAlign.center, style: const TextStyle(fontSize: 13.5, height: 1.4)),
+          ),
+        // ---------------------------------------------------------- badges ---
+        if (streak > 0 || badges.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: SizedBox(
+              height: 30,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                children: [
+                  if (streak > 0) _Chip(text: '$streak-wk streak', art: AppArt.fire, accent: true, onTap: onBadges),
+                  for (final b in badges) _Chip(text: b.badge.name, art: AppArt.forEmoji(b.badge.emoji), onTap: onBadges),
+                ],
+              ),
+            ),
+          ),
+        // ------------------------------------------------------------ cars ---
+        if (cars.isNotEmpty || isMe)
+          Padding(
+            padding: const EdgeInsets.only(top: 14),
+            child: SizedBox(
+              height: 84,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                children: [
+                  for (final c in cars) _CarCircle(car: c, onTap: () => onCar(c)),
+                  if (isMe) _CarCircle(onTap: onAddCar),
+                ],
+              ),
+            ),
+          ),
+        const SizedBox(height: 4),
       ],
     );
   }
 }
 
 class _Stat extends StatelessWidget {
-  const _Stat({required this.value, required this.label, this.onTap, this.highlight = false});
+  const _Stat({required this.value, required this.label, this.onTap, this.accent = false});
   final int? value;
   final String label;
   final VoidCallback? onTap;
-  final bool highlight;
+  final bool accent;
 
   @override
-  Widget build(BuildContext context) => GestureDetector(
-        onTap: onTap,
-        child: Container(
-          width: 66,
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          decoration: BoxDecoration(
-            color: highlight ? AppColors.warnColor : Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            boxShadow: const [BoxShadow(color: Color(0x1A000000), blurRadius: 10, offset: Offset(0, 4))],
-          ),
-          child: Column(
-            children: [
-              Text(value?.toString() ?? '–', style: TextStyle(fontFamily: AppFonts.display, fontSize: 24, fontWeight: FontWeight.w700, height: 1, color: highlight ? Colors.white : AppColors.textPrimary)),
-              const SizedBox(height: 2),
-              Text(label, style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: highlight ? Colors.white70 : AppColors.textSecondary, letterSpacing: 0.3)),
-            ],
+  Widget build(BuildContext context) => Expanded(
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(10),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Column(
+              children: [
+                Text(
+                  value?.toString() ?? '–',
+                  style: TextStyle(fontFamily: AppFonts.display, fontSize: 24, fontWeight: FontWeight.w700, height: 1, color: accent ? AppColors.brand : AppColors.textPrimary),
+                ),
+                const SizedBox(height: 3),
+                Text(label, style: const TextStyle(fontSize: 11.5, color: AppColors.textSecondary, fontWeight: FontWeight.w500)),
+              ],
+            ),
           ),
         ),
       );
 }
 
 class _Action extends StatelessWidget {
-  const _Action({this.label, required this.icon, required this.onTap, this.dark = false, this.tooltip});
+  const _Action({this.label, this.icon, required this.onTap, this.dark = false, this.tooltip});
   final String? label;
-  final IconData icon;
+  final IconData? icon;
   final VoidCallback onTap;
   final bool dark;
   final String? tooltip;
@@ -283,19 +206,20 @@ class _Action extends StatelessWidget {
   Widget build(BuildContext context) {
     final fg = dark ? Colors.white : AppColors.textPrimary;
     final child = Material(
-      color: dark ? AppColors.textPrimary : AppColors.surfaceGray,
-      borderRadius: BorderRadius.circular(999),
+      color: dark ? AppColors.ink : AppColors.surfaceGray,
+      borderRadius: BorderRadius.circular(AppRadius.md),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: BorderRadius.circular(AppRadius.md),
         child: SizedBox(
-          height: 42,
-          width: label == null ? 42 : null,
+          height: 40,
+          width: label == null ? 40 : null,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 18, color: fg),
-              if (label != null) ...[const SizedBox(width: 7), Text(label!, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: fg))],
+              if (icon != null) Icon(icon, size: 17, color: fg),
+              if (icon != null && label != null) const SizedBox(width: 6),
+              if (label != null) Text(label!, style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: fg)),
             ],
           ),
         ),
@@ -305,108 +229,280 @@ class _Action extends StatelessWidget {
   }
 }
 
-/// Shortcuts to the things a member opens most: wallet-style tiles.
-class ProfileQuickActions extends StatelessWidget {
-  const ProfileQuickActions({
-    super.key,
-    required this.points,
-    required this.onPoints,
-    required this.onRewards,
-    required this.onVouchers,
-    required this.onQr,
-    required this.onScan,
-  });
-  final int points;
-  final VoidCallback onPoints;
-  final VoidCallback onRewards;
-  final VoidCallback onVouchers;
-  final VoidCallback onQr;
-  final VoidCallback onScan;
+class _Chip extends StatelessWidget {
+  const _Chip({required this.text, required this.art, this.accent = false, this.onTap});
+  final String text;
+  final String? art;
+  final bool accent;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(right: 6),
+        child: GestureDetector(
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(6, 0, 10, 0),
+            decoration: BoxDecoration(
+              color: accent ? AppColors.brand : Colors.transparent,
+              border: Border.all(color: accent ? AppColors.brand : AppColors.border),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Row(
+              children: [
+                if (art != null) ...[ArtIcon(art!, size: 17), const SizedBox(width: 5)],
+                Text(text, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: accent ? Colors.white : AppColors.textPrimary)),
+              ],
+            ),
+          ),
+        ),
+      );
+}
+
+/// A car as a story-style circle: cover photo inside a thin ring. No car
+/// (the `+`) is the add tile for my own profile.
+class _CarCircle extends StatelessWidget {
+  const _CarCircle({this.car, required this.onTap});
+  final Car? car;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final items = <(String, String, VoidCallback, String?)>[
-      (AppArt.coins, 'Points', onPoints, '$points'),
-      (AppArt.gift, 'Rewards', onRewards, null),
-      (AppArt.ticket, 'Vouchers', onVouchers, null),
-      (AppArt.phone, 'My QR', onQr, null),
-      (AppArt.camera, 'Scan', onScan, null),
-    ];
-    return SizedBox(
-      height: 92,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-        itemCount: items.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 8),
-        itemBuilder: (_, i) {
-          final (art, label, onTap, badge) = items[i];
-          return Material(
-            color: AppColors.surfaceGray,
-            borderRadius: BorderRadius.circular(16),
-            child: InkWell(
-              onTap: onTap,
-              borderRadius: BorderRadius.circular(16),
-              child: SizedBox(
-                width: 78,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    ArtIcon(art, size: 30),
-                    const SizedBox(height: 6),
-                    Text(badge == null ? label : '$badge pts', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
-                    if (badge != null) Text(label, style: const TextStyle(fontSize: 10.5, color: AppColors.textSecondary)),
-                  ],
+    final c = car;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      child: GestureDetector(
+        onTap: onTap,
+        child: SizedBox(
+          width: 64,
+          child: Column(
+            children: [
+              Container(
+                width: 60,
+                height: 60,
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: c == null ? AppColors.border : AppColors.ink, width: 1.5),
+                ),
+                child: ClipOval(
+                  child: c == null
+                      ? const ColoredBox(color: AppColors.surfaceGray, child: Icon(AppIcons.plus, size: 22, color: AppColors.textSecondary))
+                      : c.cover == null
+                          ? const ColoredBox(color: AppColors.surfaceGray, child: Center(child: ArtIcon(AppArt.car, size: 30)))
+                          : Image.network(c.cover!, fit: BoxFit.cover, errorBuilder: (_, _, _) => const ColoredBox(color: AppColors.surfaceGray)),
                 ),
               ),
-            ),
-          );
-        },
+              const SizedBox(height: 4),
+              Text(c == null ? 'Add car' : c.model, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+            ],
+          ),
+        ),
       ),
     );
   }
 }
 
-/// Segmented switch for Garage / Moments / Posts.
-class ProfileTabs extends StatelessWidget {
-  const ProfileTabs({super.key, required this.tabs, required this.selected, required this.onSelect});
+/// Sticky tab strip: icon + label, thin underline that slides between tabs.
+class ProfileTabBar extends SliverPersistentHeaderDelegate {
+  const ProfileTabBar({required this.tabs, required this.selected, required this.onSelect});
   final List<(IconData, String)> tabs;
   final int selected;
   final ValueChanged<int> onSelect;
 
+  static const height = 46.0;
+
   @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 10),
-        child: Container(
-          padding: const EdgeInsets.all(3),
-          decoration: BoxDecoration(color: AppColors.surfaceGray, borderRadius: BorderRadius.circular(999)),
-          child: Row(
+  double get minExtent => height;
+  @override
+  double get maxExtent => height;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return Container(
+      height: height,
+      decoration: const BoxDecoration(color: AppColors.bg, border: Border(bottom: BorderSide(color: AppColors.border, width: 0.5))),
+      child: LayoutBuilder(
+        builder: (_, c) {
+          final w = c.maxWidth / tabs.length;
+          return Stack(
             children: [
-              for (var i = 0; i < tabs.length; i++)
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () => onSelect(i),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 160),
-                      height: 34,
-                      decoration: BoxDecoration(
-                        color: i == selected ? Colors.white : Colors.transparent,
-                        borderRadius: BorderRadius.circular(999),
-                        boxShadow: i == selected ? const [BoxShadow(color: Color(0x14000000), blurRadius: 6, offset: Offset(0, 2))] : null,
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(tabs[i].$1, size: 16, color: i == selected ? AppColors.textPrimary : AppColors.textSecondary),
-                          const SizedBox(width: 6),
-                          Text(tabs[i].$2, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: i == selected ? AppColors.textPrimary : AppColors.textSecondary)),
-                        ],
+              Row(
+                children: [
+                  for (var i = 0; i < tabs.length; i++)
+                    Expanded(
+                      child: InkWell(
+                        onTap: () => onSelect(i),
+                        child: Center(
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(tabs[i].$1, size: 17, color: i == selected ? AppColors.textPrimary : AppColors.textMuted),
+                              const SizedBox(width: 6),
+                              Text(tabs[i].$2, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: i == selected ? AppColors.textPrimary : AppColors.textMuted)),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
+                ],
+              ),
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOutCubic,
+                left: w * selected + w * 0.22,
+                bottom: 0,
+                width: w * 0.56,
+                height: 2,
+                child: const DecoratedBox(decoration: BoxDecoration(color: AppColors.ink, borderRadius: BorderRadius.vertical(top: Radius.circular(2)))),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  @override
+  bool shouldRebuild(ProfileTabBar old) => old.selected != selected || old.tabs.length != tabs.length;
+}
+
+/// Garage as a showroom: one wide card per car, photo with a dark fade, the
+/// model set large in the display face, a number-plate chip for the year.
+class ShowroomCard extends StatelessWidget {
+  const ShowroomCard({super.key, required this.car, required this.onTap});
+  final Car car;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      child: GestureDetector(
+        onTap: onTap,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+          child: AspectRatio(
+            aspectRatio: 16 / 10,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                if (car.cover != null)
+                  Image.network(car.cover!, fit: BoxFit.cover, errorBuilder: (_, _, _) => const ColoredBox(color: AppColors.ink))
+                else
+                  const DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF2B2E36), Color(0xFF101010)]),
+                    ),
+                    child: Center(child: ArtIcon(AppArt.car, size: 96)),
+                  ),
+                const DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, stops: [0.35, 1], colors: [Colors.transparent, Color(0xCC000000)]),
                   ),
                 ),
-            ],
+                // checkered sliver, top-left, a nod to the logo
+                Positioned(left: 0, top: 0, child: CustomPaint(size: const Size(48, 12), painter: _CheckerPainter())),
+                if (car.photoUrls.length > 1)
+                  Positioned(
+                    top: 10,
+                    right: 12,
+                    child: Row(
+                      children: [
+                        const Icon(AppIcons.images, size: 14, color: Colors.white),
+                        const SizedBox(width: 3),
+                        Text('${car.photoUrls.length}', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700)),
+                      ],
+                    ),
+                  ),
+                Positioned(
+                  left: 16,
+                  right: 16,
+                  bottom: 14,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(car.make.toUpperCase(), style: const TextStyle(color: Colors.white70, fontSize: 11.5, fontWeight: FontWeight.w700, letterSpacing: 1.4)),
+                            Text(car.model, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontFamily: AppFonts.display, color: Colors.white, fontSize: 30, fontWeight: FontWeight.w700, height: 1)),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      _Plate(text: car.year?.toString() ?? 'TT SPOT'),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The "park another car" card under the showroom.
+class AddCarCard extends StatelessWidget {
+  const AddCarCard({super.key, required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+        child: Material(
+          color: AppColors.surfaceGray,
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(AppRadius.lg),
+            child: const SizedBox(
+              height: 64,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(AppIcons.plus, size: 18),
+                  SizedBox(width: 8),
+                  Text('Park another car', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                ],
+              ),
+            ),
           ),
         ),
       );
+}
+
+class _Plate extends StatelessWidget {
+  const _Plate({required this.text});
+  final String text;
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.fromLTRB(9, 3, 9, 3),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(5),
+          border: Border.all(color: AppColors.ink, width: 1.5),
+        ),
+        child: Text(text, style: const TextStyle(fontFamily: AppFonts.display, fontSize: 15, fontWeight: FontWeight.w700, letterSpacing: 1.5, color: AppColors.ink, height: 1.1)),
+      );
+}
+
+class _CheckerPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    const cell = 6.0;
+    final dark = Paint()..color = AppColors.ink;
+    final light = Paint()..color = Colors.white;
+    for (var y = 0; y * cell < size.height; y++) {
+      for (var x = 0; x * cell < size.width; x++) {
+        canvas.drawRect(Rect.fromLTWH(x * cell, y * cell, cell, cell), (x + y).isEven ? dark : light);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_CheckerPainter old) => false;
 }

@@ -234,8 +234,14 @@ TT Spot is a map first. The Instagram-style feed is still in the code but switch
 - **Brand theme (2026-09-14)**: `AppColors.brand` = logo red `#E00008`, `ink` = `#101010`. `primary`, `accent` and the
   highlight surface (`warnColor`, kept for its many call sites) are all the brand red; text on those surfaces is white.
   Profile: tapping the **Me tab again** opens the menu (`showProfileMenu` in `profile/presentation/profile_menu.dart`,
-  grouped Account / Rewards / Partners & clubs / Admin), quick-action tiles (Points, Rewards, Vouchers, My QR, Scan)
-  sit under the action buttons. `PickerField` opens from anywhere in the box (the arrow included).
+  grouped Account / Rewards / Partners & clubs / Admin). `PickerField` opens from anywhere in the box (the arrow included).
+- **Profile v3 (2026-09-15, user-approved "A top + B bottom")**: centered avatar in the brand ring, name, one row of
+  tappable numbers (Meets / Friends / Cars / Points), Edit profile · Rewards · QR, bio, badge chips, then the cars as a
+  row of circles (tap → car page, `+` adds). Tabs are a pinned `SliverPersistentHeader` (`ProfileTabBar`, icon + label,
+  sliding underline). **Garage tab = showroom**: one 16:10 card per car (`ShowroomCard`: photo, dark fade, checkered
+  corner, make in caps, model in the display face, year on a number-plate chip) + "Park another car". Moments = 4:5
+  grid. **Rewards and vouchers are one page** (`/rewards`, tabs Shop / My vouchers; `/rewards?tab=vouchers` opens the
+  wallet; `Routes.myVouchers` now points there).
 - Planned: lucky draw (legal check first), weekly post leaderboard points.
 
 ### App structure (2026-09-12)

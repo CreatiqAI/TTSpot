@@ -60,8 +60,8 @@ jobs:
       - name: Rename
         run: |
           cp build/app/outputs/flutter-apk/app-release.apk TTSpot.apk
-          VER=$(grep -E '^version:' pubspec.yaml | awk '{print $2}')
-          cp build/app/outputs/flutter-apk/app-release.apk "TTSpot-v${VER}-$(TZ=Asia/Kuala_Lumpur date +%Y%m%d)-${GITHUB_SHA::7}.apk"
+          VER=$(grep -E '^version:' pubspec.yaml | awk '{print $2}' | cut -d+ -f1)
+          cp build/app/outputs/flutter-apk/app-release.apk "TTSpot-${VER}.apk"
 
       - uses: actions/upload-artifact@v4
         with:

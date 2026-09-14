@@ -63,8 +63,8 @@ jobs:
           set -e
           mkdir -p out/Payload
           cp -R build/ios/iphoneos/Runner.app out/Payload/
-          VER=$(grep -E '^version:' pubspec.yaml | awk '{print $2}')   # e.g. 0.2.0+2
-          NAME="TTSpot-v${VER}-$(TZ=Asia/Kuala_Lumpur date +%Y%m%d)-${GITHUB_SHA::7}-unsigned.ipa"
+          VER=$(grep -E '^version:' pubspec.yaml | awk '{print $2}' | cut -d+ -f1)   # 0.2.0+2 -> 0.2.0
+          NAME="TTSpot-${VER}.ipa"
           cd out && zip -qry "$NAME" Payload
           ls -la
 

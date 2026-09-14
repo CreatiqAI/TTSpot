@@ -4,9 +4,8 @@ with a proper name, and add a row to CHANGELOG.md if that build isn't listed yet
     python tool/fetch_ipa.py            # latest successful run of ios.yml
     python tool/fetch_ipa.py <run-id>   # a specific run
 
-Needs the GitHub CLI (`gh`) logged in. The IPA is already named
-TTSpot-v<version>-<yyyymmdd>-<sha>-unsigned.ipa by the workflow; this just keeps the
-local folder and the changelog in step.
+Needs the GitHub CLI (`gh`) logged in. The workflow names the file
+TTSpot-<version>.ipa; the date and commit go into CHANGELOG.md, not the file name.
 """
 import json
 import re
@@ -34,6 +33,9 @@ def main():
         if not ok:
             sys.exit("No successful iOS run yet. Check GitHub → Actions.")
         run_id = str(ok[0]["databaseId"])
+    run = json.loads(gh("run", "view", run_id, "--json", "headSha,createdAt"))
+    sha = run["headSha"][:7]
+    date = run["createdAt"][:10]
 
     tmp = OUT / "tmp"
     shutil.rmtree(tmp, ignore_errors=True)
@@ -50,14 +52,14 @@ def main():
     shutil.rmtree(tmp, ignore_errors=True)
     print(f"Saved: {dest}")
 
-    m = re.match(r"TTSpot-v(?P<ver>[^-]+)-(?P<date>\d{8})-(?P<sha>[0-9a-f]{7})", dest.name)
+    m = re.match(r"TTSpot-(?P<ver>[\d.]+)\.ipa", dest.name)
     if not m:
         return
-    ver, date, sha = m["ver"], m["date"], m["sha"]
+    ver = m["ver"]
     text = CHANGELOG.read_text(encoding="utf-8")
     if sha in text:
         return
-    pretty = f"{date[:4]}-{date[4:6]}-{date[6:]}"
+    pretty = date
     subject = subprocess.run(["git", "log", "-1", "--format=%s", sha], cwd=ROOT,
                              capture_output=True, text=True).stdout.strip() or "(see git log)"
     # Replace a "_next build_" placeholder for this version, else insert a new row.

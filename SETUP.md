@@ -388,8 +388,8 @@ only debug builds expand a bare username.
 
 **iPhone** (no Mac needed): iOS can only be compiled on macOS, so `.github/workflows/ios.yml` builds it on GitHub's
 macOS runners (free for public repos) on every push that touches `lib/`, `ios/`, `assets/` or `pubspec.*`, or from
-Actions → "iOS build (unsigned IPA)" → Run workflow. It uploads an **unsigned**
-`TTSpot-v<version>-<yyyymmdd>-<sha>-unsigned.ipa` artifact. **Before a push you want on the phone, bump `version:` in
+Actions → "iOS build (unsigned IPA)" → Run workflow. It uploads an unsigned
+`TTSpot-<version>.ipa` artifact (version = `pubspec.yaml`, e.g. `TTSpot-0.2.0.ipa`). **Before a push you want on the phone, bump `version:` in
 `pubspec.yaml`** (e.g. `0.2.0+2` → `0.2.1+3`); the build number shows in iPhone Settings → TT Spot.
 After the run is green, `python tool/fetch_ipa.py` saves it to `build/ios-artifact/` and adds the row to
 `CHANGELOG.md` (the log of every build that went to a phone).

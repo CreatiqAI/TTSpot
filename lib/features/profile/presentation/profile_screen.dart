@@ -92,6 +92,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
+        centerTitle: widget.userId != null,
+        titleSpacing: widget.userId == null ? 16 : null,
         leading: widget.userId == null ? null : IconButton(icon: const Icon(AppIcons.arrowLeft), onPressed: () => context.pop()),
         title: isMe && widget.userId == null ? AccountTitle(text: handle, onTap: () => showAccountSwitcher(context, ref)) : Text(handle),
         actions: [

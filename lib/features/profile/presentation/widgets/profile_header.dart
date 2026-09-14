@@ -142,6 +142,20 @@ class ProfileHeader extends StatelessWidget {
                 children: [
                   if (isMe) _MomentCircle(onTap: onAddMoment),
                   for (final m in moments) _MomentCircle(moment: m, onTap: () => onMoment(m)),
+                  if (isMe && moments.isEmpty)
+                    GestureDetector(
+                      onTap: onAddMoment,
+                      child: const SizedBox(
+                        width: 220,
+                        child: Padding(
+                          padding: EdgeInsets.only(left: 4, top: 8),
+                          child: Text(
+                            'Snap a moment at a meet or a spot.\nIt stays 24 hours, then lives in that place\'s album.',
+                            style: TextStyle(fontSize: 12, height: 1.35, color: AppColors.textSecondary),
+                          ),
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),

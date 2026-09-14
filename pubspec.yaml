@@ -1,7 +1,7 @@
 name: car_meet
 description: "Malaysian car community app — discover meets, TT sessions and convoys on a map."
 publish_to: 'none'
-version: 0.2.0+2
+version: 0.2.1+3
 
 environment:
   sdk: ^3.13.2

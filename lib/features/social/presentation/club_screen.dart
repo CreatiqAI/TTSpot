@@ -49,6 +49,8 @@ class ClubScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
+        centerTitle: !embedded,
+        titleSpacing: embedded ? 16 : null,
         leading: embedded ? null : IconButton(icon: const Icon(AppIcons.arrowLeft), onPressed: () => context.pop()),
         title: embedded
             ? AccountTitle(text: club.value?.handle == null ? '' : '@${club.value!.handle}', onTap: () => showAccountSwitcher(context, ref))

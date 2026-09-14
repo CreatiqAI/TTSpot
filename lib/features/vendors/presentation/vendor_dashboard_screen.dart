@@ -29,6 +29,8 @@ class VendorDashboardScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
+        centerTitle: !embedded,
+        titleSpacing: embedded ? 16 : null,
         leading: embedded ? null : IconButton(icon: const Icon(AppIcons.arrowLeft), onPressed: () => context.pop()),
         title: embedded
             ? AccountTitle(text: vendor.value?.name ?? 'Partner', onTap: () => showAccountSwitcher(context, ref))

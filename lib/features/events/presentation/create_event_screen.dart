@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter/cupertino.dart' show CupertinoDatePickerMode;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,6 +18,7 @@ import '../../../core/utils/dates.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../../core/utils/geo.dart';
 import '../../../core/widgets/place_search_field.dart';
+import '../../../core/widgets/wheel_picker.dart';
 import '../../map/application/map_providers.dart';
 import '../../social/application/community_providers.dart';
 import '../application/create_event_controller.dart';
@@ -115,18 +117,23 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
   }
 
   Future<void> _pickDate() async {
-    final d = await showDatePicker(
-      context: context,
-      initialDate: _startsAt,
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
+    final now = DateTime.now();
+    final d = await showWheelPicker(
+      context,
+      initial: _startsAt.isBefore(now) ? now : _startsAt,
+      mode: CupertinoDatePickerMode.date,
+      min: DateTime(now.year, now.month, now.day),
+      max: now.add(const Duration(days: 365)),
+      title: 'Which day?',
     );
     if (d == null) return;
     setState(() => _startsAt = DateTime(d.year, d.month, d.day, _startsAt.hour, _startsAt.minute));
   }
 
   Future<void> _pickTime() async {
-    final t = await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(_startsAt));
+    // The wheel rounds to 5-minute steps; feed it a rounded start so it lands on a row.
+    final rounded = DateTime(_startsAt.year, _startsAt.month, _startsAt.day, _startsAt.hour, _startsAt.minute - _startsAt.minute % 5);
+    final t = await showWheelPicker(context, initial: rounded, mode: CupertinoDatePickerMode.time, title: 'What time?');
     if (t == null) return;
     setState(() => _startsAt = DateTime(_startsAt.year, _startsAt.month, _startsAt.day, t.hour, t.minute));
   }

@@ -10,18 +10,21 @@ class AccountTitle extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Flexible(child: Text(text, maxLines: 1, overflow: TextOverflow.ellipsis)),
-              const SizedBox(width: 4),
-              const Icon(AppIcons.caretDown, size: 14),
-            ],
+  Widget build(BuildContext context) => Align(
+        alignment: Alignment.centerLeft,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(child: Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800))),
+                const SizedBox(width: 4),
+                const Icon(AppIcons.caretDown, size: 16),
+              ],
+            ),
           ),
         ),
       );

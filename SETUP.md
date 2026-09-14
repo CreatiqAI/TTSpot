@@ -292,6 +292,14 @@ supabase db reset     # applies migrations AND seed.sql
 
 Use the printed local `API URL` and `anon key` in env.json instead.
 
+### Routing gotcha: go_router 18 + `package:flutter/material.dart` (2026-09-15)
+
+go_router 18 checks for `MaterialApp` using `package:material_ui`'s class. This app uses `package:flutter/material.dart`'s
+`MaterialApp`, a different class, so the check fails and go_router logs `Using WidgetsApp configuration` and builds
+`NoTransitionPage`s: no slide animation, no iOS swipe-back. Every route therefore goes through `page(s, child)` in
+`app_router.dart`, which returns an explicit `MaterialPage`. **New routes must use `pageBuilder: (_, s) => page(s, …)`,
+not `builder:`.** (Diagnosed by printing `ModalRoute.of(context).runtimeType`: `_CustomTransitionPageRoute` = wrong.)
+
 ### Phase 5: simpler flows + club accounts (2026-09-15)
 
 Migration `20260916000013_accounts_simplify.sql` (the 16 in the name is only the sort key) (applied):

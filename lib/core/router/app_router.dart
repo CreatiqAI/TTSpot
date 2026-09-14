@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart' show MaterialPage;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -147,6 +148,11 @@ abstract final class Routes {
   static String place(String id) => '/place/$id';
 }
 
+/// Explicit Material page for every route. go_router 18 only recognises
+/// `package:material_ui`'s MaterialApp, not `package:flutter/material.dart`'s,
+/// so left to itself it builds NoTransitionPages: no slide, no iOS swipe-back.
+Page<void> page(GoRouterState s, Widget child) => MaterialPage<void>(key: s.pageKey, name: s.name ?? s.path, child: child);
+
 /// Pokes GoRouter to re-run `redirect` whenever auth or profile state changes.
 class _RouterRefresh extends ChangeNotifier {
   void poke() => notifyListeners();
@@ -195,85 +201,85 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
-      GoRoute(path: Routes.signIn, builder: (_, _) => const SignInScreen()),
-      GoRoute(path: Routes.onboarding, builder: (_, _) => const OnboardingScreen()),
-      GoRoute(path: Routes.resetPassword, builder: (_, _) => const ResetPasswordScreen()),
+      GoRoute(path: Routes.signIn, pageBuilder: (_, s) => page(s, const SignInScreen())),
+      GoRoute(path: Routes.onboarding, pageBuilder: (_, s) => page(s, const OnboardingScreen())),
+      GoRoute(path: Routes.resetPassword, pageBuilder: (_, s) => page(s, const ResetPasswordScreen())),
 
       // Full-screen routes (no bottom nav)
-      GoRoute(path: Routes.meets, builder: (_, _) => const MyEventsScreen()),
-      GoRoute(path: Routes.createEvent, builder: (_, s) => CreateEventScreen(clubId: s.uri.queryParameters['club'])),
+      GoRoute(path: Routes.meets, pageBuilder: (_, s) => page(s, const MyEventsScreen())),
+      GoRoute(path: Routes.createEvent, pageBuilder: (_, s) => page(s, CreateEventScreen(clubId: s.uri.queryParameters['club']))),
       GoRoute(
         path: '/event/:id',
-        builder: (_, s) => EventDetailsScreen(eventId: s.pathParameters['id']!),
+        pageBuilder: (_, s) => page(s, EventDetailsScreen(eventId: s.pathParameters['id']!)),
         routes: [
-          GoRoute(path: 'live', builder: (_, s) => ConvoyLiveScreen(eventId: s.pathParameters['id']!)),
-          GoRoute(path: 'qr', builder: (_, s) => EventQrScreen(eventId: s.pathParameters['id']!)),
+          GoRoute(path: 'live', pageBuilder: (_, s) => page(s, ConvoyLiveScreen(eventId: s.pathParameters['id']!))),
+          GoRoute(path: 'qr', pageBuilder: (_, s) => page(s, EventQrScreen(eventId: s.pathParameters['id']!))),
         ],
       ),
       GoRoute(
         path: '/profile/:userId',
-        builder: (_, s) => ProfileScreen(userId: s.pathParameters['userId']),
+        pageBuilder: (_, s) => page(s, ProfileScreen(userId: s.pathParameters['userId'])),
         routes: [
-          GoRoute(path: 'followers', builder: (_, s) => FollowListScreen(userId: s.pathParameters['userId']!, followers: true)),
-          GoRoute(path: 'following', builder: (_, s) => FollowListScreen(userId: s.pathParameters['userId']!, followers: false)),
-          GoRoute(path: 'badges', builder: (_, s) => BadgesScreen(userId: s.pathParameters['userId']!)),
+          GoRoute(path: 'followers', pageBuilder: (_, s) => page(s, FollowListScreen(userId: s.pathParameters['userId']!, followers: true))),
+          GoRoute(path: 'following', pageBuilder: (_, s) => page(s, FollowListScreen(userId: s.pathParameters['userId']!, followers: false))),
+          GoRoute(path: 'badges', pageBuilder: (_, s) => page(s, BadgesScreen(userId: s.pathParameters['userId']!))),
         ],
       ),
-      GoRoute(path: Routes.editProfile, builder: (_, _) => const EditProfileScreen()),
-      GoRoute(path: Routes.newCar, builder: (_, _) => const CarFormScreen()),
+      GoRoute(path: Routes.editProfile, pageBuilder: (_, s) => page(s, const EditProfileScreen())),
+      GoRoute(path: Routes.newCar, pageBuilder: (_, s) => page(s, const CarFormScreen())),
       GoRoute(
         path: '/car/:id',
-        builder: (_, s) => CarDetailScreen(carId: s.pathParameters['id']!),
+        pageBuilder: (_, s) => page(s, CarDetailScreen(carId: s.pathParameters['id']!)),
         routes: [
-          GoRoute(path: 'edit', builder: (_, s) => CarFormScreen(carId: s.pathParameters['id']!)),
-          GoRoute(path: 'mods/new', builder: (_, s) => CarModFormScreen(carId: s.pathParameters['id']!)),
+          GoRoute(path: 'edit', pageBuilder: (_, s) => page(s, CarFormScreen(carId: s.pathParameters['id']!))),
+          GoRoute(path: 'mods/new', pageBuilder: (_, s) => page(s, CarModFormScreen(carId: s.pathParameters['id']!))),
         ],
       ),
-      GoRoute(path: '/post/:id', builder: (_, s) => PostDetailScreen(postId: s.pathParameters['id']!)),
+      GoRoute(path: '/post/:id', pageBuilder: (_, s) => page(s, PostDetailScreen(postId: s.pathParameters['id']!))),
       GoRoute(
         path: '/create/post/:kind',
-        builder: (_, s) => CreatePostScreen(
+        pageBuilder: (_, s) => page(s, CreatePostScreen(
           kind: PostKind.fromDb(s.pathParameters['kind']!),
           eventId: s.uri.queryParameters['event'],
           carId: s.uri.queryParameters['car'],
           placeId: s.uri.queryParameters['place'],
           clubId: s.uri.queryParameters['club'],
           asClub: s.uri.queryParameters['as'] == 'club',
-        ),
+        )),
       ),
       GoRoute(
         path: Routes.createStory,
-        builder: (_, s) => CreateStoryScreen(eventId: s.uri.queryParameters['event'], placeId: s.uri.queryParameters['place']),
+        pageBuilder: (_, s) => page(s, CreateStoryScreen(eventId: s.uri.queryParameters['event'], placeId: s.uri.queryParameters['place'])),
       ),
-      GoRoute(path: Routes.newAlbum, builder: (_, s) => AlbumEditorScreen(preselect: s.uri.queryParameters['with'])),
-      GoRoute(path: Routes.myMoments, builder: (_, _) => const MyMomentsScreen()),
-      GoRoute(path: '/me/albums/:id/edit', builder: (_, s) => AlbumEditorScreen(albumId: s.pathParameters['id']!)),
-      GoRoute(path: Routes.friends, builder: (_, _) => const FriendsScreen()),
-      GoRoute(path: Routes.scan, builder: (_, _) => const ScanScreen()),
-      GoRoute(path: Routes.myQr, builder: (_, _) => const MyQrScreen()),
-      GoRoute(path: Routes.points, builder: (_, _) => const PointsScreen()),
-      GoRoute(path: Routes.adminReview, builder: (_, _) => const AdminReviewScreen()),
-      GoRoute(path: Routes.adminPartners, builder: (_, _) => const AdminPartnersScreen()),
-      GoRoute(path: Routes.adminCommission, builder: (_, _) => const AdminCommissionScreen()),
-      GoRoute(path: Routes.partnerApply, builder: (_, _) => const PartnerApplyScreen()),
-      GoRoute(path: Routes.clubApply, builder: (_, _) => const PartnerApplyScreen(kind: ApplicationKind.club)),
-      GoRoute(path: Routes.locationGate, builder: (_, _) => const LocationGateScreen()),
-      GoRoute(path: Routes.vendor, builder: (_, _) => const VendorDashboardScreen()),
-      GoRoute(path: Routes.vendorEdit, builder: (_, _) => const VendorEditScreen()),
-      GoRoute(path: Routes.vendorReport, builder: (_, _) => const VendorReportScreen()),
-      GoRoute(path: Routes.voucherNew, builder: (_, _) => const VoucherFormScreen()),
-      GoRoute(path: '/vendor/voucher/:id/edit', builder: (_, s) => VoucherFormScreen(voucherId: s.pathParameters['id']!)),
+      GoRoute(path: Routes.newAlbum, pageBuilder: (_, s) => page(s, AlbumEditorScreen(preselect: s.uri.queryParameters['with']))),
+      GoRoute(path: Routes.myMoments, pageBuilder: (_, s) => page(s, const MyMomentsScreen())),
+      GoRoute(path: '/me/albums/:id/edit', pageBuilder: (_, s) => page(s, AlbumEditorScreen(albumId: s.pathParameters['id']!))),
+      GoRoute(path: Routes.friends, pageBuilder: (_, s) => page(s, const FriendsScreen())),
+      GoRoute(path: Routes.scan, pageBuilder: (_, s) => page(s, const ScanScreen())),
+      GoRoute(path: Routes.myQr, pageBuilder: (_, s) => page(s, const MyQrScreen())),
+      GoRoute(path: Routes.points, pageBuilder: (_, s) => page(s, const PointsScreen())),
+      GoRoute(path: Routes.adminReview, pageBuilder: (_, s) => page(s, const AdminReviewScreen())),
+      GoRoute(path: Routes.adminPartners, pageBuilder: (_, s) => page(s, const AdminPartnersScreen())),
+      GoRoute(path: Routes.adminCommission, pageBuilder: (_, s) => page(s, const AdminCommissionScreen())),
+      GoRoute(path: Routes.partnerApply, pageBuilder: (_, s) => page(s, const PartnerApplyScreen())),
+      GoRoute(path: Routes.clubApply, pageBuilder: (_, s) => page(s, const PartnerApplyScreen(kind: ApplicationKind.club))),
+      GoRoute(path: Routes.locationGate, pageBuilder: (_, s) => page(s, const LocationGateScreen())),
+      GoRoute(path: Routes.vendor, pageBuilder: (_, s) => page(s, const VendorDashboardScreen())),
+      GoRoute(path: Routes.vendorEdit, pageBuilder: (_, s) => page(s, const VendorEditScreen())),
+      GoRoute(path: Routes.vendorReport, pageBuilder: (_, s) => page(s, const VendorReportScreen())),
+      GoRoute(path: Routes.voucherNew, pageBuilder: (_, s) => page(s, const VoucherFormScreen())),
+      GoRoute(path: '/vendor/voucher/:id/edit', pageBuilder: (_, s) => page(s, VoucherFormScreen(voucherId: s.pathParameters['id']!))),
       GoRoute(
         path: '/vendor/redeem/:claim',
-        builder: (_, s) => RedeemScreen(claimId: s.pathParameters['claim']!, code: s.uri.queryParameters['code'] ?? ''),
+        pageBuilder: (_, s) => page(s, RedeemScreen(claimId: s.pathParameters['claim']!, code: s.uri.queryParameters['code'] ?? '')),
       ),
-      GoRoute(path: Routes.rewards, builder: (_, s) => RewardsScreen(initialTab: s.uri.queryParameters['tab'] == 'vouchers' ? 1 : 0)),
-      GoRoute(path: '/voucher/:claim', builder: (_, s) => VoucherQrScreen(claimId: s.pathParameters['claim']!)),
+      GoRoute(path: Routes.rewards, pageBuilder: (_, s) => page(s, RewardsScreen(initialTab: s.uri.queryParameters['tab'] == 'vouchers' ? 1 : 0))),
+      GoRoute(path: '/voucher/:claim', pageBuilder: (_, s) => page(s, VoucherQrScreen(claimId: s.pathParameters['claim']!))),
       GoRoute(
         path: '/spot/:id/verify',
-        builder: (_, s) => SpotVerifyScreen(placeId: s.pathParameters['id']!, code: s.uri.queryParameters['code'] ?? ''),
+        pageBuilder: (_, s) => page(s, SpotVerifyScreen(placeId: s.pathParameters['id']!, code: s.uri.queryParameters['code'] ?? '')),
       ),
-      GoRoute(path: Routes.activity, builder: (_, _) => const ActivityScreen()),
+      GoRoute(path: Routes.activity, pageBuilder: (_, s) => page(s, const ActivityScreen())),
       GoRoute(
         path: Routes.stories,
         pageBuilder: (_, s) => CustomTransitionPage(
@@ -281,25 +287,25 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           transitionsBuilder: (_, anim, _, child) => FadeTransition(opacity: anim, child: child),
         ),
       ),
-      GoRoute(path: Routes.search, builder: (_, _) => const SearchScreen()),
+      GoRoute(path: Routes.search, pageBuilder: (_, s) => page(s, const SearchScreen())),
       GoRoute(
         path: '/chat/:id',
-        builder: (_, s) => ChatScreen(conversationId: s.pathParameters['id']!),
-        routes: [GoRoute(path: 'info', builder: (_, s) => ChatInfoScreen(conversationId: s.pathParameters['id']!))],
+        pageBuilder: (_, s) => page(s, ChatScreen(conversationId: s.pathParameters['id']!)),
+        routes: [GoRoute(path: 'info', pageBuilder: (_, s) => page(s, ChatInfoScreen(conversationId: s.pathParameters['id']!)))],
       ),
-      GoRoute(path: Routes.saved, builder: (_, _) => const SavedPostsScreen()),
-      GoRoute(path: Routes.createClub, builder: (_, _) => const CreateClubScreen()),
-      GoRoute(path: '/club/:id', builder: (_, s) => ClubScreen(clubId: s.pathParameters['id']!)),
-      GoRoute(path: '/place/:id', builder: (_, s) => PlaceScreen(placeId: s.pathParameters['id']!)),
+      GoRoute(path: Routes.saved, pageBuilder: (_, s) => page(s, const SavedPostsScreen())),
+      GoRoute(path: Routes.createClub, pageBuilder: (_, s) => page(s, const CreateClubScreen())),
+      GoRoute(path: '/club/:id', pageBuilder: (_, s) => page(s, ClubScreen(clubId: s.pathParameters['id']!))),
+      GoRoute(path: '/place/:id', pageBuilder: (_, s) => page(s, PlaceScreen(placeId: s.pathParameters['id']!))),
 
       // Tabbed shell: Posts · Map · Chats · Me
       StatefulShellRoute.indexedStack(
         builder: (_, _, shell) => AppShell(navigationShell: shell),
         branches: [
-          StatefulShellBranch(routes: [GoRoute(path: Routes.explore, builder: (_, _) => const ExploreScreen())]),
-          StatefulShellBranch(routes: [GoRoute(path: Routes.map, builder: (_, _) => const MapScreen())]),
-          StatefulShellBranch(routes: [GoRoute(path: Routes.inbox, builder: (_, _) => const InboxScreen())]),
-          StatefulShellBranch(routes: [GoRoute(path: Routes.garage, builder: (_, _) => const MeTab())]),
+          StatefulShellBranch(routes: [GoRoute(path: Routes.explore, pageBuilder: (_, s) => page(s, const ExploreScreen()))]),
+          StatefulShellBranch(routes: [GoRoute(path: Routes.map, pageBuilder: (_, s) => page(s, const MapScreen()))]),
+          StatefulShellBranch(routes: [GoRoute(path: Routes.inbox, pageBuilder: (_, s) => page(s, const InboxScreen()))]),
+          StatefulShellBranch(routes: [GoRoute(path: Routes.garage, pageBuilder: (_, s) => page(s, const MeTab()))]),
         ],
       ),
     ],

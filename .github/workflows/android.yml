@@ -2,7 +2,7 @@ name: Android build (release APK)
 
 # Builds the release APK on every push to main and publishes it to a rolling
 # GitHub Release tagged `latest`, so testers get one stable download link:
-#   https://github.com/CreatiqAI/TTSpot/releases/latest/download/TTSpot.apk
+#   https://github.com/CreatiqAI/TTSpot/releases/download/latest/TTSpot.apk
 # Secrets: ENV_JSON (contents of env.json), MAPS_API_KEY.
 
 on:

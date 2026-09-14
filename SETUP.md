@@ -325,7 +325,7 @@ VS Code: add to `.vscode/launch.json` so F5 works:
 
 **Android** (any tester): every push to `main` runs `.github/workflows/android.yml`, which publishes the release APK
 to a rolling GitHub Release. Share this one link with testers:
-**https://github.com/CreatiqAI/TTSpot/releases/latest/download/TTSpot.apk** — open it on the phone, tap the file,
+**https://github.com/CreatiqAI/TTSpot/releases/download/latest/TTSpot.apk** — open it on the phone, tap the file,
 allow "install from this source". Locally: `flutter build apk --release --dart-define-from-file=env.json` →
 `build/app/outputs/flutter-apk/app-release.apk`. Release builds are signed with the debug key, which is fine for sideloading. With USB debugging on:
 `flutter install` or `adb install -r <apk>`. Release builds need the **full email** to log in (`testing@ttspot.my`);

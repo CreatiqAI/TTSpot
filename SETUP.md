@@ -292,9 +292,9 @@ supabase db reset     # applies migrations AND seed.sql
 
 Use the printed local `API URL` and `anon key` in env.json instead.
 
-### Phase 5: simpler flows + club accounts (2026-09-16)
+### Phase 5: simpler flows + club accounts (2026-09-15)
 
-Migration `20260916000013_accounts_simplify.sql` (applied):
+Migration `20260916000013_accounts_simplify.sql` (the 16 in the name is only the sort key) (applied):
 
 - **Accounts.** Tap the `@handle` on the Me tab (or Me menu → Switch account) to act as **Personal**, a **car club** you own or admin, or your **partner** business. The Me tab then shows the club page / partner dashboard; the create sheet makes posts and meets as the club (`posts.as_club`, `events.club_id`). Only owner/admins may post as the club (RLS). In-memory only: resets to Personal on relaunch.
 - **Club admins.** Owner taps a member on the club page → *Make admin* sends a `club_invites` row with `role='admin'`; the member accepts from Activity or the club banner. Owner can demote (`set_club_role`) and owner/admins can remove members (`remove_club_member`). Roles: `club_member_roles`, `my_club_roles`.

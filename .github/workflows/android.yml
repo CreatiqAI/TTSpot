@@ -61,7 +61,7 @@ jobs:
         run: |
           cp build/app/outputs/flutter-apk/app-release.apk TTSpot.apk
           VER=$(grep -E '^version:' pubspec.yaml | awk '{print $2}')
-          cp build/app/outputs/flutter-apk/app-release.apk "TTSpot-v${VER}-$(date -u +%Y%m%d)-${GITHUB_SHA::7}.apk"
+          cp build/app/outputs/flutter-apk/app-release.apk "TTSpot-v${VER}-$(TZ=Asia/Kuala_Lumpur date +%Y%m%d)-${GITHUB_SHA::7}.apk"
 
       - uses: actions/upload-artifact@v4
         with:

@@ -10,6 +10,6 @@ the latest successful GitHub build into that folder with this name and adds a ro
 
 | Version | Date | Commit | What changed |
 |---|---|---|---|
-| 0.2.0+2 | 2026-09-16 | _next build_ | Versioned builds + changelog. TT now one field; Places search in Spots; meet visibility (friends / everyone) + trimmed form; friend suggestions; profile Posts · Garage · Saved with moments row; account switcher (personal / club / partner); club admins; post as club. |
+| 0.2.0+2 | 2026-09-15 | 8885da2 | Versioned builds + changelog. TT now one field; Places search in Spots; meet visibility (friends / everyone) + trimmed form; friend suggestions; profile Posts · Garage · Saved with moments row; account switcher (personal / club / partner); club admins; post as club. |
 | 0.1.0+1 | 2026-09-15 | 3f2a5eb | Same features as 0.2.0+2 but built before the version bump (shows as 0.1.0 on the phone). |
 | 0.1.0+1 | 2026-09-14 | dc65ba9 | Profile v3 (centered identity, car circles, sticky tabs, showroom garage); Rewards + vouchers merged. |

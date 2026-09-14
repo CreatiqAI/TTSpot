@@ -256,11 +256,16 @@ password right there (works on a PC), and on a phone also offers "Open in the TT
 + the same fragment; Android `ttspot` intent filter, iOS `CFBundleURLSchemes`). In the app supabase_flutter picks the
 tokens from the URL (auth flow is **implicit** for this reason), fires `passwordRecovery`, and the router opens
 `/reset-password`. Allowed redirect URLs live in the Supabase auth config. `docs/index.html` is a tiny landing page
-with the Android download. Branded email templates (recovery, confirmation, magic link, email change) are ready in
-`tool/email_templates.py`, but Supabase's free tier only accepts custom templates **after a custom SMTP provider is
-configured** (Dashboard → Authentication → SMTP settings; Resend / Brevo free tiers work). Until then emails come from
-"Supabase Auth", use the default template, and are capped at **2 per hour**. Once SMTP is set, run
-`python tool/email_templates.py` to push the templates.
+with the Android download.
+
+**Email sending (2026-09-14):** auth emails go through **Resend** SMTP (`smtp.resend.com:465`, user `resend`,
+password = the send-only API key kept at `C:/Users/Admin/.supabase/ttspot-resend-key.txt`, never in the repo).
+Branded templates (recovery, confirmation, magic link, email change) are pushed with `python tool/email_templates.py`.
+Sender is `TT Spot <onboarding@resend.dev>` until the **ttspot.my** domain is verified in Resend (Domains → Add →
+add the DNS records at the registrar); until then Resend only delivers to the Resend account's own address
+(creatiqai@gmail.com). After verification, change `smtp_admin_email` to e.g. `hello@ttspot.my` (same PATCH as the
+templates script) and the emails reach everyone. `ttspot.my` is owned; the GitHub Pages site can move there later
+(`docs/CNAME` + a CNAME record for www pointing at creatiqai.github.io).
 
 Other demo logins (password `password123` for all): amir@example.com, weiling@example.com,
 kumar@example.com, farah@example.com, jason@example.com.

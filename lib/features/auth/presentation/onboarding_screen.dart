@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../core/constants/malaysian_states.dart';
 import '../../../core/theme/app_art.dart';
 import '../../../core/theme/app_icons.dart';
+import '../../../core/widgets/picker_field.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../../core/widgets/photo_picker_sheet.dart';
@@ -228,16 +229,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                       usernamePattern.hasMatch(v?.trim().toLowerCase() ?? '') ? null : 'Choose a valid username',
                 ),
                 const SizedBox(height: 14),
-                DropdownButtonFormField<String>(
-                  initialValue: _homeState,
-                  decoration: const InputDecoration(labelText: 'Home state'),
-                  icon: const Icon(AppIcons.caretDown, color: AppColors.textSecondary),
-                  dropdownColor: AppColors.surface,
-                  borderRadius: BorderRadius.circular(AppRadius.md),
-                  menuMaxHeight: 420,
-                  style: const TextStyle(fontSize: 15, color: AppColors.textPrimary),
-                  items: malaysianStates.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
-                  onChanged: busy ? null : (v) => setState(() => _homeState = v),
+                PickerField<String>(
+                  label: 'Home state',
+                  hint: 'Where do you usually TT?',
+                  icon: AppIcons.mapPin,
+                  value: _homeState,
+                  enabled: !busy,
+                  options: [for (final s in malaysianStates) (s, s)],
+                  onChanged: (v) => setState(() => _homeState = v),
                   validator: (v) => v == null ? 'Choose your state' : null,
                 ),
                 const SizedBox(height: 14),

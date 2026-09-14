@@ -165,21 +165,40 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     onSelect: (i) => setState(() => _tab = _Tab.values[i]),
                   ),
                 ),
-                if (blocked)
-                  const SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: EmptyState(
-                      art: AppArt.prohibited,
-                      title: 'You blocked this user',
-                      subtitle: 'Unblock from the menu to see their garage.',
+                SliverToBoxAdapter(
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 280),
+                    switchInCurve: Curves.easeOutCubic,
+                    switchOutCurve: Curves.easeInCubic,
+                    transitionBuilder: (child, anim) => FadeTransition(
+                      opacity: anim,
+                      child: SlideTransition(
+                        position: Tween<Offset>(begin: const Offset(0, 0.04), end: Offset.zero).animate(anim),
+                        child: child,
+                      ),
                     ),
-                  )
-                else if (_tab == _Tab.garage)
-                  _garageSliver(cars, isMe)
-                else if (_tab == _Tab.moments)
-                  _momentsSliver(moments, isMe)
-                else
-                  _postsSliver(posts, isMe),
+                    layoutBuilder: (current, previous) => Stack(
+                      alignment: Alignment.topCenter,
+                      children: [...previous, ?current],
+                    ),
+                    child: KeyedSubtree(
+                      key: ValueKey(blocked ? 'blocked' : _tab),
+                      child: blocked
+                          ? const _Fill(
+                              child: EmptyState(
+                                art: AppArt.prohibited,
+                                title: 'You blocked this user',
+                                subtitle: 'Unblock from the menu to see their garage.',
+                              ),
+                            )
+                          : switch (_tab) {
+                              _Tab.garage => _garageSliver(cars, isMe),
+                              _Tab.moments => _momentsSliver(moments, isMe),
+                              _Tab.posts => _postsSliver(posts, isMe),
+                            },
+                    ),
+                  ),
+                ),
               ],
             ),
           );
@@ -190,8 +209,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   Widget _garageSliver(AsyncValue<List<Car>> cars, bool isMe) {
     return cars.when(
-      loading: () => const SliverFillRemaining(
-        hasScrollBody: false,
+      loading: () => const _Fill(
         child: Center(
           child: Padding(
             padding: EdgeInsets.all(32),
@@ -199,13 +217,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           ),
         ),
       ),
-      error: (e, _) => SliverFillRemaining(
-        hasScrollBody: false,
+      error: (e, _) => _Fill(
         child: Center(child: Text(friendlyError(e))),
       ),
       data: (list) => list.isEmpty
-          ? SliverFillRemaining(
-              hasScrollBody: false,
+          ? _Fill(
               child: EmptyState(
                 art: AppArt.car,
                 title: isMe ? 'Your garage is empty' : 'No cars yet',
@@ -216,9 +232,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 onAction: isMe ? () => context.push(Routes.newCar) : null,
               ),
             )
-          : SliverPadding(
-              padding: const EdgeInsets.only(bottom: 24),
-              sliver: SliverGrid.builder(
+          : _Grid(
+              child: GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                padding: const EdgeInsets.only(bottom: 24),
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 3,
                   mainAxisSpacing: 1.5,
@@ -236,8 +254,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   Widget _postsSliver(AsyncValue<List<dynamic>> posts, bool isMe) {
     return posts.when(
-      loading: () => const SliverFillRemaining(
-        hasScrollBody: false,
+      loading: () => const _Fill(
         child: Center(
           child: Padding(
             padding: EdgeInsets.all(32),
@@ -245,13 +262,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           ),
         ),
       ),
-      error: (e, _) => SliverFillRemaining(
-        hasScrollBody: false,
+      error: (e, _) => _Fill(
         child: Center(child: Text(friendlyError(e))),
       ),
       data: (list) => list.isEmpty
-          ? SliverFillRemaining(
-              hasScrollBody: false,
+          ? _Fill(
               child: EmptyState(
                 art: AppArt.camera,
                 title: isMe ? 'No posts yet' : 'No posts',
@@ -262,14 +277,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 onAction: isMe ? () => showCreateHub(context) : null,
               ),
             )
-          : SliverToBoxAdapter(child: MasonryGrid(items: list.cast())),
+          : MasonryGrid(items: list.cast()),
     );
   }
 
   Widget _momentsSliver(AsyncValue<List<Story>> moments, bool isMe) {
     return moments.when(
-      loading: () => const SliverFillRemaining(
-        hasScrollBody: false,
+      loading: () => const _Fill(
         child: Center(
           child: Padding(
             padding: EdgeInsets.all(32),
@@ -277,13 +291,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           ),
         ),
       ),
-      error: (e, _) => SliverFillRemaining(
-        hasScrollBody: false,
+      error: (e, _) => _Fill(
         child: Center(child: Text(friendlyError(e))),
       ),
       data: (list) => list.isEmpty
-          ? SliverFillRemaining(
-              hasScrollBody: false,
+          ? _Fill(
               child: EmptyState(
                 art: AppArt.camera,
                 title: isMe ? 'No moments yet' : 'No moments',
@@ -296,9 +308,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     : null,
               ),
             )
-          : SliverPadding(
-              padding: const EdgeInsets.only(bottom: 24),
-              sliver: SliverGrid.builder(
+          : _Grid(
+              child: GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                padding: const EdgeInsets.only(bottom: 24),
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 3,
                   mainAxisSpacing: 1.5,
@@ -680,4 +694,19 @@ class _CarTile extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Box-sized stand-in for the old SliverFillRemaining so tab bodies can animate.
+class _Fill extends StatelessWidget {
+  const _Fill({required this.child});
+  final Widget child;
+  @override
+  Widget build(BuildContext context) => SizedBox(height: 380, child: child);
+}
+
+class _Grid extends StatelessWidget {
+  const _Grid({required this.child});
+  final Widget child;
+  @override
+  Widget build(BuildContext context) => child;
 }

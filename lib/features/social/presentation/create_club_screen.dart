@@ -9,7 +9,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../core/constants/malaysian_states.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_icons.dart';
-import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/picker_field.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../../core/widgets/photo_picker_sheet.dart';
 import '../../../core/widgets/user_avatar.dart';
@@ -107,13 +107,11 @@ class _CreateClubScreenState extends ConsumerState<CreateClubScreen> {
           const SizedBox(height: 14),
           TextField(controller: _description, maxLength: 500, minLines: 2, maxLines: 5, textCapitalization: TextCapitalization.sentences, decoration: const InputDecoration(labelText: 'About', hintText: 'Who it\'s for, where you meet, house rules', alignLabelWithHint: true)),
           const SizedBox(height: 14),
-          DropdownButtonFormField<String>(
-            initialValue: _state,
-            decoration: const InputDecoration(labelText: 'Home state (optional)'),
-            icon: const Icon(AppIcons.caretDown, color: AppColors.textSecondary),
-            borderRadius: BorderRadius.circular(AppRadius.md),
-            menuMaxHeight: 420,
-            items: malaysianStates.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+          PickerField<String>(
+            label: 'Home state (optional)',
+            icon: AppIcons.mapPin,
+            value: _state,
+            options: [for (final s in malaysianStates) (s, s)],
             onChanged: (v) => setState(() => _state = v),
           ),
         ],

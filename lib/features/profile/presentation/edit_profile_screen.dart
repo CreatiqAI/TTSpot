@@ -9,7 +9,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../core/constants/malaysian_states.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/theme/app_icons.dart';
-import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/picker_field.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../../core/widgets/user_avatar.dart';
 import '../../auth/application/onboarding_controller.dart';
@@ -164,14 +164,13 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
               decoration: const InputDecoration(labelText: 'Bio', hintText: 'What you drive, where you hang out', alignLabelWithHint: true),
             ),
             const SizedBox(height: 14),
-            DropdownButtonFormField<String>(
-              initialValue: _homeState,
-              decoration: const InputDecoration(labelText: 'Home state'),
-              icon: const Icon(AppIcons.caretDown, color: AppColors.textSecondary),
-              borderRadius: BorderRadius.circular(AppRadius.md),
-              menuMaxHeight: 420,
-              items: malaysianStates.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
-              onChanged: busy ? null : (v) => setState(() => _homeState = v),
+            PickerField<String>(
+              label: 'Home state',
+              icon: AppIcons.mapPin,
+              value: _homeState,
+              enabled: !busy,
+              options: [for (final s in malaysianStates) (s, s)],
+              onChanged: (v) => setState(() => _homeState = v),
             ),
           ],
         ),

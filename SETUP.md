@@ -220,6 +220,17 @@ TT Spot is a map first. The Instagram-style feed is still in the code but switch
   until permission is granted ("Not now" skips for that session). A meet's QR is only accepted within
   `checkin_radius_m` (300 m, `platform_settings`) of the meet: the scanner fetches a fresh fix, sends it with the
   code, and the server rejects "no location" or "too far" with the distance. Organiser QR still rotates every 30 s.
+- **iPhone feel + address search (2026-09-14)**: tapping outside a text field closes the keyboard (app-level
+  `GestureDetector` in `main.dart`); every pushed page uses Cupertino transitions on both platforms, so swiping from
+  the left edge goes back; dropdowns are replaced by `PickerField` (bottom-sheet list, `lib/core/widgets/picker_field.dart`);
+  profile tabs cross-fade/slide (`AnimatedSwitcher`). The meet form has "Search a place or address"
+  (`PlaceSearchField`) backed by the `places` Edge Function, which calls the Google Places API (New) with the secret
+  `GOOGLE_PLACES_KEY` (= the Maps key; the key never ships in the app; signed-in members only). Picking a result
+  drops the pin and fills the venue name. Deploy with `supabase functions deploy places --use-api`.
+- **Demo data trimmed (2026-09-14)**: 6 members (testing, mingshun, newbie_1708, weiling_gr, amir_hakim, kumar_evo),
+  5 meets (4 upcoming + 1 past TTDI Thursday TT), 11 places (8 recommended), 1 poll post. Backup of what was removed:
+  `C:\Users\Admin\.supabase\ttspot-seed-backup-2026-09-14.json`. `seed*.sql` files still hold the full original set for a
+  fresh database.
 - Planned: lucky draw (legal check first), weekly post leaderboard points.
 
 ### App structure (2026-09-12)
@@ -416,6 +427,9 @@ lib/core/location/location_gate.dart           first-launch location permission 
               presentation (partner_apply, admin_partners, vendor_dashboard, vendor_edit, voucher_form, redeem,
               rewards, my_vouchers, voucher_qr, vendor_report, admin_commission)
 supabase/functions/verify-spot-photo/index.ts   Edge Function: OpenAI photo check for sticker check-ins
+supabase/functions/places/index.ts              Edge Function: Google Places autocomplete + details proxy
+lib/core/places/places_service.dart             client for it; lib/core/widgets/place_search_field.dart = the UI
+lib/core/widgets/picker_field.dart               bottom-sheet picker used instead of dropdowns
 tool/make_stickers.py                            printable spot stickers (PNG + PDF)
     events/   event details (place link, club row, meet chat, go live, photo wall), create event,
               my events, convoy_live_screen (Realtime presence)

@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart' show CupertinoPageTransitionsBuilder;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -123,6 +124,13 @@ abstract final class AppTheme {
         centerTitle: true,
         titleTextStyle: AppText.screenTitle,
         systemOverlayStyle: systemOverlay,
+      ),
+      // Slide-in pages with swipe-from-left-edge to go back, on Android too.
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+        },
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,

@@ -87,6 +87,15 @@ class TtSpotApp extends ConsumerWidget {
       theme: AppTheme.light,
       themeMode: ThemeMode.light,
       routerConfig: router,
+      // iPhone habit: tapping anywhere outside a text field closes the keyboard.
+      builder: (context, child) => GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: () {
+          final f = FocusManager.instance.primaryFocus;
+          if (f != null && f.context != null) f.unfocus();
+        },
+        child: child,
+      ),
     );
   }
 }

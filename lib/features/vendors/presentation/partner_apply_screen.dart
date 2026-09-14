@@ -9,6 +9,7 @@ import '../../../core/constants/malaysian_states.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_art.dart';
 import '../../../core/theme/app_icons.dart';
+import '../../../core/widgets/picker_field.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/dates.dart';
 import '../../../core/utils/friendly_error.dart';
@@ -158,20 +159,20 @@ class _PartnerApplyScreenState extends ConsumerState<PartnerApplyScreen> {
           ),
           const SizedBox(height: 12),
           if (_club)
-            DropdownButtonFormField<String>(
-              initialValue: _state,
-              decoration: const InputDecoration(labelText: 'Home state'),
-              icon: const Icon(AppIcons.caretDown, color: AppColors.textSecondary),
-              menuMaxHeight: 420,
-              items: malaysianStates.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+            PickerField<String>(
+              label: 'Home state',
+              icon: AppIcons.mapPin,
+              value: _state,
+              options: [for (final s in malaysianStates) (s, s)],
               onChanged: (v) => setState(() => _state = v),
               validator: (v) => v == null ? 'Where is the club based?' : null,
             )
           else ...[
-            DropdownButtonFormField<String>(
-              initialValue: _type,
-              decoration: const InputDecoration(labelText: 'Type of business'),
-              items: [for (final t in kBusinessTypes) DropdownMenuItem(value: t.$1, child: Text(t.$2))],
+            PickerField<String>(
+              label: 'Type of business',
+              icon: AppIcons.storefront,
+              value: _type,
+              options: kBusinessTypes,
               onChanged: (v) => setState(() => _type = v ?? 'other'),
             ),
             const SizedBox(height: 12),

@@ -16,6 +16,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/dates.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../../core/utils/geo.dart';
+import '../../../core/widgets/place_search_field.dart';
 import '../../map/application/map_providers.dart';
 import '../../social/application/community_providers.dart';
 import '../application/create_event_controller.dart';
@@ -233,6 +234,18 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
                   const SizedBox(height: 18),
                   const _Label('WHERE'),
                   const SizedBox(height: 8),
+                  PlaceSearchField(
+                    enabled: !busy,
+                    near: (start.latitude, start.longitude),
+                    hint: 'Search a place or address',
+                    onPicked: (d) {
+                      final target = LatLng(d.lat, d.lng);
+                      setState(() => _pin = target);
+                      if (_venue.text.trim().isEmpty) _venue.text = d.name;
+                      _map?.animateCamera(CameraUpdate.newLatLngZoom(target, 16));
+                    },
+                  ),
+                  const SizedBox(height: 10),
                   _PinMap(
                     start: start,
                     style: _mapStyle,

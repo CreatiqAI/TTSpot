@@ -339,6 +339,14 @@ Migration `20260916000013_accounts_simplify.sql` (the 16 in the name is only the
 - **Blocker until Resend verifies ttspot.my**: Resend only delivers to the account owner's address (creatiqai@gmail.com) while the domain is unverified, and Supabase *fails the whole sign-up* when the email cannot be sent (`Error sending confirmation email`). Verify the domain (Resend → Domains → add ttspot.my → DNS records at the registrar), then set `smtp_admin_email` to `noreply@ttspot.my`. Until then, test sign-up with creatiqai@gmail.com only.
 - Google sign-in / linking still needs the one-time §3b setup (Google Cloud OAuth clients + `external_google_enabled`); the buttons say so until then.
 
+### Map markers v3 (2026-09-15, migration 0025)
+
+- One small shape per thing (`widgets/map_glyphs.dart`, painters shared with the on-map key `widgets/map_legend.dart`): **balloon** = event, **feather flag** = TT session (`event_type = 'tt'` / `is_instant`), **badge** = spot (red star = recommended, grey pin = regular). Photo cards are gone from the map; covers live in the sheet rows. `EventMarkerFactory` was deleted.
+- Zoom tiers in `map_screen.dart`: < 13 far (events, TT, spots + my own dot only; no other people, no moments), 13–14.5 mid (people as relationship-colour dots, moments), ≥ 14.5 close (cars with faces + name/time chips under every marker).
+- Spots layer = `places_with_counts.is_spot` (recommended, or has cover / spot check-ins / posts / moments). Places that only hosted a meet are venue records and stay off the map. `on_event_insert` no longer creates a place for instant TT sessions; old "My spot"/"Pinned spot" rows were deleted.
+- Friend colour: the dot next to a friend in the map sheet (and the profile ⋯ menu) opens `showFriendColourSheet` (`friends/presentation/friend_colour_sheet.dart`).
+- Email verification is **off** for now (`python tool/auth_config.py --no-verify`); turn it back on with `--verify` once Resend delivers to everyone.
+
 ## 3b. Google sign-in (one-time, ~15 min)
 
 Email sign-in works already (email confirmation is switched off on the project for development;

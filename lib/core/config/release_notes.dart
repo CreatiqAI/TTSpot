@@ -10,6 +10,18 @@ class ReleaseNote {
 
 const kReleaseNotes = <ReleaseNote>[
   ReleaseNote(
+    version: '0.3.7',
+    date: '15 Sep 2026',
+    title: 'A cleaner map',
+    points: [
+      'Small shapes instead of big cards: balloon = event, feather flag = TT session, badge = spot.',
+      'Zoomed out you see only events, TT sessions and spots. Zoom in for people, closer for cars and names.',
+      'A key on the left of the map explains the shapes.',
+      'Colour a friend from the map list (the dot next to their name) or their profile.',
+      'Sign-up no longer asks for an email code for now.',
+    ],
+  ),
+  ReleaseNote(
     version: '0.3.6',
     date: '15 Sep 2026',
     title: 'Safer accounts',

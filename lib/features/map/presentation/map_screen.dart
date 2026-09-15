@@ -22,7 +22,9 @@ import '../../social/domain/club.dart';
 import '../../social/domain/post.dart';
 import '../../social/presentation/story_viewer_screen.dart';
 import '../application/map_providers.dart';
-import 'widgets/event_marker_bitmap.dart';
+import '../../../core/utils/dates.dart';
+import 'widgets/map_glyphs.dart';
+import 'widgets/map_legend.dart';
 import 'widgets/map_pins.dart';
 import 'widgets/map_sheet.dart';
 import 'widgets/car_marker.dart';
@@ -43,7 +45,7 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
   String? _style;
   String? _styleDark;
   String? _styleLight;
-  EventMarkerFactory? _eventMarkers;
+  GlyphMarkerFactory? _glyphs;
   MapPinFactory? _pins;
   CarMarkerFactory? _cars;
   Set<Marker> _markerSet = const {};
@@ -85,9 +87,13 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
     return h >= 19 || h < 7;
   }
 
-  /// Below this zoom every car becomes a small dot.
-  static const _dotZoom = 12.5;
-  bool _farOut = false;
+  /// Zoom tiers: 0 = far (only events, TT sessions, spots and my own dot),
+  /// 1 = mid (people as small dots, moments), 2 = close (cars + name chips).
+  static const _midZoom = 13.0;
+  static const _closeZoom = 14.5;
+  int _tier = 0;
+  bool get _far => _tier == 0;
+  bool get _close => _tier == 2;
 
   void _paintCircles() {
     if (!mounted) return;
@@ -120,7 +126,7 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
     _radarTimer?.cancel();
     _radar.dispose();
     _idleDebounce?.cancel();
-    _eventMarkers?.dispose();
+    _glyphs?.dispose();
     _pins?.dispose();
     _sheet.dispose();
     _map?.dispose();
@@ -151,9 +157,9 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
       final zoom = await map.getZoomLevel();
       if (!mounted) return;
       ref.read(mapViewportProvider.notifier).set(bounds);
-      final far = zoom < _dotZoom;
-      if (far != _farOut) {
-        _farOut = far;
+      final tier = zoom < _midZoom ? 0 : (zoom < _closeZoom ? 1 : 2);
+      if (tier != _tier) {
+        _tier = tier;
         _rebuild();
       }
     });
@@ -184,8 +190,15 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
   // ------------------------------------------------------------- markers ---
 
   MapPinFactory get _pinFactory => _pins ??= MapPinFactory(devicePixelRatio: MediaQuery.devicePixelRatioOf(context));
-  EventMarkerFactory get _eventFactory =>
-      _eventMarkers ??= EventMarkerFactory(devicePixelRatio: MediaQuery.devicePixelRatioOf(context));
+  GlyphMarkerFactory get _glyphFactory => _glyphs ??= GlyphMarkerFactory(devicePixelRatio: MediaQuery.devicePixelRatioOf(context));
+
+  /// Balloon for events, feather flag for TT sessions. Label only when close.
+  Future<MapPin> _eventPin(Event e, {String? sub}) {
+    final label = _close ? (e.isInstant ? e.venueName : e.title) : null;
+    return e.type == EventType.tt || e.isInstant
+        ? _glyphFactory.flag(key: e.id, label: label, sub: _close ? sub : null)
+        : _glyphFactory.balloon(key: e.id, label: label, sub: _close ? sub : null);
+  }
   CarMarkerFactory get _carFactory => _cars ??= CarMarkerFactory(devicePixelRatio: MediaQuery.devicePixelRatioOf(context), pins: _pinFactory);
 
   Future<void> _rebuild() async {
@@ -197,9 +210,8 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
 
     switch (mode) {
       case MapMode.now:
-        final now = DateTime.now();
         for (final e in ref.read(liveEventsProvider).value ?? const <Event>[]) {
-          final bmp = await _eventFactory.forEvent(e, now: now, label: e.checkinCount > 0 ? 'LIVE · ${e.checkinCount} here' : 'LIVE');
+          final bmp = await _eventPin(e, sub: e.checkinCount > 0 ? 'LIVE · ${e.checkinCount} here' : 'LIVE');
           if (await stale()) return;
           built.add(Marker(
             markerId: MarkerId('event:${e.id}'),
@@ -211,7 +223,7 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
             onTap: () => context.push(Routes.event(e.id)),
           ));
         }
-        for (final m in ref.read(liveMomentsProvider).value ?? const <Story>[]) {
+        for (final m in _far ? const <Story>[] : (ref.read(liveMomentsProvider).value ?? const <Story>[])) {
           final at = m.latLng;
           if (at == null) continue;
           final pin = await _pinFactory.moment(key: m.id, imageUrl: m.photoUrl);
@@ -230,7 +242,7 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
       case MapMode.upcoming:
         final now = DateTime.now();
         for (final e in ref.read(mapEventsProvider).value ?? const <Event>[]) {
-          final bmp = await _eventFactory.forEvent(e, now: now);
+          final bmp = await _eventPin(e, sub: relativeShort(e.startsAt, now: now));
           if (await stale()) return;
           built.add(Marker(
             markerId: MarkerId('event:${e.id}'),
@@ -243,13 +255,11 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
         }
       case MapMode.spots:
         for (final p in ref.read(spotsProvider).value ?? const <Place>[]) {
-          final pin = await _pinFactory.spot(
+          final pin = await _glyphFactory.spot(
             key: p.id,
-            imageUrl: p.coverUrl,
-            art: p.kindArt,
-            title: p.name,
-            count: '${p.totalCheckins} ✓',
             recommended: p.recommended,
+            label: _close ? p.name : null,
+            sub: _close && p.totalCheckins > 0 ? '${p.totalCheckins} ✓' : null,
           );
           if (await stale()) return;
           built.add(Marker(
@@ -272,12 +282,12 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
   Future<void> _addPeople(Set<Marker> built, Future<bool> Function() stale, {bool onlyMe = false}) async {
     final tags = ref.read(friendTagsProvider).value ?? const <String, String>{};
     final showColor = ref.read(settingsProvider).showCarColor;
-    if (!onlyMe) {
+    if (!onlyMe && !_far) {
       for (final f in ref.read(friendPinsProvider).value ?? const <FriendPin>[]) {
         final stranger = f.isStranger;
         final relation = stranger ? kRelationStranger : (kTagColors[tags[f.user.id]] ?? (f.viaClub ? kRelationClub : kRelationFriend));
         final name = stranger ? '@${f.user.username ?? ''}' : (f.user.displayName ?? f.user.username ?? '');
-        final pin = _farOut
+        final pin = !_close
             ? await _carFactory.dot(key: f.user.id, color: relation)
             : await _carFactory.car(
                 key: f.user.id,
@@ -307,7 +317,7 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
     final me = ref.read(currentUserIdProvider);
     if (here != null && me != null) {
       final myCar = (ref.read(userCarsProvider(me)).value ?? const []).firstOrNull;
-      final pin = _farOut
+      final pin = !_close
           ? await _carFactory.dot(key: 'me', color: kRelationMe, me: true)
           : await _carFactory.car(key: 'me', colorKey: showColor ? (myCar?.color ?? 'red') : 'red', name: 'Me', status: 'now', showFace: false, me: true);
       if (await stale()) return;
@@ -416,6 +426,19 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
                       ],
                     ],
                   ),
+                ),
+              ),
+            ),
+
+            // Left-side key: what the shapes mean on this layer
+            SafeArea(
+              child: Align(
+                alignment: Alignment.topLeft,
+                child: AnimatedPadding(
+                  duration: const Duration(milliseconds: 200),
+                  // Below the mode switch, and below the "you're at a meet" banner when it shows.
+                  padding: EdgeInsets.only(top: nearby == null ? 66 : 126, left: 12),
+                  child: MapLegend(mode: mode, light: !_isNight),
                 ),
               ),
             ),

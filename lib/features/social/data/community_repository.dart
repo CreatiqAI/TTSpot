@@ -120,7 +120,7 @@ class CommunityRepository {
     final rows = await _client
         .from('places_with_counts')
         .select()
-        .gt('score', 0)
+        .eq('is_spot', true)
         .gte('lat', south)
         .lte('lat', north)
         .gte('lng', west)
@@ -132,7 +132,7 @@ class CommunityRepository {
 
   /// Top spots everywhere, for the feed tab.
   Future<List<Place>> topSpots({int limit = 40}) async {
-    final rows = await _client.from('places_with_counts').select().gt('score', 0).order('score', ascending: false).limit(limit);
+    final rows = await _client.from('places_with_counts').select().eq('is_spot', true).order('score', ascending: false).limit(limit);
     return rows.map(Place.fromMap).toList();
   }
 

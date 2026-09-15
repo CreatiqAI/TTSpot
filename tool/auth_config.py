@@ -8,7 +8,11 @@ Run after changing the email templates or when setting up a fresh project:
 - Manual identity linking on, so Settings can link/unlink Google.
 - Confirmation email shows the code ({{ .Token }}) instead of a link.
 """
-import io, json, urllib.request
+import io, json, sys, urllib.request
+
+# Until Resend can deliver to everyone (ttspot.my verified), sign-up skips the
+# email code: `python tool/auth_config.py --no-verify`. Later: `--verify`.
+VERIFY = "--no-verify" not in sys.argv
 
 TOKEN = io.open(r"C:\Users\Admin\.supabase\car-meet-access-token.txt").read().strip()
 REF = "gsoaoabefjavdaiqhahu"
@@ -44,7 +48,7 @@ email_change = code_mail(
 )
 
 body = {
-    "mailer_autoconfirm": False,
+    "mailer_autoconfirm": not VERIFY,
     "mailer_otp_length": 6,
     "mailer_otp_exp": 900,
     "security_manual_linking_enabled": True,

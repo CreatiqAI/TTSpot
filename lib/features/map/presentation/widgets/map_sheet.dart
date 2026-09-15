@@ -47,10 +47,10 @@ class MapSheet extends ConsumerWidget {
       snapSizes: const [peek, half, full],
       builder: (context, scroll) {
         return Container(
-          decoration: const BoxDecoration(
-            color: AppColors.mapSurface,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-            boxShadow: [BoxShadow(color: Color(0x66000000), blurRadius: 24, offset: Offset(0, -6))],
+          decoration: BoxDecoration(
+            color: MapPalette.of(context).surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            boxShadow: [BoxShadow(color: MapPalette.of(context).shadow, blurRadius: 24, offset: const Offset(0, -6))],
           ),
           child: CustomScrollView(
             controller: scroll,
@@ -78,7 +78,7 @@ class _Handle extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.only(top: 10, bottom: 8),
         child: Center(
-          child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.28), borderRadius: BorderRadius.circular(2))),
+          child: Container(width: 40, height: 4, decoration: BoxDecoration(color: MapPalette.of(context).handle, borderRadius: BorderRadius.circular(2))),
         ),
       );
 }
@@ -104,6 +104,8 @@ class _NowContent extends ConsumerWidget {
 
     final me = ref.watch(currentUserIdProvider);
     final myLoc = ref.watch(myLocationProvider).value;
+    final here = ref.watch(userLocationProvider).value;
+    final nearestPlace = here == null ? null : (ref.watch(nearbyPlacesProvider(placeKey(here.latitude, here.longitude))).value ?? const []).firstOrNull;
     final friendIds = ref.watch(friendIdsProvider);
     final mine = live.where((e) => e.isInstant && e.organizerId == me).firstOrNull;
     final friendsTt = live.where((e) => e.isInstant && friendIds.contains(e.organizerId)).toList()
@@ -132,8 +134,9 @@ class _NowContent extends ConsumerWidget {
                     )
                   : _TtPill(
                       icon: AppIcons.coffee,
-                      text: myLoc?.placeName != null ? 'TT now here' : 'TT now',
-                      trailing: myLoc?.placeName,
+                      text: here != null ? 'TT now here' : 'TT now',
+                      trailing: here == null ? null : (nearestPlace?.name ?? myLoc?.placeName),
+                      subtitle: nearestPlace == null ? null : shortAddress(nearestPlace.address),
                       onTap: () => showTtNowSheet(context),
                     ),
         ),
@@ -177,10 +180,12 @@ String _firstName(String userId, List<FriendPin>? pins) {
 /// The one TT control: red to start, black while yours is live, white when a
 /// friend's is live near you.
 class _TtPill extends StatelessWidget {
-  const _TtPill({required this.icon, required this.text, required this.onTap, this.trailing, this.dark = false, this.light = false});
+  const _TtPill({required this.icon, required this.text, required this.onTap, this.trailing, this.subtitle, this.dark = false, this.light = false});
   final IconData icon;
   final String text;
   final String? trailing;
+  /// Second line under the trailing text (the street address).
+  final String? subtitle;
   final VoidCallback onTap;
   final bool dark;
   final bool light;
@@ -204,7 +209,16 @@ class _TtPill extends StatelessWidget {
               Expanded(child: Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: fg, fontWeight: FontWeight.w800, fontSize: 14))),
               if (trailing != null) ...[
                 const SizedBox(width: 8),
-                Text(trailing!, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: light ? AppColors.brand : fg.withValues(alpha: 0.85), fontWeight: FontWeight.w800, fontSize: 12.5)),
+                Flexible(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(trailing!, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: light ? AppColors.brand : fg.withValues(alpha: 0.9), fontWeight: FontWeight.w800, fontSize: 12.5)),
+                      if (subtitle != null) Text(subtitle!, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: fg.withValues(alpha: 0.7), fontWeight: FontWeight.w600, fontSize: 10.5)),
+                    ],
+                  ),
+                ),
               ],
             ],
           ),
@@ -250,7 +264,7 @@ class _FriendRow extends ConsumerWidget {
                     decoration: BoxDecoration(
                       color: f.isFresh ? AppColors.success : const Color(0xFF6B7280),
                       shape: BoxShape.circle,
-                      border: Border.all(color: AppColors.mapSurface, width: 2),
+                      border: Border.all(color: MapPalette.of(context).surface, width: 2),
                     ),
                   ),
                 ),
@@ -261,15 +275,15 @@ class _FriendRow extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: AppColors.mapText, fontSize: 15, fontWeight: FontWeight.w600)),
+                  Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: MapPalette.of(context).text, fontSize: 15, fontWeight: FontWeight.w600)),
                   const SizedBox(height: 2),
-                  Text('$where · $ago · ${formatDistance(distanceKm)}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: AppColors.mapTextSecondary, fontSize: 13)),
+                  Text('$where · $ago · ${formatDistance(distanceKm)}', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: MapPalette.of(context).text2, fontSize: 13)),
                 ],
               ),
             ),
             IconButton(
               tooltip: 'Message',
-              icon: const Icon(AppIcons.chatCircle, color: AppColors.mapTextSecondary, size: 20),
+              icon: Icon(AppIcons.chatCircle, color: MapPalette.of(context).text2, size: 20),
               onPressed: () async {
                 try {
                   final conv = await ref.read(chatActionsProvider).openDm(f.user.id);
@@ -382,7 +396,7 @@ class _UpcomingContent extends ConsumerWidget {
                   padding: const EdgeInsets.only(bottom: 24),
                   sliver: SliverList.separated(
                     itemCount: list.length,
-                    separatorBuilder: (_, _) => Divider(height: 1, indent: 88, color: Colors.white.withValues(alpha: 0.06)),
+                    separatorBuilder: (_, _) => Divider(height: 1, indent: 88, color: MapPalette.of(context).divider),
                     itemBuilder: (_, i) => EventRow(event: list[i], distanceKm: distanceKm(origin, list[i].latLng), onTap: () => context.push(Routes.event(list[i].id))),
                   ),
                 ),
@@ -430,11 +444,11 @@ class _SpotsContent extends ConsumerWidget {
                   padding: const EdgeInsets.only(bottom: 24),
                   sliver: SliverList.separated(
                     itemCount: list.length,
-                    separatorBuilder: (_, _) => Divider(height: 1, indent: 92, color: Colors.white.withValues(alpha: 0.06)),
+                    separatorBuilder: (_, _) => Divider(height: 1, indent: 92, color: MapPalette.of(context).divider),
                     itemBuilder: (_, i) => SpotRow(
                       place: list[i],
                       distanceKm: distanceKm(origin, list[i].latLng),
-                      dark: true,
+                      dark: !MapPalette.of(context).light,
                       onTap: () => context.push(Routes.place(list[i].id)),
                       onLongPress: () => onFocus(list[i].latLng),
                     ),
@@ -471,12 +485,12 @@ class _GoogleSuggestions extends ConsumerWidget {
             leading: Container(
               width: 36,
               height: 36,
-              decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(10)),
-              child: const Icon(AppIcons.mapPin, size: 18, color: AppColors.mapText),
+              decoration: BoxDecoration(color: MapPalette.of(context).tile, borderRadius: BorderRadius.circular(10)),
+              child: Icon(AppIcons.mapPin, size: 18, color: MapPalette.of(context).text),
             ),
-            title: Text(s.main, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: AppColors.mapText, fontWeight: FontWeight.w600, fontSize: 14)),
-            subtitle: Text(s.secondary, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: AppColors.mapTextSecondary, fontSize: 12)),
-            trailing: const Icon(AppIcons.navigationArrow, size: 16, color: AppColors.mapTextSecondary),
+            title: Text(s.main, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: MapPalette.of(context).text, fontWeight: FontWeight.w600, fontSize: 14)),
+            subtitle: Text(s.secondary, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: MapPalette.of(context).text2, fontSize: 12)),
+            trailing: Icon(AppIcons.navigationArrow, size: 16, color: MapPalette.of(context).text2),
             onTap: () async {
               FocusManager.instance.primaryFocus?.unfocus();
               try {
@@ -506,9 +520,9 @@ class SpotRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = place;
-    final fg = dark ? AppColors.mapText : AppColors.textPrimary;
-    final fg2 = dark ? AppColors.mapTextSecondary : AppColors.textSecondary;
-    final tile = dark ? Colors.white.withValues(alpha: 0.08) : AppColors.surfaceGray;
+    final fg = dark ? MapPalette.of(context).text : AppColors.textPrimary;
+    final fg2 = dark ? MapPalette.of(context).text2 : AppColors.textSecondary;
+    final tile = dark ? MapPalette.of(context).tile : AppColors.surfaceGray;
     final tags = p.tags.take(3).join(' · ');
     return InkWell(
       onTap: onTap,
@@ -593,10 +607,10 @@ class _SectionHeader extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 6, 8, 2),
       child: Row(
         children: [
-          Text(title, style: const TextStyle(color: AppColors.mapText, fontSize: 15, fontWeight: FontWeight.w700)),
+          Text(title, style: TextStyle(color: MapPalette.of(context).text, fontSize: 15, fontWeight: FontWeight.w700)),
           if (count != null && count! > 0) ...[
             const SizedBox(width: 6),
-            Text('$count', style: const TextStyle(color: AppColors.mapTextSecondary, fontSize: 14, fontWeight: FontWeight.w600)),
+            Text('$count', style: TextStyle(color: MapPalette.of(context).text2, fontSize: 14, fontWeight: FontWeight.w600)),
           ],
           const Spacer(),
           if (action != null) TextButton(onPressed: onAction, child: Text(action!)),
@@ -612,7 +626,7 @@ class _Hint extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
-        child: Text(text, style: const TextStyle(color: AppColors.mapTextSecondary, fontSize: 14, height: 1.4)),
+        child: Text(text, style: TextStyle(color: MapPalette.of(context).text2, fontSize: 14, height: 1.4)),
       );
 }
 
@@ -643,16 +657,16 @@ class _SearchFieldState extends ConsumerState<_SearchField> {
         onTap: widget.onTap,
         onChanged: (v) => ref.read(mapSearchProvider.notifier).set(v),
         textInputAction: TextInputAction.search,
-        style: const TextStyle(color: AppColors.mapText, fontSize: 15),
-        cursorColor: AppColors.mapText,
+        style: TextStyle(color: MapPalette.of(context).text, fontSize: 15),
+        cursorColor: MapPalette.of(context).text,
         decoration: InputDecoration(
           hintText: widget.hint,
-          hintStyle: const TextStyle(color: AppColors.mapTextSecondary, fontSize: 15),
-          prefixIcon: const Icon(AppIcons.magnifyingGlass, color: AppColors.mapTextSecondary, size: 22),
+          hintStyle: TextStyle(color: MapPalette.of(context).text2, fontSize: 15),
+          prefixIcon: Icon(AppIcons.magnifyingGlass, color: MapPalette.of(context).text2, size: 22),
           suffixIcon: _ctrl.text.isEmpty
               ? null
               : IconButton(
-                  icon: const Icon(AppIcons.x, color: AppColors.mapTextSecondary, size: 20),
+                  icon: Icon(AppIcons.x, color: MapPalette.of(context).text2, size: 20),
                   onPressed: () {
                     _ctrl.clear();
                     ref.read(mapSearchProvider.notifier).set('');
@@ -660,7 +674,7 @@ class _SearchFieldState extends ConsumerState<_SearchField> {
                   },
                 ),
           filled: true,
-          fillColor: Colors.white.withValues(alpha: 0.08),
+          fillColor: MapPalette.of(context).tile,
           contentPadding: EdgeInsets.zero,
           isDense: true,
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
@@ -686,15 +700,15 @@ class _FilterChip extends StatelessWidget {
         height: 44,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
-          color: active ? Colors.white : Colors.white.withValues(alpha: 0.08),
+          color: active ? MapPalette.of(context).accentBg : MapPalette.of(context).tile,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(AppIcons.slidersHorizontal, size: 18, color: active ? Colors.black : AppColors.mapText),
+            Icon(AppIcons.slidersHorizontal, size: 18, color: active ? MapPalette.of(context).accentFg : MapPalette.of(context).text),
             const SizedBox(width: 6),
-            Text(label, style: TextStyle(color: active ? Colors.black : AppColors.mapText, fontSize: 13.5, fontWeight: FontWeight.w600)),
+            Text(label, style: TextStyle(color: active ? MapPalette.of(context).accentFg : MapPalette.of(context).text, fontSize: 13.5, fontWeight: FontWeight.w600)),
           ],
         ),
       ),
@@ -715,10 +729,10 @@ class _Message extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(32, 28, 32, 24),
       child: Column(
         children: [
-          Text(title, textAlign: TextAlign.center, style: const TextStyle(color: AppColors.mapText, fontSize: 17, fontWeight: FontWeight.w700)),
+          Text(title, textAlign: TextAlign.center, style: TextStyle(color: MapPalette.of(context).text, fontSize: 17, fontWeight: FontWeight.w700)),
           if (subtitle != null) ...[
             const SizedBox(height: 6),
-            Text(subtitle!, textAlign: TextAlign.center, style: const TextStyle(color: AppColors.mapTextSecondary, fontSize: 14, height: 1.4)),
+            Text(subtitle!, textAlign: TextAlign.center, style: TextStyle(color: MapPalette.of(context).text2, fontSize: 14, height: 1.4)),
           ],
           if (actionLabel != null && onAction != null) ...[
             const SizedBox(height: 16),

@@ -416,7 +416,7 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
               ),
             ),
 
-            MapSheet(controller: _sheet, onFocus: _focus),
+            MapPalette(light: !_isNight, child: MapSheet(controller: _sheet, onFocus: _focus)),
           ],
         ),
       ),

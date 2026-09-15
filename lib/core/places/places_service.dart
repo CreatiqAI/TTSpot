@@ -73,6 +73,21 @@ final placeSuggestionsProvider = FutureProvider.autoDispose.family<List<PlaceSug
   return ref.read(placesServiceProvider).autocomplete(q.text.trim(), lat: q.lat, lng: q.lng);
 });
 
+/// Nearest named places around a point, cached per ~100 m cell. Used by the
+/// TT pill ("TT now here · Mamak Sri Melur") and to prefill the TT sheet.
+final nearbyPlacesProvider = FutureProvider.family<List<PlaceDetails>, String>((ref, key) {
+  final parts = key.split(',');
+  return ref.read(placesServiceProvider).nearby(double.parse(parts[0]), double.parse(parts[1]));
+});
+
+String placeKey(double lat, double lng) => '${lat.toStringAsFixed(3)},${lng.toStringAsFixed(3)}';
+
+/// "Jalan PJS 11/7, Bandar Sunway" from a full Google address.
+String shortAddress(String address) {
+  final parts = address.split(',').map((p) => p.trim()).where((p) => p.isNotEmpty && !RegExp(r'^\d{5}').hasMatch(p) && p != 'Malaysia').toList();
+  return parts.take(2).join(', ');
+}
+
 class PlaceQuery {
   const PlaceQuery(this.text, {this.lat, this.lng});
   final String text;

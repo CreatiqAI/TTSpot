@@ -40,6 +40,8 @@ abstract final class AppColors {
 
   // Map screen stays dark (matches Instagram's map)
   static const mapBg = Color(0xFF0F1115);
+  // light-map counterparts (day): see MapPalette
+  static const mapSurfaceLight = Color(0xFFFFFFFF);
   static const mapSurface = Color(0xFF1C1F26);
   static const mapText = Color(0xFFF2F3F5);
   static const mapTextSecondary = Color(0xFF9AA0A8);
@@ -246,4 +248,28 @@ abstract final class AppTheme {
       ),
     );
   }
+}
+
+
+/// Colours for the map's bottom sheet, which follows the map: dark at night,
+/// white by day. Read with `MapPalette.of(context)`.
+class MapPalette extends InheritedWidget {
+  const MapPalette({super.key, required this.light, required super.child});
+  final bool light;
+
+  Color get surface => light ? Colors.white : AppColors.mapSurface;
+  Color get text => light ? AppColors.textPrimary : AppColors.mapText;
+  Color get text2 => light ? AppColors.textSecondary : AppColors.mapTextSecondary;
+  Color get tile => light ? AppColors.surfaceGray : Colors.white.withValues(alpha: 0.08);
+  Color get divider => light ? AppColors.border : Colors.white.withValues(alpha: 0.06);
+  Color get handle => light ? const Color(0xFFD0D0D0) : Colors.white.withValues(alpha: 0.28);
+  Color get accentBg => light ? AppColors.ink : Colors.white;
+  Color get accentFg => light ? Colors.white : Colors.black;
+  Color get shadow => light ? const Color(0x22000000) : const Color(0x66000000);
+
+  static MapPalette of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<MapPalette>() ?? const MapPalette(light: false, child: SizedBox.shrink());
+
+  @override
+  bool updateShouldNotify(MapPalette old) => old.light != light;
 }

@@ -68,7 +68,7 @@ class _VisibilitySheetState extends ConsumerState<_VisibilitySheet> {
             _Option(
               icon: AppIcons.broadcast,
               title: 'Friends + nearby',
-              subtitle: 'Car people around you also see your car and handle at a rounded spot. They can message you.',
+              subtitle: 'Car people within the distance you pick also see your car and handle at a rounded spot. They can message you.',
               on: _mode == 'nearby',
               onTap: _busy ? null : () => _apply('nearby'),
               child: _mode != 'nearby'
@@ -85,8 +85,8 @@ class _VisibilitySheetState extends ConsumerState<_VisibilitySheet> {
                                 child: Slider(
                                   value: _km,
                                   min: 0.5,
-                                  max: 3,
-                                  divisions: 25,
+                                  max: 10,
+                                  divisions: 95,
                                   onChanged: (v) => setState(() => _km = v),
                                   onChangeEnd: (v) => _apply('nearby', km: v),
                                 ),
@@ -97,7 +97,7 @@ class _VisibilitySheetState extends ConsumerState<_VisibilitySheet> {
                         ),
                         Row(
                           children: [
-                            for (final k in const [1.0, 2.0, 3.0]) ...[
+                            for (final k in const [1.0, 3.0, 5.0, 10.0]) ...[
                               Expanded(
                                 child: GestureDetector(
                                   onTap: _busy ? null : () => _apply('nearby', km: k),
@@ -108,7 +108,7 @@ class _VisibilitySheetState extends ConsumerState<_VisibilitySheet> {
                                   ),
                                 ),
                               ),
-                              if (k != 3.0) const SizedBox(width: 6),
+                              if (k != 10.0) const SizedBox(width: 6),
                             ],
                           ],
                         ),

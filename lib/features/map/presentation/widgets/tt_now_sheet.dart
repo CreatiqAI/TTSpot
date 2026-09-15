@@ -183,7 +183,14 @@ class _TtNowSheetState extends ConsumerState<_TtNowSheet> {
     final friends = ref.watch(friendsProvider).value ?? const <Profile>[];
     final pins = ref.watch(friendPinsProvider).value ?? const [];
     final liveIds = {for (final p in pins) if (p.isFresh) p.user.id};
-    if (!_prefilled && my?.placeName != null) {
+    // Auto-fill with the nearest named place + street address from GPS.
+    final nearby = here == null ? null : ref.watch(nearbyPlacesProvider(placeKey(here.latitude, here.longitude))).value;
+    if (!_prefilled && nearby != null && nearby.isNotEmpty) {
+      _around = nearby;
+      _picked = nearby.first;
+      _venue.text = nearby.first.name;
+      _prefilled = true;
+    } else if (!_prefilled && my?.placeName != null && here == null) {
       _venue.text = my!.placeName!;
       _prefilled = true;
     }

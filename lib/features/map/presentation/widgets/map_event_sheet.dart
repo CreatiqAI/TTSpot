@@ -36,10 +36,10 @@ class MapEventSheet extends ConsumerWidget {
       snapSizes: const [peek, half, full],
       builder: (context, scroll) {
         return Container(
-          decoration: const BoxDecoration(
-            color: AppColors.mapSurface,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-            boxShadow: [BoxShadow(color: Color(0x66000000), blurRadius: 24, offset: Offset(0, -6))],
+          decoration: BoxDecoration(
+            color: MapPalette.of(context).surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            boxShadow: [BoxShadow(color: MapPalette.of(context).shadow, blurRadius: 24, offset: const Offset(0, -6))],
           ),
           child: CustomScrollView(
             controller: scroll,
@@ -52,7 +52,7 @@ class MapEventSheet extends ConsumerWidget {
                       width: 40,
                       height: 4,
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.28),
+                        color: MapPalette.of(context).handle,
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
@@ -107,7 +107,7 @@ class MapEventSheet extends ConsumerWidget {
                       separatorBuilder: (_, _) => Divider(
                         height: 1,
                         indent: 88,
-                        color: Colors.white.withValues(alpha: 0.06),
+                        color: MapPalette.of(context).divider,
                       ),
                       itemBuilder: (context, i) {
                         final e = list[i];
@@ -155,16 +155,16 @@ class _SearchFieldState extends ConsumerState<_SearchField> {
         onTap: widget.onTap,
         onChanged: (v) => ref.read(mapSearchProvider.notifier).set(v),
         textInputAction: TextInputAction.search,
-        style: const TextStyle(color: AppColors.mapText, fontSize: 15),
-        cursorColor: AppColors.mapText,
+        style: TextStyle(color: MapPalette.of(context).text, fontSize: 15),
+        cursorColor: MapPalette.of(context).text,
         decoration: InputDecoration(
           hintText: 'Search meets or venues',
-          hintStyle: const TextStyle(color: AppColors.mapTextSecondary, fontSize: 15),
-          prefixIcon: const Icon(AppIcons.magnifyingGlass, color: AppColors.mapTextSecondary, size: 22),
+          hintStyle: TextStyle(color: MapPalette.of(context).text2, fontSize: 15),
+          prefixIcon: Icon(AppIcons.magnifyingGlass, color: MapPalette.of(context).text2, size: 22),
           suffixIcon: _ctrl.text.isEmpty
               ? null
               : IconButton(
-                  icon: const Icon(AppIcons.x, color: AppColors.mapTextSecondary, size: 20),
+                  icon: Icon(AppIcons.x, color: MapPalette.of(context).text2, size: 20),
                   onPressed: () {
                     _ctrl.clear();
                     ref.read(mapSearchProvider.notifier).set('');
@@ -172,7 +172,7 @@ class _SearchFieldState extends ConsumerState<_SearchField> {
                   },
                 ),
           filled: true,
-          fillColor: Colors.white.withValues(alpha: 0.08),
+          fillColor: MapPalette.of(context).tile,
           contentPadding: EdgeInsets.zero,
           isDense: true,
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
@@ -212,7 +212,7 @@ class EventRow extends StatelessWidget {
                     e.title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: AppColors.mapText, fontSize: 15, fontWeight: FontWeight.w600),
+                    style: TextStyle(color: MapPalette.of(context).text, fontSize: 15, fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 3),
                   Text(
@@ -221,14 +221,14 @@ class EventRow extends StatelessWidget {
                         : '${e.type.label} · ${formatEventDateFriendly(e.startsAt)}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: live ? const Color(0xFFFF6B6B) : AppColors.mapTextSecondary, fontSize: 13, fontWeight: live ? FontWeight.w600 : FontWeight.w400),
+                    style: TextStyle(color: live ? const Color(0xFFFF6B6B) : MapPalette.of(context).text2, fontSize: 13, fontWeight: live ? FontWeight.w600 : FontWeight.w400),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     '${e.venueName} · ${formatDistance(distanceKm)}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: AppColors.mapTextSecondary, fontSize: 13),
+                    style: TextStyle(color: MapPalette.of(context).text2, fontSize: 13),
                   ),
                 ],
               ),
@@ -237,11 +237,11 @@ class EventRow extends StatelessWidget {
             Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(AppIcons.users, size: 18, color: AppColors.mapTextSecondary),
+                Icon(AppIcons.users, size: 18, color: MapPalette.of(context).text2),
                 const SizedBox(height: 2),
                 Text(
                   '${e.attendeeCount}',
-                  style: const TextStyle(color: AppColors.mapText, fontSize: 12, fontWeight: FontWeight.w600),
+                  style: TextStyle(color: MapPalette.of(context).text, fontSize: 12, fontWeight: FontWeight.w600),
                 ),
               ],
             ),
@@ -266,17 +266,17 @@ class _Cover extends StatelessWidget {
         height: 58,
         child: url == null
             ? ColoredBox(
-                color: Colors.white.withValues(alpha: 0.08),
+                color: MapPalette.of(context).tile,
                 child: Center(child: ArtIcon(type.art, size: 34)),
               )
             : Image.network(
                 url!,
                 fit: BoxFit.cover,
                 frameBuilder: (_, child, frame, sync) => frame == null && !sync
-                    ? ColoredBox(color: Colors.white.withValues(alpha: 0.08), child: Center(child: ArtIcon(type.art, size: 34)))
+                    ? ColoredBox(color: MapPalette.of(context).tile, child: Center(child: ArtIcon(type.art, size: 34)))
                     : child,
                 errorBuilder: (_, _, _) => ColoredBox(
-                  color: Colors.white.withValues(alpha: 0.08),
+                  color: MapPalette.of(context).tile,
                   child: Center(child: ArtIcon(type.art, size: 34)),
                 ),
               ),
@@ -294,7 +294,7 @@ class _LoadingRows extends StatelessWidget {
           width: w,
           height: h,
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.08),
+            color: MapPalette.of(context).tile,
             borderRadius: BorderRadius.circular(6),
           ),
         );
@@ -346,19 +346,19 @@ class _Message extends StatelessWidget {
           if (art != null)
             ArtIcon(art!, size: 56)
           else
-            Icon(icon, size: 40, color: AppColors.mapTextSecondary),
+            Icon(icon, size: 40, color: MapPalette.of(context).text2),
           const SizedBox(height: 14),
           Text(
             title,
             textAlign: TextAlign.center,
-            style: const TextStyle(color: AppColors.mapText, fontSize: 18, fontWeight: FontWeight.w700),
+            style: TextStyle(color: MapPalette.of(context).text, fontSize: 18, fontWeight: FontWeight.w700),
           ),
           if (subtitle != null) ...[
             const SizedBox(height: 6),
             Text(
               subtitle!,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: AppColors.mapTextSecondary, fontSize: 14, height: 1.4),
+              style: TextStyle(color: MapPalette.of(context).text2, fontSize: 14, height: 1.4),
             ),
           ],
           if (actionLabel != null && onAction != null) ...[

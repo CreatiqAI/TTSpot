@@ -28,7 +28,7 @@ def code_mail(title, intro, footer):
 </td></tr>
 <tr><td style="font-size:13px;line-height:1.5;color:#8a8a8a;">{footer}</td></tr>
 </table>
-<div style="font-size:12px;color:#9a9a9a;padding-top:18px;">TT Spot · Malaysia's car meet spot</div>
+<div style="font-size:12px;color:#9a9a9a;padding-top:18px;">TT Spot · Malaysia's car meet spot · Questions? ttspotmy@gmail.com</div>
 </td></tr></table></body></html>"""
 
 

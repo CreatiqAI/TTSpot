@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,7 +16,10 @@ import '../../../core/widgets/photo_picker_sheet.dart';
 import '../../../core/widgets/primary_button.dart';
 import '../../profile/application/profile_providers.dart';
 import '../application/auth_controller.dart';
+import '../application/account_basics.dart';
 import '../application/onboarding_controller.dart';
+import '../../../core/legal/legal_text.dart';
+import '../../settings/presentation/settings_screen.dart' show LegalScreen;
 import '../data/auth_repository.dart';
 
 /// First-run setup in two steps, laid out like Instagram's "Edit profile":
@@ -33,6 +37,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   final _username = TextEditingController();
   final _displayName = TextEditingController();
   final _referral = TextEditingController();
+  final _phone = TextEditingController();
+  bool _acceptedTerms = false;
   String? _homeState;
   XFile? _avatar;
   bool _prefilled = false;
@@ -50,6 +56,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     _username.dispose();
     _displayName.dispose();
     _referral.dispose();
+    _phone.dispose();
     _make.dispose();
     _model.dispose();
     _year.dispose();
@@ -132,6 +139,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           homeState: _homeState!,
           avatar: _avatar,
           referralCode: _referral.text,
+          phone: _phone.text,
+          acceptedTerms: _acceptedTerms,
         );
     // On success currentProfileProvider refreshes and the router redirects to the map.
   }
@@ -152,15 +161,22 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     });
     final busy = ref.watch(onboardingControllerProvider).isLoading;
 
-    // Pre-fill display name from Google / metadata once the profile row arrives.
+    // Pre-fill from the profile row (Google name, or an existing member who
+    // only needs to add a phone / accept the Terms).
     final profile = ref.watch(currentProfileProvider).value;
+    final basics = ref.watch(accountBasicsProvider).value;
     if (!_prefilled && profile != null) {
       _prefilled = true;
       _displayName.text = profile.displayName ?? '';
+      _username.text = profile.username ?? '';
+      _homeState = profile.homeState;
+      if (basics?.phone != null) _phone.text = prettyPhone(basics!.phone!);
     }
+    final existing = profile?.isOnboarded ?? false;
+    final basicsDone = basics?.complete ?? false;
 
-    // Profile done, car missing → step 2.
-    if (profile != null && profile.isOnboarded) {
+    // Profile + basics done, car missing → step 2.
+    if (profile != null && existing && basicsDone) {
       return _carStep(context, busy: ref.watch(carFormControllerProvider).isLoading);
     }
 
@@ -171,7 +187,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           icon: const Icon(AppIcons.x),
           onPressed: busy ? null : () => ref.read(authControllerProvider.notifier).signOut(),
         ),
-        title: const Text('Step 1 of 2 · You'),
+        title: Text(existing ? 'Complete your account' : 'Step 1 of 2 · You'),
         actions: [
           busy
               ? const Padding(
@@ -192,6 +208,16 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                if (existing)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 18),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(color: AppColors.surfaceGray, borderRadius: BorderRadius.circular(AppRadius.md)),
+                    child: const Text(
+                      'Two quick things every member needs: a phone number and a tick on the Terms. Then you are back on the map.',
+                      style: TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.4),
+                    ),
+                  ),
                 Center(
                   child: _AvatarPicker(
                     file: _avatar,
@@ -241,6 +267,22 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 ),
                 const SizedBox(height: 14),
                 TextFormField(
+                  controller: _phone,
+                  keyboardType: TextInputType.phone,
+                  textInputAction: TextInputAction.next,
+                  autofillHints: const [AutofillHints.telephoneNumber],
+                  inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9+\-\s]'))],
+                  decoration: const InputDecoration(
+                    labelText: 'Phone number',
+                    hintText: '012-345 6789',
+                    prefixIcon: Icon(AppIcons.phone, size: 20),
+                    helperText: 'Private. Malaysian numbers can skip the +60.',
+                  ),
+                  validator: (v) => normalizePhone(v ?? '') == null ? 'Enter a valid phone number' : null,
+                ),
+                if (!existing) ...[
+                const SizedBox(height: 14),
+                TextFormField(
                   controller: _referral,
                   autocorrect: false,
                   maxLength: 20,
@@ -252,10 +294,20 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     counterText: '',
                   ),
                 ),
-                const SizedBox(height: 28),
+                ],
+                const SizedBox(height: 20),
+                _TermsRow(
+                  value: _acceptedTerms,
+                  error: _validate && !_acceptedTerms,
+                  onChanged: busy ? null : (v) => setState(() => _acceptedTerms = v),
+                  onOpen: (title, body) => Navigator.of(context, rootNavigator: true).push(
+                    MaterialPageRoute<void>(builder: (_) => LegalScreen(title: title, body: body)),
+                  ),
+                ),
+                const SizedBox(height: 20),
 
                 const Text(
-                  'Your name, username and home state are visible to everyone. You can change them any time.',
+                  'Your name, username and home state are visible to everyone. Your phone number is private. You can change them any time.',
                   style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary, height: 1.4),
                 ),
               ],
@@ -389,6 +441,60 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _TermsRow extends StatelessWidget {
+  const _TermsRow({required this.value, required this.error, required this.onChanged, required this.onOpen});
+  final bool value;
+  final bool error;
+  final ValueChanged<bool>? onChanged;
+  final void Function(String title, String body) onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    const link = TextStyle(fontWeight: FontWeight.w700, color: AppColors.textPrimary, decoration: TextDecoration.underline);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(10, 8, 12, 8),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: error ? AppColors.danger : AppColors.border),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 24,
+            height: 24,
+            child: Checkbox(
+              value: value,
+              onChanged: onChanged == null ? null : (v) => onChanged!(v ?? false),
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              visualDensity: VisualDensity.compact,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: GestureDetector(
+              onTap: onChanged == null ? null : () => onChanged!(!value),
+              behavior: HitTestBehavior.opaque,
+              child: Text.rich(
+                TextSpan(
+                  style: const TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.45),
+                  children: [
+                    const TextSpan(text: 'I am 18 or older and I agree to the '),
+                    TextSpan(text: 'Terms of Use', style: link, recognizer: TapGestureRecognizer()..onTap = () => onOpen('Terms of Use', kTerms)),
+                    const TextSpan(text: ' and '),
+                    TextSpan(text: 'Privacy Policy', style: link, recognizer: TapGestureRecognizer()..onTap = () => onOpen('Privacy Policy', kPrivacyPolicy)),
+                    const TextSpan(text: '. No street racing.'),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

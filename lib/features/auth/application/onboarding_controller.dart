@@ -5,6 +5,7 @@ import '../../../core/supabase/supabase_client.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../points/data/points_repository.dart';
 import '../data/auth_repository.dart';
+import 'account_basics.dart';
 
 final usernamePattern = RegExp(r'^[a-z0-9_]{3,20}$');
 
@@ -22,6 +23,8 @@ class OnboardingController extends AsyncNotifier<void> {
     String? bio,
     XFile? avatar,
     String? referralCode,
+    String? phone,
+    bool acceptedTerms = false,
   }) async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
@@ -34,6 +37,11 @@ class OnboardingController extends AsyncNotifier<void> {
         throw const AppException('Username: 3–20 characters, letters, numbers or _ only.');
       }
       if (homeState.trim().isEmpty) throw const AppException('Choose your home state.');
+      // Onboarding passes phone + Terms; Edit profile does not.
+      if (phone != null) {
+        if (normalizePhone(phone) == null) throw const AppException('Enter a valid phone number, e.g. 012-345 6789.');
+        if (!acceptedTerms) throw const AppException('Please accept the Terms of Use and Privacy Policy.');
+      }
       if (!await repo.isUsernameAvailable(cleanUsername, forUserId: userId)) {
         throw const AppException('That username is already taken.');
       }
@@ -51,6 +59,7 @@ class OnboardingController extends AsyncNotifier<void> {
         bio: bio,
         avatarUrl: avatarUrl,
       );
+      if (phone != null) await ref.read(accountActionsProvider).setBasics(phone: phone, acceptedTerms: acceptedTerms);
       final code = referralCode?.trim().toLowerCase() ?? '';
       if (code.isNotEmpty && code != cleanUsername) {
         try {

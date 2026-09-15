@@ -5,7 +5,12 @@ import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../../core/widgets/primary_button.dart';
+import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show AuthException;
+
+import '../../../core/router/app_router.dart';
 import '../application/auth_controller.dart';
+import '../data/auth_repository.dart';
 
 enum _Mode { signIn, signUp }
 
@@ -24,7 +29,6 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
   final _password = TextEditingController();
   _Mode _mode = _Mode.signIn;
   bool _showPassword = false;
-  bool _acceptedTerms = false;
   bool _validate = false;
 
   bool get _isSignUp => _mode == _Mode.signUp;
@@ -45,15 +49,25 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
     FocusScope.of(context).unfocus();
     setState(() => _validate = true);
     if (!_formKey.currentState!.validate()) return;
-    if (_isSignUp && !_acceptedTerms) {
-      _snack('Please agree to the terms to sign up.');
-      return;
-    }
     final ctrl = ref.read(authControllerProvider.notifier);
+    final email = _email.text.trim().toLowerCase();
     if (_isSignUp) {
-      await ctrl.signUp(email: _email.text, password: _password.text);
+      final needsCode = await ctrl.signUp(email: email, password: _password.text);
+      if (needsCode && mounted) context.push(Routes.verify(email));
     } else {
-      await ctrl.signIn(email: _email.text, password: _password.text);
+      await ctrl.signIn(email: email, password: _password.text);
+      final err = ref.read(authControllerProvider).error;
+      // Signed up but never typed the code: send a fresh one and go there.
+      if (err is AuthException && err.code == 'email_not_confirmed' && mounted) {
+        if (!email.contains('@')) {
+          _snack('Confirm your email first: log in with your email address to get a new code.');
+          return;
+        }
+        try {
+          await ref.read(authRepositoryProvider).resendSignupCode(email);
+        } catch (_) {/* cooldown; the screen offers resend */}
+        if (mounted) context.push(Routes.verify(email));
+      }
     }
   }
 
@@ -104,7 +118,11 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
   @override
   Widget build(BuildContext context) {
     ref.listen(authControllerProvider, (_, next) {
-      if (next.hasError && !next.isLoading) _snack(friendlyError(next.error!));
+      if (next.hasError && !next.isLoading) {
+        final e = next.error!;
+        if (e is AuthException && e.code == 'email_not_confirmed') return; // handled in _submit
+        _snack(friendlyError(e));
+      }
     });
     final busy = ref.watch(authControllerProvider).isLoading;
 
@@ -177,11 +195,11 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                             curve: Curves.easeOut,
                             alignment: Alignment.topCenter,
                             child: _isSignUp
-                                ? Padding(
-                                    padding: const EdgeInsets.only(top: 12),
-                                    child: _TermsRow(
-                                      value: _acceptedTerms,
-                                      onChanged: busy ? null : (v) => setState(() => _acceptedTerms = v),
+                                ? const Padding(
+                                    padding: EdgeInsets.only(top: 12),
+                                    child: Text(
+                                      'We email you a 6-digit code to confirm. Next: your name, phone number and the Terms.',
+                                      style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary, height: 1.4),
                                     ),
                                   )
                                 : Align(
@@ -245,42 +263,6 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _TermsRow extends StatelessWidget {
-  const _TermsRow({required this.value, required this.onChanged});
-  final bool value;
-  final ValueChanged<bool>? onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onChanged == null ? null : () => onChanged!(!value),
-      behavior: HitTestBehavior.opaque,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 22,
-            height: 22,
-            child: Checkbox(
-              value: value,
-              onChanged: onChanged == null ? null : (v) => onChanged!(v ?? false),
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              visualDensity: VisualDensity.compact,
-            ),
-          ),
-          const SizedBox(width: 10),
-          const Expanded(
-            child: Text(
-              'I agree to the Terms of Use and Community Rules. 18+ only, no street racing.',
-              style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary, height: 1.4),
-            ),
-          ),
-        ],
       ),
     );
   }

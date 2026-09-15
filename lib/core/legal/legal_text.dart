@@ -2,6 +2,9 @@
 /// same source renders in the app and on ttspot.my. Drafts: have a lawyer
 /// read them before launch.
 const kLegalUpdated = '15 September 2026';
+
+/// Bump when the Terms change materially; every member is asked to accept again.
+const kTermsVersion = '2026-09-15';
 const kLegalContact = 'hello@ttspot.my';
 
 const kPrivacyPolicy = '''

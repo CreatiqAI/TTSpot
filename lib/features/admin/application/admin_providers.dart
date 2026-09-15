@@ -21,7 +21,7 @@ class AdminReport {
 }
 
 class AdminUser {
-  const AdminUser({required this.id, required this.username, this.displayName, this.avatarUrl, required this.createdAt, this.homeState, required this.isAdmin, required this.clubOwner, required this.cars, this.lastSeen});
+  const AdminUser({required this.id, required this.username, this.displayName, this.avatarUrl, required this.createdAt, this.homeState, required this.isAdmin, required this.clubOwner, required this.cars, this.lastSeen, this.phone});
   final String id;
   final String username;
   final String? displayName;
@@ -32,6 +32,7 @@ class AdminUser {
   final bool clubOwner;
   final int cars;
   final DateTime? lastSeen;
+  final String? phone;
 }
 
 final adminStatsProvider = FutureProvider<AdminStats>((ref) async {
@@ -74,6 +75,7 @@ final adminUsersProvider = FutureProvider<List<AdminUser>>((ref) async {
       clubOwner: m['club_owner'] as bool? ?? false,
       cars: (m['cars'] as num?)?.toInt() ?? 0,
       lastSeen: m['last_seen'] == null ? null : DateTime.parse(m['last_seen'] as String).toLocal(),
+      phone: m['phone'] as String?,
     );
   }).toList();
 });

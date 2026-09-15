@@ -31,6 +31,9 @@ class AuthRepository {
     }
     final res = await _client.functions.invoke('login', body: {'action': 'password', 'identifier': id, 'password': password});
     final data = res.data as Map?;
+    if (data?['error'] == 'email_not_confirmed') {
+      throw const AuthException('Email not confirmed', code: 'email_not_confirmed');
+    }
     if (data == null || data['error'] != null) throw AppException(data?['error'] as String? ?? 'Wrong username or password.');
     await _client.auth.setSession(data['refresh_token'] as String);
   }
@@ -46,21 +49,36 @@ class AuthRepository {
   /// After the reset link signed the member in.
   Future<void> updatePassword(String password) => _client.auth.updateUser(UserAttributes(password: password));
 
-  /// [termsAcceptedAt] is stored in the user's metadata as an audit trail.
-  Future<void> signUpWithEmail({
-    required String email,
-    required String password,
-    required DateTime termsAcceptedAt,
-  }) async {
-    final res = await _client.auth.signUp(
-      email: email.trim(),
-      password: password,
-      data: {'terms_accepted_at': termsAcceptedAt.toUtc().toIso8601String()},
-    );
-    // With "Confirm email" enabled in the dashboard there is no session yet.
-    if (res.session == null) {
-      throw const AppException('Account created. Check your email to confirm, then sign in.');
-    }
+  /// Creates the account. Returns true when the email still has to be
+  /// confirmed with the 6-digit code we just sent (the normal case).
+  Future<bool> signUpWithEmail({required String email, required String password}) async {
+    final res = await _client.auth.signUp(email: email.trim().toLowerCase(), password: password);
+    return res.session == null;
+  }
+
+  /// The 6-digit code from the sign-up email. Success signs the member in.
+  Future<void> verifySignupCode({required String email, required String code}) async {
+    await _client.auth.verifyOTP(type: OtpType.signup, email: email.trim().toLowerCase(), token: code);
+  }
+
+  Future<void> resendSignupCode(String email) async {
+    await _client.auth.resend(type: OtpType.signup, email: email.trim().toLowerCase());
+  }
+
+  // -------------------------------------------------------- linked logins ---
+
+  /// Link a Google account to the signed-in member (Settings → Sign-in methods).
+  Future<void> linkGoogle() async {
+    final t = await _googleTokens();
+    await _client.auth.linkIdentityWithIdToken(provider: OAuthProvider.google, idToken: t.$1, accessToken: t.$2);
+  }
+
+  Future<void> unlinkProvider(String provider) async {
+    final ids = _client.auth.currentUser?.identities ?? const [];
+    final id = ids.where((i) => i.provider == provider).firstOrNull;
+    if (id == null) throw const AppException('That sign-in method is not linked.');
+    await _client.auth.unlinkIdentity(id);
+    await _client.auth.refreshSession();
   }
 
   // --------------------------------------------------------------- google ---
@@ -68,6 +86,12 @@ class AuthRepository {
   /// Native Google sign-in → ID token → Supabase session.
   /// Needs GOOGLE_WEB_CLIENT_ID in env.json and the Google provider enabled in Supabase.
   Future<void> signInWithGoogle() async {
+    final t = await _googleTokens();
+    await _client.auth.signInWithIdToken(provider: OAuthProvider.google, idToken: t.$1, accessToken: t.$2);
+  }
+
+  /// (idToken, accessToken) from the native Google picker.
+  Future<(String, String?)> _googleTokens() async {
     if (Env.googleWebClientId.isEmpty) {
       throw const AppException('Google sign-in isn\'t set up yet. Use email for now.');
     }
@@ -97,12 +121,7 @@ class AuthRepository {
     const scopes = ['email', 'profile'];
     final auth = await account.authorizationClient.authorizationForScopes(scopes) ??
         await account.authorizationClient.authorizeScopes(scopes);
-
-    await _client.auth.signInWithIdToken(
-      provider: OAuthProvider.google,
-      idToken: idToken,
-      accessToken: auth.accessToken,
-    );
+    return (idToken, auth.accessToken);
   }
 
   Future<void> signOut() async {

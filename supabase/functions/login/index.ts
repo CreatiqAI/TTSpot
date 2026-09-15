@@ -35,6 +35,7 @@ Deno.serve(async (req) => {
     if (!email || !password) return json({ error: "Wrong username or password." }, 400);
     const anon = createClient(URL, ANON, { auth: { persistSession: false, autoRefreshToken: false } });
     const { data, error } = await anon.auth.signInWithPassword({ email, password });
+    if (error?.code === "email_not_confirmed") return json({ error: "email_not_confirmed" }, 400);
     if (error || !data.session) return json({ error: "Wrong username or password." }, 400);
     return json({ access_token: data.session.access_token, refresh_token: data.session.refresh_token });
   }

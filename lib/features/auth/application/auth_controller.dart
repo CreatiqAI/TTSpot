@@ -12,13 +12,15 @@ class AuthController extends AsyncNotifier<void> {
         () => ref.read(authRepositoryProvider).signInWithEmail(email: email, password: password),
       );
 
-  Future<void> signUp({required String email, required String password}) => _run(
-        () => ref.read(authRepositoryProvider).signUpWithEmail(
-              email: email,
-              password: password,
-              termsAcceptedAt: DateTime.now(),
-            ),
-      );
+  /// True when a 6-digit code was emailed and still has to be entered.
+  Future<bool> signUp({required String email, required String password}) async {
+    state = const AsyncLoading();
+    var needsCode = false;
+    state = await AsyncValue.guard(() async {
+      needsCode = await ref.read(authRepositoryProvider).signUpWithEmail(email: email, password: password);
+    });
+    return !state.hasError && needsCode;
+  }
 
   Future<void> requestPasswordReset(String identifier) => _run(
         () => ref.read(authRepositoryProvider).requestPasswordReset(identifier),

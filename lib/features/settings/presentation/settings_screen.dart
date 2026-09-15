@@ -13,6 +13,7 @@ import '../../../core/utils/friendly_error.dart';
 import '../../../core/utils/open_external.dart';
 import '../../../core/widgets/user_avatar.dart';
 import '../../auth/application/auth_controller.dart';
+import '../../auth/application/account_basics.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../safety/data/safety_repository.dart';
 import '../application/settings_providers.dart';
@@ -27,6 +28,7 @@ class SettingsScreen extends ConsumerWidget {
     final profile = ref.watch(currentProfileProvider).value;
     final email = ref.watch(supabaseProvider).auth.currentUser?.email ?? '';
     final act = ref.read(settingsActionsProvider);
+    final basics = ref.watch(accountBasicsProvider).value ?? const AccountBasics();
 
     Future<void> set(Map<String, dynamic> patch) async {
       try {
@@ -109,17 +111,38 @@ class SettingsScreen extends ConsumerWidget {
           _Row(icon: AppIcons.listChecks, title: 'Terms of Use', onTap: () => context.push(Routes.terms)),
           _Row(icon: AppIcons.envelope, title: 'Contact us', subtitle: kLegalContact, onTap: () => openExternal(context, 'mailto:$kLegalContact?subject=TT%20Spot')),
           _Row(icon: AppIcons.globe, title: 'ttspot.my', onTap: () => openExternal(context, 'https://ttspot.my')),
-          const _Version(),
+          _Row(icon: AppIcons.info, title: 'About TT Spot', subtitle: 'Version $kAppVersion · what\'s new', onTap: () => context.push(Routes.about)),
 
           const _Head('ACCOUNT'),
-          _Row(icon: AppIcons.lock, title: 'Change password', subtitle: 'We email you a reset link', onTap: () async {
-            try {
-              await ref.read(authControllerProvider.notifier).requestPasswordReset(email);
-              if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Reset link sent. Check your email.')));
-            } catch (e) {
-              if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
-            }
-          }),
+          _Row(
+            icon: AppIcons.envelope,
+            title: 'Email',
+            subtitle: '$email${basics.emailConfirmed ? ' · verified' : ' · not verified'}',
+            onTap: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Email changes are coming. For now, contact us to change it.'))),
+          ),
+          _Row(
+            icon: AppIcons.phone,
+            title: 'Phone number',
+            subtitle: basics.phone == null ? 'Add your number' : '${prettyPhone(basics.phone!)} · private',
+            onTap: () => _editPhone(context, ref, basics.phone),
+          ),
+          _Row(
+            icon: AppIcons.link,
+            title: 'Sign-in methods',
+            subtitle: [if (basics.hasPassword) 'Email & password', if (basics.hasGoogle) 'Google'].join(' · '),
+            onTap: () => _signInMethods(context, ref),
+          ),
+          if (basics.hasPassword)
+            _Row(icon: AppIcons.lock, title: 'Change password', subtitle: 'We email a reset link to $email', onTap: () async {
+              try {
+                await ref.read(authControllerProvider.notifier).requestPasswordReset(email);
+                if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Reset link sent to $email. Check spam too.')));
+              } catch (e) {
+                if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
+              }
+            })
+          else
+            _Row(icon: AppIcons.lock, title: 'Set a password', subtitle: 'So you can also log in with $email', onTap: () => _setPassword(context, ref)),
           _Row(icon: AppIcons.signOut, title: 'Log out', onTap: () => ref.read(authControllerProvider.notifier).signOut()),
           _Row(
             icon: AppIcons.trash,
@@ -131,6 +154,127 @@ class SettingsScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _editPhone(BuildContext context, WidgetRef ref, String? current) async {
+    final ctrl = TextEditingController(text: current == null ? '' : prettyPhone(current));
+    final v = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.fromLTRB(20, 0, 20, 20 + MediaQuery.viewInsetsOf(ctx).bottom),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text('Phone number', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 4),
+            const Text('Only you and TT Spot staff can see it. Malaysian numbers can skip the +60.', style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
+            const SizedBox(height: 14),
+            TextField(
+              controller: ctrl,
+              autofocus: true,
+              keyboardType: TextInputType.phone,
+              decoration: const InputDecoration(hintText: '012-345 6789', prefixIcon: Icon(AppIcons.phone, size: 20)),
+              onSubmitted: (v) => Navigator.pop(ctx, v),
+            ),
+            const SizedBox(height: 14),
+            FilledButton(onPressed: () => Navigator.pop(ctx, ctrl.text), child: const Text('Save')),
+          ],
+        ),
+      ),
+    );
+    if (v == null || !context.mounted) return;
+    try {
+      await ref.read(accountActionsProvider).setPhone(v);
+      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Phone number saved.')));
+    } catch (e) {
+      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
+    }
+  }
+
+  Future<void> _signInMethods(BuildContext context, WidgetRef ref) async {
+    final b = ref.read(accountBasicsProvider).value ?? const AccountBasics();
+    final email = ref.read(supabaseProvider).auth.currentUser?.email ?? '';
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text('Sign-in methods', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+              const SizedBox(height: 4),
+              const Text('Link Google so you can log in with one tap. You always keep at least one method.', style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
+              const SizedBox(height: 12),
+              _Method(
+                icon: AppIcons.envelope,
+                title: 'Email & password',
+                subtitle: b.hasPassword ? email : 'Not set. Add a password from Settings.',
+                linked: b.hasPassword,
+              ),
+              const SizedBox(height: 8),
+              _Method(
+                icon: AppIcons.googleLogo,
+                title: 'Google',
+                subtitle: b.hasGoogle ? 'Linked' : 'Not linked',
+                linked: b.hasGoogle,
+                action: b.hasGoogle ? (b.hasPassword ? 'Unlink' : null) : 'Link',
+                onAction: () => Navigator.pop(ctx, b.hasGoogle ? 'unlink' : 'link'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (action == null || !context.mounted) return;
+    try {
+      if (action == 'link') {
+        await ref.read(accountActionsProvider).linkGoogle();
+        if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Google linked.')));
+      } else {
+        await ref.read(accountActionsProvider).unlinkGoogle();
+        if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Google unlinked.')));
+      }
+    } catch (e) {
+      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
+    }
+  }
+
+  Future<void> _setPassword(BuildContext context, WidgetRef ref) async {
+    final ctrl = TextEditingController();
+    final v = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.fromLTRB(20, 0, 20, 20 + MediaQuery.viewInsetsOf(ctx).bottom),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text('Set a password', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 4),
+            const Text('At least 6 characters. You can then log in with your email as well as Google.', style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
+            const SizedBox(height: 14),
+            TextField(controller: ctrl, autofocus: true, obscureText: true, decoration: const InputDecoration(hintText: 'New password'), onSubmitted: (v) => Navigator.pop(ctx, v)),
+            const SizedBox(height: 14),
+            FilledButton(onPressed: () => Navigator.pop(ctx, ctrl.text), child: const Text('Save')),
+          ],
+        ),
+      ),
+    );
+    if (v == null || !context.mounted) return;
+    try {
+      await ref.read(accountActionsProvider).setPassword(v);
+      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Password set.')));
+    } catch (e) {
+      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
+    }
   }
 
   Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
@@ -292,6 +436,40 @@ class _Toggle extends StatelessWidget {
       );
 }
 
+class _Method extends StatelessWidget {
+  const _Method({required this.icon, required this.title, required this.subtitle, required this.linked, this.action, this.onAction});
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final bool linked;
+  final String? action;
+  final VoidCallback? onAction;
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+        decoration: BoxDecoration(color: AppColors.surfaceGray, borderRadius: BorderRadius.circular(AppRadius.md)),
+        child: Row(
+          children: [
+            Icon(icon, size: 22, color: AppColors.textPrimary),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14.5)),
+                  Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                ],
+              ),
+            ),
+            if (action != null)
+              TextButton(onPressed: onAction, child: Text(action!))
+            else if (linked)
+              const Icon(AppIcons.checkCircleFill, color: AppColors.success, size: 22),
+          ],
+        ),
+      );
+}
+
 class _Row extends StatelessWidget {
   const _Row({required this.icon, required this.title, this.subtitle, required this.onTap, this.danger = false});
   final IconData icon;
@@ -351,13 +529,3 @@ class _Choice extends StatelessWidget {
   }
 }
 
-class _Version extends StatelessWidget {
-  const _Version();
-  @override
-  Widget build(BuildContext context) => ListTile(
-        leading: const Icon(AppIcons.info, color: AppColors.textPrimary),
-        title: const Text('Version', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14.5)),
-        subtitle: const Text('TT Spot $kAppVersion ($kAppBuild) · tap for open-source licences', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-        onTap: () => showLicensePage(context: context, applicationName: 'TT Spot', applicationVersion: kAppVersion),
-      );
-}

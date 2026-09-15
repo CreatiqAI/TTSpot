@@ -40,6 +40,9 @@ import '../../features/profile/presentation/edit_profile_screen.dart';
 import '../../features/profile/presentation/follow_list_screen.dart';
 import '../../features/accounts/presentation/me_tab.dart';
 import '../../features/settings/presentation/settings_screen.dart';
+import '../../features/settings/presentation/about_screen.dart';
+import '../../features/auth/application/account_basics.dart';
+import '../../features/auth/presentation/verify_email_screen.dart';
 import '../legal/legal_text.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/social/domain/post.dart';
@@ -68,6 +71,8 @@ abstract final class Routes {
   static const signIn = '/sign-in';
   static const onboarding = '/onboarding';
   static const resetPassword = '/reset-password';
+  static String verify(String email) => '/verify?email=${Uri.encodeQueryComponent(email)}';
+  static const about = '/settings/about';
 
   // Shell tabs: Posts · Map · Chats · Me
   static const explore = '/posts';
@@ -175,6 +180,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     }
   });
   ref.listen(currentProfileProvider, (_, _) => refresh.poke());
+  ref.listen(accountBasicsProvider, (_, _) => refresh.poke());
   ref.listen(locationGrantedProvider, (_, _) => refresh.poke());
   ref.listen(locationGateSkippedProvider, (_, _) => refresh.poke());
   ref.onDispose(refresh.dispose);
@@ -186,7 +192,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) {
       final signedIn = ref.read(currentUserIdProvider) != null;
       final path = state.uri.path;
-      final onAuthPage = path == Routes.signIn;
+      final onAuthPage = path == Routes.signIn || path == '/verify';
 
       if (!signedIn) return onAuthPage ? null : Routes.signIn;
       if (path == Routes.resetPassword) return null;
@@ -196,7 +202,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final onboarded = profile.value?.isOnboarded ?? false;
 
       final needsCar = profile.value?.needsCar ?? false;
-      if (!onboarded || needsCar) return path == Routes.onboarding ? null : Routes.onboarding;
+      final basics = ref.read(accountBasicsProvider);
+      if (basics.isLoading) return null;
+      final basicsDone = basics.value?.complete ?? true; // null = RPC failed; don't lock people out
+      if (!onboarded || !basicsDone || needsCar) return path == Routes.onboarding ? null : Routes.onboarding;
 
       // Location first: the app is a map. Ask once per launch, with context.
       final granted = ref.read(locationGrantedProvider);
@@ -209,6 +218,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(path: Routes.signIn, pageBuilder: (_, s) => page(s, const SignInScreen())),
       GoRoute(path: Routes.onboarding, pageBuilder: (_, s) => page(s, const OnboardingScreen())),
+      GoRoute(path: '/verify', pageBuilder: (_, s) => page(s, VerifyEmailScreen(email: s.uri.queryParameters['email'] ?? ''))),
+      GoRoute(path: Routes.about, pageBuilder: (_, s) => page(s, const AboutScreen())),
       GoRoute(path: Routes.resetPassword, pageBuilder: (_, s) => page(s, const ResetPasswordScreen())),
 
       // Full-screen routes (no bottom nav)

@@ -23,7 +23,20 @@ String friendlyError(Object error) {
       case 'weak_password':
         return 'Password is too weak. Use at least 6 characters.';
       case 'email_not_confirmed':
-        return 'Check your inbox and confirm your email first.';
+        return 'Confirm your email first. We just sent you a new code.';
+      case 'otp_expired':
+        return 'That code is wrong or has expired. Check the email, or tap Resend code.';
+      case 'otp_disabled':
+      case 'invalid_otp':
+        return 'Wrong code. Check the email and try again.';
+      case 'identity_already_exists':
+        return 'That Google account is already linked to another TT Spot account.';
+      case 'single_identity_not_deletable':
+        return 'You cannot remove your only sign-in method. Set a password first.';
+      case 'email_conflict_identity_not_deletable':
+        return 'This Google account shares the email of your login, so it cannot be unlinked.';
+      case 'manual_linking_disabled':
+        return 'Linking is switched off on the server right now.';
       case 'over_email_send_rate_limit':
       case 'over_request_rate_limit':
         return 'Too many attempts. Wait a minute and try again.';

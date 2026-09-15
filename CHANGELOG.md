@@ -9,6 +9,7 @@ Files are simply `TTSpot-<version>.ipa` / `.apk`, kept in `build/ios-artifact/` 
 
 | Version | Date | Commit | What changed |
 |---|---|---|---|
+| 0.3.6 | _next build_ | — | Sign-up confirms the email with a 6-digit code; every account must add a phone number and accept the Terms (existing members see "Complete your account" once); Settings → Account shows email, phone, sign-in methods (link/unlink Google), change or set password; About page with what's new per version. Server: profile_private, set_account_basics, my_account_basics, manual linking on, auto-confirm off. |
 | 0.3.5 | 2026-09-15 | 933dad9 | Settings (notifications, map theme, privacy incl. who can message me, Privacy Policy + Terms, delete account); admin is its own account in the switcher with a dark dashboard (stats, queues, reports, members, platform settings); map colours by relationship (you red, friends blue, club purple, nearby grey) + your own colour per friend; your car on every layer, small dots when zoomed out; Filters sheet light by day; TT now keeps the place you picked and hints to swipe the nearby chips. |
 | 0.3.4 | 2026-09-15 | b9ec628 | TT now auto-fills the nearest place and street address from GPS; the map pill shows that address; nearby radius up to 10 km (1 / 3 / 5 / 10 shortcuts); map bottom panel is white by day. |
 | 0.3.3 | 2026-09-15 | 18ed1e7 | Cleaner chat bubbles: yours light grey, theirs white with a thin border; voice note has a white play button; video shows tap-to-retry when it can't load. |

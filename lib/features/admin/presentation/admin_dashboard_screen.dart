@@ -296,7 +296,7 @@ class _Members extends ConsumerWidget {
                 ],
               ),
               subtitle: Text(
-                '@${u.username} · ${u.cars} car${u.cars == 1 ? '' : 's'} · joined ${u.createdAt.day}/${u.createdAt.month}/${u.createdAt.year % 100}${u.lastSeen == null ? '' : ' · seen ${timeAgo(u.lastSeen!)}'}',
+                '@${u.username}${u.phone == null ? '' : ' · ${u.phone}'} · ${u.cars} car${u.cars == 1 ? '' : 's'} · joined ${u.createdAt.day}/${u.createdAt.month}/${u.createdAt.year % 100}${u.lastSeen == null ? '' : ' · seen ${timeAgo(u.lastSeen!)}'}',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(color: Colors.white60, fontSize: 12),

@@ -186,6 +186,7 @@ class EventsRepository {
     required LatLng location,
     int? maxAttendees,
     String? clubId,
+    String? vendorId,
     bool friendsOnly = false,
     String? address,
   }) async {
@@ -205,6 +206,7 @@ class EventsRepository {
           'lng': location.longitude,
           'max_attendees': ?maxAttendees,
           'club_id': ?clubId,
+          'vendor_id': ?vendorId,
         })
         .select()
         .single();

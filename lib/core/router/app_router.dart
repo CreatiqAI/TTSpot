@@ -41,6 +41,7 @@ import '../../features/profile/presentation/follow_list_screen.dart';
 import '../../features/accounts/presentation/me_tab.dart';
 import '../../features/settings/presentation/settings_screen.dart';
 import '../../features/settings/presentation/about_screen.dart';
+import '../../features/social/presentation/suggest_spot_screen.dart';
 import '../../features/auth/application/account_basics.dart';
 import '../../features/auth/presentation/verify_email_screen.dart';
 import '../legal/legal_text.dart';
@@ -107,7 +108,11 @@ abstract final class Routes {
 
   // Full-screen
   static const createEvent = '/create-event';
-  static String createEventAs({String? clubId}) => clubId == null ? createEvent : '$createEvent?club=$clubId';
+  static String createEventAs({String? clubId, String? vendorId, bool session = false}) {
+    final q = <String>[if (clubId != null) 'club=$clubId', if (vendorId != null) 'vendor=$vendorId', if (session) 'session=1'];
+    return q.isEmpty ? createEvent : '$createEvent?${q.join('&')}';
+  }
+  static const suggestSpot = '/suggest-spot';
   static const editProfile = '/edit-profile';
   static const newCar = '/car/new';
   static const search = '/search';
@@ -224,7 +229,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       // Full-screen routes (no bottom nav)
       GoRoute(path: Routes.meets, pageBuilder: (_, s) => page(s, const MyEventsScreen())),
-      GoRoute(path: Routes.createEvent, pageBuilder: (_, s) => page(s, CreateEventScreen(clubId: s.uri.queryParameters['club']))),
+      GoRoute(
+        path: Routes.createEvent,
+        pageBuilder: (_, s) => page(s, CreateEventScreen(clubId: s.uri.queryParameters['club'], vendorId: s.uri.queryParameters['vendor'], session: s.uri.queryParameters['session'] == '1')),
+      ),
+      GoRoute(path: Routes.suggestSpot, pageBuilder: (_, s) => page(s, const SuggestSpotScreen())),
       GoRoute(
         path: '/event/:id',
         pageBuilder: (_, s) => page(s, EventDetailsScreen(eventId: s.pathParameters['id']!)),

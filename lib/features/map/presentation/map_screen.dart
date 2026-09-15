@@ -343,6 +343,9 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
       ref.invalidate(liveEventsProvider);
       _snack('Checked in. Have a good one.');
     } catch (e) {
+      // The meet may have ended or been removed while the banner was up.
+      ref.read(nearbyMeetProvider.notifier).dismiss();
+      ref.invalidate(liveEventsProvider);
       _snack(friendlyError(e));
     }
   }

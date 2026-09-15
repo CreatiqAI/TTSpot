@@ -55,6 +55,9 @@ class Event {
     this.isInstant = false,
     this.friendsOnly = false,
     this.address,
+    this.vendorId,
+    this.vendorName,
+    this.vendorLogoUrl,
   });
 
   final String id;
@@ -76,6 +79,10 @@ class Event {
   final String? placeId;
   final String? clubId;
   final bool isInstant;
+  /// Set when a partner business hosts it.
+  final String? vendorId;
+  final String? vendorName;
+  final String? vendorLogoUrl;
   /// `visibility = 'friends'`: only the organiser's friends, club members and attendees see it.
   final bool friendsOnly;
   /// Street address from Google, when the venue was picked by search.
@@ -120,5 +127,8 @@ class Event {
         isInstant: m['is_instant'] as bool? ?? false,
         friendsOnly: m['visibility'] == 'friends',
         address: m['address'] as String?,
+        vendorId: m['vendor_id'] as String?,
+        vendorName: m['vendor_name'] as String?,
+        vendorLogoUrl: m['vendor_logo_url'] as String?,
       );
 }

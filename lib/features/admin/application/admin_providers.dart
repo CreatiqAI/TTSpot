@@ -80,6 +80,38 @@ final adminUsersProvider = FutureProvider<List<AdminUser>>((ref) async {
   }).toList();
 });
 
+class AdminSuggestion {
+  const AdminSuggestion({required this.id, required this.username, required this.name, this.address, required this.kind, this.note, this.photoUrl, required this.status, required this.createdAt});
+  final String id;
+  final String username;
+  final String name;
+  final String? address;
+  final String kind;
+  final String? note;
+  final String? photoUrl;
+  final String status;
+  final DateTime createdAt;
+}
+
+final adminSuggestionsProvider = FutureProvider<List<AdminSuggestion>>((ref) async {
+  ref.watch(currentUserIdProvider);
+  final rows = await ref.read(supabaseProvider).rpc('admin_place_suggestions', params: {'p_limit': 100}) as List;
+  return rows.map((r) {
+    final m = (r as Map).cast<String, dynamic>();
+    return AdminSuggestion(
+      id: m['id'] as String,
+      username: m['username'] as String? ?? '',
+      name: m['name'] as String,
+      address: m['address'] as String?,
+      kind: m['kind'] as String? ?? 'other',
+      note: m['note'] as String?,
+      photoUrl: m['photo_url'] as String?,
+      status: m['status'] as String? ?? 'pending',
+      createdAt: DateTime.parse(m['created_at'] as String).toLocal(),
+    );
+  }).toList();
+});
+
 final platformSettingsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   ref.watch(currentUserIdProvider);
   final rows = await ref.read(supabaseProvider).from('platform_settings').select('key, value, description');
@@ -99,6 +131,12 @@ class AdminActions {
   Future<void> setRole(String userId, {bool? admin, bool? clubOwner}) async {
     await _ref.read(supabaseProvider).rpc('admin_set_role', params: {'p_user': userId, 'p_admin': ?admin, 'p_club_owner': ?clubOwner});
     _ref.invalidate(adminUsersProvider);
+  }
+
+  Future<void> reviewSuggestion(String id, {required bool approve}) async {
+    await _ref.read(supabaseProvider).rpc('admin_review_suggestion', params: {'p_id': id, 'p_approve': approve});
+    _ref.invalidate(adminSuggestionsProvider);
+    _ref.invalidate(adminStatsProvider);
   }
 
   Future<void> setSetting(String key, Object value) async {

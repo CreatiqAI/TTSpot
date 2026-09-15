@@ -10,6 +10,18 @@ class ReleaseNote {
 
 const kReleaseNotes = <ReleaseNote>[
   ReleaseNote(
+    version: '0.3.8',
+    date: '15 Sep 2026',
+    title: 'Who organises what',
+    points: [
+      'Anyone can plan a TT session for later, not just right now. It shows as a flag.',
+      'Events (meets, convoys, track days) are hosted by car clubs and partners.',
+      'Top spots earn the star by activity: 20 check-ins or 3 events in 90 days.',
+      'Suggest a spot from the Create sheet or the Spots layer. 30 points when it goes live.',
+      'Real Klang Valley venues on the map.',
+    ],
+  ),
+  ReleaseNote(
     version: '0.3.7',
     date: '15 Sep 2026',
     title: 'A cleaner map',

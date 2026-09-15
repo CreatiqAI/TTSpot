@@ -15,8 +15,10 @@ import '../domain/post.dart';
 Future<void> showCreateHub(BuildContext context, WidgetRef ref) {
   final account = ref.read(activeAccountProvider);
   final club = account is ClubAccount ? account.club : null;
+  final vendor = account is PartnerAccount ? account.vendor : null;
   final clubId = club?.id;
-  final asClub = clubId != null;
+  final asClub = clubId != null || vendor != null;
+  final organiser = asClub; // clubs and partners host events; everyone else plans TT sessions
   return showModalBottomSheet<void>(
     context: context,
     showDragHandle: true,
@@ -28,17 +30,17 @@ Future<void> showCreateHub(BuildContext context, WidgetRef ref) {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(club == null ? 'Create' : 'Create as ${club.name}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+            Text(club != null ? 'Create as ${club.name}' : vendor != null ? 'Create as ${vendor.name}' : 'Create', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
             const SizedBox(height: 14),
             Row(
               children: [
                 Expanded(
                   child: _Big(
-                    icon: AppIcons.flagCheckered,
-                    title: 'Meet',
-                    subtitle: 'Plan a gathering',
+                    icon: organiser ? AppIcons.flagCheckered : AppIcons.coffee,
+                    title: organiser ? 'Event' : 'TT session',
+                    subtitle: organiser ? 'Meet, convoy, track day' : 'Plan one for later',
                     dark: true,
-                    onTap: () => _go(ctx, context, Routes.createEventAs(clubId: clubId)),
+                    onTap: () => _go(ctx, context, Routes.createEventAs(clubId: clubId, vendorId: vendor?.id, session: !organiser)),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -61,10 +63,11 @@ Future<void> showCreateHub(BuildContext context, WidgetRef ref) {
             ],
             if (!asClub) ...[
               const Divider(height: 20),
+              _Row(icon: AppIcons.mapPinPlus, title: 'Suggest a spot', subtitle: 'A good mamak, carpark or road. 30 points if it goes live', onTap: () => _go(ctx, context, Routes.suggestSpot)),
               _Row(icon: AppIcons.car, title: 'Add a car', subtitle: 'Park it in your garage', onTap: () => _go(ctx, context, Routes.newCar)),
               _Row(icon: AppIcons.images, title: 'Moment album', subtitle: 'Group moments on your profile', onTap: () => _go(ctx, context, Routes.newAlbum)),
               if (kSocialFeed)
-                _Row(icon: AppIcons.shield, title: 'Start a car club', subtitle: 'Apply to run one. Admins approve it', onTap: () => _go(ctx, context, Routes.clubApply)),
+                _Row(icon: AppIcons.shield, title: 'Start a car club', subtitle: 'Clubs and partners host public events', onTap: () => _go(ctx, context, Routes.clubApply)),
             ],
           ],
         ),

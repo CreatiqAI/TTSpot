@@ -347,6 +347,13 @@ Migration `20260916000013_accounts_simplify.sql` (the 16 in the name is only the
 - Friend colour: the dot next to a friend in the map sheet (and the profile ⋯ menu) opens `showFriendColourSheet` (`friends/presentation/friend_colour_sheet.dart`).
 - Email verification is **off** for now (`python tool/auth_config.py --no-verify`); turn it back on with `--verify` once Resend delivers to everyone.
 
+### Organisers, top spots, suggestions (2026-09-15, migrations 0026–0027)
+
+- **Who organises what.** `event_type = 'tt'` (TT session, now or planned) = anyone. Every other type = a club owner/admin (`club_id`), a partner (`events.vendor_id`, owner of an active vendor) or an admin. Enforced by the events insert policy; the app maps the 42501 to a friendly message. Create sheet: personal account → "TT session · Plan one for later" (`CreateEventScreen(session: true)`: no type, no cover, friends by default); club / partner account → "Event". `events_with_counts` carries `vendor_name`/`vendor_logo_url`; the meet page shows "Hosted by <partner>".
+- **Top spot** (`places_with_counts.is_top`, read into `Place.recommended`): `top_override` 'top' / 'never' wins; else `recommended` (editorial) or ≥ 20 spot check-ins or ≥ 3 events in the last 90 days. Quiet spots drop back on their own. `admin_set_top(place, override)`.
+- **Suggest a spot**: Create sheet row and the Spots layer header → `SuggestSpotScreen` (Places search, kind, photo to post-photos/spots, note) → `place_suggestions`. Admin dashboard → "Spot suggestions" → `admin_review_suggestion(id, approve)` creates/reuses the place (photo = cover), marks it a spot, pays 30 points (`spot_suggested`). `admin_stats.pending_suggestions`.
+- **Real venues** seeded in 0026 (Pavilion Bukit Bintang, MAEPS Serdang, Putrajaya Boulevard, Desa ParkCity Waterfront, Kayu SS2, Pelita Jalan Ampang, Steven's Corner OUG, KKB–Fraser's Hill; TTDI mamak renamed to Kopi Dua Darjat). Coordinates are approximate: open each on the map and nudge before launch. The "nadayu28" test place was removed.
+
 ## 3b. Google sign-in (one-time, ~15 min)
 
 Email sign-in works already (email confirmation is switched off on the project for development;

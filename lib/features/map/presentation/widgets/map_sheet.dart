@@ -455,6 +455,24 @@ class _SpotsContent extends ConsumerWidget {
           ),
         ),
         if (searching) _GoogleSuggestions(query: query, origin: origin, onFocus: onFocus),
+        if (!searching)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+              child: Row(
+                children: [
+                  Text('SPOTS NEAR YOU', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1, color: MapPalette.of(context).text2)),
+                  const Spacer(),
+                  TextButton.icon(
+                    style: TextButton.styleFrom(visualDensity: VisualDensity.compact, padding: const EdgeInsets.symmetric(horizontal: 6)),
+                    onPressed: () => context.push(Routes.suggestSpot),
+                    icon: const Icon(AppIcons.mapPinPlus, size: 16),
+                    label: const Text('Suggest a spot', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
+                  ),
+                ],
+              ),
+            ),
+          ),
         places.when(
           loading: () => const SliverToBoxAdapter(child: _Hint('Finding spots…')),
           error: (e, _) => SliverToBoxAdapter(
@@ -464,7 +482,7 @@ class _SpotsContent extends ConsumerWidget {
               ? SliverToBoxAdapter(
                   child: searching
                       ? const _Hint('No check-in spots match. Pick a place above to jump there.')
-                      : const _Message(title: 'No spots around here yet', subtitle: 'Post a moment at a place and it becomes a spot.'),
+                      : const _Message(title: 'No spots around here yet', subtitle: 'Check in or post a moment at a place, or suggest one above.'),
                 )
               : SliverPadding(
                   padding: const EdgeInsets.only(bottom: 24),

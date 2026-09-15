@@ -243,6 +243,10 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                               const SizedBox(height: 8),
                               _ClubRow(clubId: d.event.clubId!),
                             ],
+                            if (d.event.vendorName != null) ...[
+                              const SizedBox(height: 8),
+                              _InfoRow(icon: AppIcons.storefront, text: 'Hosted by ${d.event.vendorName}'),
+                            ],
                             const SizedBox(height: 16),
                             _OrganizerTile(organizer: d.organizer),
                             const SizedBox(height: 12),

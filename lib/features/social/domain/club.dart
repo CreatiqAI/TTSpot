@@ -132,7 +132,7 @@ class Place {
         coverUrl: m['cover_url'] as String?,
         description: m['description'] as String?,
         tags: ((m['tags'] as List?) ?? const []).cast<String>(),
-        recommended: m['recommended'] as bool? ?? false,
+        recommended: m['is_top'] as bool? ?? m['recommended'] as bool? ?? false,
         spotCheckins: (m['spot_checkins'] as num?)?.toInt() ?? 0,
         postCount: (m['post_count'] as num?)?.toInt() ?? 0,
         momentCount: (m['moment_count'] as num?)?.toInt() ?? 0,

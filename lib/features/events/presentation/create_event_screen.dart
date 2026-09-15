@@ -22,14 +22,19 @@ import '../../../core/widgets/place_search_field.dart';
 import '../../../core/widgets/wheel_picker.dart';
 import '../../map/application/map_providers.dart';
 import '../../social/application/community_providers.dart';
+import '../../vendors/application/vendors_providers.dart';
 import '../application/create_event_controller.dart';
 import '../domain/event.dart';
 
-/// "New meet" form. Title, when, where, who can see it. Nothing else to think
-/// about. `clubId` set means the meet is hosted under that club.
+/// One form, two flavours:
+/// * `session` = a TT session anyone can plan (title, when, where, who sees
+///   it). No type, no cover. Shows as a feather flag on the map.
+/// * otherwise an event hosted by a club (`clubId`) or a partner (`vendorId`).
 class CreateEventScreen extends ConsumerStatefulWidget {
-  const CreateEventScreen({super.key, this.clubId});
+  const CreateEventScreen({super.key, this.clubId, this.vendorId, this.session = false});
   final String? clubId;
+  final String? vendorId;
+  final bool session;
 
   @override
   ConsumerState<CreateEventScreen> createState() => _CreateEventScreenState();
@@ -39,9 +44,9 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
   final _title = TextEditingController();
   final _venue = TextEditingController();
   final _description = TextEditingController();
-  EventType _type = EventType.meet;
+  late EventType _type = widget.session ? EventType.tt : EventType.meet;
   late DateTime _startsAt;
-  late bool _friendsOnly = widget.clubId == null;
+  late bool _friendsOnly = widget.session;
   XFile? _cover;
   LatLng? _pin;
   String? _address;
@@ -51,12 +56,19 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
   @override
   void initState() {
     super.initState();
-    // Default: next Saturday, 8:00 PM.
     final now = DateTime.now();
-    var days = (DateTime.saturday - now.weekday) % 7;
-    if (days == 0 && now.hour >= 20) days = 7;
-    final sat = DateTime(now.year, now.month, now.day).add(Duration(days: days));
-    _startsAt = DateTime(sat.year, sat.month, sat.day, 20);
+    if (widget.session) {
+      // TT sessions: tonight 9 pm (or in an hour if it's already late).
+      final tonight = DateTime(now.year, now.month, now.day, 21);
+      _startsAt = tonight.isAfter(now.add(const Duration(minutes: 30))) ? tonight : now.add(const Duration(hours: 1));
+      _startsAt = DateTime(_startsAt.year, _startsAt.month, _startsAt.day, _startsAt.hour, _startsAt.minute - _startsAt.minute % 5);
+    } else {
+      // Events: next Saturday, 8:00 PM.
+      var days = (DateTime.saturday - now.weekday) % 7;
+      if (days == 0 && now.hour >= 20) days = 7;
+      final sat = DateTime(now.year, now.month, now.day).add(Duration(days: days));
+      _startsAt = DateTime(sat.year, sat.month, sat.day, 20);
+    }
     rootBundle.loadString('assets/map_style_dark.json').then((s) {
       if (mounted) setState(() => _mapStyle = s);
     });
@@ -171,6 +183,7 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
           location: _pin,
           cover: _cover,
           clubId: widget.clubId,
+          vendorId: widget.vendorId,
           friendsOnly: _friendsOnly,
           address: _address,
         );
@@ -187,11 +200,13 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
     final busy = ref.watch(createEventControllerProvider).isLoading;
     final start = ref.watch(userLocationProvider).value ?? kualaLumpur;
     final club = widget.clubId == null ? null : ref.watch(clubProvider(widget.clubId!)).value;
+    final vendor = widget.vendorId == null ? null : ref.watch(myVendorProvider).value;
+    final session = widget.session;
 
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(icon: const Icon(AppIcons.x), onPressed: busy ? null : () => context.pop()),
-        title: const Text('New meet'),
+        title: Text(session ? 'Plan a TT session' : 'New event'),
         actions: [
           busy
               ? const Padding(
@@ -205,36 +220,55 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
         child: ListView(
           padding: const EdgeInsets.only(bottom: 32),
           children: [
-            _CoverPicker(file: _cover, onTap: busy ? null : _pickCover),
+            if (!session) _CoverPicker(file: _cover, onTap: busy ? null : _pickCover),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  if (session)
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 14),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(color: AppColors.surfaceGray, borderRadius: BorderRadius.circular(AppRadius.md)),
+                      child: const Row(
+                        children: [
+                          Icon(AppIcons.coffee, size: 20),
+                          SizedBox(width: 10),
+                          Expanded(child: Text('A TT session is casual: pick a mamak, a time, and who should see it. It shows as a flag on the map.', style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary, height: 1.4))),
+                        ],
+                      ),
+                    ),
                   if (club != null) ...[
                     _HostingAs(name: club.name),
+                    const SizedBox(height: 14),
+                  ],
+                  if (vendor != null) ...[
+                    _HostingAs(name: vendor.name),
                     const SizedBox(height: 14),
                   ],
                   TextField(
                     controller: _title,
                     maxLength: 80,
                     textCapitalization: TextCapitalization.sentences,
-                    decoration: const InputDecoration(labelText: 'What\'s the meet?', hintText: 'e.g. Sunway Night Meet', counterText: ''),
+                    decoration: InputDecoration(labelText: session ? 'Call it something' : 'What\'s the event?', hintText: session ? 'e.g. Friday teh tarik' : 'e.g. Sunway Night Meet', counterText: ''),
                   ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    children: [
-                      for (final t in EventType.pickable)
-                        ChoiceChip(
-                          avatar: ArtIcon(t.art, size: 20),
-                          label: Text(t.label),
-                          selected: t == _type,
-                          showCheckmark: false,
-                          onSelected: busy ? null : (_) => setState(() => _type = t),
-                        ),
-                    ],
-                  ),
+                  if (!session) ...[
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      children: [
+                        for (final t in EventType.pickable)
+                          ChoiceChip(
+                            avatar: ArtIcon(t.art, size: 20),
+                            label: Text(t.label),
+                            selected: t == _type,
+                            showCheckmark: false,
+                            onSelected: busy ? null : (_) => setState(() => _type = t),
+                          ),
+                      ],
+                    ),
+                  ],
                   const SizedBox(height: 18),
                   const _Label('WHEN'),
                   const SizedBox(height: 8),
@@ -314,8 +348,10 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  const Text(
-                    'By publishing you confirm this is a legal, public gathering. No street racing.',
+                  Text(
+                    session
+                        ? 'Keep it legal and friendly. No street racing.'
+                        : 'By publishing you confirm this is a legal, public gathering. No street racing.',
                     style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary, height: 1.4),
                   ),
                 ],

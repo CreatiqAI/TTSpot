@@ -82,6 +82,7 @@ class AdminDashboardScreen extends ConsumerWidget {
             const _Head('QUEUES'),
             _Queue(icon: AppIcons.sealCheck, title: 'Spot photo reviews', count: s['pending_verifications'], onTap: () => context.push(Routes.adminReview)),
             _Queue(icon: AppIcons.handshake, title: 'Partner & club applications', count: s['pending_partners'], onTap: () => context.push(Routes.adminPartners)),
+            _Queue(icon: AppIcons.mapPinPlus, title: 'Spot suggestions', count: s['pending_suggestions'], onTap: () => _showSuggestions(context, ref)),
             _Queue(icon: AppIcons.flag, title: 'Reports', count: s['open_reports'], onTap: () => _showReports(context, ref)),
             _Queue(icon: AppIcons.chartBar, title: 'Commission report', count: null, onTap: () => context.push(Routes.adminCommission)),
 
@@ -139,6 +140,34 @@ class AdminDashboardScreen extends ConsumerWidget {
     } catch (e) {
       if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
     }
+  }
+
+  Future<void> _showSuggestions(BuildContext context, WidgetRef ref) {
+    return showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (_) => Consumer(
+        builder: (ctx, ref, _) {
+          final list = ref.watch(adminSuggestionsProvider).value ?? const <AdminSuggestion>[];
+          return SafeArea(
+            child: SizedBox(
+              height: MediaQuery.sizeOf(ctx).height * 0.8,
+              child: Column(
+                children: [
+                  const Padding(padding: EdgeInsets.fromLTRB(20, 0, 20, 8), child: Text('Spot suggestions', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800))),
+                  Expanded(
+                    child: list.isEmpty
+                        ? const Center(child: Text('Nothing waiting.', style: TextStyle(color: AppColors.textSecondary)))
+                        : ListView(children: [for (final g in list) _SuggestionTile(g: g)]),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
   }
 
   Future<void> _showReports(BuildContext context, WidgetRef ref) {
@@ -256,6 +285,66 @@ class _ReportTile extends ConsumerWidget {
           : r.targetType == 'event'
               ? () => context.push(Routes.event(r.targetId))
               : null,
+    );
+  }
+}
+
+class _SuggestionTile extends ConsumerWidget {
+  const _SuggestionTile({required this.g});
+  final AdminSuggestion g;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final pending = g.status == 'pending';
+    Future<void> review(bool ok) async {
+      try {
+        await ref.read(adminActionsProvider).reviewSuggestion(g.id, approve: ok);
+      } catch (e) {
+        if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
+      }
+    }
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(color: AppColors.surfaceGray, borderRadius: BorderRadius.circular(14)),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: SizedBox(
+                width: 64,
+                height: 64,
+                child: g.photoUrl == null ? const ColoredBox(color: Color(0xFFE6E6E6), child: Icon(AppIcons.mapPin, color: AppColors.textSecondary)) : Image.network(g.photoUrl!, fit: BoxFit.cover),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(g.name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5)),
+                  if (g.address != null) Text(g.address!, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                  Text('${g.kind} · @${g.username} · ${timeAgo(g.createdAt)}', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                  if (g.note != null) Padding(padding: const EdgeInsets.only(top: 4), child: Text(g.note!, style: const TextStyle(fontSize: 12.5, height: 1.35))),
+                  const SizedBox(height: 6),
+                  if (pending)
+                    Row(
+                      children: [
+                        FilledButton(style: FilledButton.styleFrom(visualDensity: VisualDensity.compact), onPressed: () => review(true), child: const Text('Add to map')),
+                        const SizedBox(width: 8),
+                        TextButton(style: TextButton.styleFrom(visualDensity: VisualDensity.compact), onPressed: () => review(false), child: const Text('Reject')),
+                      ],
+                    )
+                  else
+                    Text(g.status == 'approved' ? 'On the map' : 'Rejected', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: g.status == 'approved' ? AppColors.success : AppColors.textSecondary)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

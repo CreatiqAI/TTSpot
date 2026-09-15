@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -25,6 +26,7 @@ class CreateEventController extends AsyncNotifier<void> {
     int? maxAttendees,
     XFile? cover,
     String? clubId,
+    String? vendorId,
     bool friendsOnly = false,
     String? address,
   }) async {
@@ -33,7 +35,7 @@ class CreateEventController extends AsyncNotifier<void> {
     state = await AsyncValue.guard(() async {
       final me = ref.read(currentUserIdProvider);
       if (me == null) throw const AppException('You\'re signed out. Sign in again.');
-      if (title.trim().length < 3) throw const AppException('Give your meet a title (at least 3 characters).');
+      if (title.trim().length < 3) throw const AppException('Give it a title (at least 3 characters).');
       if (venueName.trim().isEmpty) throw const AppException('Add a venue name so people know where to park.');
       if (location == null) throw const AppException('Drop the pin on the meet location.');
       if (startsAt.isBefore(DateTime.now().add(const Duration(minutes: 10)))) {
@@ -45,7 +47,9 @@ class CreateEventController extends AsyncNotifier<void> {
       if (cover != null) {
         coverUrl = await repo.uploadCover(userId: me, bytes: await cover.readAsBytes());
       }
-      final event = await repo.create(
+      final Event event;
+      try {
+        event = await repo.create(
         organizerId: me,
         title: title,
         description: description.trim().isEmpty ? null : description,
@@ -56,9 +60,16 @@ class CreateEventController extends AsyncNotifier<void> {
         location: location,
         maxAttendees: maxAttendees,
         clubId: clubId,
+        vendorId: vendorId,
         friendsOnly: friendsOnly,
         address: address,
       );
+      } on PostgrestException catch (e) {
+        if (e.code == '42501') {
+          throw const AppException('Only car clubs and partners can host events. Switch to your club or partner account, or plan a TT session instead.');
+        }
+        rethrow;
+      }
       createdId = event.id;
       ref.invalidate(mapEventsProvider);
       ref.invalidate(myEventsProvider);

@@ -49,6 +49,7 @@ String friendlyError(Object error) {
   if (error is PostgrestException) {
     if (error.message.contains('Event is full')) return 'This meet is full.';
     if (error.code == '23505') return 'Already done.';
+    if (error.code == '23503') return 'That no longer exists. It may have ended or been removed.';
     if (error.code == '23514') return 'One of the fields has an invalid value.';
     if (error.code == '42501') return 'You don\'t have permission to do that.';
     return error.message;

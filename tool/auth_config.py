@@ -8,7 +8,8 @@ Run after changing the email templates or when setting up a fresh project:
 - Manual identity linking on, so Settings can link/unlink Google.
 - Confirmation email shows the code ({{ .Token }}) instead of a link.
 """
-import io, json, sys, urllib.request
+import io, json, os, sys, urllib.request
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 # Until Resend can deliver to everyone (ttspot.my verified), sign-up skips the
 # email code: `python tool/auth_config.py --no-verify`. Later: `--verify`.
@@ -16,46 +17,17 @@ VERIFY = "--no-verify" not in sys.argv
 
 TOKEN = io.open(r"C:\Users\Admin\.supabase\car-meet-access-token.txt").read().strip()
 REF = "gsoaoabefjavdaiqhahu"
-LOGO = "https://creatiqai.github.io/TTSpot/logo.png"
-
-
-def code_mail(title, intro, footer):
-    return f"""<!doctype html><html><body style="margin:0;padding:0;background:#F5F5F7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
-<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#F5F5F7;padding:32px 12px;">
-<tr><td align="center">
-<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:480px;background:#ffffff;border-radius:20px;padding:36px 32px;text-align:center;">
-<tr><td align="center"><img src="{LOGO}" width="120" alt="TT Spot" style="display:block;margin:0 auto 18px;"></td></tr>
-<tr><td style="font-size:22px;font-weight:800;color:#0F1115;padding-bottom:8px;">{title}</td></tr>
-<tr><td style="font-size:15px;line-height:1.55;color:#5c5c5c;padding-bottom:24px;">{intro}</td></tr>
-<tr><td align="center" style="padding-bottom:22px;">
-<div style="display:inline-block;background:#0F1115;color:#ffffff;font-weight:800;font-size:34px;letter-spacing:10px;padding:16px 28px 16px 38px;border-radius:14px;font-family:'SF Mono',Menlo,Consolas,monospace;">{{{{ .Token }}}}</div>
-</td></tr>
-<tr><td style="font-size:13px;line-height:1.5;color:#8a8a8a;">{footer}</td></tr>
-</table>
-<div style="font-size:12px;color:#9a9a9a;padding-top:18px;">TT Spot · Malaysia's car meet spot · Questions? ttspotmy@gmail.com</div>
-</td></tr></table></body></html>"""
-
-
-confirmation = code_mail(
-    "Your TT Spot code",
-    "Type this code in the app to confirm your email. It expires in 15 minutes.",
-    "If you didn't sign up for TT Spot, you can ignore this email.",
-)
-email_change = code_mail(
-    "Confirm your new email",
-    "You asked to change the email on your TT Spot account. Type this code in the app to confirm.",
-    "If you didn't ask for this, secure your account by changing your password.",
-)
+from email_templates import TEMPLATES  # same design for every auth email
 
 body = {
     "mailer_autoconfirm": not VERIFY,
     "mailer_otp_length": 6,
     "mailer_otp_exp": 900,
     "security_manual_linking_enabled": True,
-    "mailer_subjects_confirmation": "Your TT Spot code",
-    "mailer_templates_confirmation_content": confirmation,
-    "mailer_subjects_email_change": "Confirm your new TT Spot email",
-    "mailer_templates_email_change_content": email_change,
+    "mailer_subjects_confirmation": TEMPLATES["confirmation"][0],
+    "mailer_templates_confirmation_content": TEMPLATES["confirmation"][1],
+    "mailer_subjects_email_change": TEMPLATES["email_change"][0],
+    "mailer_templates_email_change_content": TEMPLATES["email_change"][1],
 }
 req = urllib.request.Request(
     f"https://api.supabase.com/v1/projects/{REF}/config/auth",

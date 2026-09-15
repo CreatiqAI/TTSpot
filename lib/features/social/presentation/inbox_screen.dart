@@ -18,6 +18,7 @@ import '../application/chat_providers.dart';
 import '../domain/chat.dart';
 import '../application/notification_providers.dart';
 import 'activity_screen.dart';
+import 'widgets/chat_media.dart' show fmtMs;
 
 /// Chats tab: DMs and meet group chats, with Activity (likes, requests,
 /// TT-now pings, badges) as a second tab.
@@ -318,7 +319,7 @@ class _ChatTile extends StatelessWidget {
         ],
       ),
       subtitle: Text(
-        last == null ? (c.isMeet ? 'Group chat · ${c.members.length} members' : 'Say hi') : (last.sticker != null ? 'Sticker' : last.body),
+        last == null ? (c.isMeet ? 'Group chat · ${c.members.length} members' : 'Say hi') : (last.sticker != null ? 'Sticker' : last.audioUrl != null ? 'Voice note · ${fmtMs(last.audioMs ?? 0)}' : last.body),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(color: c.unread > 0 ? AppColors.textPrimary : AppColors.textSecondary, fontWeight: c.unread > 0 ? FontWeight.w500 : FontWeight.w400),

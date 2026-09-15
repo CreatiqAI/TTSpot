@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'dart:typed_data';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -103,6 +105,22 @@ class ChatActions {
     final repo = _ref.read(chatRepositoryProvider);
     final url = await repo.uploadPhoto(me: _me, bytes: await file.readAsBytes());
     await repo.send(conversationId: conversationId, me: _me, body: 'Sent a photo', imageUrl: url);
+    _ref.invalidate(inboxProvider);
+  }
+
+  Future<void> sendVoice(String conversationId, Uint8List bytes, int ms) async {
+    final repo = _ref.read(chatRepositoryProvider);
+    final url = await repo.uploadMedia(me: _me, bytes: bytes, ext: 'm4a', contentType: 'audio/mp4');
+    await repo.send(conversationId: conversationId, me: _me, body: 'Voice note', audioUrl: url, audioMs: ms);
+    _ref.invalidate(inboxProvider);
+  }
+
+  Future<void> sendVideo(String conversationId, XFile file) async {
+    final bytes = await file.readAsBytes();
+    if (bytes.length > 50 * 1024 * 1024) throw const AppException('Video is too big. Keep it under 50 MB.');
+    final repo = _ref.read(chatRepositoryProvider);
+    final url = await repo.uploadMedia(me: _me, bytes: bytes, ext: 'mp4', contentType: 'video/mp4');
+    await repo.send(conversationId: conversationId, me: _me, body: 'Sent a video', videoUrl: url);
     _ref.invalidate(inboxProvider);
   }
 

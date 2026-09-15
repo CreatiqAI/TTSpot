@@ -31,7 +31,7 @@ class ChatRepository {
         .from('messages')
         .select('*')
         .eq('conversation_id', conversationId)
-        .or('post_id.not.is.null,story_id.not.is.null,image_url.not.is.null')
+        .or('post_id.not.is.null,story_id.not.is.null,image_url.not.is.null,video_url.not.is.null')
         .order('created_at', ascending: false)
         .limit(60);
     return rows.map(Message.fromMap).toList();
@@ -137,8 +137,14 @@ class ChatRepository {
     String? eventId,
     String? placeId,
     String? carId,
+    String? audioUrl,
+    int? audioMs,
+    String? videoUrl,
   }) =>
       _client.from('messages').insert({
+        'audio_url': ?audioUrl,
+        'audio_ms': ?audioMs,
+        'video_url': ?videoUrl,
         'conversation_id': conversationId,
         'sender_id': me,
         'body': body.trim(),
@@ -150,6 +156,12 @@ class ChatRepository {
         'place_id': ?placeId,
         'car_id': ?carId,
       });
+
+  Future<String> uploadMedia({required String me, required Uint8List bytes, required String ext, required String contentType}) async {
+    final path = '$me/${DateTime.now().millisecondsSinceEpoch}.$ext';
+    await _client.storage.from('chat-media').uploadBinary(path, bytes, fileOptions: FileOptions(contentType: contentType));
+    return _client.storage.from('chat-media').getPublicUrl(path);
+  }
 
   Future<String> uploadPhoto({required String me, required Uint8List bytes}) async {
     final path = '$me/${DateTime.now().millisecondsSinceEpoch}.jpg';

@@ -1,7 +1,7 @@
 import '../../auth/domain/profile.dart';
 
 class Message {
-  const Message({required this.id, required this.conversationId, required this.senderId, required this.body, required this.createdAt, this.sender, this.postId, this.storyId, this.imageUrl, this.sticker, this.eventId, this.placeId, this.carId});
+  const Message({required this.id, required this.conversationId, required this.senderId, required this.body, required this.createdAt, this.sender, this.postId, this.storyId, this.imageUrl, this.sticker, this.eventId, this.placeId, this.carId, this.audioUrl, this.audioMs, this.videoUrl});
   final String id;
   final String conversationId;
   final String senderId;
@@ -16,11 +16,14 @@ class Message {
   final String? eventId;
   final String? placeId;
   final String? carId;
+  final String? audioUrl;
+  final int? audioMs;
+  final String? videoUrl;
 
   /// Anything other than plain text.
-  bool get hasAttachment => postId != null || storyId != null || imageUrl != null || sticker != null || eventId != null || placeId != null || carId != null;
+  bool get hasAttachment => postId != null || storyId != null || imageUrl != null || sticker != null || eventId != null || placeId != null || carId != null || audioUrl != null || videoUrl != null;
   /// Body was generated for the attachment, not typed by the sender.
-  bool get autoBody => const {'Shared a post', 'Shared a moment', 'Sent a photo', 'Sent a sticker', 'Shared a meet', 'Shared a spot', 'Shared a car'}.contains(body);
+  bool get autoBody => const {'Shared a post', 'Shared a moment', 'Sent a photo', 'Sent a sticker', 'Shared a meet', 'Shared a spot', 'Shared a car', 'Voice note', 'Sent a video'}.contains(body);
 
   factory Message.fromMap(Map<String, dynamic> m) => Message(
         id: m['id'] as String,
@@ -36,6 +39,9 @@ class Message {
         eventId: m['event_id'] as String?,
         placeId: m['place_id'] as String?,
         carId: m['car_id'] as String?,
+        audioUrl: m['audio_url'] as String?,
+        audioMs: (m['audio_ms'] as num?)?.toInt(),
+        videoUrl: m['video_url'] as String?,
       );
 }
 

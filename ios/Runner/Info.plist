@@ -68,8 +68,10 @@
 	</array>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Pick a photo for your avatar, your cars or an event cover.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Record voice notes and videos for your chats.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>Take a photo for your avatar, your cars or an event cover.</string>
+	<string>Take a photo or video for your avatar, your cars, a meet cover or a chat.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>TT Spot runs on location: see friends and your club on the map, check in at meets and spots, and scan a meet's QR when you're there. Only while the app is open.</string>
 	<key>MapsApiKey</key>

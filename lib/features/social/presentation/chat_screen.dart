@@ -9,7 +9,13 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/dates.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../../core/widgets/user_avatar.dart';
+import 'dart:async';
+import 'dart:io';
+
 import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:record/record.dart';
+import 'widgets/chat_media.dart';
 
 import '../../../core/theme/app_art.dart';
 import '../../events/application/create_event_controller.dart' show pickCoverImage;
@@ -45,6 +51,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   @override
   void dispose() {
+    _tick?.cancel();
+    _rec.dispose();
     _text.dispose();
     _scroll.dispose();
     super.dispose();
@@ -73,6 +81,106 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     } finally {
       if (mounted) setState(() => _sending = false);
     }
+  }
+
+  // ---- voice notes: hold the mic, slide left to cancel
+  final _rec = AudioRecorder();
+  bool _recording = false;
+  bool _cancelling = false;
+  Duration _elapsed = Duration.zero;
+  Timer? _tick;
+  DateTime? _recStart;
+  double _dragX = 0;
+
+  Future<void> _startRecording() async {
+    if (_recording || _sending) return;
+    if (!await _rec.hasPermission()) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Allow the microphone to send voice notes.')));
+      return;
+    }
+    final dir = await getTemporaryDirectory();
+    final path = '${dir.path}/vn_${DateTime.now().millisecondsSinceEpoch}.m4a';
+    await _rec.start(const RecordConfig(encoder: AudioEncoder.aacLc, bitRate: 64000, sampleRate: 44100), path: path);
+    _recStart = DateTime.now();
+    _dragX = 0;
+    setState(() {
+      _recording = true;
+      _cancelling = false;
+      _elapsed = Duration.zero;
+    });
+    _tick = Timer.periodic(const Duration(milliseconds: 200), (_) {
+      if (!mounted) return;
+      final e = DateTime.now().difference(_recStart!);
+      if (e > const Duration(minutes: 2)) {
+        _stopRecording(send: true);
+        return;
+      }
+      setState(() => _elapsed = e);
+    });
+  }
+
+  Future<void> _stopRecording({required bool send}) async {
+    if (!_recording) return;
+    _tick?.cancel();
+    final path = await _rec.stop();
+    final ms = DateTime.now().difference(_recStart ?? DateTime.now()).inMilliseconds;
+    setState(() {
+      _recording = false;
+      _cancelling = false;
+    });
+    if (!send || path == null || ms < 700) {
+      if (path != null) File(path).delete().catchError((_) => File(path));
+      return;
+    }
+    await _guard(() async {
+      final bytes = await File(path).readAsBytes();
+      await ref.read(chatActionsProvider).sendVoice(widget.conversationId, bytes, ms);
+      File(path).delete().catchError((_) => File(path));
+    });
+  }
+
+  Future<void> _video(ImageSource source) async {
+    final f = await ImagePicker().pickVideo(source: source, maxDuration: const Duration(seconds: 60));
+    if (f == null) return;
+    await _guard(() => ref.read(chatActionsProvider).sendVideo(widget.conversationId, f));
+  }
+
+  Future<void> _cameraMenu() async {
+    final what = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(leading: const Icon(AppIcons.camera), title: const Text('Take a photo'), onTap: () => Navigator.pop(ctx, 'photo')),
+            ListTile(leading: const Icon(AppIcons.record), title: const Text('Record a video'), subtitle: const Text('Up to 60 seconds', style: TextStyle(fontSize: 12)), onTap: () => Navigator.pop(ctx, 'video')),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (what == 'photo') await _photo(ImageSource.camera);
+    if (what == 'video') await _video(ImageSource.camera);
+  }
+
+  Future<void> _galleryMenu() async {
+    final what = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(leading: const Icon(AppIcons.image), title: const Text('Photo from library'), onTap: () => Navigator.pop(ctx, 'photo')),
+            ListTile(leading: const Icon(AppIcons.record), title: const Text('Video from library'), onTap: () => Navigator.pop(ctx, 'video')),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (what == 'photo') await _photo(ImageSource.gallery);
+    if (what == 'video') await _video(ImageSource.gallery);
   }
 
   Future<void> _photo(ImageSource source) async {
@@ -224,14 +332,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                             shape: const CircleBorder(),
                             child: InkWell(
                               customBorder: const CircleBorder(),
-                              onTap: _sending ? null : () => _photo(ImageSource.camera),
+                              onTap: _sending ? null : _cameraMenu,
                               child: const SizedBox(width: 40, height: 40, child: Icon(AppIcons.camera, color: Colors.white, size: 20)),
                             ),
                           ),
                         ),
                         const SizedBox(width: 8),
                         Expanded(
-                          child: TextField(
+                          child: _recording
+                              ? RecordingBar(elapsed: _elapsed, cancelling: _cancelling)
+                              : TextField(
                             controller: _text,
                             minLines: 1,
                             maxLines: 5,
@@ -247,7 +357,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                   : Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        IconButton(tooltip: 'Photo', visualDensity: VisualDensity.compact, icon: const Icon(AppIcons.image, size: 22), onPressed: _sending ? null : () => _photo(ImageSource.gallery)),
+                                        IconButton(tooltip: 'Photo or video', visualDensity: VisualDensity.compact, icon: const Icon(AppIcons.image, size: 22), onPressed: _sending ? null : _galleryMenu),
                                         IconButton(tooltip: 'Sticker', visualDensity: VisualDensity.compact, icon: const Icon(AppIcons.smiley, size: 22), onPressed: _sending ? null : _sticker),
                                         IconButton(tooltip: 'Attach a meet, spot or car', visualDensity: VisualDensity.compact, icon: const Icon(AppIcons.plusCircle, size: 22), onPressed: _sending ? null : _attach),
                                         const SizedBox(width: 4),
@@ -257,15 +367,37 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                             onSubmitted: (_) => _send(),
                           ),
                         ),
-                        if (typing || _sending) ...[
-                          const SizedBox(width: 4),
+                        const SizedBox(width: 4),
+                        if (typing || _sending)
                           IconButton(
                             icon: _sending
                                 ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
                                 : const Icon(AppIcons.paperPlaneTiltFill, color: AppColors.primary),
                             onPressed: _sending ? null : _send,
+                          )
+                        else
+                          // hold to record, slide left to cancel
+                          GestureDetector(
+                            onLongPressStart: (_) => _startRecording(),
+                            onLongPressMoveUpdate: (d) {
+                              _dragX = d.offsetFromOrigin.dx;
+                              final c = _dragX < -80;
+                              if (c != _cancelling) setState(() => _cancelling = c);
+                            },
+                            onLongPressEnd: (_) => _stopRecording(send: !_cancelling),
+                            onLongPressCancel: () => _stopRecording(send: false),
+                            onTap: () => ScaffoldMessenger.of(context)
+                              ..hideCurrentSnackBar()
+                              ..showSnackBar(const SnackBar(content: Text('Hold the mic to record a voice note.'), duration: Duration(seconds: 2))),
+                            child: Padding(
+                              padding: const EdgeInsets.only(bottom: 2),
+                              child: Material(
+                                color: _recording ? AppColors.brand : AppColors.surfaceGray,
+                                shape: const CircleBorder(),
+                                child: SizedBox(width: 40, height: 40, child: Icon(AppIcons.microphone, color: _recording ? Colors.white : AppColors.ink, size: 20)),
+                              ),
+                            ),
                           ),
-                        ],
                       ],
                     );
                   },
@@ -318,6 +450,8 @@ class _Bubble extends StatelessWidget {
               if (message.postId != null) _SharedPost(postId: message.postId!, mine: mine),
               if (message.storyId != null) _SharedMoment(storyId: message.storyId!, mine: mine),
               if (message.imageUrl != null) _Photo(url: message.imageUrl!),
+              if (message.audioUrl != null) Padding(padding: const EdgeInsets.only(bottom: 4), child: VoiceBubble(url: message.audioUrl!, ms: message.audioMs ?? 0, mine: mine)),
+              if (message.videoUrl != null) VideoBubble(url: message.videoUrl!),
               if (message.sticker != null) Padding(padding: const EdgeInsets.only(bottom: 4), child: ArtIcon(kStickers[message.sticker!] ?? AppArt.car, size: 96)),
               if (message.eventId != null) _SharedEvent(eventId: message.eventId!),
               if (message.placeId != null) _SharedPlace(placeId: message.placeId!),

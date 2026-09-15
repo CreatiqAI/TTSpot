@@ -153,6 +153,9 @@ abstract final class AppIcons {
   static const IconData cornersOut = IconData(0xe1d0, fontFamily: _family);
   static const IconData pushPin = IconData(0xe3e2, fontFamily: _family);
   static const IconData pushPinSlash = IconData(0xe3e4, fontFamily: _family);
+  static const IconData microphone = IconData(0xe326, fontFamily: _family);
+  static const IconData pause = IconData(0xe39e, fontFamily: _family);
+  static const IconData play = IconData(0xe3d0, fontFamily: _family);
 
   // ---- filled twins ----
   static const IconData mapTrifoldFill = IconData(0xe31a, fontFamily: _fill);

@@ -430,7 +430,8 @@ class _Bubble extends StatelessWidget {
           constraints: BoxConstraints(maxWidth: maxW),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
           decoration: BoxDecoration(
-            color: mine ? AppColors.ink : AppColors.surfaceGray,
+            color: mine ? AppColors.surfaceGray : AppColors.surface,
+            border: mine ? null : Border.all(color: AppColors.border),
             borderRadius: BorderRadius.only(
               topLeft: const Radius.circular(18),
               topRight: const Radius.circular(18),
@@ -438,7 +439,7 @@ class _Bubble extends StatelessWidget {
               bottomRight: Radius.circular(mine ? 4 : 18),
             ),
           ),
-          child: Text(text, style: TextStyle(color: mine ? Colors.white : AppColors.textPrimary, fontSize: 15, height: 1.35)),
+          child: Text(text, style: const TextStyle(color: AppColors.textPrimary, fontSize: 15, height: 1.35)),
         );
 
     // A shared post / moment sits on its own, no bubble around it. A note, if any, follows underneath.

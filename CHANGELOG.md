@@ -9,6 +9,7 @@ Files are simply `TTSpot-<version>.ipa` / `.apk`, kept in `build/ios-artifact/` 
 
 | Version | Date | Commit | What changed |
 |---|---|---|---|
+| 0.3.3 | 2026-09-15 | _next build_ | Cleaner chat bubbles: yours light grey, theirs white with a thin border; voice note has a white play button; video shows tap-to-retry when it can't load. |
 | 0.3.2 | 2026-09-15 | _next build_ | Voice notes (hold the mic, slide left to cancel, up to 2 min) and video messages (record up to 60 s or pick from library, under 50 MB) in chats, with inline playback. |
 | 0.3.1 | 2026-09-15 | bdc7e17 | Waze / Maps / WhatsApp open the app directly (browser fallback); tap "N going" for the full attendee list; TT now: Use my location (nearest places to pick) + Pin on map; visibility gains Everyone (no radius, no ring); clean round red TT pin on the map; Chats: swipe reveals Pin / Delete buttons instead of auto-triggering, empty DMs move to Not chatted yet, starter messages in empty chats. |
 | 0.3.0 | 2026-09-15 | dfca94b | Map v2: friends as their own cars (colour from the garage, rotate to heading, face bubble); light map by day, dark after 7 pm; only eye + locate on the map; Who can see my car (Friends / Friends + nearby with 0.5–3 km slider and 1/2/3 shortcuts / Nobody), nearby strangers as grey cars at a rounded spot; TT pill in the sheet with four states; TT now sheet: place, duration (1 h default, custom wheel), invite list, one invite card per friend; live meets pulse once every 5 s; meet page shows street address + Waze / Maps / WhatsApp / Copy link. |

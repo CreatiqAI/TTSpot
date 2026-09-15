@@ -78,14 +78,15 @@ class _VoiceBubbleState extends State<VoiceBubble> {
 
   @override
   Widget build(BuildContext context) {
-    final fg = widget.mine ? Colors.white : AppColors.textPrimary;
+    const fg = AppColors.textPrimary;
     final total = widget.ms <= 0 ? (_player?.duration?.inMilliseconds ?? 1) : widget.ms;
     final frac = (_at.inMilliseconds / total).clamp(0.0, 1.0);
     return Container(
       width: 220,
       padding: const EdgeInsets.fromLTRB(8, 8, 14, 8),
       decoration: BoxDecoration(
-        color: widget.mine ? AppColors.ink : AppColors.surfaceGray,
+        color: widget.mine ? AppColors.surfaceGray : AppColors.surface,
+        border: widget.mine ? null : Border.all(color: AppColors.border),
         borderRadius: BorderRadius.only(
           topLeft: const Radius.circular(18),
           topRight: const Radius.circular(18),
@@ -96,8 +97,10 @@ class _VoiceBubbleState extends State<VoiceBubble> {
       child: Row(
         children: [
           Material(
-            color: widget.mine ? AppColors.brand : Colors.white,
-            shape: const CircleBorder(),
+            color: Colors.white,
+            shape: CircleBorder(side: BorderSide(color: widget.mine ? Colors.transparent : AppColors.border)),
+            elevation: widget.mine ? 1 : 0,
+            shadowColor: Colors.black26,
             child: InkWell(
               customBorder: const CircleBorder(),
               onTap: _loading ? null : _toggle,
@@ -106,7 +109,7 @@ class _VoiceBubbleState extends State<VoiceBubble> {
                 height: 36,
                 child: _loading
                     ? const Padding(padding: EdgeInsets.all(10), child: CircularProgressIndicator(strokeWidth: 2))
-                    : Icon(_playing ? AppIcons.pause : AppIcons.play, size: 18, color: widget.mine ? Colors.white : AppColors.ink),
+                    : Icon(_playing ? AppIcons.pause : AppIcons.play, size: 18, color: AppColors.ink),
               ),
             ),
           ),
@@ -118,7 +121,7 @@ class _VoiceBubbleState extends State<VoiceBubble> {
               children: [
                 ClipRRect(
                   borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(value: frac, minHeight: 4, backgroundColor: fg.withValues(alpha: 0.2), color: widget.mine ? AppColors.brand : AppColors.ink),
+                  child: LinearProgressIndicator(value: frac, minHeight: 4, backgroundColor: fg.withValues(alpha: 0.12), color: fg.withValues(alpha: 0.75)),
                 ),
                 const SizedBox(height: 5),
                 Row(
@@ -178,6 +181,7 @@ class _VideoBubbleState extends State<VideoBubble> {
   void _toggle() {
     final c = _c;
     if (c == null) {
+      _failed = false;
       _init();
       return;
     }
@@ -195,7 +199,7 @@ class _VideoBubbleState extends State<VideoBubble> {
         margin: const EdgeInsets.only(bottom: 4),
         constraints: const BoxConstraints(maxWidth: 240, maxHeight: 320),
         clipBehavior: Clip.antiAlias,
-        decoration: BoxDecoration(color: AppColors.ink, borderRadius: BorderRadius.circular(14)),
+        decoration: BoxDecoration(color: const Color(0xFF2A2D33), borderRadius: BorderRadius.circular(14)),
         child: AspectRatio(
           aspectRatio: ratio.clamp(0.5, 2.0),
           child: Stack(
@@ -206,11 +210,20 @@ class _VideoBubbleState extends State<VideoBubble> {
                 Center(
                   child: _loading
                       ? const CircularProgressIndicator(strokeWidth: 2, color: Colors.white)
-                      : Container(
-                          width: 52,
-                          height: 52,
-                          decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.92), shape: BoxShape.circle),
-                          child: Icon(_failed ? AppIcons.warning : AppIcons.play, color: AppColors.ink, size: 24),
+                      : Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 52,
+                              height: 52,
+                              decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.92), shape: BoxShape.circle),
+                              child: Icon(_failed ? AppIcons.arrowsClockwise : AppIcons.play, color: AppColors.ink, size: 24),
+                            ),
+                            if (_failed) ...[
+                              const SizedBox(height: 8),
+                              const Text('Could not load. Tap to retry', style: TextStyle(color: Colors.white70, fontSize: 11.5, fontWeight: FontWeight.w600)),
+                            ],
+                          ],
                         ),
                 ),
               if (c != null && c.value.isInitialized)

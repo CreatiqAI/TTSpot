@@ -36,6 +36,7 @@ class ProfileHeader extends StatelessWidget {
     required this.onAddAlbum,
     required this.onFriendAction,
     required this.onMessage,
+    this.onCall,
   });
 
   final Profile profile;
@@ -58,6 +59,7 @@ class ProfileHeader extends StatelessWidget {
   final VoidCallback onAddAlbum;
   final VoidCallback onFriendAction;
   final VoidCallback onMessage;
+  final VoidCallback? onCall;
 
   @override
   Widget build(BuildContext context) {
@@ -123,6 +125,10 @@ class ProfileHeader extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
                     Expanded(child: _Action(label: 'Message', icon: AppIcons.chatCircle, onTap: onMessage)),
+                    if (friendship == FriendshipStatus.friends && onCall != null) ...[
+                      const SizedBox(width: 8),
+                      Expanded(child: _Action(label: 'Call', icon: AppIcons.phoneCall, onTap: onCall!)),
+                    ],
                   ],
                 ),
         ),

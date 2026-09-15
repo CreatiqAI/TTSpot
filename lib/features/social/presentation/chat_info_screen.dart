@@ -12,6 +12,7 @@ import '../../../core/widgets/user_avatar.dart';
 import '../../events/application/event_providers.dart';
 import '../../friends/application/friends_providers.dart';
 import '../../friends/domain/friend.dart';
+import '../../friends/presentation/call_sheet.dart';
 import '../../safety/data/safety_repository.dart';
 import '../../safety/presentation/report_sheet.dart';
 import '../application/chat_providers.dart';
@@ -95,6 +96,10 @@ class _DmInfo extends ConsumerWidget {
             children: [
               Expanded(child: _Btn(icon: AppIcons.user, label: 'Profile', onTap: () => context.push(Routes.profile(p.id)))),
               const SizedBox(width: 8),
+              if (friendship == FriendshipStatus.friends) ...[
+                Expanded(child: _Btn(icon: AppIcons.phoneCall, label: 'Call', onTap: () => showCallSheet(context, ref, userId: p.id, name: name))),
+                const SizedBox(width: 8),
+              ],
               Expanded(
                 child: _Btn(
                   icon: friendship == FriendshipStatus.friends ? AppIcons.checkCircle : AppIcons.userPlus,

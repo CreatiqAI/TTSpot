@@ -160,6 +160,8 @@ abstract final class AppIcons {
   static const IconData bellSlash = IconData(0xe0d4, fontFamily: _family);
   static const IconData paperPlaneRight = IconData(0xe396, fontFamily: _family);
   static const IconData stop = IconData(0xe46c, fontFamily: _family);
+  static const IconData whatsappLogo = IconData(0xe5d0, fontFamily: _family);
+  static const IconData phoneCall = IconData(0xe3ba, fontFamily: _family);
 
   // ---- filled twins ----
   static const IconData mapTrifoldFill = IconData(0xe31a, fontFamily: _fill);

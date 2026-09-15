@@ -21,6 +21,8 @@ class AppSettings {
 
   /// Who can start a chat with me: 'everyone' | 'friends'
   String get dmFrom => (_m['dm_from'] as String?) ?? 'everyone';
+  /// Who can fetch my phone number to call me: 'nobody' | 'friends'
+  String get callsFrom => (_m['calls_from'] as String?) ?? 'nobody';
 
   /// Show my car colour to friends on the map (else the default silver).
   bool get showCarColor => _b('show_car_color', true);

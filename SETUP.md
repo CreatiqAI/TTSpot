@@ -361,6 +361,11 @@ Migration `20260916000013_accounts_simplify.sql` (the 16 in the name is only the
 - **Admin**: light theme everywhere. Members tab = search (name, handle, email, phone) + filters (new, active today, admins, club owners, partners, no car) + role actions; Queues tab = decision queues + reports with Open / Resolved filter and resolve-with-note. `admin_recent_users` now returns `is_partner` and `email`.
 - **Chat**: `widgets/chat_composer.dart` = [+] [Message…] [camera] [mic]; + opens a tile sheet (Photos, Video, Camera, Spot, Meet, My car, Sticker); mic tap → full-width "Hold to speak" bar (hold to record, slide left to cancel, X closes). Meet chats: header "n going" + members button, hosting card ("You're hosting" / "Hosted by …" · time · venue), HOST badge on the organiser's messages and in the members list. Mute switch in chat info.
 
+### Call a friend (2026-09-16, migration 0029)
+
+- `friend_phone(p_user)` returns a friend's E.164 number only when they set `settings.calls_from = 'friends'` (Settings → Privacy → "Who can call me", default nobody) and have not blocked you. `showCallSheet` (`friends/presentation/call_sheet.dart`) offers Phone (`tel:`) or WhatsApp (`whatsapp://send?phone=` with `wa.me` fallback). Entry points: Call action on a friend's profile header, Call button on the DM's chat info page. Android manifest declares `tel`, `https`, `whatsapp` intents + the WhatsApp package for `canLaunchUrl`.
+- Real in-app calls (LiveKit / Agora) wait for the store build: incoming calls need VoIP push + CallKit / Firebase push, which sideloaded builds cannot receive.
+
 ## 3b. Google sign-in (one-time, ~15 min)
 
 Email sign-in works already (email confirmation is switched off on the project for development;

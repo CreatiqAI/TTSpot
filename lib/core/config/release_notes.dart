@@ -10,6 +10,16 @@ class ReleaseNote {
 
 const kReleaseNotes = <ReleaseNote>[
   ReleaseNote(
+    version: '0.3.10',
+    date: '16 Sep 2026',
+    title: 'Call a friend',
+    points: [
+      'Call button on a friend\'s profile and in their chat: phone call or WhatsApp.',
+      'Off by default. Turn on "Who can call me" in Settings to let friends see it.',
+      'Emails from TT Spot got a clean new look.',
+    ],
+  ),
+  ReleaseNote(
     version: '0.3.9',
     date: '15 Sep 2026',
     title: 'Every account, its own inbox',

@@ -18,6 +18,7 @@ import '../../auth/data/auth_repository.dart';
 import '../../auth/domain/profile.dart';
 import '../../friends/application/friends_providers.dart';
 import '../../friends/domain/friend.dart';
+import '../../friends/presentation/call_sheet.dart';
 import '../../friends/presentation/friend_colour_sheet.dart';
 import '../../points/application/points_providers.dart';
 import '../../safety/data/safety_repository.dart';
@@ -143,6 +144,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     onAddAlbum: () => context.push(Routes.newAlbum),
                     onFriendAction: () => _friendAction(id, friendship, p.displayName ?? '@${p.username}'),
                     onMessage: () => _message(id),
+                    onCall: () => showCallSheet(context, ref, userId: id, name: p.displayName ?? '@${p.username}'),
                   ),
                 ),
                 SliverPersistentHeader(

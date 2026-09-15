@@ -104,6 +104,13 @@ class SettingsScreen extends ConsumerWidget {
             options: const [('everyone', 'Everyone on TT Spot'), ('friends', 'Friends only')],
             onChanged: (v) => set({'dm_from': v}),
           ),
+          _Choice(
+            icon: AppIcons.phoneCall,
+            title: 'Who can call me',
+            value: s.callsFrom,
+            options: const [('nobody', 'Nobody'), ('friends', 'Friends · phone or WhatsApp')],
+            onChanged: (v) => set({'calls_from': v}),
+          ),
           _Row(icon: AppIcons.prohibit, title: 'Blocked people', onTap: () => context.push(Routes.blocked)),
 
           const _Head('ABOUT'),

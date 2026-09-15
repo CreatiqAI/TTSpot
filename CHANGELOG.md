@@ -9,7 +9,7 @@ Files are simply `TTSpot-<version>.ipa` / `.apk`, kept in `build/ios-artifact/` 
 
 | Version | Date | Commit | What changed |
 |---|---|---|---|
-| 0.3.14 | _next build_ | — | Opening hours picked per day with an "Open now / closes …" status on the partner page; partners post to the feed as the business (posts show on the partner page); partner dashboard adds page views, check-ins and voucher claims for 30 days. |
+| 0.3.14 | 2026-09-16 | d422e80 | Opening hours picked per day with an "Open now / closes …" status on the partner page; partners post to the feed as the business (posts show on the partner page); partner dashboard adds page views, check-ins and voucher claims for 30 days. |
 | 0.3.13 | 2026-09-16 | ab896bc | Partner pages (logo, photos, hours, address with Waze/Maps, vouchers, events, Message/WhatsApp); partner shops on the Spots layer with their logo, check-ins there earn points; Edit shop gains hours and up to 6 photos; partner links from voucher cards, event pages and place pages. |
 | 0.3.12 | 2026-09-16 | 53d6c8d | Partner form and Edit shop use Google Places for the address; account facts refresh on switcher open and app resume (approvals show without restart); admin counts refresh on switching to admin and after approvals; vendor_monthly_report is always the caller's own vendor. |
 | 0.3.11 | _next build_ | — | Waze-style marker sizing (dots at city zoom, shapes mid, names up close); four-slide intro after sign-in with replay from About. |

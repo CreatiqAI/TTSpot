@@ -72,6 +72,7 @@ class _MapLegendState extends State<MapLegend> {
                 ),
                 if (_open) ...[
                   const SizedBox(height: 4),
+                  Text('Zoom in for shapes', style: TextStyle(fontSize: 9.5, color: p.text2)),
                   for (final r in rows)
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 2),

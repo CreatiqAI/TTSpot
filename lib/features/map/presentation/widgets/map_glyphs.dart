@@ -87,14 +87,21 @@ class GlyphMarkerFactory {
   final double devicePixelRatio;
   final _cache = <String, MapPin>{};
 
-  Future<MapPin> balloon({required String key, Color color = kEventRed, String? label, String? sub}) =>
-      _build('b|$key|${color.toARGB32()}|$label|$sub', balloonSize, const Offset(13, 33), (c) => paintBalloon(c, Offset.zero, color: color), label, sub);
+  /// [scale] shrinks the shape when the map is zoomed out (Waze-style: full
+  /// size up close, smaller mid-way, plain dots far out).
+  Future<MapPin> balloon({required String key, Color color = kEventRed, String? label, String? sub, double scale = 1}) =>
+      _build('b|$key|${color.toARGB32()}|$label|$sub|$scale', balloonSize * scale, Offset(13, 33) * scale, (c) => paintBalloon(c, Offset.zero, color: color, scale: scale), label, sub);
 
-  Future<MapPin> flag({required String key, Color color = kEventRed, String? label, String? sub}) =>
-      _build('f|$key|${color.toARGB32()}|$label|$sub', flagSize, const Offset(8, 35), (c) => paintFlag(c, Offset.zero, color: color), label, sub);
+  Future<MapPin> flag({required String key, Color color = kEventRed, String? label, String? sub, double scale = 1}) =>
+      _build('f|$key|${color.toARGB32()}|$label|$sub|$scale', flagSize * scale, Offset(8, 35) * scale, (c) => paintFlag(c, Offset.zero, color: color, scale: scale), label, sub);
 
-  Future<MapPin> spot({required String key, required bool recommended, String? label, String? sub}) =>
-      _build('s|$key|$recommended|$label|$sub', badgeSize, const Offset(11, 11), (c) => paintSpotBadge(c, Offset.zero, recommended: recommended), label, sub);
+  Future<MapPin> spot({required String key, required bool recommended, String? label, String? sub, double scale = 1}) =>
+      _build('s|$key|$recommended|$label|$sub|$scale', badgeSize * scale, Offset(11, 11) * scale, (c) => paintSpotBadge(c, Offset.zero, recommended: recommended, scale: scale), label, sub);
+
+  /// Far-zoom marker: a small colour-coded dot with a white ring, like Waze
+  /// when you zoom out to the whole city.
+  Future<MapPin> dot({required String key, required Color color, double r = 4.5}) =>
+      _build('d|$key|${color.toARGB32()}|$r', Size((r + 2) * 2, (r + 2) * 2), Offset(r + 2, r + 2), (c) => paintDot(c, Offset(r + 2, r + 2), r: r, color: color), null, null);
 
   Future<MapPin> _build(String k, Size icon, Offset anchorPx, void Function(Canvas) paint, String? label, String? sub) async {
     final cached = _cache[k];

@@ -10,6 +10,15 @@ class ReleaseNote {
 
 const kReleaseNotes = <ReleaseNote>[
   ReleaseNote(
+    version: '0.3.11',
+    date: '16 Sep 2026',
+    title: 'Map sizing and a quick intro',
+    points: [
+      'Map markers follow the Waze standard: small dots when you look at the whole city, shapes as you zoom in, names up close.',
+      'A four-slide intro after sign-in. Replay it from Settings → About.',
+    ],
+  ),
+  ReleaseNote(
     version: '0.3.10',
     date: '16 Sep 2026',
     title: 'Call a friend',

@@ -5,6 +5,7 @@ import '../../../core/config/app_version.dart';
 import '../../../core/config/release_notes.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../onboarding/presentation/intro_screen.dart';
 
 /// About TT Spot: version, what's new per update, licences tucked at the end.
 class AboutScreen extends StatelessWidget {
@@ -38,6 +39,12 @@ class AboutScreen extends StatelessWidget {
           const SizedBox(height: 10),
           for (var i = 0; i < kReleaseNotes.length; i++) _Release(note: kReleaseNotes[i], current: i == 0),
           const SizedBox(height: 24),
+          Center(
+            child: TextButton(
+              onPressed: () => Navigator.of(context, rootNavigator: true).push(MaterialPageRoute<void>(builder: (_) => const IntroScreen(replay: true))),
+              child: const Text('Show the intro again', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+            ),
+          ),
           Center(
             child: TextButton(
               onPressed: () => showLicensePage(context: context, applicationName: 'TT Spot', applicationVersion: kAppVersion),

@@ -40,6 +40,7 @@ import '../../features/profile/presentation/follow_list_screen.dart';
 import 'tab_slot.dart';
 import '../../features/settings/presentation/settings_screen.dart';
 import '../../features/settings/presentation/about_screen.dart';
+import '../../features/onboarding/presentation/intro_screen.dart';
 import '../../features/social/presentation/suggest_spot_screen.dart';
 import '../../features/auth/application/account_basics.dart';
 import '../../features/auth/presentation/verify_email_screen.dart';
@@ -68,6 +69,7 @@ import 'app_shell.dart';
 abstract final class Routes {
   static const signIn = '/sign-in';
   static const onboarding = '/onboarding';
+  static const intro = '/intro';
   static const resetPassword = '/reset-password';
   static String verify(String email) => '/verify?email=${Uri.encodeQueryComponent(email)}';
   static const about = '/settings/about';
@@ -201,6 +203,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       final profile = ref.read(currentProfileProvider);
       if (profile.isLoading) return null;
+      // Four quick slides, once. Settings → About replays it.
+      final introSeen = profile.value == null || (profile.value!.settings['intro_seen'] as bool? ?? false);
+      if (!introSeen) return path == Routes.intro ? null : Routes.intro;
       final onboarded = profile.value?.isOnboarded ?? false;
 
       final needsCar = profile.value?.needsCar ?? false;
@@ -214,12 +219,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final skipped = ref.read(locationGateSkippedProvider);
       if (granted.hasValue && !granted.value! && !skipped) return path == Routes.locationGate ? null : Routes.locationGate;
 
-      if (onAuthPage || path == Routes.onboarding || path == Routes.locationGate) return Routes.map;
+      if (onAuthPage || path == Routes.onboarding || path == Routes.locationGate || path == Routes.intro) return Routes.map;
       return null;
     },
     routes: [
       GoRoute(path: Routes.signIn, pageBuilder: (_, s) => page(s, const SignInScreen())),
       GoRoute(path: Routes.onboarding, pageBuilder: (_, s) => page(s, const OnboardingScreen())),
+      GoRoute(path: Routes.intro, pageBuilder: (_, s) => page(s, const IntroScreen())),
       GoRoute(path: '/verify', pageBuilder: (_, s) => page(s, VerifyEmailScreen(email: s.uri.queryParameters['email'] ?? ''))),
       GoRoute(path: Routes.about, pageBuilder: (_, s) => page(s, const AboutScreen())),
       GoRoute(path: Routes.resetPassword, pageBuilder: (_, s) => page(s, const ResetPasswordScreen())),

@@ -9,6 +9,7 @@ Files are simply `TTSpot-<version>.ipa` / `.apk`, kept in `build/ios-artifact/` 
 
 | Version | Date | Commit | What changed |
 |---|---|---|---|
+| 0.3.11 | _next build_ | — | Waze-style marker sizing (dots at city zoom, shapes mid, names up close); four-slide intro after sign-in with replay from About. |
 | 0.3.10 | 2026-09-16 | c677735 | Call a friend (phone or WhatsApp) from their profile or chat, behind a new "Who can call me" privacy setting (off by default); clean new design for all auth emails; sender noreply@ttspot.my. |
 | 0.3.9 | 2026-09-15 | bac3ecd | Every account has its own tabs and inbox (club: Club/Events/Chats/Account; partner: Dashboard/Chats/Account; admin: Dashboard/Members/Queues/Account); Message a club and it replies as the club; admin in the light theme with searchable, filterable Members and a Queues page with report filters; chat composer redesign (+ sheet, hold-to-speak bar, hosting card, HOST badge, mute). |
 | 0.3.8 | 2026-09-15 | 3cf2e1f | TT sessions can be planned for later by anyone; events are hosted by car clubs and partners only (server-enforced, partner shown on the meet page); top spots earned by activity (20 check-ins or 3 events in 90 days) with admin override; Suggest a spot (Create sheet + Spots layer) with admin approval and 30 points; real Klang Valley venues seeded; friendlier message when a meet has ended. |

@@ -23,6 +23,7 @@ class AppSettings {
   String get dmFrom => (_m['dm_from'] as String?) ?? 'everyone';
   /// Who can fetch my phone number to call me: 'nobody' | 'friends'
   String get callsFrom => (_m['calls_from'] as String?) ?? 'nobody';
+  bool get introSeen => _b('intro_seen', false);
 
   /// Show my car colour to friends on the map (else the default silver).
   bool get showCarColor => _b('show_car_color', true);

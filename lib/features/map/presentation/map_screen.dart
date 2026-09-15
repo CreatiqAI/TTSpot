@@ -87,13 +87,16 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
     return h >= 19 || h < 7;
   }
 
-  /// Zoom tiers: 0 = far (only events, TT sessions, spots and my own dot),
-  /// 1 = mid (people as small dots, moments), 2 = close (cars + name chips).
+  /// Zoom tiers, Waze-style. 0 = far: everything is a small colour-coded dot
+  /// (events and TT red, spots grey, top spots black), no people. 1 = mid:
+  /// shapes at 85 %, people as dots, moments. 2 = close: full-size shapes
+  /// with name chips, cars with faces.
   static const _midZoom = 13.0;
   static const _closeZoom = 14.5;
   int _tier = 0;
   bool get _far => _tier == 0;
   bool get _close => _tier == 2;
+  double get _glyphScale => _close ? 1.0 : 0.85;
 
   void _paintCircles() {
     if (!mounted) return;
@@ -192,12 +195,14 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
   MapPinFactory get _pinFactory => _pins ??= MapPinFactory(devicePixelRatio: MediaQuery.devicePixelRatioOf(context));
   GlyphMarkerFactory get _glyphFactory => _glyphs ??= GlyphMarkerFactory(devicePixelRatio: MediaQuery.devicePixelRatioOf(context));
 
-  /// Balloon for events, feather flag for TT sessions. Label only when close.
+  /// Balloon for events, feather flag for TT sessions. Dots when far out,
+  /// label only when close.
   Future<MapPin> _eventPin(Event e, {String? sub}) {
+    if (_far) return _glyphFactory.dot(key: e.id, color: kEventRed);
     final label = _close ? (e.isInstant ? e.venueName : e.title) : null;
     return e.type == EventType.tt || e.isInstant
-        ? _glyphFactory.flag(key: e.id, label: label, sub: _close ? sub : null)
-        : _glyphFactory.balloon(key: e.id, label: label, sub: _close ? sub : null);
+        ? _glyphFactory.flag(key: e.id, label: label, sub: _close ? sub : null, scale: _glyphScale)
+        : _glyphFactory.balloon(key: e.id, label: label, sub: _close ? sub : null, scale: _glyphScale);
   }
   CarMarkerFactory get _carFactory => _cars ??= CarMarkerFactory(devicePixelRatio: MediaQuery.devicePixelRatioOf(context), pins: _pinFactory);
 
@@ -255,12 +260,15 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
         }
       case MapMode.spots:
         for (final p in ref.read(spotsProvider).value ?? const <Place>[]) {
-          final pin = await _glyphFactory.spot(
-            key: p.id,
-            recommended: p.recommended,
-            label: _close ? p.name : null,
-            sub: _close && p.totalCheckins > 0 ? '${p.totalCheckins} ✓' : null,
-          );
+          final pin = _far
+              ? await _glyphFactory.dot(key: p.id, color: p.recommended ? kInk : kSpotGrey)
+              : await _glyphFactory.spot(
+                  key: p.id,
+                  recommended: p.recommended,
+                  label: _close ? p.name : null,
+                  sub: _close && p.totalCheckins > 0 ? '${p.totalCheckins} ✓' : null,
+                  scale: _glyphScale,
+                );
           if (await stale()) return;
           built.add(Marker(
             markerId: MarkerId('place:${p.id}'),

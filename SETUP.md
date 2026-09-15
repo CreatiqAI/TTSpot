@@ -366,6 +366,11 @@ Migration `20260916000013_accounts_simplify.sql` (the 16 in the name is only the
 - `friend_phone(p_user)` returns a friend's E.164 number only when they set `settings.calls_from = 'friends'` (Settings → Privacy → "Who can call me", default nobody) and have not blocked you. `showCallSheet` (`friends/presentation/call_sheet.dart`) offers Phone (`tel:`) or WhatsApp (`whatsapp://send?phone=` with `wa.me` fallback). Entry points: Call action on a friend's profile header, Call button on the DM's chat info page. Android manifest declares `tel`, `https`, `whatsapp` intents + the WhatsApp package for `canLaunchUrl`.
 - Real in-app calls (LiveKit / Agora) wait for the store build: incoming calls need VoIP push + CallKit / Firebase push, which sideloaded builds cannot receive.
 
+### Map sizing (Waze standard) + intro (2026-09-16)
+
+- Zoom tiers in `map_screen.dart`: far (< 13) = every event / TT session / spot is a small dot (`GlyphMarkerFactory.dot`: red for meets and TT, grey spot, black top spot), no people; mid (13–14.5) = shapes at 85 % (`scale:` on balloon / flag / spot), people as dots; close (≥ 14.5) = full shapes + name chips, cars. Matches how Waze collapses to dots at city zoom.
+- `IntroScreen` (`features/onboarding/presentation/intro_screen.dart`): four slides after sign-in, once per account (`profiles.settings.intro_seen`), router redirect to `/intro` before onboarding. Replay from Settings → About → "Show the intro again".
+
 ## 3b. Google sign-in (one-time, ~15 min)
 
 Email sign-in works already (email confirmation is switched off on the project for development;

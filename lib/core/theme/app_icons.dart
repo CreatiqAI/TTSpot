@@ -157,6 +157,9 @@ abstract final class AppIcons {
   static const IconData pause = IconData(0xe39e, fontFamily: _family);
   static const IconData play = IconData(0xe3d0, fontFamily: _family);
   static const IconData googleLogo = IconData(0xe292, fontFamily: _family);
+  static const IconData bellSlash = IconData(0xe0d4, fontFamily: _family);
+  static const IconData paperPlaneRight = IconData(0xe396, fontFamily: _family);
+  static const IconData stop = IconData(0xe46c, fontFamily: _family);
 
   // ---- filled twins ----
   static const IconData mapTrifoldFill = IconData(0xe31a, fontFamily: _fill);

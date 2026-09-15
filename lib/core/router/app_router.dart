@@ -31,14 +31,13 @@ import '../../features/points/presentation/my_qr_screen.dart';
 import '../../features/points/presentation/points_screen.dart';
 import '../../features/points/presentation/scan_screen.dart';
 import '../../features/points/presentation/spot_verify_screen.dart';
-import '../../features/map/presentation/map_screen.dart';
 import '../../features/profile/presentation/badges_screen.dart';
 import '../../features/profile/presentation/car_detail_screen.dart';
 import '../../features/profile/presentation/car_form_screen.dart';
 import '../../features/profile/presentation/car_mod_form_screen.dart';
 import '../../features/profile/presentation/edit_profile_screen.dart';
 import '../../features/profile/presentation/follow_list_screen.dart';
-import '../../features/accounts/presentation/me_tab.dart';
+import 'tab_slot.dart';
 import '../../features/settings/presentation/settings_screen.dart';
 import '../../features/settings/presentation/about_screen.dart';
 import '../../features/social/presentation/suggest_spot_screen.dart';
@@ -56,8 +55,6 @@ import '../../features/social/presentation/club_screen.dart';
 import '../../features/social/presentation/create_club_screen.dart';
 import '../../features/social/presentation/create_post_screen.dart';
 import '../../features/social/presentation/create_story_screen.dart';
-import '../../features/social/presentation/explore_screen.dart';
-import '../../features/social/presentation/inbox_screen.dart';
 import '../../features/social/presentation/place_screen.dart';
 import '../../features/social/presentation/post_detail_screen.dart';
 import '../../features/social/presentation/saved_posts_screen.dart';
@@ -332,10 +329,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       StatefulShellRoute.indexedStack(
         builder: (_, _, shell) => AppShell(navigationShell: shell),
         branches: [
-          StatefulShellBranch(routes: [GoRoute(path: Routes.explore, pageBuilder: (_, s) => page(s, const ExploreScreen()))]),
-          StatefulShellBranch(routes: [GoRoute(path: Routes.map, pageBuilder: (_, s) => page(s, const MapScreen()))]),
-          StatefulShellBranch(routes: [GoRoute(path: Routes.inbox, pageBuilder: (_, s) => page(s, const InboxScreen()))]),
-          StatefulShellBranch(routes: [GoRoute(path: Routes.garage, pageBuilder: (_, s) => page(s, const MeTab()))]),
+          StatefulShellBranch(routes: [GoRoute(path: Routes.explore, pageBuilder: (_, s) => page(s, const TabSlot(0)))]),
+          StatefulShellBranch(routes: [GoRoute(path: Routes.map, pageBuilder: (_, s) => page(s, const TabSlot(1)))]),
+          StatefulShellBranch(routes: [GoRoute(path: Routes.inbox, pageBuilder: (_, s) => page(s, const TabSlot(2)))]),
+          StatefulShellBranch(routes: [GoRoute(path: Routes.garage, pageBuilder: (_, s) => page(s, const TabSlot(3)))]),
         ],
       ),
     ],

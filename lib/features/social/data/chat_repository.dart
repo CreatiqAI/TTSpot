@@ -37,20 +37,28 @@ class ChatRepository {
     return rows.map(Message.fromMap).toList();
   }
 
+  Future<void> setMute(String conversationId, bool muted) => _client.rpc('set_conversation_mute', params: {'p_conversation': conversationId, 'p_muted': muted});
+
+  Future<String> openClubDm(String clubId) async => await _client.rpc('get_or_create_club_dm', params: {'p_club': clubId}) as String;
+  Future<String> openVendorDm(String vendorId) async => await _client.rpc('get_or_create_vendor_dm', params: {'p_vendor': vendorId}) as String;
+
   Future<void> markRead(String conversationId) => _client.rpc('mark_conversation_read', params: {'p_conversation': conversationId});
 
-  Future<List<Conversation>> inbox(String me) async {
-    final mine = await _client.from('conversation_members').select('conversation_id, last_read_at, pinned_at, hidden_at').eq('user_id', me);
+  /// Which account's inbox: personal (everything not owned by a club /
+  /// partner I manage), one club, or one partner.
+  Future<List<Conversation>> inbox(String me, {InboxScope scope = const InboxScope.personal()}) async {
+    final mine = await _client.from('conversation_members').select('conversation_id, last_read_at, pinned_at, hidden_at, muted_at').eq('user_id', me);
     if (mine.isEmpty) return const [];
     final ids = mine.map((r) => r['conversation_id'] as String).toList();
     final lastRead = {for (final r in mine) r['conversation_id'] as String: DateTime.parse(r['last_read_at'] as String)};
     final pinnedAt = {for (final r in mine) if (r['pinned_at'] != null) r['conversation_id'] as String: DateTime.parse(r['pinned_at'] as String)};
     final hiddenAt = {for (final r in mine) if (r['hidden_at'] != null) r['conversation_id'] as String: DateTime.parse(r['hidden_at'] as String)};
+    final mutedAt = {for (final r in mine) if (r['muted_at'] != null) r['conversation_id'] as String: DateTime.parse(r['muted_at'] as String)};
 
     final results = await Future.wait<dynamic>([
       _client
           .from('conversations')
-          .select('id, kind, event_id, events(title, cover_url), conversation_members(user_id, profiles($profileCols))')
+          .select('id, kind, event_id, club_id, vendor_id, events(title, cover_url), clubs!conversations_club_id_fkey(name, avatar_url), vendors!conversations_vendor_id_fkey(name, logo_url), conversation_members(user_id, profiles($profileCols))')
           .inFilter('id', ids),
       _client
           .from('messages')
@@ -80,7 +88,14 @@ class ChatRepository {
           .whereType<Map<String, dynamic>>()
           .map(Profile.fromMap)
           .toList();
-      final other = members.where((p) => p.id != me).firstOrNull;
+      final clubId = r['club_id'] as String?;
+      final vendorId = r['vendor_id'] as String?;
+      final club = r['clubs'] as Map<String, dynamic>?;
+      final vendor = r['vendors'] as Map<String, dynamic>?;
+      final viewAsEntity = scope.owns(clubId, vendorId);
+      // In an entity chat the club's managers are members too; "the other person" is whoever is not staff.
+      final staff = viewAsEntity ? <String>{me} : (scope.managedClubs.contains(clubId) || (vendorId != null && vendorId == scope.myVendorId) ? {me} : <String>{});
+      final other = members.where((p) => p.id != me && !staff.contains(p.id)).firstOrNull;
       return Conversation(
         id: id,
         kind: r['kind'] as String,
@@ -93,8 +108,14 @@ class ChatRepository {
         unread: unreadByConv[id] ?? 0,
         pinnedAt: pinnedAt[id],
         hiddenAt: hiddenAt[id],
+        clubId: clubId,
+        vendorId: vendorId,
+        entityName: club?['name'] as String? ?? vendor?['name'] as String?,
+        entityLogo: club?['avatar_url'] as String? ?? vendor?['logo_url'] as String?,
+        mutedAt: mutedAt[id],
+        viewAsEntity: viewAsEntity,
       );
-    }).where((c) {
+    }).where((c) => scope.includes(c)).where((c) {
       // "Deleted" chats stay hidden until a newer message arrives.
       final h = c.hiddenAt;
       if (h == null) return true;
@@ -111,15 +132,15 @@ class ChatRepository {
     return convs;
   }
 
-  Future<Conversation?> conversation(String id, String me) async {
-    final all = await inbox(me);
+  Future<Conversation?> conversation(String id, String me, {InboxScope scope = const InboxScope.personal()}) async {
+    final all = await inbox(me, scope: InboxScope.all(scope));
     return all.where((c) => c.id == id).firstOrNull;
   }
 
   Future<List<Message>> messages(String conversationId, {int limit = 200}) async {
     final rows = await _client
         .from('messages')
-        .select('*, profiles($profileCols)')
+        .select('*, profiles($profileCols), clubs!messages_as_club_fkey(name, avatar_url), vendors!messages_as_vendor_fkey(name, logo_url)')
         .eq('conversation_id', conversationId)
         .order('created_at', ascending: true)
         .limit(limit);
@@ -140,8 +161,12 @@ class ChatRepository {
     String? audioUrl,
     int? audioMs,
     String? videoUrl,
+    String? asClub,
+    String? asVendor,
   }) =>
       _client.from('messages').insert({
+        'as_club': ?asClub,
+        'as_vendor': ?asVendor,
         'audio_url': ?audioUrl,
         'audio_ms': ?audioMs,
         'video_url': ?videoUrl,
@@ -189,3 +214,47 @@ class ChatRepository {
 }
 
 final chatRepositoryProvider = Provider<ChatRepository>((ref) => ChatRepository(ref.watch(supabaseProvider)));
+
+
+/// Whose inbox we are looking at.
+class InboxScope {
+  const InboxScope.personal({this.managedClubs = const {}, this.myVendorId})
+      : clubId = null,
+        vendorId = null,
+        everything = false;
+  const InboxScope.club(this.clubId)
+      : vendorId = null,
+        managedClubs = const {},
+        myVendorId = null,
+        everything = false;
+  const InboxScope.vendor(this.vendorId)
+      : clubId = null,
+        managedClubs = const {},
+        myVendorId = null,
+        everything = false;
+  /// Same ownership knowledge as [base], but no filtering (single lookups).
+  InboxScope.all(InboxScope base)
+      : clubId = base.clubId,
+        vendorId = base.vendorId,
+        managedClubs = base.managedClubs,
+        myVendorId = base.myVendorId,
+        everything = true;
+
+  final String? clubId;
+  final String? vendorId;
+  final Set<String> managedClubs;
+  final String? myVendorId;
+  final bool everything;
+
+  bool owns(String? convClub, String? convVendor) => (clubId != null && clubId == convClub) || (vendorId != null && vendorId == convVendor);
+
+  bool includes(Conversation c) {
+    if (everything) return true;
+    if (clubId != null) return c.clubId == clubId;
+    if (vendorId != null) return c.vendorId == vendorId;
+    // personal: hide chats that belong to an account I manage
+    if (c.clubId != null && managedClubs.contains(c.clubId)) return false;
+    if (c.vendorId != null && c.vendorId == myVendorId) return false;
+    return true;
+  }
+}

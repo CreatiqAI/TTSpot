@@ -81,23 +81,24 @@ class ChatAttachment {
   final String? carId;
 }
 
-Future<ChatAttachment?> showAttachSheet(BuildContext context) {
+Future<ChatAttachment?> showAttachSheet(BuildContext context, {int initialTab = 0}) {
   return showModalBottomSheet<ChatAttachment>(
     context: context,
     showDragHandle: true,
     isScrollControlled: true,
-    builder: (_) => const _AttachSheet(),
+    builder: (_) => _AttachSheet(initialTab: initialTab),
   );
 }
 
 class _AttachSheet extends ConsumerStatefulWidget {
-  const _AttachSheet();
+  const _AttachSheet({this.initialTab = 0});
+  final int initialTab;
   @override
   ConsumerState<_AttachSheet> createState() => _AttachSheetState();
 }
 
 class _AttachSheetState extends ConsumerState<_AttachSheet> {
-  int _tab = 0;
+  late int _tab = widget.initialTab;
 
   @override
   Widget build(BuildContext context) {

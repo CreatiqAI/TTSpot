@@ -10,6 +10,17 @@ class ReleaseNote {
 
 const kReleaseNotes = <ReleaseNote>[
   ReleaseNote(
+    version: '0.3.9',
+    date: '15 Sep 2026',
+    title: 'Every account, its own inbox',
+    points: [
+      'Switch to a club or partner and the tabs change: its page, its events, its chats, its account. Nothing mixes with your personal chats.',
+      'Message a club from its page. The club replies as the club.',
+      'Admin has Dashboard, Members (search and filters), Queues and Account, in the normal light look.',
+      'Chat: + for attachments, tap the mic for a hold-to-speak bar, hosting card and HOST badge in meet chats, mute any chat.',
+    ],
+  ),
+  ReleaseNote(
     version: '0.3.8',
     date: '15 Sep 2026',
     title: 'Who organises what',

@@ -1,7 +1,7 @@
 import '../../auth/domain/profile.dart';
 
 class Message {
-  const Message({required this.id, required this.conversationId, required this.senderId, required this.body, required this.createdAt, this.sender, this.postId, this.storyId, this.imageUrl, this.sticker, this.eventId, this.placeId, this.carId, this.audioUrl, this.audioMs, this.videoUrl});
+  const Message({required this.id, required this.conversationId, required this.senderId, required this.body, required this.createdAt, this.sender, this.postId, this.storyId, this.imageUrl, this.sticker, this.eventId, this.placeId, this.carId, this.audioUrl, this.audioMs, this.videoUrl, this.asClub, this.asVendor, this.asName, this.asLogo});
   final String id;
   final String conversationId;
   final String senderId;
@@ -19,6 +19,11 @@ class Message {
   final String? audioUrl;
   final int? audioMs;
   final String? videoUrl;
+  /// Sent while acting as a club / partner: show that name and logo.
+  final String? asClub;
+  final String? asVendor;
+  final String? asName;
+  final String? asLogo;
 
   /// Anything other than plain text.
   bool get hasAttachment => postId != null || storyId != null || imageUrl != null || sticker != null || eventId != null || placeId != null || carId != null || audioUrl != null || videoUrl != null;
@@ -32,6 +37,10 @@ class Message {
         body: m['body'] as String,
         createdAt: DateTime.parse(m['created_at'] as String).toLocal(),
         sender: m['profiles'] == null ? null : Profile.fromMap(m['profiles'] as Map<String, dynamic>),
+        asClub: m['as_club'] as String?,
+        asVendor: m['as_vendor'] as String?,
+        asName: (m['clubs'] as Map?)?['name'] as String? ?? (m['vendors'] as Map?)?['name'] as String?,
+        asLogo: (m['clubs'] as Map?)?['avatar_url'] as String? ?? (m['vendors'] as Map?)?['logo_url'] as String?,
         postId: m['post_id'] as String?,
         storyId: m['story_id'] as String?,
         imageUrl: m['image_url'] as String?,
@@ -59,6 +68,12 @@ class Conversation {
     required this.unread,
     this.pinnedAt,
     this.hiddenAt,
+    this.clubId,
+    this.vendorId,
+    this.entityName,
+    this.entityLogo,
+    this.mutedAt,
+    this.viewAsEntity = false,
   });
 
   final String id;
@@ -72,9 +87,23 @@ class Conversation {
   final int unread;
   final DateTime? pinnedAt;
   final DateTime? hiddenAt;
+  /// The account this chat belongs to (null = personal).
+  final String? clubId;
+  final String? vendorId;
+  final String? entityName;
+  final String? entityLogo;
+  final DateTime? mutedAt;
+  /// True when the viewer is the club / partner side of this chat.
+  final bool viewAsEntity;
 
   bool get pinned => pinnedAt != null;
+  bool get muted => mutedAt != null;
+  bool get hasEntity => clubId != null || vendorId != null;
 
   bool get isMeet => kind == 'meet';
-  String get title => isMeet ? (eventTitle ?? 'Meet chat') : (other?.displayName ?? other?.username ?? 'Chat');
+  /// Personal view of a "message the club" chat shows the club; the club's
+  /// managers see the person instead.
+  bool get showEntity => !isMeet && hasEntity && !viewAsEntity;
+  String get title => isMeet ? (eventTitle ?? 'Meet chat') : showEntity ? (entityName ?? 'Chat') : (other?.displayName ?? other?.username ?? 'Chat');
+  String? get avatarUrl => showEntity ? entityLogo : other?.avatarUrl;
 }

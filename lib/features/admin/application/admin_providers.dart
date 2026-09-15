@@ -21,7 +21,7 @@ class AdminReport {
 }
 
 class AdminUser {
-  const AdminUser({required this.id, required this.username, this.displayName, this.avatarUrl, required this.createdAt, this.homeState, required this.isAdmin, required this.clubOwner, required this.cars, this.lastSeen, this.phone});
+  const AdminUser({required this.id, required this.username, this.displayName, this.avatarUrl, required this.createdAt, this.homeState, required this.isAdmin, required this.clubOwner, required this.cars, this.lastSeen, this.phone, this.isPartner = false, this.email});
   final String id;
   final String username;
   final String? displayName;
@@ -33,6 +33,8 @@ class AdminUser {
   final int cars;
   final DateTime? lastSeen;
   final String? phone;
+  final bool isPartner;
+  final String? email;
 }
 
 final adminStatsProvider = FutureProvider<AdminStats>((ref) async {
@@ -61,7 +63,7 @@ final adminReportsProvider = FutureProvider<List<AdminReport>>((ref) async {
 
 final adminUsersProvider = FutureProvider<List<AdminUser>>((ref) async {
   ref.watch(currentUserIdProvider);
-  final rows = await ref.read(supabaseProvider).rpc('admin_recent_users', params: {'p_limit': 50}) as List;
+  final rows = await ref.read(supabaseProvider).rpc('admin_recent_users', params: {'p_limit': 500}) as List;
   return rows.map((r) {
     final m = (r as Map).cast<String, dynamic>();
     return AdminUser(
@@ -76,6 +78,8 @@ final adminUsersProvider = FutureProvider<List<AdminUser>>((ref) async {
       cars: (m['cars'] as num?)?.toInt() ?? 0,
       lastSeen: m['last_seen'] == null ? null : DateTime.parse(m['last_seen'] as String).toLocal(),
       phone: m['phone'] as String?,
+      isPartner: m['is_partner'] as bool? ?? false,
+      email: m['email'] as String?,
     );
   }).toList();
 });

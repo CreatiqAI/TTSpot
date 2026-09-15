@@ -16,6 +16,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 import 'widgets/chat_media.dart';
+import 'widgets/chat_composer.dart';
 
 import '../../../core/theme/app_art.dart';
 import '../../events/application/create_event_controller.dart' show pickCoverImage;
@@ -164,25 +165,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     if (what == 'video') await _video(ImageSource.camera);
   }
 
-  Future<void> _galleryMenu() async {
-    final what = await showModalBottomSheet<String>(
-      context: context,
-      showDragHandle: true,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(leading: const Icon(AppIcons.image), title: const Text('Photo from library'), onTap: () => Navigator.pop(ctx, 'photo')),
-            ListTile(leading: const Icon(AppIcons.record), title: const Text('Video from library'), onTap: () => Navigator.pop(ctx, 'video')),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
-    );
-    if (what == 'photo') await _photo(ImageSource.gallery);
-    if (what == 'video') await _video(ImageSource.gallery);
-  }
-
   Future<void> _photo(ImageSource source) async {
     final f = await pickCoverImage(source);
     if (f == null) return;
@@ -195,10 +177,31 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     await _guard(() => ref.read(chatActionsProvider).sendSticker(widget.conversationId, key));
   }
 
-  Future<void> _attach() async {
-    final a = await showAttachSheet(context);
+  Future<void> _attach({int tab = 0}) async {
+    final a = await showAttachSheet(context, initialTab: tab);
     if (a == null) return;
     await _guard(() => ref.read(chatActionsProvider).attach(widget.conversationId, eventId: a.eventId, placeId: a.placeId, carId: a.carId));
+  }
+
+  Future<void> _plus() async {
+    final what = await showComposerSheet(context);
+    if (what == null || !mounted) return;
+    switch (what) {
+      case ComposerAction.photos:
+        await _photo(ImageSource.gallery);
+      case ComposerAction.video:
+        await _video(ImageSource.gallery);
+      case ComposerAction.camera:
+        await _cameraMenu();
+      case ComposerAction.location:
+        await _attach(tab: 1);
+      case ComposerAction.meet:
+        await _attach(tab: 0);
+      case ComposerAction.car:
+        await _attach(tab: 2);
+      case ComposerAction.sticker:
+        await _sticker();
+    }
   }
 
   @override
@@ -211,6 +214,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     });
 
     final membersById = {for (final p in conv?.members ?? const []) p.id: p};
+    final hostId = conv?.eventId == null ? null : ref.watch(eventDetailProvider(conv!.eventId!)).value?.event.organizerId;
 
     return Scaffold(
       appBar: AppBar(
@@ -225,7 +229,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           child: Row(
             children: [
               if (conv != null && !conv.isMeet) ...[
-                UserAvatar(url: conv.other?.avatarUrl, name: conv.other?.displayName ?? conv.other?.username, size: 32),
+                UserAvatar(url: conv.avatarUrl, name: conv.title, size: 32),
                 const SizedBox(width: 10),
               ],
               Expanded(
@@ -235,7 +239,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     Text(conv?.title ?? 'Chat', maxLines: 1, overflow: TextOverflow.ellipsis, style: AppText.screenTitle),
                     if (conv != null)
                       Text(
-                        conv.isMeet ? '${conv.members.length} members · tap for the meet' : '@${conv.other?.username ?? ''}',
+                        conv.isMeet
+                            ? '${conv.members.length} going'
+                            : conv.showEntity
+                                ? (conv.clubId != null ? 'Car club' : 'Partner')
+                                : '@${conv.other?.username ?? ''}',
                         style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
                       ),
                   ],
@@ -245,11 +253,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           ),
         ),
         actions: [
-          IconButton(tooltip: 'Chat info', icon: const Icon(AppIcons.dotsThreeVertical), onPressed: () => context.push(Routes.chatInfo(widget.conversationId))),
+          IconButton(
+            tooltip: conv?.isMeet ?? false ? 'Members' : 'Chat info',
+            icon: Icon(conv?.isMeet ?? false ? AppIcons.usersThree : AppIcons.dotsThreeVertical),
+            onPressed: () => context.push(Routes.chatInfo(widget.conversationId)),
+          ),
         ],
       ),
       body: Column(
         children: [
+          if (conv != null && conv.isMeet && conv.eventId != null) _HostingCard(eventId: conv.eventId!, me: me),
           Expanded(
             child: messages.when(
               loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
@@ -305,105 +318,38 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     final prev = i + 1 < reversed.length ? reversed[i + 1] : null;
                     final showName = (conv?.isMeet ?? false) && !mine && (prev == null || prev.senderId != m.senderId);
                     final sender = m.sender ?? membersById[m.senderId];
-                    return _Bubble(message: m, mine: mine, showName: showName, senderName: sender?.username, avatarUrl: sender?.avatarUrl, showAvatar: !mine && (conv?.isMeet ?? false));
+                    final host = m.senderId == hostId;
+                    final showEntity = m.asName != null;
+                    return _Bubble(
+                      message: m,
+                      mine: mine,
+                      showName: (showName || showEntity) && !mine,
+                      senderName: showEntity ? m.asName : sender?.username,
+                      avatarUrl: showEntity ? m.asLogo : sender?.avatarUrl,
+                      showAvatar: !mine && ((conv?.isMeet ?? false) || showEntity),
+                      host: host && !showEntity,
+                    );
                   },
                 );
               },
             ),
           ),
-          Container(
-            decoration: const BoxDecoration(color: AppColors.bg, border: Border(top: BorderSide(color: AppColors.border, width: 0.5))),
-            child: SafeArea(
-              top: false,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
-                child: ValueListenableBuilder<TextEditingValue>(
-                  valueListenable: _text,
-                  builder: (_, v, _) {
-                    final typing = v.text.trim().isNotEmpty;
-                    return Row(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        // camera, Instagram-style, on the left
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 2),
-                          child: Material(
-                            color: AppColors.brand,
-                            shape: const CircleBorder(),
-                            child: InkWell(
-                              customBorder: const CircleBorder(),
-                              onTap: _sending ? null : _cameraMenu,
-                              child: const SizedBox(width: 40, height: 40, child: Icon(AppIcons.camera, color: Colors.white, size: 20)),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: _recording
-                              ? RecordingBar(elapsed: _elapsed, cancelling: _cancelling)
-                              : TextField(
-                            controller: _text,
-                            minLines: 1,
-                            maxLines: 5,
-                            textCapitalization: TextCapitalization.sentences,
-                            decoration: InputDecoration(
-                              hintText: 'Message…',
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(22), borderSide: const BorderSide(color: AppColors.border)),
-                              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(22), borderSide: const BorderSide(color: AppColors.border)),
-                              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(22), borderSide: const BorderSide(color: AppColors.textMuted)),
-                              suffixIcon: typing
-                                  ? null
-                                  : Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        IconButton(tooltip: 'Photo or video', visualDensity: VisualDensity.compact, icon: const Icon(AppIcons.image, size: 22), onPressed: _sending ? null : _galleryMenu),
-                                        IconButton(tooltip: 'Sticker', visualDensity: VisualDensity.compact, icon: const Icon(AppIcons.smiley, size: 22), onPressed: _sending ? null : _sticker),
-                                        IconButton(tooltip: 'Attach a meet, spot or car', visualDensity: VisualDensity.compact, icon: const Icon(AppIcons.plusCircle, size: 22), onPressed: _sending ? null : _attach),
-                                        const SizedBox(width: 4),
-                                      ],
-                                    ),
-                            ),
-                            onSubmitted: (_) => _send(),
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        if (typing || _sending)
-                          IconButton(
-                            icon: _sending
-                                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                                : const Icon(AppIcons.paperPlaneTiltFill, color: AppColors.primary),
-                            onPressed: _sending ? null : _send,
-                          )
-                        else
-                          // hold to record, slide left to cancel
-                          GestureDetector(
-                            onLongPressStart: (_) => _startRecording(),
-                            onLongPressMoveUpdate: (d) {
-                              _dragX = d.offsetFromOrigin.dx;
-                              final c = _dragX < -80;
-                              if (c != _cancelling) setState(() => _cancelling = c);
-                            },
-                            onLongPressEnd: (_) => _stopRecording(send: !_cancelling),
-                            onLongPressCancel: () => _stopRecording(send: false),
-                            onTap: () => ScaffoldMessenger.of(context)
-                              ..hideCurrentSnackBar()
-                              ..showSnackBar(const SnackBar(content: Text('Hold the mic to record a voice note.'), duration: Duration(seconds: 2))),
-                            child: Padding(
-                              padding: const EdgeInsets.only(bottom: 2),
-                              child: Material(
-                                color: _recording ? AppColors.brand : AppColors.surfaceGray,
-                                shape: const CircleBorder(),
-                                child: SizedBox(width: 40, height: 40, child: Icon(AppIcons.microphone, color: _recording ? Colors.white : AppColors.ink, size: 20)),
-                              ),
-                            ),
-                          ),
-                      ],
-                    );
-                  },
-                ),
-              ),
-            ),
+          ChatComposer(
+            controller: _text,
+            sending: _sending,
+            onSend: _send,
+            onPlus: _plus,
+            onCamera: _cameraMenu,
+            recording: _recording,
+            cancelling: _cancelling,
+            elapsed: _elapsed,
+            onRecordStart: _startRecording,
+            onRecordMove: (dx) {
+              _dragX = dx;
+              final c = _dragX < -80;
+              if (c != _cancelling) setState(() => _cancelling = c);
+            },
+            onRecordEnd: ({required bool send}) => _stopRecording(send: send),
           ),
         ],
       ),
@@ -412,13 +358,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 }
 
 class _Bubble extends StatelessWidget {
-  const _Bubble({required this.message, required this.mine, required this.showName, this.senderName, this.avatarUrl, required this.showAvatar});
+  const _Bubble({required this.message, required this.mine, required this.showName, this.senderName, this.avatarUrl, required this.showAvatar, this.host = false});
   final Message message;
   final bool mine;
   final bool showName;
   final String? senderName;
   final String? avatarUrl;
   final bool showAvatar;
+  final bool host;
 
   @override
   Widget build(BuildContext context) {
@@ -466,7 +413,24 @@ class _Bubble extends StatelessWidget {
       child: Column(
         crossAxisAlignment: mine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
         children: [
-          if (showName) Padding(padding: const EdgeInsets.only(left: 40, bottom: 2), child: Text(senderName ?? '', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary))),
+          if (showName)
+            Padding(
+              padding: const EdgeInsets.only(left: 40, bottom: 2),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(senderName ?? '', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                  if (host) ...[
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                      decoration: BoxDecoration(color: AppColors.brand, borderRadius: BorderRadius.circular(999)),
+                      child: const Text('HOST', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w800, letterSpacing: .5)),
+                    ),
+                  ],
+                ],
+              ),
+            ),
           Row(
             mainAxisAlignment: mine ? MainAxisAlignment.end : MainAxisAlignment.start,
             crossAxisAlignment: CrossAxisAlignment.end,
@@ -481,6 +445,57 @@ class _Bubble extends StatelessWidget {
   }
 }
 
+
+/// Top of a meet chat: who is hosting, when, where. Tap for the meet.
+class _HostingCard extends ConsumerWidget {
+  const _HostingCard({required this.eventId, required this.me});
+  final String eventId;
+  final String? me;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final d = ref.watch(eventDetailProvider(eventId)).value;
+    if (d == null) return const SizedBox.shrink();
+    final e = d.event;
+    final hosting = e.organizerId == me;
+    final who = hosting ? 'You\'re hosting' : 'Hosted by ${e.vendorName ?? d.organizer?.displayName ?? d.organizer?.username ?? 'the organiser'}';
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+      child: Material(
+        color: AppColors.surfaceGray,
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: () => context.push(Routes.event(e.id)),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+            child: Row(
+              children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: const BoxDecoration(color: AppColors.ink, shape: BoxShape.circle),
+                  child: const Icon(AppIcons.starFill, color: Colors.white, size: 16),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(who, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+                      Text('${formatTime(e.startsAt)} · ${e.venueName}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
+                    ],
+                  ),
+                ),
+                const Icon(AppIcons.caretRight, size: 16, color: AppColors.textMuted),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 /// A shared post inside a bubble: cover, title line, tap to open.
 class _SharedPost extends ConsumerWidget {

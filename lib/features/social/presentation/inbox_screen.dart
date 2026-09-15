@@ -17,6 +17,7 @@ import '../../auth/domain/profile.dart';
 import '../application/chat_providers.dart';
 import '../domain/chat.dart';
 import '../application/notification_providers.dart';
+import '../../accounts/application/active_account.dart';
 import 'activity_screen.dart';
 import 'widgets/chat_media.dart' show fmtMs;
 
@@ -29,6 +30,15 @@ class InboxScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final unreadChats = ref.watch(unreadMessagesProvider).value ?? 0;
     final unreadActivity = ref.watch(unreadNotificationsProvider).value ?? 0;
+    final account = ref.watch(activeAccountProvider);
+    final entityName = switch (account) { ClubAccount(:final club) => club.name, PartnerAccount(:final vendor) => vendor.name, _ => null };
+    if (entityName != null) {
+      // Club / partner inbox: only this account's chats, no personal friends.
+      return Scaffold(
+        appBar: AppBar(automaticallyImplyLeading: false, title: Text('$entityName · Chats')),
+        body: const _ChatList(entity: true),
+      );
+    }
     return DefaultTabController(
       length: 2,
       child: Scaffold(
@@ -80,12 +90,14 @@ class _TabLabel extends StatelessWidget {
 }
 
 class _ChatList extends ConsumerWidget {
-  const _ChatList();
+  const _ChatList({this.entity = false});
+  /// A club or partner inbox: no friends strip, no "not chatted yet".
+  final bool entity;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final inbox = ref.watch(inboxProvider);
-    final friends = ref.watch(friendsProvider).value ?? const <Profile>[];
+    final friends = entity ? const <Profile>[] : (ref.watch(friendsProvider).value ?? const <Profile>[]);
     final pins = ref.watch(friendPinsProvider).value ?? const <FriendPin>[];
     final live = {for (final p in pins) p.user.id: p};
     // Friends on the map first, then the rest.
@@ -121,13 +133,15 @@ class _ChatList extends ConsumerWidget {
               if (list.isEmpty && friends.isEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 40),
-                  child: EmptyState(
-                    art: AppArt.speech,
-                    title: 'No messages yet',
-                    subtitle: 'Add friends first. Then message them here, or chat in a meet\'s group.',
-                    actionLabel: 'Add friends',
-                    onAction: () => context.push(Routes.friends),
-                  ),
+                  child: entity
+                      ? const EmptyState(art: AppArt.speech, title: 'No chats yet', subtitle: 'Members who message this account, and the group chats of events it hosts, show up here.')
+                      : EmptyState(
+                          art: AppArt.speech,
+                          title: 'No messages yet',
+                          subtitle: 'Add friends first. Then message them here, or chat in a meet\'s group.',
+                          actionLabel: 'Add friends',
+                          onAction: () => context.push(Routes.friends),
+                        ),
                 ),
               if (chats.any((c) => c.pinned)) const _Section('PINNED'),
               for (final c in chats.where((c) => c.pinned)) _SwipeRow(c: c, child: _ChatTile(c: c)),
@@ -311,7 +325,7 @@ class _ChatTile extends StatelessWidget {
                     : Image.network(c.eventCover!, fit: BoxFit.cover, errorBuilder: (_, _, _) => const ColoredBox(color: AppColors.surfaceGray)),
               ),
             )
-          : UserAvatar(url: c.other?.avatarUrl, name: c.other?.displayName ?? c.other?.username, size: 48),
+          : UserAvatar(url: c.avatarUrl, name: c.title, size: 48),
       title: Row(
         children: [
           Flexible(child: Text(c.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontWeight: c.unread > 0 ? FontWeight.w700 : FontWeight.w600))),

@@ -3,18 +3,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/router/app_router.dart';
-import '../../../core/supabase/supabase_client.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/dates.dart';
 import '../../../core/utils/friendly_error.dart';
-import '../../../core/widgets/user_avatar.dart';
 import '../../accounts/presentation/account_switcher.dart';
 import '../../accounts/presentation/account_title.dart';
 import '../application/admin_providers.dart';
 
-/// The admin account's home: numbers, queues, reports, members, platform
-/// settings. Only shown when the signed-in profile is an admin.
+/// Admin · Dashboard: the numbers, what needs a decision, platform settings.
+/// Same light theme as the rest of the app. Members and Queues have their
+/// own tabs.
 class AdminDashboardScreen extends ConsumerWidget {
   const AdminDashboardScreen({super.key, this.embedded = false});
   final bool embedded;
@@ -27,17 +26,12 @@ class AdminDashboardScreen extends ConsumerWidget {
     final open = reports.where((r) => r.resolvedAt == null).toList();
 
     return Scaffold(
-      backgroundColor: AppColors.ink,
       appBar: AppBar(
-        backgroundColor: AppColors.ink,
-        foregroundColor: Colors.white,
         automaticallyImplyLeading: false,
         centerTitle: !embedded,
         titleSpacing: embedded ? 16 : null,
         leading: embedded ? null : IconButton(icon: const Icon(AppIcons.arrowLeft), onPressed: () => context.pop()),
-        title: embedded
-            ? DefaultTextStyle(style: const TextStyle(color: Colors.white), child: AccountTitle(text: 'TT Spot Admin', onTap: () => showAccountSwitcher(context, ref)))
-            : const Text('TT Spot Admin'),
+        title: embedded ? AccountTitle(text: 'TT Spot Admin', onTap: () => showAccountSwitcher(context, ref)) : const Text('TT Spot Admin'),
         actions: [
           IconButton(
             tooltip: 'Refresh',
@@ -47,17 +41,17 @@ class AdminDashboardScreen extends ConsumerWidget {
               ref.invalidate(adminReportsProvider);
               ref.invalidate(adminUsersProvider);
               ref.invalidate(platformSettingsProvider);
+              ref.invalidate(adminSuggestionsProvider);
             },
           ),
         ],
       ),
       body: stats.when(
-        loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
-        error: (e, _) => Center(child: Text(friendlyError(e), style: const TextStyle(color: Colors.white70))),
+        loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+        error: (e, _) => Center(child: Text(friendlyError(e))),
         data: (s) => ListView(
           padding: const EdgeInsets.only(bottom: 40),
           children: [
-            // ---- numbers
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
               child: GridView.count(
@@ -78,21 +72,17 @@ class AdminDashboardScreen extends ConsumerWidget {
               ),
             ),
 
-            // ---- queues
-            const _Head('QUEUES'),
+            const _Head('NEEDS A DECISION'),
             _Queue(icon: AppIcons.sealCheck, title: 'Spot photo reviews', count: s['pending_verifications'], onTap: () => context.push(Routes.adminReview)),
             _Queue(icon: AppIcons.handshake, title: 'Partner & club applications', count: s['pending_partners'], onTap: () => context.push(Routes.adminPartners)),
-            _Queue(icon: AppIcons.mapPinPlus, title: 'Spot suggestions', count: s['pending_suggestions'], onTap: () => _showSuggestions(context, ref)),
-            _Queue(icon: AppIcons.flag, title: 'Reports', count: s['open_reports'], onTap: () => _showReports(context, ref)),
-            _Queue(icon: AppIcons.chartBar, title: 'Commission report', count: null, onTap: () => context.push(Routes.adminCommission)),
+            _Queue(icon: AppIcons.mapPinPlus, title: 'Spot suggestions', count: s['pending_suggestions'], onTap: () => showSuggestionsSheet(context)),
+            _Queue(icon: AppIcons.flag, title: 'Open reports', count: s['open_reports'], onTap: () => showReportsSheet(context)),
 
-            // ---- open reports inline (first three)
             if (open.isNotEmpty) ...[
               const _Head('LATEST REPORTS'),
               for (final r in open.take(3)) _ReportTile(r: r),
             ],
 
-            // ---- platform settings
             const _Head('PLATFORM'),
             _SettingTile(
               title: 'Commission rate',
@@ -109,10 +99,7 @@ class AdminDashboardScreen extends ConsumerWidget {
               value: '${s['vendors']} active partners · ${s['clubs']} clubs',
               onTap: () => context.push(Routes.adminPartners),
             ),
-
-            // ---- members
-            const _Head('MEMBERS'),
-            const _Members(),
+            _SettingTile(title: 'Commission report', value: 'Per partner, per month', onTap: () => context.push(Routes.adminCommission)),
           ],
         ),
       ),
@@ -141,62 +128,64 @@ class AdminDashboardScreen extends ConsumerWidget {
       if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
     }
   }
+}
 
-  Future<void> _showSuggestions(BuildContext context, WidgetRef ref) {
-    return showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      isScrollControlled: true,
-      builder: (_) => Consumer(
-        builder: (ctx, ref, _) {
-          final list = ref.watch(adminSuggestionsProvider).value ?? const <AdminSuggestion>[];
-          return SafeArea(
-            child: SizedBox(
-              height: MediaQuery.sizeOf(ctx).height * 0.8,
-              child: Column(
-                children: [
-                  const Padding(padding: EdgeInsets.fromLTRB(20, 0, 20, 8), child: Text('Spot suggestions', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800))),
-                  Expanded(
-                    child: list.isEmpty
-                        ? const Center(child: Text('Nothing waiting.', style: TextStyle(color: AppColors.textSecondary)))
-                        : ListView(children: [for (final g in list) _SuggestionTile(g: g)]),
-                  ),
-                ],
-              ),
+/// Member suggestions waiting for approval, as a sheet (used from the
+/// dashboard and the Queues tab).
+Future<void> showSuggestionsSheet(BuildContext context) {
+  return showModalBottomSheet<void>(
+    context: context,
+    showDragHandle: true,
+    isScrollControlled: true,
+    builder: (_) => Consumer(
+      builder: (ctx, ref, _) {
+        final list = ref.watch(adminSuggestionsProvider).value ?? const <AdminSuggestion>[];
+        return SafeArea(
+          child: SizedBox(
+            height: MediaQuery.sizeOf(ctx).height * 0.8,
+            child: Column(
+              children: [
+                const Padding(padding: EdgeInsets.fromLTRB(20, 0, 20, 8), child: Text('Spot suggestions', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800))),
+                Expanded(
+                  child: list.isEmpty
+                      ? const Center(child: Text('Nothing waiting.', style: TextStyle(color: AppColors.textSecondary)))
+                      : ListView(children: [for (final g in list) _SuggestionTile(g: g)]),
+                ),
+              ],
             ),
-          );
-        },
-      ),
-    );
-  }
+          ),
+        );
+      },
+    ),
+  );
+}
 
-  Future<void> _showReports(BuildContext context, WidgetRef ref) {
-    return showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      isScrollControlled: true,
-      builder: (_) => Consumer(
-        builder: (ctx, ref, _) {
-          final list = ref.watch(adminReportsProvider).value ?? const <AdminReport>[];
-          return SafeArea(
-            child: SizedBox(
-              height: MediaQuery.sizeOf(ctx).height * 0.8,
-              child: Column(
-                children: [
-                  const Padding(padding: EdgeInsets.fromLTRB(20, 0, 20, 8), child: Text('Reports', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800))),
-                  Expanded(
-                    child: list.isEmpty
-                        ? const Center(child: Text('No reports. Nice.', style: TextStyle(color: AppColors.textSecondary)))
-                        : ListView(children: [for (final r in list) _ReportTile(r: r, light: true)]),
-                  ),
-                ],
-              ),
+Future<void> showReportsSheet(BuildContext context) {
+  return showModalBottomSheet<void>(
+    context: context,
+    showDragHandle: true,
+    isScrollControlled: true,
+    builder: (_) => Consumer(
+      builder: (ctx, ref, _) {
+        final list = ref.watch(adminReportsProvider).value ?? const <AdminReport>[];
+        return SafeArea(
+          child: SizedBox(
+            height: MediaQuery.sizeOf(ctx).height * 0.8,
+            child: Column(
+              children: [
+                const Padding(padding: EdgeInsets.fromLTRB(20, 0, 20, 8), child: Text('Reports', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800))),
+                Expanded(
+                  child: list.isEmpty
+                      ? const Center(child: Text('No reports. Nice.', style: TextStyle(color: AppColors.textSecondary)))
+                      : ListView(children: [for (final r in list) _ReportTile(r: r)]),
+                ),
+              ],
             ),
-          );
-        },
-      ),
-    );
-  }
+          ),
+        );
+      },
+    ),
+  );
 }
 
 class _Stat extends StatelessWidget {
@@ -208,15 +197,15 @@ class _Stat extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-        decoration: BoxDecoration(color: accent ? AppColors.brand : const Color(0xFF1E1E1E), borderRadius: BorderRadius.circular(14)),
+        decoration: BoxDecoration(color: accent ? AppColors.brand : AppColors.surfaceGray, borderRadius: BorderRadius.circular(14)),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text('$value', style: const TextStyle(fontFamily: AppFonts.display, color: Colors.white, fontSize: 30, fontWeight: FontWeight.w700, height: 1)),
+            Text('$value', style: TextStyle(fontFamily: AppFonts.display, color: accent ? Colors.white : AppColors.textPrimary, fontSize: 30, fontWeight: FontWeight.w700, height: 1)),
             const SizedBox(height: 4),
-            Text(label, style: const TextStyle(color: Colors.white70, fontSize: 11.5, fontWeight: FontWeight.w600)),
-            if (sub != null) Text(sub!, style: const TextStyle(color: Colors.white54, fontSize: 10.5)),
+            Text(label, style: TextStyle(color: accent ? Colors.white70 : AppColors.textSecondary, fontSize: 11.5, fontWeight: FontWeight.w600)),
+            if (sub != null) Text(sub!, style: TextStyle(color: accent ? Colors.white60 : AppColors.textMuted, fontSize: 10.5)),
           ],
         ),
       );
@@ -227,8 +216,8 @@ class _Head extends StatelessWidget {
   final String text;
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.fromLTRB(20, 22, 20, 8),
-        child: Text(text, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, letterSpacing: 1, color: Colors.white54)),
+        padding: const EdgeInsets.fromLTRB(20, 22, 20, 6),
+        child: Text(text, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, letterSpacing: 1, color: AppColors.textSecondary)),
       );
 }
 
@@ -240,33 +229,30 @@ class _Queue extends StatelessWidget {
   final VoidCallback onTap;
   @override
   Widget build(BuildContext context) => ListTile(
-        leading: Icon(icon, color: Colors.white),
-        title: Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+        leading: Icon(icon, color: AppColors.textPrimary),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14.5)),
         trailing: count == null
-            ? const Icon(AppIcons.caretRight, size: 16, color: Colors.white38)
+            ? const Icon(AppIcons.caretRight, size: 16, color: AppColors.textMuted)
             : Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(color: count! > 0 ? AppColors.brand : const Color(0xFF2A2A2A), borderRadius: BorderRadius.circular(999)),
-                child: Text('$count', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 12.5)),
+                decoration: BoxDecoration(color: count! > 0 ? AppColors.brand : AppColors.surfaceGray, borderRadius: BorderRadius.circular(999)),
+                child: Text('$count', style: TextStyle(color: count! > 0 ? Colors.white : AppColors.textSecondary, fontWeight: FontWeight.w800, fontSize: 12.5)),
               ),
         onTap: onTap,
       );
 }
 
 class _ReportTile extends ConsumerWidget {
-  const _ReportTile({required this.r, this.light = false});
+  const _ReportTile({required this.r});
   final AdminReport r;
-  final bool light;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final fg = light ? AppColors.textPrimary : Colors.white;
-    final fg2 = light ? AppColors.textSecondary : Colors.white60;
     final done = r.resolvedAt != null;
     return ListTile(
       leading: Icon(done ? AppIcons.checkCircle : AppIcons.flag, color: done ? AppColors.success : AppColors.brand),
-      title: Text('${r.targetType}: ${r.targetLabel ?? r.targetId.substring(0, 8)}', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: fg, fontWeight: FontWeight.w600)),
-      subtitle: Text('${r.reason}\nby @${r.reporterUsername} · ${timeAgo(r.createdAt)}', style: TextStyle(color: fg2, fontSize: 12, height: 1.3)),
+      title: Text('${r.targetType}: ${r.targetLabel ?? r.targetId.substring(0, 8)}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600)),
+      subtitle: Text('${r.reason}\nby @${r.reporterUsername} · ${timeAgo(r.createdAt)}', style: const TextStyle(fontSize: 12, height: 1.3, color: AppColors.textSecondary)),
       isThreeLine: true,
       trailing: done
           ? null
@@ -356,69 +342,9 @@ class _SettingTile extends StatelessWidget {
   final VoidCallback onTap;
   @override
   Widget build(BuildContext context) => ListTile(
-        title: Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-        subtitle: Text(value, style: const TextStyle(color: Colors.white60, fontSize: 12.5)),
-        trailing: const Icon(AppIcons.pencilSimple, size: 18, color: Colors.white38),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14.5)),
+        subtitle: Text(value, style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
+        trailing: const Icon(AppIcons.caretRight, size: 16, color: AppColors.textMuted),
         onTap: onTap,
       );
-}
-
-class _Members extends ConsumerWidget {
-  const _Members();
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final users = ref.watch(adminUsersProvider);
-    final me = ref.watch(currentUserIdProvider);
-    return users.when(
-      loading: () => const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))),
-      error: (e, _) => Padding(padding: const EdgeInsets.all(16), child: Text(friendlyError(e), style: const TextStyle(color: Colors.white70))),
-      data: (list) => Column(
-        children: [
-          for (final u in list)
-            ListTile(
-              leading: UserAvatar(url: u.avatarUrl, name: u.displayName ?? u.username, size: 40),
-              title: Row(
-                children: [
-                  Flexible(child: Text(u.displayName ?? '@${u.username}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600))),
-                  if (u.isAdmin) const Padding(padding: EdgeInsets.only(left: 6), child: Icon(AppIcons.shieldCheck, size: 14, color: AppColors.brand)),
-                  if (u.clubOwner) const Padding(padding: EdgeInsets.only(left: 4), child: Icon(AppIcons.crown, size: 14, color: AppColors.warnColor)),
-                ],
-              ),
-              subtitle: Text(
-                '@${u.username}${u.phone == null ? '' : ' · ${u.phone}'} · ${u.cars} car${u.cars == 1 ? '' : 's'} · joined ${u.createdAt.day}/${u.createdAt.month}/${u.createdAt.year % 100}${u.lastSeen == null ? '' : ' · seen ${timeAgo(u.lastSeen!)}'}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: Colors.white60, fontSize: 12),
-              ),
-              trailing: u.id == me
-                  ? null
-                  : PopupMenuButton<String>(
-                      iconColor: Colors.white54,
-                      onSelected: (v) async {
-                        final a = ref.read(adminActionsProvider);
-                        try {
-                          switch (v) {
-                            case 'admin':
-                              await a.setRole(u.id, admin: !u.isAdmin);
-                            case 'club':
-                              await a.setRole(u.id, clubOwner: !u.clubOwner);
-                            case 'profile':
-                              if (context.mounted) context.push(Routes.profile(u.id));
-                          }
-                        } catch (e) {
-                          if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
-                        }
-                      },
-                      itemBuilder: (_) => [
-                        const PopupMenuItem(value: 'profile', child: Text('Open profile')),
-                        PopupMenuItem(value: 'club', child: Text(u.clubOwner ? 'Remove club owner' : 'Make club owner')),
-                        PopupMenuItem(value: 'admin', child: Text(u.isAdmin ? 'Remove admin' : 'Make admin')),
-                      ],
-                    ),
-              onTap: () => context.push(Routes.profile(u.id)),
-            ),
-        ],
-      ),
-    );
-  }
 }

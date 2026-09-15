@@ -124,6 +124,7 @@ class _DmInfo extends ConsumerWidget {
         ],
         const _Section('THIS CHAT'),
         _PinTile(conv: conv),
+        _MuteTile(conv: conv),
         ListTile(
           leading: const Icon(AppIcons.trash, color: AppColors.danger),
           title: const Text('Delete chat', style: TextStyle(color: AppColors.danger, fontWeight: FontWeight.w600)),
@@ -209,13 +210,14 @@ class _MeetInfo extends ConsumerWidget {
             leading: UserAvatar(url: m.avatarUrl, name: m.displayName ?? m.username, size: 40),
             title: Text(m.id == me ? 'You' : (m.displayName ?? '@${m.username}'), style: const TextStyle(fontWeight: FontWeight.w600)),
             subtitle: Text(
-              m.id == event?.organizerId ? '@${m.username ?? ''} · organiser' : '@${m.username ?? ''}',
+              m.id == event?.organizerId ? '@${m.username ?? ''} · HOST' : '@${m.username ?? ''}',
               style: TextStyle(fontSize: 12, color: m.id == event?.organizerId ? AppColors.brand : AppColors.textSecondary),
             ),
             trailing: m.id == me ? null : const Icon(AppIcons.caretRight, size: 16, color: AppColors.textMuted),
             onTap: m.id == me ? null : () => context.push(Routes.profile(m.id)),
           ),
         const _Section('THIS CHAT'),
+        _MuteTile(conv: conv),
         _PinTile(conv: conv),
         ListTile(
           leading: const Icon(AppIcons.trash, color: AppColors.danger),
@@ -235,6 +237,25 @@ class _MeetInfo extends ConsumerWidget {
 }
 
 // --------------------------------------------------------------- pieces ---
+
+class _MuteTile extends ConsumerWidget {
+  const _MuteTile({required this.conv});
+  final Conversation conv;
+  @override
+  Widget build(BuildContext context, WidgetRef ref) => SwitchListTile(
+        secondary: Icon(conv.muted ? AppIcons.bellSlash : AppIcons.bell, color: AppColors.textPrimary),
+        title: const Text('Mute', style: TextStyle(fontWeight: FontWeight.w600)),
+        subtitle: const Text('No badge for new messages here', style: TextStyle(fontSize: 12)),
+        value: conv.muted,
+        onChanged: (v) async {
+          try {
+            await ref.read(chatActionsProvider).setMute(conv.id, v);
+          } catch (e) {
+            if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
+          }
+        },
+      );
+}
 
 /// Posts and moments sent in this chat, as a row of thumbnails.
 class _SharedStrip extends ConsumerWidget {

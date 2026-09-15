@@ -15,6 +15,7 @@ import '../../accounts/presentation/account_switcher.dart';
 import '../../accounts/presentation/account_title.dart';
 import '../../auth/domain/profile.dart';
 import '../../friends/application/friends_providers.dart';
+import '../application/chat_providers.dart';
 import '../application/community_providers.dart';
 import '../application/social_providers.dart';
 import '../domain/club.dart';
@@ -93,7 +94,7 @@ class ClubScreen extends ConsumerWidget {
                             ? PrimaryButton(label: 'Invite members', onPressed: () => _invite(context, ref, c))
                             : isMember
                                 ? SecondaryButton(label: 'Member', icon: AppIcons.checkCircle, onPressed: () => _leave(context, ref))
-                                : SecondaryButton(label: 'Invite only', icon: AppIcons.lock, onPressed: null),
+                                : SecondaryButton(label: 'Message club', icon: AppIcons.chatCircle, onPressed: () => _messageClub(context, ref)),
                       ),
                       const SizedBox(width: 8),
                       Expanded(
@@ -227,6 +228,15 @@ class ClubScreen extends ConsumerWidget {
         case 'remove':
           await actions.removeClubMember(clubId, m.id);
       }
+    } catch (e) {
+      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
+    }
+  }
+
+  Future<void> _messageClub(BuildContext context, WidgetRef ref) async {
+    try {
+      final id = await ref.read(chatActionsProvider).openClubDm(clubId);
+      if (context.mounted) context.push(Routes.chat(id));
     } catch (e) {
       if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
     }

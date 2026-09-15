@@ -21,6 +21,16 @@ import '../../../friends/application/friends_providers.dart';
 import '../../../social/application/chat_providers.dart';
 import '../../application/map_providers.dart';
 
+/// The place picked in the sheet last time, so closing and reopening (and the
+/// map pill) keep it while you're still near it.
+class TtPlaceNotifier extends Notifier<PlaceDetails?> {
+  @override
+  PlaceDetails? build() => null;
+  void set(PlaceDetails? p) => state = p;
+}
+
+final ttPlaceProvider = NotifierProvider<TtPlaceNotifier, PlaceDetails?>(TtPlaceNotifier.new);
+
 /// "TT now": where (prefilled), how long (1 h default), who (all friends
 /// ticked). Start makes the meet and drops an invite card in each ticked
 /// friend's chat.
@@ -79,6 +89,7 @@ class _TtNowSheetState extends ConsumerState<_TtNowSheet> {
           _changing = false;
           _around = const [];
         });
+        ref.read(ttPlaceProvider.notifier).set(_picked);
       } else {
         setState(() {
           _around = list;
@@ -86,6 +97,7 @@ class _TtNowSheetState extends ConsumerState<_TtNowSheet> {
           _venue.text = list.first.name;
           _changing = false;
         });
+        ref.read(ttPlaceProvider.notifier).set(_picked);
       }
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
@@ -104,6 +116,7 @@ class _TtNowSheetState extends ConsumerState<_TtNowSheet> {
       _changing = false;
       _around = const [];
     });
+    ref.read(ttPlaceProvider.notifier).set(_picked);
   }
 
   Future<void> _customDuration() async {
@@ -185,7 +198,13 @@ class _TtNowSheetState extends ConsumerState<_TtNowSheet> {
     final liveIds = {for (final p in pins) if (p.isFresh) p.user.id};
     // Auto-fill with the nearest named place + street address from GPS.
     final nearby = here == null ? null : ref.watch(nearbyPlacesProvider(placeKey(here.latitude, here.longitude))).value;
-    if (!_prefilled && nearby != null && nearby.isNotEmpty) {
+    final remembered = ref.read(ttPlaceProvider);
+    if (!_prefilled && remembered != null && here != null && distanceKm(here, LatLng(remembered.lat, remembered.lng)) < 1.0) {
+      _picked = remembered;
+      _venue.text = remembered.name;
+      _around = nearby ?? const [];
+      _prefilled = true;
+    } else if (!_prefilled && nearby != null && nearby.isNotEmpty) {
       _around = nearby;
       _picked = nearby.first;
       _venue.text = nearby.first.name;
@@ -218,11 +237,14 @@ class _TtNowSheetState extends ConsumerState<_TtNowSheet> {
                 onChanged: (_) {
                   if (_picked != null) setState(() => _picked = null);
                 },
-                onPicked: (d) => setState(() {
-                  _picked = d;
-                  _venue.text = d.name;
-                  _changing = false;
-                }),
+                onPicked: (d) {
+                  setState(() {
+                    _picked = d;
+                    _venue.text = d.name;
+                    _changing = false;
+                  });
+                  ref.read(ttPlaceProvider.notifier).set(d);
+                },
               )
             else
               Container(
@@ -270,10 +292,23 @@ class _TtNowSheetState extends ConsumerState<_TtNowSheet> {
               ),
             ],
             if (_around.length > 1) ...[
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  const Text('ALSO NEAR YOU', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1, color: AppColors.textSecondary)),
+                  const Spacer(),
+                  Text('swipe for more', style: TextStyle(fontSize: 11, color: AppColors.textMuted, fontWeight: FontWeight.w600)),
+                  const SizedBox(width: 2),
+                  const Icon(AppIcons.caretRight, size: 12, color: AppColors.textMuted),
+                ],
+              ),
+              const SizedBox(height: 6),
               SizedBox(
                 height: 34,
-                child: ListView(
+                child: ShaderMask(
+                  shaderCallback: (r) => const LinearGradient(colors: [Colors.white, Colors.white, Colors.transparent], stops: [0, 0.85, 1]).createShader(r),
+                  blendMode: BlendMode.dstIn,
+                  child: ListView(
                   scrollDirection: Axis.horizontal,
                   children: [
                     for (final p in _around)
@@ -284,13 +319,18 @@ class _TtNowSheetState extends ConsumerState<_TtNowSheet> {
                           selected: _picked?.placeId == p.placeId,
                           showCheckmark: false,
                           visualDensity: VisualDensity.compact,
-                          onSelected: (_) => setState(() {
-                            _picked = p;
-                            _venue.text = p.name;
-                          }),
+                          onSelected: (_) {
+                            setState(() {
+                              _picked = p;
+                              _venue.text = p.name;
+                            });
+                            ref.read(ttPlaceProvider.notifier).set(p);
+                          },
                         ),
                       ),
+                    const SizedBox(width: 40),
                   ],
+                ),
                 ),
               ),
             ],

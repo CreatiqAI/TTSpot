@@ -18,6 +18,7 @@ import '../../auth/data/auth_repository.dart';
 import '../../auth/domain/profile.dart';
 import '../../friends/application/friends_providers.dart';
 import '../../friends/domain/friend.dart';
+import '../../map/presentation/widgets/car_marker.dart';
 import '../../points/application/points_providers.dart';
 import '../../safety/data/safety_repository.dart';
 import '../../safety/presentation/report_sheet.dart';
@@ -405,6 +406,61 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }
   }
 
+  Future<void> _pickColour(BuildContext context, Profile p) async {
+    final current = ref.read(friendTagsProvider).value?[p.id];
+    final picked = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('${p.displayName ?? '@${p.username}'} on the map', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+              const SizedBox(height: 4),
+              const Text('Their car and dot show in this colour, only for you.', style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  for (final e in kTagColors.entries)
+                    GestureDetector(
+                      onTap: () => Navigator.pop(ctx, e.key),
+                      child: Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(color: e.value, shape: BoxShape.circle, border: Border.all(color: current == e.key ? AppColors.ink : Colors.transparent, width: 3)),
+                        child: current == e.key ? const Icon(AppIcons.check, color: Colors.white, size: 20) : null,
+                      ),
+                    ),
+                  GestureDetector(
+                    onTap: () => Navigator.pop(ctx, ''),
+                    child: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: AppColors.border, width: 2)),
+                      child: const Icon(AppIcons.x, size: 18, color: AppColors.textSecondary),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (picked == null) return;
+    try {
+      await ref.read(friendActionsProvider).setTag(p.id, picked.isEmpty ? null : picked);
+      if (context.mounted) _snack(picked.isEmpty ? 'Back to the default colour.' : 'Colour saved.');
+    } catch (e) {
+      if (context.mounted) _snack(friendlyError(e));
+    }
+  }
+
   Future<void> _otherMenu(BuildContext context, Profile p, bool blocked) async {
     final action = await showModalBottomSheet<String>(
       context: context,
@@ -413,6 +469,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (ref.read(friendIdsProvider).contains(p.id))
+              ListTile(leading: const Icon(AppIcons.mapPin), title: const Text('Colour on the map'), subtitle: const Text('Pick a colour so you spot them fast', style: TextStyle(fontSize: 12)), onTap: () => Navigator.pop(ctx, 'colour')),
             ListTile(leading: const Icon(AppIcons.flag), title: const Text('Report profile'), onTap: () => Navigator.pop(ctx, 'report')),
             ListTile(
               leading: Icon(blocked ? AppIcons.checkCircle : AppIcons.prohibit, color: AppColors.danger),
@@ -427,6 +485,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     if (!context.mounted || action == null) return;
     final name = p.displayName ?? '@${p.username}';
     switch (action) {
+      case 'colour':
+        await _pickColour(context, p);
       case 'report':
         await showReportSheet(context, target: ReportTarget.profile, targetId: p.id);
       case 'block':

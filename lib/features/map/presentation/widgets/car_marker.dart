@@ -115,8 +115,9 @@ class CarMarkerFactory {
     bool showFace = true,
     bool dim = false,
     bool me = false,
+    Color? relation,
   }) async {
-    final k = 'car|$key|$colorKey|$name|$status|${headingDeg.round()}|$faceUrl|$showFace|$dim|$me';
+    final k = 'car|$key|$colorKey|$name|$status|${headingDeg.round()}|$faceUrl|$showFace|$dim|$me|${relation?.toARGB32()}';
     final cached = _cache[k];
     if (cached != null) return cached;
 
@@ -124,7 +125,7 @@ class CarMarkerFactory {
     const carSize = 58.0, faceSize = 22.0, gap = 2.0;
     final label = pins.text(name.length > 14 ? '${name.substring(0, 13)}…' : name, 11, FontWeight.w800, me ? Colors.white : const Color(0xFF101010));
     final st = status == null ? null : pins.text(status, 10.5, FontWeight.w700, statusColor);
-    final chipW = label.width + (st == null ? 0 : st.width + 5) + 16;
+    final chipW = label.width + (st == null ? 0 : st.width + 5) + 16 + (relation != null && !me ? 11 : 0);
     final chipH = label.height + 7;
     final totalW = math.max(carSize + 16, chipW) + 4;
     final totalH = carSize + gap + chipH + 8;
@@ -137,7 +138,8 @@ class CarMarkerFactory {
 
     if (showFace) {
       final fc = Offset(cx + carSize / 2 - 6, 4 + 8);
-      canvas.drawCircle(fc, faceSize / 2 + 2, Paint()..color = Colors.white);
+      canvas.drawCircle(fc, faceSize / 2 + 3.5, Paint()..color = relation ?? Colors.white);
+      canvas.drawCircle(fc, faceSize / 2 + 1.5, Paint()..color = Colors.white);
       canvas.save();
       canvas.clipPath(Path()..addOval(Rect.fromCircle(center: fc, radius: faceSize / 2)));
       if (face != null) {
@@ -156,6 +158,10 @@ class CarMarkerFactory {
     canvas.drawRRect(RRect.fromRectAndRadius(rect.shift(const Offset(0, 1.5)), const Radius.circular(8)), Paint()..color = Colors.black.withValues(alpha: 0.18));
     canvas.drawRRect(RRect.fromRectAndRadius(rect, const Radius.circular(8)), Paint()..color = me ? const Color(0xFF101010) : (dim ? const Color(0xFFF2F2F2) : Colors.white));
     var x = rect.left + 8;
+    if (relation != null && !me) {
+      canvas.drawCircle(Offset(x + 3, rect.center.dy), 3.5, Paint()..color = relation);
+      x += 11;
+    }
     label.paint(canvas, Offset(x, rect.top + 3.5));
     x += label.width + 5;
     st?.paint(canvas, Offset(x, rect.top + 4));
@@ -163,7 +169,42 @@ class CarMarkerFactory {
     final pin = await pins.finish(recorder, totalW, totalH, anchorY: carCentre.dy / totalH);
     return _cache[k] = pin;
   }
+
+  /// Far-zoom marker: a small dot in the relationship colour with a white ring.
+  Future<MapPin> dot({required String key, required Color color, bool me = false}) async {
+    final k = 'dot|$key|${color.toARGB32()}|$me';
+    final cached = _cache[k];
+    if (cached != null) return cached;
+    final size = me ? 18.0 : 14.0;
+    const pad = 4.0;
+    final total = size + pad * 2;
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder)..scale(devicePixelRatio);
+    final c = Offset(total / 2, total / 2);
+    canvas.drawCircle(c.translate(0, 1), size / 2 + 1, Paint()..color = Colors.black.withValues(alpha: 0.25)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2));
+    canvas.drawCircle(c, size / 2 + 2, Paint()..color = Colors.white);
+    canvas.drawCircle(c, size / 2, Paint()..color = color);
+    final pin = await pins.finish(recorder, total, total, anchorY: 0.5);
+    return _cache[k] = pin;
+  }
 }
+
+/// Colours you can give a friend on the map.
+const kTagColors = <String, Color>{
+  'red': Color(0xFFE00008),
+  'orange': Color(0xFFFF7A1A),
+  'yellow': Color(0xFFF5C518),
+  'green': Color(0xFF1DA750),
+  'blue': Color(0xFF2B7CFF),
+  'purple': Color(0xFFA855F7),
+  'pink': Color(0xFFEC4899),
+};
+
+/// Default colour per relationship, when no tag is set.
+const kRelationFriend = Color(0xFF2B7CFF);
+const kRelationClub = Color(0xFFA855F7);
+const kRelationStranger = Color(0xFF8A8A8A);
+const kRelationMe = Color(0xFFE00008);
 
 /// Convenience for the map: how to describe freshness on the chip.
 String freshnessLabel(DateTime updatedAt) {

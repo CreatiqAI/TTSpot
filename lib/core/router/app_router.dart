@@ -39,6 +39,8 @@ import '../../features/profile/presentation/car_mod_form_screen.dart';
 import '../../features/profile/presentation/edit_profile_screen.dart';
 import '../../features/profile/presentation/follow_list_screen.dart';
 import '../../features/accounts/presentation/me_tab.dart';
+import '../../features/settings/presentation/settings_screen.dart';
+import '../legal/legal_text.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/social/domain/post.dart';
 import '../../features/social/presentation/activity_screen.dart';
@@ -105,6 +107,10 @@ abstract final class Routes {
   static const newCar = '/car/new';
   static const search = '/search';
   static const saved = '/saved';
+  static const settings = '/settings';
+  static const blocked = '/settings/blocked';
+  static const privacy = '/settings/privacy';
+  static const terms = '/settings/terms';
   static const stories = '/stories';
   static const createStory = '/create/story';
   static const createClub = '/create/club';
@@ -254,6 +260,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: Routes.newAlbum, pageBuilder: (_, s) => page(s, AlbumEditorScreen(preselect: s.uri.queryParameters['with']))),
       GoRoute(path: Routes.myMoments, pageBuilder: (_, s) => page(s, const MyMomentsScreen())),
       GoRoute(path: '/me/albums/:id/edit', pageBuilder: (_, s) => page(s, AlbumEditorScreen(albumId: s.pathParameters['id']!))),
+      GoRoute(path: Routes.settings, pageBuilder: (_, s) => page(s, const SettingsScreen())),
+      GoRoute(path: Routes.blocked, pageBuilder: (_, s) => page(s, const BlockedScreen())),
+      GoRoute(path: Routes.privacy, pageBuilder: (_, s) => page(s, const LegalScreen(title: 'Privacy Policy', body: kPrivacyPolicy))),
+      GoRoute(path: Routes.terms, pageBuilder: (_, s) => page(s, const LegalScreen(title: 'Terms of Use', body: kTerms))),
       GoRoute(path: Routes.friends, pageBuilder: (_, s) => page(s, const FriendsScreen())),
       GoRoute(path: Routes.scan, pageBuilder: (_, s) => page(s, const ScanScreen())),
       GoRoute(path: Routes.myQr, pageBuilder: (_, s) => page(s, const MyQrScreen())),

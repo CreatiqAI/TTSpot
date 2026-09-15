@@ -11,6 +11,7 @@ class Profile {
     this.carCount,
     this.isAdmin = false,
     this.clubOwner = false,
+    this.settings = const {},
   });
 
   final String id;
@@ -25,6 +26,8 @@ class Profile {
   final bool isAdmin;
   /// Approved to start and run car clubs (admin-reviewed application).
   final bool clubOwner;
+  /// profiles.settings (see AppSettings).
+  final Map<String, dynamic> settings;
 
   /// Admins can run clubs without applying.
   bool get canRunClubs => clubOwner || isAdmin;
@@ -46,6 +49,7 @@ class Profile {
         carCount: _count(m['cars']),
         isAdmin: m['is_admin'] as bool? ?? false,
         clubOwner: m['club_owner'] as bool? ?? false,
+        settings: (m['settings'] as Map?)?.cast<String, dynamic>() ?? const {},
       );
 
   static int? _count(Object? embed) {
@@ -73,5 +77,6 @@ class Profile {
         carCount: carCount,
         isAdmin: isAdmin,
         clubOwner: clubOwner,
+        settings: settings,
       );
 }

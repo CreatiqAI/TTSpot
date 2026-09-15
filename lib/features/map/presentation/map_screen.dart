@@ -27,6 +27,7 @@ import 'widgets/map_pins.dart';
 import 'widgets/map_sheet.dart';
 import 'widgets/car_marker.dart';
 import 'widgets/visibility_sheet.dart';
+import '../../settings/application/settings_providers.dart';
 
 /// Home. One dark map, three time layers: Now (friends, live meets, moments),
 /// Upcoming (meets on the calendar) and Before (places with history).
@@ -77,9 +78,16 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
 
   /// Light map by day, dark after 7 pm.
   bool get _isNight {
+    final pref = ref.read(settingsProvider).mapTheme;
+    if (pref == 'light') return false;
+    if (pref == 'dark') return true;
     final h = DateTime.now().hour;
     return h >= 19 || h < 7;
   }
+
+  /// Below this zoom every car becomes a small dot.
+  static const _dotZoom = 12.5;
+  bool _farOut = false;
 
   void _paintCircles() {
     if (!mounted) return;
@@ -140,8 +148,14 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
       final map = _map;
       if (map == null || !mounted) return;
       final bounds = await map.getVisibleRegion();
+      final zoom = await map.getZoomLevel();
       if (!mounted) return;
       ref.read(mapViewportProvider.notifier).set(bounds);
+      final far = zoom < _dotZoom;
+      if (far != _farOut) {
+        _farOut = far;
+        _rebuild();
+      }
     });
   }
 
@@ -212,40 +226,7 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
             onTap: () => _openMoment(m),
           ));
         }
-        for (final f in ref.read(friendPinsProvider).value ?? const <FriendPin>[]) {
-          final stranger = f.isStranger;
-          final name = stranger ? '@${f.user.username ?? ''}' : (f.user.displayName ?? f.user.username ?? '');
-          final pin = await _carFactory.car(
-            key: f.user.id,
-            colorKey: f.carColor ?? (stranger ? 'grey' : 'silver'),
-            name: stranger ? (f.carTitle ?? name) : name,
-            status: stranger ? null : freshnessLabel(f.updatedAt),
-            statusColor: f.isFresh ? const Color(0xFF22C55E) : const Color(0xFF8A919E),
-            headingDeg: f.heading ?? 0,
-            faceUrl: f.user.avatarUrl,
-            showFace: !stranger,
-            dim: stranger || !f.isFresh,
-          );
-          if (await stale()) return;
-          built.add(Marker(
-            markerId: MarkerId('friend:${f.user.id}'),
-            position: f.latLng,
-            icon: pin.descriptor,
-            anchor: pin.anchor,
-            zIndexInt: stranger ? 2 : 4,
-            consumeTapEvents: true,
-            onTap: () => context.push(Routes.profile(f.user.id)),
-          ));
-        }
-        // me, as my own car
-        final here = ref.read(userLocationProvider).value;
-        final me = ref.read(currentUserIdProvider);
-        if (here != null && me != null) {
-          final myCar = (ref.read(userCarsProvider(me)).value ?? const []).firstOrNull;
-          final pin = await _carFactory.car(key: 'me', colorKey: myCar?.color ?? 'red', name: 'Me', status: 'now', showFace: false, me: true);
-          if (await stale()) return;
-          built.add(Marker(markerId: const MarkerId('me'), position: here, icon: pin.descriptor, anchor: pin.anchor, zIndexInt: 6));
-        }
+        await _addPeople(built, stale);
       case MapMode.upcoming:
         final now = DateTime.now();
         for (final e in ref.read(mapEventsProvider).value ?? const <Event>[]) {
@@ -282,7 +263,56 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
           ));
         }
     }
+    if (mode != MapMode.now) await _addPeople(built, stale, onlyMe: true);
     if (mounted) setState(() => _markerSet = built);
+  }
+
+  /// Friends, clubmates, nearby strangers and me. Cars when zoomed in, dots
+  /// when zoomed out. Colour = relationship, or the colour I gave a friend.
+  Future<void> _addPeople(Set<Marker> built, Future<bool> Function() stale, {bool onlyMe = false}) async {
+    final tags = ref.read(friendTagsProvider).value ?? const <String, String>{};
+    final showColor = ref.read(settingsProvider).showCarColor;
+    if (!onlyMe) {
+      for (final f in ref.read(friendPinsProvider).value ?? const <FriendPin>[]) {
+        final stranger = f.isStranger;
+        final relation = stranger ? kRelationStranger : (kTagColors[tags[f.user.id]] ?? (f.viaClub ? kRelationClub : kRelationFriend));
+        final name = stranger ? '@${f.user.username ?? ''}' : (f.user.displayName ?? f.user.username ?? '');
+        final pin = _farOut
+            ? await _carFactory.dot(key: f.user.id, color: relation)
+            : await _carFactory.car(
+                key: f.user.id,
+                colorKey: f.carColor ?? (stranger ? 'grey' : 'silver'),
+                name: stranger ? (f.carTitle ?? name) : name,
+                status: stranger ? null : freshnessLabel(f.updatedAt),
+                statusColor: f.isFresh ? const Color(0xFF22C55E) : const Color(0xFF8A919E),
+                headingDeg: f.heading ?? 0,
+                faceUrl: f.user.avatarUrl,
+                showFace: !stranger,
+                dim: stranger || !f.isFresh,
+                relation: relation,
+              );
+        if (await stale()) return;
+        built.add(Marker(
+          markerId: MarkerId('friend:${f.user.id}'),
+          position: f.latLng,
+          icon: pin.descriptor,
+          anchor: pin.anchor,
+          zIndexInt: stranger ? 2 : 4,
+          consumeTapEvents: true,
+          onTap: () => context.push(Routes.profile(f.user.id)),
+        ));
+      }
+    }
+    final here = ref.read(userLocationProvider).value;
+    final me = ref.read(currentUserIdProvider);
+    if (here != null && me != null) {
+      final myCar = (ref.read(userCarsProvider(me)).value ?? const []).firstOrNull;
+      final pin = _farOut
+          ? await _carFactory.dot(key: 'me', color: kRelationMe, me: true)
+          : await _carFactory.car(key: 'me', colorKey: showColor ? (myCar?.color ?? 'red') : 'red', name: 'Me', status: 'now', showFace: false, me: true);
+      if (await stale()) return;
+      built.add(Marker(markerId: const MarkerId('me'), position: here, icon: pin.descriptor, anchor: pin.anchor, zIndexInt: 6));
+    }
   }
 
   void _openMoment(Story m) {
@@ -325,6 +355,8 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
       _rebuild();
     });
     ref.listen(myLocationProvider, (_, _) => _paintCircles());
+    ref.listen(friendTagsProvider, (_, _) => _rebuild());
+    MapPalette.defaultLight = !_isNight;
 
     final mode = ref.watch(mapModeProvider);
     final hasLocation = ref.watch(userLocationProvider).value != null;

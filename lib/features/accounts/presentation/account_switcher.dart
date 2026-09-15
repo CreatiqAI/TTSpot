@@ -58,6 +58,19 @@ Future<void> showAccountSwitcher(BuildContext context, WidgetRef ref) async {
               selected: active is ClubAccount && active.club.id == c.id,
               onTap: () => Navigator.pop(ctx, ClubAccount(c)),
             ),
+          if (profile?.isAdmin ?? false)
+            _Row(
+              avatar: Container(
+                width: 44,
+                height: 44,
+                decoration: const BoxDecoration(color: AppColors.ink, shape: BoxShape.circle),
+                child: const Icon(AppIcons.shieldCheck, color: AppColors.brand, size: 22),
+              ),
+              title: 'TT Spot Admin',
+              subtitle: 'Queues, reports, members',
+              selected: active is AdminAccount,
+              onTap: () => Navigator.pop(ctx, const AdminAccount()),
+            ),
           if (vendor != null)
             _Row(
               avatar: UserAvatar(url: vendor.logoUrl, name: vendor.name, size: 44),

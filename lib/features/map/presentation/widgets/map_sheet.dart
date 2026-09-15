@@ -21,6 +21,7 @@ import '../../../social/presentation/story_viewer_screen.dart';
 import '../../application/map_providers.dart';
 import 'map_event_sheet.dart' show EventRow;
 import 'tt_now_sheet.dart';
+import 'car_marker.dart';
 import '../../../../core/supabase/supabase_client.dart';
 import 'map_filter_sheet.dart';
 
@@ -105,7 +106,10 @@ class _NowContent extends ConsumerWidget {
     final me = ref.watch(currentUserIdProvider);
     final myLoc = ref.watch(myLocationProvider).value;
     final here = ref.watch(userLocationProvider).value;
-    final nearestPlace = here == null ? null : (ref.watch(nearbyPlacesProvider(placeKey(here.latitude, here.longitude))).value ?? const []).firstOrNull;
+    final chosen = ref.watch(ttPlaceProvider);
+    final nearestPlace = chosen != null && here != null && distanceKm(here, LatLng(chosen.lat, chosen.lng)) < 1.0
+        ? chosen
+        : (here == null ? null : (ref.watch(nearbyPlacesProvider(placeKey(here.latitude, here.longitude))).value ?? const []).firstOrNull);
     final friendIds = ref.watch(friendIdsProvider);
     final mine = live.where((e) => e.isInstant && e.organizerId == me).firstOrNull;
     final friendsTt = live.where((e) => e.isInstant && friendIds.contains(e.organizerId)).toList()
@@ -141,10 +145,24 @@ class _NowContent extends ConsumerWidget {
                     ),
         ),
         _SectionHeader(
-          title: 'Friends & club on the map',
+          title: 'On the map',
           count: list.length,
           action: 'Add friends',
           onAction: () => context.push(Routes.friends),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+          child: Wrap(
+            spacing: 12,
+            runSpacing: 4,
+            children: [
+              _Legend(color: kRelationMe, label: 'You'),
+              _Legend(color: kRelationFriend, label: 'Friends'),
+              _Legend(color: kRelationClub, label: 'Club'),
+              _Legend(color: kRelationStranger, label: 'Nearby'),
+              _Legend(color: null, label: 'Your colours'),
+            ],
+          ),
         ),
         if (pins.isLoading && list.isEmpty)
           const _Hint('Finding your friends…')
@@ -167,6 +185,27 @@ class _NowContent extends ConsumerWidget {
       ]),
     );
   }
+}
+
+class _Legend extends StatelessWidget {
+  const _Legend({required this.color, required this.label});
+  final Color? color;
+  final String label;
+  @override
+  Widget build(BuildContext context) => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          color == null
+              ? Container(
+                  width: 9,
+                  height: 9,
+                  decoration: const BoxDecoration(shape: BoxShape.circle, gradient: SweepGradient(colors: [Color(0xFFE00008), Color(0xFFF5C518), Color(0xFF1DA750), Color(0xFF2B7CFF), Color(0xFFA855F7), Color(0xFFE00008)])),
+                )
+              : Container(width: 9, height: 9, decoration: BoxDecoration(shape: BoxShape.circle, color: color)),
+          const SizedBox(width: 5),
+          Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: MapPalette.of(context).text2)),
+        ],
+      );
 }
 
 int _minsLeft(Event e) => e.closesAt.difference(DateTime.now()).inMinutes.clamp(0, 9999);

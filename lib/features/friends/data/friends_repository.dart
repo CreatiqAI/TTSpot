@@ -22,6 +22,20 @@ class FriendsRepository {
         .toList();
   }
 
+  /// friend id -> colour key I gave them on the map.
+  Future<Map<String, String>> friendTags(String me) async {
+    final rows = await _client.from('friend_tags').select('friend_id, color').eq('owner_id', me);
+    return {for (final r in rows) r['friend_id'] as String: r['color'] as String};
+  }
+
+  Future<void> setFriendTag(String me, String friendId, String? color) async {
+    if (color == null) {
+      await _client.from('friend_tags').delete().eq('owner_id', me).eq('friend_id', friendId);
+    } else {
+      await _client.from('friend_tags').upsert({'owner_id': me, 'friend_id': friendId, 'color': color});
+    }
+  }
+
   /// Everyone I'm friends with, name order.
   Future<List<Profile>> friends(String me) async {
     final rows = await _client

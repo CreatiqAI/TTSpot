@@ -267,8 +267,11 @@ class MapPalette extends InheritedWidget {
   Color get accentFg => light ? Colors.white : Colors.black;
   Color get shadow => light ? const Color(0x22000000) : const Color(0x66000000);
 
+  /// What sheets opened outside the map tree (modal bottom sheets) fall back to.
+  static bool defaultLight = true;
+
   static MapPalette of(BuildContext context) =>
-      context.dependOnInheritedWidgetOfExactType<MapPalette>() ?? const MapPalette(light: false, child: SizedBox.shrink());
+      context.dependOnInheritedWidgetOfExactType<MapPalette>() ?? MapPalette(light: defaultLight, child: const SizedBox.shrink());
 
   @override
   bool updateShouldNotify(MapPalette old) => old.light != light;

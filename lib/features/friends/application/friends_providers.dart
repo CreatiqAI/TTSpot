@@ -50,6 +50,13 @@ final friendSuggestionsProvider = FutureProvider<List<FriendSuggestion>>((ref) a
   return ref.watch(friendsRepositoryProvider).suggestions();
 });
 
+/// Colours I assigned to friends on the map (friend id -> key).
+final friendTagsProvider = FutureProvider<Map<String, String>>((ref) async {
+  final me = ref.watch(currentUserIdProvider);
+  if (me == null) return const {};
+  return ref.watch(friendsRepositoryProvider).friendTags(me);
+});
+
 final friendIdsProvider = Provider<Set<String>>((ref) {
   return ref.watch(friendsProvider).value?.map((p) => p.id).toSet() ?? const {};
 });
@@ -59,6 +66,13 @@ class FriendActions {
   final Ref _ref;
 
   FriendsRepository get _repo => _ref.read(friendsRepositoryProvider);
+
+  Future<void> setTag(String userId, String? color) async {
+    final me = _ref.read(currentUserIdProvider);
+    if (me == null) return;
+    await _repo.setFriendTag(me, userId, color);
+    _ref.invalidate(friendTagsProvider);
+  }
 
   Future<FriendshipStatus> add(String userId) async {
     final s = await _repo.sendRequest(userId);

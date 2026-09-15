@@ -10,7 +10,7 @@ import '../../application/map_providers.dart';
 Future<void> showMapFilterSheet(BuildContext context) {
   return showModalBottomSheet<void>(
     context: context,
-    backgroundColor: AppColors.mapSurface,
+    backgroundColor: MapPalette.of(context).surface,
     showDragHandle: true,
     isScrollControlled: true,
     builder: (_) => const _FilterSheet(),
@@ -34,15 +34,15 @@ class _FilterSheet extends ConsumerWidget {
           children: [
             Row(
               children: [
-                const Text(
+                Text(
                   'Filters',
-                  style: TextStyle(color: AppColors.mapText, fontSize: 20, fontWeight: FontWeight.w700),
+                  style: TextStyle(color: MapPalette.of(context).text, fontSize: 20, fontWeight: FontWeight.w700),
                 ),
                 const Spacer(),
                 if (!filters.isDefault)
                   TextButton(
                     onPressed: notifier.clear,
-                    child: const Text('Clear', style: TextStyle(color: AppColors.mapTextSecondary)),
+                    child: Text('Clear', style: TextStyle(color: MapPalette.of(context).text2)),
                   ),
               ],
             ),
@@ -97,8 +97,8 @@ class _SectionLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       text,
-      style: const TextStyle(
-        color: AppColors.mapTextSecondary,
+      style: TextStyle(
+        color: MapPalette.of(context).text2,
         fontSize: 12,
         fontWeight: FontWeight.w700,
         letterSpacing: 1.2,
@@ -122,7 +122,7 @@ class _Chip extends StatelessWidget {
         duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
         decoration: BoxDecoration(
-          color: selected ? Colors.white : Colors.white.withValues(alpha: 0.08),
+          color: selected ? MapPalette.of(context).accentBg : MapPalette.of(context).tile,
           borderRadius: BorderRadius.circular(999),
         ),
         child: Row(
@@ -132,7 +132,7 @@ class _Chip extends StatelessWidget {
             Text(
               label,
               style: TextStyle(
-                color: selected ? AppColors.mapBg : AppColors.mapText,
+                color: selected ? MapPalette.of(context).accentFg : MapPalette.of(context).text,
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
               ),

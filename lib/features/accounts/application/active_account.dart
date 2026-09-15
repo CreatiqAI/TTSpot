@@ -25,6 +25,11 @@ class PartnerAccount extends ActiveAccount {
   final Vendor vendor;
 }
 
+/// TT Spot staff view: queues, reports, members, platform settings.
+class AdminAccount extends ActiveAccount {
+  const AdminAccount();
+}
+
 class ActiveAccountNotifier extends Notifier<ActiveAccount> {
   @override
   ActiveAccount build() {

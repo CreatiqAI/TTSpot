@@ -6,6 +6,7 @@ import '../../../core/router/app_router.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../accounts/application/active_account.dart';
 import '../../accounts/presentation/account_switcher.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../auth/data/auth_repository.dart';
@@ -41,6 +42,7 @@ Future<void> showProfileMenu(BuildContext context, WidgetRef ref) async {
             children: [
               _Group('ACCOUNT'),
               _Item(AppIcons.arrowsClockwise, 'Switch account', 'switch'),
+              _Item(AppIcons.gear, 'Settings', 'settings'),
               _Item(AppIcons.pencilSimple, 'Edit profile', 'edit'),
               _Item(AppIcons.users, 'Friends', 'friends'),
               _Item(AppIcons.camera, 'My moments', 'moments'),
@@ -53,9 +55,7 @@ Future<void> showProfileMenu(BuildContext context, WidgetRef ref) async {
               _Item(AppIcons.usersThree, canRunClubs ? 'My car club' : 'Run a car club', 'club'),
               if (isAdmin) ...[
                 _Group('ADMIN'),
-                _Item(AppIcons.shieldCheck, 'Review queue', 'review'),
-                _Item(AppIcons.handshake, 'Partner applications', 'partners'),
-                _Item(AppIcons.chartBar, 'Commission report', 'commission'),
+                _Item(AppIcons.shieldCheck, 'Switch to TT Spot Admin', 'admin'),
               ],
               const Divider(height: 16),
               _Item(AppIcons.signOut, 'Log out', 'logout', danger: true),
@@ -71,6 +71,8 @@ Future<void> showProfileMenu(BuildContext context, WidgetRef ref) async {
   switch (action) {
     case 'switch':
       await showAccountSwitcher(context, ref);
+    case 'settings':
+      context.push(Routes.settings);
     case 'edit':
       context.push(Routes.editProfile);
     case 'friends':
@@ -96,6 +98,8 @@ Future<void> showProfileMenu(BuildContext context, WidgetRef ref) async {
       } else {
         context.push(Routes.clubApply);
       }
+    case 'admin':
+      ref.read(activeAccountProvider.notifier).set(const AdminAccount());
     case 'partners':
       context.push(Routes.adminPartners);
     case 'commission':

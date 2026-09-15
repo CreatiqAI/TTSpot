@@ -132,21 +132,23 @@ def push():
 
 
 def preview(to):
-    """Email a sample of the code design (with a fake code) and the button design."""
-    key = io.open(r"C:\Users\Admin\.supabase\ttspot-resend-key.txt").read().strip()
+    """Email a sample of the code design (fake code) and the button design.
+    Resend rejects Python's urllib, so this shells out to curl."""
+    import os, subprocess, tempfile
+    key = io.open(r"C:\\Users\\Admin\\.supabase\\ttspot-resend-key.txt").read().strip()
     samples = [
-        ("[Preview] Your TT Spot code", TEMPLATES["confirmation"][1].replace("{{ .Token }}", "482913")),
-        ("[Preview] Reset your TT Spot password", TEMPLATES["recovery"][1].replace("{{ .ConfirmationURL }}", SITE)),
+        ("Your TT Spot code", TEMPLATES["confirmation"][1].replace("{{ .Token }}", "482913")),
+        ("Reset your TT Spot password", TEMPLATES["recovery"][1].replace("{{ .ConfirmationURL }}", SITE)),
     ]
     for subject, html in samples:
-        req = urllib.request.Request(
-            "https://api.resend.com/emails",
-            data=json.dumps({"from": "TT Spot <noreply@ttspot.my>", "to": [to], "subject": subject, "html": html}).encode(),
-            method="POST",
-            headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
-        )
-        with urllib.request.urlopen(req) as r:
-            print("sent preview:", subject, json.load(r).get("id"))
+        fd, path = tempfile.mkstemp(suffix=".json")
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump({"from": "TT Spot <noreply@ttspot.my>", "to": [to], "subject": subject, "html": html}, f)
+        out = subprocess.run(["curl", "-s", "--max-time", "30", "-X", "POST", "https://api.resend.com/emails",
+                              "-H", f"Authorization: Bearer {key}", "-H", "Content-Type: application/json",
+                              "--data-binary", f"@{path}"], capture_output=True, text=True)
+        os.remove(path)
+        print("sent:", subject, out.stdout.strip()[:120])
 
 
 if __name__ == "__main__":

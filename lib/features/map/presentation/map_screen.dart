@@ -261,23 +261,25 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
       case MapMode.spots:
         for (final p in ref.read(spotsProvider).value ?? const <Place>[]) {
           final pin = _far
-              ? await _glyphFactory.dot(key: p.id, color: p.recommended ? kInk : kSpotGrey)
-              : await _glyphFactory.spot(
-                  key: p.id,
-                  recommended: p.recommended,
-                  label: _close ? p.name : null,
-                  sub: _close && p.totalCheckins > 0 ? '${p.totalCheckins} ✓' : null,
-                  scale: _glyphScale,
-                );
+              ? await _glyphFactory.dot(key: p.id, color: p.isPartner ? kEventRed : (p.recommended ? kInk : kSpotGrey))
+              : p.isPartner
+                  ? await _pinFactory.partner(key: p.id, logoUrl: p.vendorLogo, scale: _glyphScale)
+                  : await _glyphFactory.spot(
+                      key: p.id,
+                      recommended: p.recommended,
+                      label: _close ? p.name : null,
+                      sub: _close && p.totalCheckins > 0 ? '${p.totalCheckins} ✓' : null,
+                      scale: _glyphScale,
+                    );
           if (await stale()) return;
           built.add(Marker(
             markerId: MarkerId('place:${p.id}'),
             position: p.latLng,
             icon: pin.descriptor,
             anchor: pin.anchor,
-            zIndexInt: p.recommended ? 2 : 1,
+            zIndexInt: p.isPartner ? 3 : (p.recommended ? 2 : 1),
             consumeTapEvents: true,
-            onTap: () => context.push(Routes.place(p.id)),
+            onTap: () => context.push(p.isPartner ? Routes.partner(p.vendorId!) : Routes.place(p.id)),
           ));
         }
     }

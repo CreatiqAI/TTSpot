@@ -206,6 +206,10 @@ class _PlaceScreenState extends ConsumerState<PlaceScreen> {
                           ),
                           const SizedBox(height: 6),
                           const Text('Check-ins need your location, within 300 m of the spot.', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                          if (p.isPartner) ...[
+                            const SizedBox(height: 12),
+                            SecondaryButton(label: 'Partner page · ${p.vendorName ?? ''}', icon: AppIcons.storefront, onPressed: () => context.push(Routes.partner(p.vendorId!))),
+                          ],
                           if (p.recommended) ...[
                             const SizedBox(height: 12),
                             InkWell(

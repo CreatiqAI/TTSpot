@@ -371,6 +371,19 @@ Migration `20260916000013_accounts_simplify.sql` (the 16 in the name is only the
 - Zoom tiers in `map_screen.dart`: far (< 13) = every event / TT session / spot is a small dot (`GlyphMarkerFactory.dot`: red for meets and TT, grey spot, black top spot), no people; mid (13–14.5) = shapes at 85 % (`scale:` on balloon / flag / spot), people as dots; close (≥ 14.5) = full shapes + name chips, cars. Matches how Waze collapses to dots at city zoom.
 - `IntroScreen` (`features/onboarding/presentation/intro_screen.dart`): four slides after sign-in, once per account (`profiles.settings.intro_seen`), router redirect to `/intro` before onboarding. Replay from Settings → About → "Show the intro again".
 
+### Partner fixes (2026-09-16, migration 0030)
+
+- Shop address fields (`partner_apply_screen.dart`, `vendor_edit_screen.dart`) are `PlaceSearchField`s (Google Places via the `places` function); the picked name + address is stored as text.
+- Stale-cache rules: `showAccountSwitcher` and app resume (AppShell `didChangeAppLifecycleState`) invalidate `myVendorProvider`, `managedClubsProvider`, `currentProfileProvider`, `accountBasicsProvider`; switching to `AdminAccount` invalidates every admin provider; approve/reject invalidates `adminStatsProvider`.
+- `vendor_monthly_report(p_vendor)`: null = the caller's own vendor, always; only admins may pass another vendor. Cross-vendor totals: `admin_commission_report`.
+
+### Partner pages + shop on the map (2026-09-16, migration 0031)
+
+- `vendors.lat/lng/hours/photo_urls` (≤ 6), `partner_applications.lat/lng` (from the Google-picked address), `places.vendor_id` (one place per partner). `sync_vendor_place(vendor)` creates / updates the place (name, kind = business type, position, logo as cover) on approval and on every `update_my_vendor(...)` (new signature with p_lat/p_lng/p_hours/p_photo_urls; the 4-arg one was dropped). Partners approved before this need to re-pick their address once in Edit shop to get a position.
+- `vendors_public` view (owner_id, hours, photos, phone, live_vouchers, upcoming_events) feeds `PartnerScreen` at `/partner/:id`: logo, photo carousel in the app bar, type chip, description, Message (`get_or_create_vendor_dm`), WhatsApp, address, hours, Waze / Maps / Check in (→ the linked place page), vouchers (from `shopVouchersProvider` filtered by vendorId), upcoming events (`vendorEventsProvider`).
+- Map: partner places render as `MapPinFactory.partner` (round logo, white ring, red tag; dot at far zoom is red); tap → partner page. Legend row "Partner shop". `places_with_counts` carries `vendor_id/vendor_logo/vendor_name` and `is_spot` is true for partner places. Place kinds now include the business types (`Place.kindLabel/kindArt`).
+- Entry points: Rewards shop voucher card (tap the partner name), event page "Hosted by", place page "Partner page" button, Partner account tab "My partner page".
+
 ## 3b. Google sign-in (one-time, ~15 min)
 
 Email sign-in works already (email confirmation is switched off on the project for development;

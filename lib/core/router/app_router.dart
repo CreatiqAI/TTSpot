@@ -42,6 +42,7 @@ import '../../features/settings/presentation/settings_screen.dart';
 import '../../features/settings/presentation/about_screen.dart';
 import '../../features/onboarding/presentation/intro_screen.dart';
 import '../../features/social/presentation/suggest_spot_screen.dart';
+import '../../features/vendors/presentation/partner_screen.dart';
 import '../../features/auth/application/account_basics.dart';
 import '../../features/auth/presentation/verify_email_screen.dart';
 import '../legal/legal_text.dart';
@@ -161,6 +162,7 @@ abstract final class Routes {
   static String chatInfo(String conversationId) => '/chat/$conversationId/info';
   static String club(String id) => '/club/$id';
   static String place(String id) => '/place/$id';
+  static String partner(String id) => '/partner/$id';
 }
 
 /// Explicit Material page for every route. go_router 18 only recognises
@@ -237,6 +239,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         pageBuilder: (_, s) => page(s, CreateEventScreen(clubId: s.uri.queryParameters['club'], vendorId: s.uri.queryParameters['vendor'], session: s.uri.queryParameters['session'] == '1')),
       ),
       GoRoute(path: Routes.suggestSpot, pageBuilder: (_, s) => page(s, const SuggestSpotScreen())),
+      GoRoute(path: '/partner/:id', pageBuilder: (_, s) => page(s, PartnerScreen(vendorId: s.pathParameters['id']!))),
       GoRoute(
         path: '/event/:id',
         pageBuilder: (_, s) => page(s, EventDetailsScreen(eventId: s.pathParameters['id']!)),

@@ -9,7 +9,8 @@ Files are simply `TTSpot-<version>.ipa` / `.apk`, kept in `build/ios-artifact/` 
 
 | Version | Date | Commit | What changed |
 |---|---|---|---|
-| 0.3.12 | _next build_ | — | Partner form and Edit shop use Google Places for the address; account facts refresh on switcher open and app resume (approvals show without restart); admin counts refresh on switching to admin and after approvals; vendor_monthly_report is always the caller's own vendor. |
+| 0.3.13 | _next build_ | — | Partner pages (logo, photos, hours, address with Waze/Maps, vouchers, events, Message/WhatsApp); partner shops on the Spots layer with their logo, check-ins there earn points; Edit shop gains hours and up to 6 photos; partner links from voucher cards, event pages and place pages. |
+| 0.3.12 | 2026-09-16 | 53d6c8d | Partner form and Edit shop use Google Places for the address; account facts refresh on switcher open and app resume (approvals show without restart); admin counts refresh on switching to admin and after approvals; vendor_monthly_report is always the caller's own vendor. |
 | 0.3.11 | _next build_ | — | Waze-style marker sizing (dots at city zoom, shapes mid, names up close); four-slide intro after sign-in with replay from About. |
 | 0.3.10 | 2026-09-16 | c677735 | Call a friend (phone or WhatsApp) from their profile or chat, behind a new "Who can call me" privacy setting (off by default); clean new design for all auth emails; sender noreply@ttspot.my. |
 | 0.3.9 | 2026-09-15 | bac3ecd | Every account has its own tabs and inbox (club: Club/Events/Chats/Account; partner: Dashboard/Chats/Account; admin: Dashboard/Members/Queues/Account); Message a club and it replies as the club; admin in the light theme with searchable, filterable Members and a Queues page with report filters; chat composer redesign (+ sheet, hold-to-speak bar, hosting card, HOST badge, mute). |

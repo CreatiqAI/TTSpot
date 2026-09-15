@@ -5,6 +5,8 @@ import '../../../core/supabase/supabase_client.dart';
 import '../../admin/application/admin_providers.dart';
 import '../../points/application/points_providers.dart';
 import '../../social/application/notification_providers.dart';
+import '../../events/domain/event.dart';
+import '../../map/application/map_providers.dart';
 import '../data/vendors_repository.dart';
 import '../domain/vendor.dart';
 
@@ -35,6 +37,10 @@ final vendorRedemptionsProvider = FutureProvider<List<Redemption>>((ref) {
   ref.watch(currentUserIdProvider);
   return ref.watch(vendorsRepositoryProvider).myRedemptions();
 });
+
+/// A partner's public page.
+final vendorPublicProvider = FutureProvider.family<PublicVendor?, String>((ref, id) => ref.watch(vendorsRepositoryProvider).publicVendor(id));
+final vendorEventsProvider = FutureProvider.family<List<Event>, String>((ref, id) => ref.watch(vendorsRepositoryProvider).vendorEvents(id));
 
 final vendorMonthlyProvider = FutureProvider.family<List<MonthRow>, String?>((ref, vendorId) {
   ref.watch(currentUserIdProvider);
@@ -86,9 +92,11 @@ class VendorActions {
     String? description,
     String? ssmNo,
     XFile? logo,
+    double? lat,
+    double? lng,
   }) async {
     final logoUrl = await _upload(logo);
-    await _repo.applyPartner(kind: kind, name: name, type: type, address: address, placeId: placeId, phone: phone, description: description, logoUrl: logoUrl, ssmNo: ssmNo);
+    await _repo.applyPartner(kind: kind, name: name, type: type, address: address, placeId: placeId, phone: phone, description: description, logoUrl: logoUrl, ssmNo: ssmNo, lat: lat, lng: lng);
     _ref.invalidate(myPartnerApplicationProvider(kind));
   }
 
@@ -98,10 +106,19 @@ class VendorActions {
     _ref.invalidate(adminStatsProvider);
   }
 
-  Future<void> updateShop({String? address, String? phone, String? description, XFile? logo}) async {
+  Future<void> updateShop({String? address, String? phone, String? description, XFile? logo, double? lat, double? lng, String? hours, List<String>? keptPhotos, List<XFile> newPhotos = const []}) async {
     final logoUrl = await _upload(logo);
-    await _repo.updateMyVendor(address: address, phone: phone, description: description, logoUrl: logoUrl);
+    List<String>? photos;
+    if (keptPhotos != null) {
+      photos = [...keptPhotos];
+      for (final f in newPhotos) {
+        final url = await _upload(f);
+        if (url != null) photos.add(url);
+      }
+    }
+    await _repo.updateMyVendor(address: address, phone: phone, description: description, logoUrl: logoUrl, lat: lat, lng: lng, hours: hours, photoUrls: photos);
     _ref.invalidate(myVendorProvider);
+    _ref.invalidate(spotsProvider);
   }
 
   Future<String> saveVoucher({

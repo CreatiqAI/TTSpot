@@ -197,6 +197,40 @@ class MapPinFactory {
     return _cache[k] = pin;
   }
 
+  // ------------------------------------------------------------ partners ---
+
+  /// A partner's shop: round logo with a white ring and a small red tag, so
+  /// it reads as "a business" next to the plain spot badges.
+  Future<MapPin> partner({required String key, required String? logoUrl, double scale = 1}) async {
+    final k = 'v|$key|$logoUrl|$scale';
+    final cached = _cache[k];
+    if (cached != null) return cached;
+    final image = logoUrl == null ? null : await _image(logoUrl, targetWidth: 120);
+    final size = 30.0 * scale, ring = 2.5 * scale, tag = 9.0 * scale;
+    final totalW = size + ring * 2 + tag, totalH = size + ring * 2 + tag;
+    final centre = Offset(ring + size / 2, ring + size / 2);
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder)..scale(devicePixelRatio);
+    canvas.drawCircle(centre.translate(0, 1.5), size / 2 + ring, Paint()..color = Colors.black.withValues(alpha: 0.22)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.5));
+    canvas.drawCircle(centre, size / 2 + ring, Paint()..color = Colors.white);
+    canvas.save();
+    canvas.clipPath(Path()..addOval(Rect.fromCircle(center: centre, radius: size / 2)));
+    if (image != null) {
+      _drawCover(canvas, image, Rect.fromCircle(center: centre, radius: size / 2));
+    } else {
+      canvas.drawRect(Rect.fromCircle(center: centre, radius: size / 2), Paint()..color = const Color(0xFF101010));
+      final tp = _text('S', 13 * scale, FontWeight.w800, Colors.white);
+      tp.paint(canvas, centre - Offset(tp.width / 2, tp.height / 2));
+    }
+    canvas.restore();
+    // red tag, bottom-right
+    final tc = Offset(centre.dx + size / 2 - tag * 0.35, centre.dy + size / 2 - tag * 0.35);
+    canvas.drawCircle(tc, tag / 2 + 1.5 * scale, Paint()..color = Colors.white);
+    canvas.drawCircle(tc, tag / 2, Paint()..color = const Color(0xFFE00008));
+    final pin = await _finish(recorder, totalW, totalH, anchorY: centre.dy / totalH);
+    return _cache[k] = pin;
+  }
+
   // ------------------------------------------------------------- moments ---
 
   /// Small round photo bubble with a white ring (24 h moments).

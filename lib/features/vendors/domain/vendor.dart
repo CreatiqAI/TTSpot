@@ -115,6 +115,10 @@ class Vendor {
     this.phone,
     this.description,
     this.logoUrl,
+    this.lat,
+    this.lng,
+    this.hours,
+    this.photoUrls = const [],
     this.liveVouchers = 0,
     this.redemptions30d = 0,
     this.bill30d = 0,
@@ -132,6 +136,10 @@ class Vendor {
   final String? phone;
   final String? description;
   final String? logoUrl;
+  final double? lat;
+  final double? lng;
+  final String? hours;
+  final List<String> photoUrls;
   final int liveVouchers;
   final int redemptions30d;
   final double bill30d;
@@ -149,6 +157,10 @@ class Vendor {
         phone: m['phone'] as String?,
         description: m['description'] as String?,
         logoUrl: m['logo_url'] as String?,
+        lat: (m['lat'] as num?)?.toDouble(),
+        lng: (m['lng'] as num?)?.toDouble(),
+        hours: m['hours'] as String?,
+        photoUrls: ((m['photo_urls'] as List?) ?? const []).cast<String>(),
         liveVouchers: _int(m['live_vouchers']),
         redemptions30d: _int(m['redemptions_30d']),
         bill30d: _num(m['bill_30d']),
@@ -486,4 +498,45 @@ String rm(double v) {
     b.write(digits[i]);
   }
   return 'RM $b.${parts[1]}';
+}
+
+
+/// What any member sees of a partner (vendors_public view).
+class PublicVendor {
+  const PublicVendor({required this.id, required this.name, required this.type, this.address, this.lat, this.lng, this.hours, this.photoUrls = const [], this.logoUrl, this.description, this.phone, this.placeId, this.ownerId, this.liveVouchers = 0, this.upcomingEvents = 0});
+  final String id;
+  final String name;
+  final String type;
+  final String? address;
+  final double? lat;
+  final double? lng;
+  final String? hours;
+  final List<String> photoUrls;
+  final String? logoUrl;
+  final String? description;
+  final String? phone;
+  final String? placeId;
+  final String? ownerId;
+  final int liveVouchers;
+  final int upcomingEvents;
+
+  bool ownerIsMe(String? me) => me != null && ownerId == me;
+
+  factory PublicVendor.fromMap(Map<String, dynamic> m) => PublicVendor(
+        id: m['id'] as String,
+        name: m['name'] as String,
+        type: m['type'] as String? ?? 'other',
+        address: m['address'] as String?,
+        lat: (m['lat'] as num?)?.toDouble(),
+        lng: (m['lng'] as num?)?.toDouble(),
+        hours: m['hours'] as String?,
+        photoUrls: ((m['photo_urls'] as List?) ?? const []).cast<String>(),
+        logoUrl: m['logo_url'] as String?,
+        description: m['description'] as String?,
+        phone: m['phone'] as String?,
+        placeId: m['place_id'] as String?,
+        ownerId: m['owner_id'] as String?,
+        liveVouchers: (m['live_vouchers'] as num?)?.toInt() ?? 0,
+        upcomingEvents: (m['upcoming_events'] as num?)?.toInt() ?? 0,
+      );
 }

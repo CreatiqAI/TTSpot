@@ -36,6 +36,7 @@ class _PartnerApplyScreenState extends ConsumerState<PartnerApplyScreen> {
   final _form = GlobalKey<FormState>();
   final _name = TextEditingController();
   final _address = TextEditingController();
+  double? _lat, _lng;
   final _phone = TextEditingController();
   final _ssm = TextEditingController();
   final _desc = TextEditingController();
@@ -74,6 +75,8 @@ class _PartnerApplyScreenState extends ConsumerState<PartnerApplyScreen> {
             description: _desc.text.trim(),
             ssmNo: _club ? null : _ssm.text.trim(),
             logo: _logo,
+            lat: _club ? null : _lat,
+            lng: _club ? null : _lng,
           );
       if (mounted) setState(() => _reapply = false);
     } catch (e) {
@@ -189,7 +192,11 @@ class _PartnerApplyScreenState extends ConsumerState<PartnerApplyScreen> {
               hint: 'Search your shop on Google',
               icon: AppIcons.storefront,
               near: here == null ? null : (here.latitude, here.longitude),
-              onPicked: (d) => _address.text = d.address.isEmpty ? d.name : '${d.name}, ${d.address}',
+              onPicked: (d) {
+                _address.text = d.address.isEmpty ? d.name : '${d.name}, ${d.address}';
+                _lat = d.lat;
+                _lng = d.lng;
+              },
             ),
           ],
           const SizedBox(height: 12),

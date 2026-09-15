@@ -10,6 +10,16 @@ class ReleaseNote {
 
 const kReleaseNotes = <ReleaseNote>[
   ReleaseNote(
+    version: '0.3.13',
+    date: '16 Sep 2026',
+    title: 'Partner pages and shops on the map',
+    points: [
+      'Every partner has a page: logo, photos, hours, address with Waze and Maps, vouchers, events, Message and WhatsApp.',
+      'Partner shops sit on the Spots layer with their logo. Check in there for points.',
+      'Partners: add opening hours and up to six photos in Edit shop.',
+    ],
+  ),
+  ReleaseNote(
     version: '0.3.12',
     date: '16 Sep 2026',
     title: 'Partner fixes',

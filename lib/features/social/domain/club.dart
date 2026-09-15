@@ -66,6 +66,9 @@ class Place {
     this.postCount = 0,
     this.momentCount = 0,
     this.score = 0,
+    this.vendorId,
+    this.vendorLogo,
+    this.vendorName,
   });
   final String id;
   final String name;
@@ -88,6 +91,11 @@ class Place {
   final int momentCount;
   /// Ranking used for the Spots layer and the feed tab.
   final int score;
+  /// Set when this place is a partner's shop.
+  final String? vendorId;
+  final String? vendorLogo;
+  final String? vendorName;
+  bool get isPartner => vendorId != null;
 
   LatLng get latLng => LatLng(lat, lng);
   int get totalCheckins => checkinsTotal + spotCheckins;
@@ -98,6 +106,14 @@ class Place {
         'circuit' => 'Circuit',
         'mall' => 'Mall',
         'route' => 'Route',
+        'accessories' => 'Parts & accessories',
+        'workshop' => 'Workshop',
+        'detailing' => 'Detailing',
+        'tyres' => 'Tyres & rims',
+        'bodyshop' => 'Body & paint',
+        'audio' => 'Audio',
+        'carwash' => 'Car wash',
+        'cafe' => 'Café',
         _ => 'Place',
       };
   /// 3D illustration for the place kind, see [AppArt].
@@ -107,6 +123,10 @@ class Place {
         'circuit' => AppArt.racing,
         'mall' => AppArt.mall,
         'route' => AppArt.road,
+        'workshop' || 'tyres' || 'bodyshop' || 'audio' => AppArt.wrench,
+        'accessories' => AppArt.gear,
+        'detailing' || 'carwash' => AppArt.sparkles,
+        'cafe' => AppArt.coffee,
         _ => AppArt.pin,
       };
   String get kindEmoji => switch (kind) {
@@ -137,6 +157,9 @@ class Place {
         postCount: (m['post_count'] as num?)?.toInt() ?? 0,
         momentCount: (m['moment_count'] as num?)?.toInt() ?? 0,
         score: (m['score'] as num?)?.toInt() ?? 0,
+        vendorId: m['vendor_id'] as String?,
+        vendorLogo: m['vendor_logo'] as String?,
+        vendorName: m['vendor_name'] as String?,
       );
 }
 

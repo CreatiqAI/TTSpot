@@ -253,12 +253,16 @@ class _VoucherCardState extends ConsumerState<_VoucherCard> {
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Column(
+                  child: GestureDetector(
+                    onTap: v.vendorId == null ? null : () => context.push(Routes.partner(v.vendorId!)),
+                    behavior: HitTestBehavior.opaque,
+                    child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(v.vendorName ?? 'Partner', style: const TextStyle(fontWeight: FontWeight.w700)),
                       if (v.vendorAddress != null) Text(v.vendorAddress!, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                     ],
+                  ),
                   ),
                 ),
                 Container(

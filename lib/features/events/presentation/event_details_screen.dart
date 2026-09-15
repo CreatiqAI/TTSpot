@@ -245,7 +245,10 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                             ],
                             if (d.event.vendorName != null) ...[
                               const SizedBox(height: 8),
-                              _InfoRow(icon: AppIcons.storefront, text: 'Hosted by ${d.event.vendorName}'),
+                              InkWell(
+                                onTap: d.event.vendorId == null ? null : () => context.push(Routes.partner(d.event.vendorId!)),
+                                child: _InfoRow(icon: AppIcons.storefront, text: 'Hosted by ${d.event.vendorName}', trailing: const Icon(AppIcons.caretRight, size: 20, color: AppColors.textMuted)),
+                              ),
                             ],
                             const SizedBox(height: 16),
                             _OrganizerTile(organizer: d.organizer),

@@ -41,6 +41,7 @@ class _MapLegendState extends State<MapLegend> {
       MapMode.spots => const [
           _Item(_Glyph.topSpot, 'Top spot'),
           _Item(_Glyph.spot, 'Spot'),
+          _Item(_Glyph.partner, 'Partner shop'),
           _Item(_Glyph.me, 'You'),
         ],
     };
@@ -95,7 +96,7 @@ class _MapLegendState extends State<MapLegend> {
   }
 }
 
-enum _Glyph { balloon, flag, spot, topSpot, moment, me, friend, club, nearby }
+enum _Glyph { balloon, flag, spot, topSpot, partner, moment, me, friend, club, nearby }
 
 class _Item {
   const _Item(this.glyph, this.label);
@@ -119,6 +120,11 @@ class _GlyphPainter extends CustomPainter {
         paintSpotBadge(c, Offset(centre.dx - 11 * 0.75, centre.dy - 11 * 0.75), scale: 0.75);
       case _Glyph.topSpot:
         paintSpotBadge(c, Offset(centre.dx - 11 * 0.75, centre.dy - 11 * 0.75), scale: 0.75, recommended: true);
+      case _Glyph.partner:
+        c.drawCircle(centre, 8.5, Paint()..color = Colors.white);
+        c.drawCircle(centre, 7, Paint()..color = const Color(0xFF101010));
+        c.drawCircle(centre.translate(5, 5), 3.5, Paint()..color = Colors.white);
+        c.drawCircle(centre.translate(5, 5), 2.5, Paint()..color = const Color(0xFFE00008));
       case _Glyph.moment:
         c.drawCircle(centre, 8, Paint()..color = Colors.white);
         c.drawCircle(centre, 6.5, Paint()..color = const Color(0xFF9AA0A6));

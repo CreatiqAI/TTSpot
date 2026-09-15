@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/supabase/supabase_client.dart';
+import '../../events/domain/event.dart';
 import '../domain/vendor.dart';
 
 /// Partner applications, vendor dashboard, vouchers, wallet, redemptions.
@@ -32,9 +33,13 @@ class VendorsRepository {
     String? description,
     String? logoUrl,
     String? ssmNo,
+    double? lat,
+    double? lng,
   }) async {
     final v = await _client.rpc('apply_partner', params: {
       'p_kind': kind.db,
+      'p_lat': ?lat,
+      'p_lng': ?lng,
       'p_name': name,
       'p_type': type,
       'p_address': address,
@@ -63,8 +68,35 @@ class VendorsRepository {
     return rows.isEmpty ? null : Vendor.fromMap(rows.first);
   }
 
-  Future<void> updateMyVendor({String? address, String? phone, String? description, String? logoUrl}) =>
-      _client.rpc('update_my_vendor', params: {'p_address': address, 'p_phone': phone, 'p_description': description, 'p_logo_url': logoUrl});
+  Future<void> updateMyVendor({String? address, String? phone, String? description, String? logoUrl, double? lat, double? lng, String? hours, List<String>? photoUrls}) =>
+      _client.rpc('update_my_vendor', params: {
+        'p_address': address,
+        'p_phone': phone,
+        'p_description': description,
+        'p_logo_url': logoUrl,
+        'p_lat': ?lat,
+        'p_lng': ?lng,
+        'p_hours': ?hours,
+        'p_photo_urls': ?photoUrls,
+      });
+
+  /// A partner as members see it.
+  Future<PublicVendor?> publicVendor(String id) async {
+    final row = await _client.from('vendors_public').select().eq('id', id).maybeSingle();
+    return row == null ? null : PublicVendor.fromMap(row);
+  }
+
+  Future<List<Event>> vendorEvents(String id) async {
+    final rows = await _client
+        .from('events_with_counts')
+        .select()
+        .eq('vendor_id', id)
+        .eq('status', 'active')
+        .gte('starts_at', DateTime.now().subtract(const Duration(hours: 6)).toUtc().toIso8601String())
+        .order('starts_at', ascending: true)
+        .limit(20);
+    return rows.map(Event.fromMap).toList();
+  }
 
   // ----------------------------------------------------------- vouchers ---
 

@@ -46,7 +46,7 @@ class _VisibilitySheetState extends ConsumerState<_VisibilitySheet> {
 
   @override
   Widget build(BuildContext context) {
-    final nearbyCount = ref.watch(friendPinsProvider).value?.where((p) => p.viaNearby).length ?? 0;
+    final nearbyCount = ref.watch(friendPinsProvider).value?.where((p) => p.viaNearby || p.viaPublic).length ?? 0;
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -116,6 +116,13 @@ class _VisibilitySheetState extends ConsumerState<_VisibilitySheet> {
                         Text(nearbyCount == 0 ? 'Nobody nearby right now.' : '$nearbyCount ${nearbyCount == 1 ? 'person' : 'people'} around you now.', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                       ],
                     ),
+            ),
+            _Option(
+              icon: AppIcons.globe,
+              title: 'Everyone',
+              subtitle: 'Anyone on TT Spot sees your car and handle at a rounded spot, any distance. They can message you.',
+              on: _mode == 'public',
+              onTap: _busy ? null : () => _apply('public'),
             ),
             _Option(
               icon: AppIcons.ghost,

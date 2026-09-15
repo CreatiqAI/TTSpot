@@ -213,7 +213,7 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
           ));
         }
         for (final f in ref.read(friendPinsProvider).value ?? const <FriendPin>[]) {
-          final stranger = f.viaNearby;
+          final stranger = f.isStranger;
           final name = stranger ? '@${f.user.username ?? ''}' : (f.user.displayName ?? f.user.username ?? '');
           final pin = await _carFactory.car(
             key: f.user.id,
@@ -397,9 +397,9 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
                   child: Column(
                     children: [
                       _RoundButton(
-                        icon: switch (shareMode) { 'nearby' => AppIcons.broadcast, 'ghost' => AppIcons.eyeSlash, _ => AppIcons.eye },
+                        icon: switch (shareMode) { 'nearby' => AppIcons.broadcast, 'public' => AppIcons.globe, 'ghost' => AppIcons.eyeSlash, _ => AppIcons.eye },
                         tooltip: 'Who can see me',
-                        active: shareMode == 'nearby',
+                        active: shareMode == 'nearby' || shareMode == 'public',
                         light: !_isNight,
                         onTap: () => showVisibilitySheet(context),
                       ),

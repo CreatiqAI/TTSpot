@@ -157,6 +157,12 @@ class EventsRepository {
     );
   }
 
+  /// Everyone who RSVP'd, host first.
+  Future<List<Profile>> attendees(String eventId) async {
+    final rows = await _client.from('event_attendees').select('created_at, profiles($_profileCols)').eq('event_id', eventId).order('created_at', ascending: true).limit(500);
+    return rows.map((r) => r['profiles']).whereType<Map<String, dynamic>>().map(Profile.fromMap).toList();
+  }
+
   // ----------------------------------------------------------------- rsvp ---
 
   Future<void> join({required String eventId, required String userId}) =>

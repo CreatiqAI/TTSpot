@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../../../../core/utils/dates.dart';
+import '../../../../core/theme/app_icons.dart';
 import '../../../events/domain/event.dart';
 
 /// A rendered marker plus where its tail tip sits (as a fraction of the image).
@@ -45,8 +46,8 @@ class EventMarkerFactory {
     final cached = _cache[key];
     if (cached != null) return cached;
     final image = e.coverUrl == null ? null : await _image(e.coverUrl!);
-    final art = image == null ? await _asset(e.type.art) : null;
-    final built = await _render(e, label, image, art);
+    // No photo: a clean round pin with the type icon instead of a photo card.
+    final built = image == null ? await _renderPin(e, label) : await _render(e, label, image, null);
     _cache[key] = built;
     return built;
   }
@@ -79,20 +80,62 @@ class EventMarkerFactory {
     return builder.takeBytes();
   }
 
-  final _assets = <String, ui.Image?>{};
+  /// Round red pin (white coffee / flag glyph) with a small tail, and the same
+  /// dark label chip underneath. Used for TT now and any meet without a cover.
+  Future<EventMarkerBitmap> _renderPin(Event e, String label) async {
+    final dpr = devicePixelRatio;
+    var title = e.isInstant ? e.venueName.trim() : e.title.trim();
+    if (title.length > _maxTitleChars) title = '${title.substring(0, _maxTitleChars - 1)}…';
+    final titlePainter = TextPainter(
+      text: TextSpan(text: title, style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w700, height: 1.1)),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+    )..layout();
+    final timePainter = TextPainter(
+      text: TextSpan(text: label, style: const TextStyle(color: Color(0xFFB4BAC4), fontSize: 11, fontWeight: FontWeight.w500, height: 1.1)),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+    )..layout();
+    final icon = e.isInstant ? AppIcons.coffee : (e.type == EventType.convoy ? AppIcons.roadHorizon : AppIcons.flagCheckered);
+    final glyph = TextPainter(
+      text: TextSpan(text: String.fromCharCode(icon.codePoint), style: TextStyle(fontFamily: icon.fontFamily, fontSize: 22, color: Colors.white, height: 1)),
+      textDirection: TextDirection.ltr,
+    )..layout();
 
-  Future<ui.Image?> _asset(String path) async {
-    if (_assets.containsKey(path)) return _assets[path];
-    ui.Image? img;
-    try {
-      final data = await rootBundle.load(path);
-      final codec = await ui.instantiateImageCodec(data.buffer.asUint8List(), targetWidth: (96 * devicePixelRatio).round());
-      img = (await codec.getNextFrame()).image;
-    } catch (_) {
-      img = null;
-    }
-    _assets[path] = img;
-    return img;
+    const between = 5.0, d = 46.0, ring = 3.0, tailH = 8.0;
+    final chipW = titlePainter.width + between + timePainter.width + _chipPadH * 2;
+    final chipH = math.max(titlePainter.height, timePainter.height) + _chipPadV * 2;
+    final totalW = math.max(d + ring * 2 + 6, chipW) + 4;
+    final totalH = d + ring * 2 + tailH + _gap + chipH + 4;
+    final cx = totalW / 2;
+    final color = e.isInstant ? const Color(0xFFE00008) : e.type.color;
+
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder)..scale(dpr);
+    final centre = Offset(cx, 2 + ring + d / 2);
+    // soft shadow
+    canvas.drawCircle(centre.translate(0, 2), d / 2 + ring, Paint()..color = Colors.black.withValues(alpha: 0.18)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4));
+    // white ring + tail
+    final white = Paint()..color = Colors.white;
+    canvas.drawCircle(centre, d / 2 + ring, white);
+    final tailTop = centre.dy + d / 2 + ring - 4;
+    canvas.drawPath(Path()..moveTo(cx - 8, tailTop)..lineTo(cx + 8, tailTop)..lineTo(cx, tailTop + tailH + 2)..close(), white);
+    // coloured disc + glyph
+    canvas.drawCircle(centre, d / 2, Paint()..color = color);
+    glyph.paint(canvas, centre - Offset(glyph.width / 2, glyph.height / 2));
+    // chip
+    final chipTop = tailTop + tailH + _gap;
+    final chipRect = RRect.fromRectAndRadius(Rect.fromLTWH(cx - chipW / 2, chipTop, chipW, chipH), const Radius.circular(8));
+    canvas.drawRRect(chipRect, Paint()..color = const Color(0xF21C1F26));
+    final textY = chipTop + _chipPadV;
+    titlePainter.paint(canvas, Offset(cx - chipW / 2 + _chipPadH, textY));
+    timePainter.paint(canvas, Offset(cx - chipW / 2 + _chipPadH + titlePainter.width + between, textY + 0.5));
+
+    final picture = recorder.endRecording();
+    final img = await picture.toImage((totalW * dpr).ceil(), (totalH * dpr).ceil());
+    final bytes = await img.toByteData(format: ui.ImageByteFormat.png);
+    img.dispose();
+    return EventMarkerBitmap(BitmapDescriptor.bytes(bytes!.buffer.asUint8List(), imagePixelRatio: dpr), Offset(0.5, (tailTop + tailH) / totalH));
   }
 
   Future<EventMarkerBitmap> _render(Event e, String label, ui.Image? image, ui.Image? art) async {
@@ -199,10 +242,6 @@ class EventMarkerFactory {
     for (final img in _images.values) {
       img?.dispose();
     }
-    for (final img in _assets.values) {
-      img?.dispose();
-    }
-    _assets.clear();
     _images.clear();
     _cache.clear();
   }

@@ -9,6 +9,10 @@ import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_icons.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/friendly_error.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart' show LatLng;
+
+import '../../../../core/utils/geo.dart';
+import '../../../../core/widgets/pin_picker_screen.dart';
 import '../../../../core/widgets/place_search_field.dart';
 import '../../../../core/widgets/user_avatar.dart';
 import '../../../auth/domain/profile.dart';
@@ -44,11 +48,62 @@ class _TtNowSheetState extends ConsumerState<_TtNowSheet> {
   Set<String>? _invited; // null until friends load, then all ticked
   bool _busy = false;
   bool _prefilled = false;
+  bool _locating = false;
+  List<PlaceDetails> _around = const [];
 
   @override
   void dispose() {
     _venue.dispose();
     super.dispose();
+  }
+
+  /// One tap: GPS fix, then the closest named places to pick from.
+  Future<void> _useMyLocation() async {
+    setState(() => _locating = true);
+    try {
+      Position? pos;
+      try {
+        pos = await Geolocator.getCurrentPosition(locationSettings: const LocationSettings(accuracy: LocationAccuracy.high, timeLimit: Duration(seconds: 10)));
+      } catch (_) {}
+      final fallback = ref.read(userLocationProvider).value;
+      final lat = pos?.latitude ?? fallback?.latitude;
+      final lng = pos?.longitude ?? fallback?.longitude;
+      if (lat == null || lng == null) throw const AppException('Turn on location first.');
+      final list = await ref.read(placesServiceProvider).nearby(lat, lng);
+      if (!mounted) return;
+      if (list.isEmpty) {
+        // nothing named here: pin the raw spot
+        setState(() {
+          _picked = PlaceDetails(placeId: '', name: 'My spot', address: '', lat: lat, lng: lng);
+          _venue.text = 'My spot';
+          _changing = false;
+          _around = const [];
+        });
+      } else {
+        setState(() {
+          _around = list;
+          _picked = list.first;
+          _venue.text = list.first.name;
+          _changing = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
+    } finally {
+      if (mounted) setState(() => _locating = false);
+    }
+  }
+
+  Future<void> _pinOnMap() async {
+    final here = ref.read(userLocationProvider).value;
+    final r = await pickPinFullScreen(context, start: _picked != null ? LatLng(_picked!.lat, _picked!.lng) : (here ?? kualaLumpur));
+    if (r == null || !mounted) return;
+    setState(() {
+      _picked = PlaceDetails(placeId: '', name: r.name ?? 'Pinned spot', address: '', lat: r.latLng.latitude, lng: r.latLng.longitude);
+      _venue.text = r.name ?? 'Pinned spot';
+      _changing = false;
+      _around = const [];
+    });
   }
 
   Future<void> _customDuration() async {
@@ -183,6 +238,55 @@ class _TtNowSheetState extends ConsumerState<_TtNowSheet> {
                   ],
                 ),
               ),
+            if (_changing || _venue.text.trim().isEmpty) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _busy || _locating ? null : _useMyLocation,
+                      icon: _locating ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(AppIcons.gpsFix, size: 16),
+                      label: const Text('Use my location'),
+                      style: OutlinedButton.styleFrom(minimumSize: const Size(0, 40), padding: const EdgeInsets.symmetric(horizontal: 10)),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _busy ? null : _pinOnMap,
+                      icon: const Icon(AppIcons.mapPinPlus, size: 16),
+                      label: const Text('Pin on map'),
+                      style: OutlinedButton.styleFrom(minimumSize: const Size(0, 40), padding: const EdgeInsets.symmetric(horizontal: 10)),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+            if (_around.length > 1) ...[
+              const SizedBox(height: 8),
+              SizedBox(
+                height: 34,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  children: [
+                    for (final p in _around)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: ChoiceChip(
+                          label: Text(p.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                          selected: _picked?.placeId == p.placeId,
+                          showCheckmark: false,
+                          visualDensity: VisualDensity.compact,
+                          onSelected: (_) => setState(() {
+                            _picked = p;
+                            _venue.text = p.name;
+                          }),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 16),
             // ---- how long
             const Text('HOW LONG', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1, color: AppColors.textSecondary)),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
+import '../../../core/utils/open_external.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -489,7 +490,10 @@ class _Attendees extends StatelessWidget {
     final e = detail.event;
     final preview = detail.attendeesPreview;
     final capacity = e.maxAttendees == null ? '' : ' of ${e.maxAttendees}';
-    return Row(
+    return InkWell(
+      onTap: e.attendeeCount == 0 ? null : () => _showGoing(context, e),
+      borderRadius: BorderRadius.circular(10),
+      child: Row(
       children: [
         if (preview.isNotEmpty) ...[
           AvatarStack(
@@ -510,7 +514,63 @@ class _Attendees extends StatelessWidget {
             ),
           ),
         ),
+        if (e.attendeeCount > 0) const Icon(AppIcons.caretRight, size: 18, color: AppColors.textMuted),
       ],
+    ),
+    );
+  }
+
+  Future<void> _showGoing(BuildContext context, Event e) {
+    return showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (_) => Consumer(
+        builder: (ctx, ref, _) {
+          final going = ref.watch(eventAttendeesProvider(e.id));
+          final checked = ref.watch(eventCheckedInProvider(e.id)).value?.map((p) => p.id).toSet() ?? const <String>{};
+          return SafeArea(
+            child: SizedBox(
+              height: MediaQuery.sizeOf(ctx).height * 0.6,
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                    child: Text('Going · ${e.attendeeCount}', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+                  ),
+                  Expanded(
+                    child: going.when(
+                      loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                      error: (err, _) => Center(child: Text(friendlyError(err))),
+                      data: (list) => ListView.builder(
+                        itemCount: list.length,
+                        itemBuilder: (_, i) {
+                          final p = list[i];
+                          final here = checked.contains(p.id);
+                          final host = p.id == e.organizerId;
+                          return ListTile(
+                            leading: UserAvatar(url: p.avatarUrl, name: p.displayName ?? p.username, size: 42),
+                            title: Text(p.displayName ?? '@${p.username}', style: const TextStyle(fontWeight: FontWeight.w600)),
+                            subtitle: Text(
+                              [if (host) 'Host', if (here) 'Checked in', '@${p.username ?? ''}'].join(' · '),
+                              style: TextStyle(fontSize: 12, color: here ? AppColors.success : AppColors.textSecondary),
+                            ),
+                            trailing: host ? const Icon(AppIcons.crown, size: 18, color: AppColors.warnColor) : null,
+                            onTap: () {
+                              Navigator.pop(ctx);
+                              context.push(Routes.profile(p.id));
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 }
@@ -1019,8 +1079,8 @@ class _QuickActions extends StatelessWidget {
   final Event event;
 
   String get _appLink => 'https://creatiqai.github.io/TTSpot/m.html?id=${event.id}';
-  String get _waze => 'https://waze.com/ul?ll=${event.lat},${event.lng}&navigate=yes';
-  String get _gmaps => 'https://www.google.com/maps/dir/?api=1&destination=${event.lat},${event.lng}';
+  String get _waze => wazeUrl(event.lat, event.lng);
+  String get _gmaps => googleMapsUrl(event.lat, event.lng);
   String get _whatsapp {
     final when = event.isInstant ? 'now until ${formatTime(event.closesAt)}' : formatEventDateFriendly(event.startsAt);
     return '${event.title} · ${event.venueName} · $when\nWaze: $_waze\nJoin on TT Spot: $_appLink';
@@ -1049,11 +1109,11 @@ class _QuickActions extends StatelessWidget {
         );
     return Row(
       children: [
-        btn('Waze', AppIcons.navigationArrow, const Color(0xFF33CCFF), const Color(0xFF062A3A), () => _copy(context, _waze, 'Waze link copied. Paste it in Waze.')),
+        btn('Waze', AppIcons.navigationArrow, const Color(0xFF33CCFF), const Color(0xFF062A3A), () => openExternal(context, 'waze://?ll=${event.lat},${event.lng}&navigate=yes', fallbackUrl: _waze)),
         const SizedBox(width: 8),
-        btn('Maps', AppIcons.mapTrifold, AppColors.surfaceGray, AppColors.ink, () => _copy(context, _gmaps, 'Google Maps link copied. Paste it in Maps.')),
+        btn('Maps', AppIcons.mapTrifold, AppColors.surfaceGray, AppColors.ink, () => openExternal(context, 'comgooglemaps://?daddr=${event.lat},${event.lng}', fallbackUrl: _gmaps)),
         const SizedBox(width: 8),
-        btn('WhatsApp', AppIcons.chatCircle, const Color(0xFF25D366), const Color(0xFF063D1D), () => _copy(context, _whatsapp, 'Message copied. Paste it in WhatsApp.')),
+        btn('WhatsApp', AppIcons.chatCircle, const Color(0xFF25D366), const Color(0xFF063D1D), () => openExternal(context, 'whatsapp://send?text=${Uri.encodeComponent(_whatsapp)}', fallbackUrl: whatsappUrl(_whatsapp))),
         const SizedBox(width: 8),
         btn('Copy link', AppIcons.link, AppColors.surfaceGray, AppColors.ink, () => _copy(context, _appLink, 'Link copied.')),
       ],

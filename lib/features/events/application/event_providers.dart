@@ -31,6 +31,8 @@ final myCheckinsProvider = FutureProvider<Set<String>>((ref) async {
   return ref.watch(eventsRepositoryProvider).myCheckinEventIds(me);
 });
 
+final eventAttendeesProvider = FutureProvider.family<List<Profile>, String>((ref, id) => ref.watch(eventsRepositoryProvider).attendees(id));
+
 final eventCheckedInProvider = FutureProvider.family<List<Profile>, String>((ref, id) {
   return ref.watch(eventsRepositoryProvider).fetchCheckedIn(id);
 });

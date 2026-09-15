@@ -38,6 +38,17 @@ class PlacesService {
         .toList();
   }
 
+  /// The closest named places around a point (for "use my location").
+  Future<List<PlaceDetails>> nearby(double lat, double lng) async {
+    final res = await _ref.read(supabaseProvider).functions.invoke('places', body: {'action': 'nearby', 'lat': lat, 'lng': lng});
+    final data = res.data as Map?;
+    if (data == null || data['error'] != null) throw Exception(data?['error'] ?? 'Nearby failed');
+    return (data['places'] as List)
+        .where((p) => p['lat'] != null)
+        .map((p) => PlaceDetails(placeId: p['placeId'] as String? ?? '', name: p['name'] as String? ?? '', address: p['address'] as String? ?? '', lat: (p['lat'] as num).toDouble(), lng: (p['lng'] as num).toDouble()))
+        .toList();
+  }
+
   Future<PlaceDetails> details(String placeId) async {
     final res = await _ref.read(supabaseProvider).functions.invoke('places', body: {'action': 'details', 'placeId': placeId});
     final d = res.data as Map?;

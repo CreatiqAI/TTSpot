@@ -45,6 +45,7 @@ class FriendPin {
     this.ghost = false,
     this.viaClub = false,
     this.viaNearby = false,
+    this.viaPublic = false,
     this.clubName,
     this.heading,
     this.carMake,
@@ -54,6 +55,9 @@ class FriendPin {
 
   /// A stranger in nearby mode: rounded position, no face, grey car.
   final bool viaNearby;
+  /// A stranger who chose "Everyone".
+  final bool viaPublic;
+  bool get isStranger => viaNearby || viaPublic;
   final double? heading;
   final String? carMake;
   final String? carModel;
@@ -91,6 +95,7 @@ class FriendPin {
         eventTitle: (m['events'] as Map<String, dynamic>?)?['title'] as String?,
         viaClub: m['via'] == 'club',
         viaNearby: m['via'] == 'nearby',
+        viaPublic: m['via'] == 'public',
         clubName: m['club_name'] as String?,
         heading: (m['heading'] as num?)?.toDouble(),
         carMake: m['car_make'] as String?,

@@ -76,6 +76,12 @@
 	<string>$(MAPS_API_KEY)</string>
 	<key>GIDClientID</key>
 	<string>$(GOOGLE_IOS_CLIENT_ID)</string>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>waze</string>
+		<string>comgooglemaps</string>
+		<string>whatsapp</string>
+	</array>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>

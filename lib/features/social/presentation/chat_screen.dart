@@ -148,7 +148,42 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               error: (e, _) => Center(child: Text(friendlyError(e))),
               data: (list) {
                 if (list.isEmpty) {
-                  return const Center(child: Text('No messages yet. Say hi 👋', style: TextStyle(color: AppColors.textSecondary)));
+                  final other = conv?.other;
+                  final first = (other?.displayName ?? other?.username ?? '').split(' ').first;
+                  final starters = conv?.isMeet ?? false
+                      ? const ['Who\'s coming tonight?', 'Where to park?', 'Otw, 10 min', 'Anyone need a ride?']
+                      : ['Hey $first, TT tonight?', 'Coming TTDI Thursday?', 'Nice ride, what mods?', 'Otw, 10 min', 'Where you usually TT?'];
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (other != null) UserAvatar(url: other.avatarUrl, name: other.displayName ?? other.username, size: 72),
+                          const SizedBox(height: 10),
+                          Text(conv?.isMeet ?? false ? 'Meet chat is empty' : 'Say hi to $first', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+                          const SizedBox(height: 4),
+                          const Text('Tap one to start, or type your own.', style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
+                          const SizedBox(height: 14),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            alignment: WrapAlignment.center,
+                            children: [
+                              for (final t in starters)
+                                ActionChip(
+                                  label: Text(t),
+                                  onPressed: () {
+                                    _text.text = t;
+                                    _send();
+                                  },
+                                ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
                 }
                 final reversed = list.reversed.toList();
                 return ListView.builder(

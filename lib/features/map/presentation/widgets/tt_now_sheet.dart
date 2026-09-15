@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart' show CupertinoTimerPicker, CupertinoTimerPickerMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
@@ -5,18 +6,20 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/places/places_service.dart';
 import '../../../../core/router/app_router.dart';
-import '../../../../core/theme/app_art.dart';
 import '../../../../core/theme/app_icons.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/friendly_error.dart';
 import '../../../../core/widgets/place_search_field.dart';
-import '../../../../core/widgets/primary_button.dart';
+import '../../../../core/widgets/user_avatar.dart';
+import '../../../auth/domain/profile.dart';
 import '../../../events/application/event_providers.dart';
 import '../../../friends/application/friends_providers.dart';
+import '../../../social/application/chat_providers.dart';
 import '../../application/map_providers.dart';
 
-/// "TT now": one field, one button. Type or pick where you are; friends get
-/// pinged. The meet ends by itself after three hours, or whenever you end it.
+/// "TT now": where (prefilled), how long (1 h default), who (all friends
+/// ticked). Start makes the meet and drops an invite card in each ticked
+/// friend's chat.
 Future<void> showTtNowSheet(BuildContext context) {
   return showModalBottomSheet<void>(
     context: context,
@@ -36,6 +39,9 @@ class _TtNowSheet extends ConsumerStatefulWidget {
 class _TtNowSheetState extends ConsumerState<_TtNowSheet> {
   final _venue = TextEditingController();
   PlaceDetails? _picked;
+  bool _changing = false;
+  int _minutes = 60;
+  Set<String>? _invited; // null until friends load, then all ticked
   bool _busy = false;
   bool _prefilled = false;
 
@@ -45,7 +51,35 @@ class _TtNowSheetState extends ConsumerState<_TtNowSheet> {
     super.dispose();
   }
 
-  Future<void> _go() async {
+  Future<void> _customDuration() async {
+    var d = Duration(minutes: _minutes);
+    final ok = await showModalBottomSheet<bool>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 8, 0),
+              child: Row(children: [
+                const Expanded(child: Text('How long?', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800))),
+                TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Done')),
+              ]),
+            ),
+            SizedBox(
+              height: 200,
+              child: CupertinoTimerPicker(mode: CupertinoTimerPickerMode.hm, initialTimerDuration: d, minuteInterval: 15, onTimerDurationChanged: (v) => d = v),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (ok == true && d.inMinutes >= 15) setState(() => _minutes = d.inMinutes.clamp(15, 480));
+  }
+
+  Future<void> _go(List<Profile> friends) async {
     setState(() => _busy = true);
     try {
       double? lat = _picked?.lat;
@@ -53,9 +87,7 @@ class _TtNowSheetState extends ConsumerState<_TtNowSheet> {
       if (lat == null || lng == null) {
         Position? pos;
         try {
-          pos = await Geolocator.getCurrentPosition(
-            locationSettings: const LocationSettings(accuracy: LocationAccuracy.high, timeLimit: Duration(seconds: 10)),
-          );
+          pos = await Geolocator.getCurrentPosition(locationSettings: const LocationSettings(accuracy: LocationAccuracy.high, timeLimit: Duration(seconds: 10)));
         } catch (_) {
           pos = null;
         }
@@ -65,8 +97,17 @@ class _TtNowSheetState extends ConsumerState<_TtNowSheet> {
       }
       if (lat == null || lng == null) throw const AppException('Turn on location so friends know where to come.');
 
-      final id = await ref.read(eventActionsProvider).ttNow(lat: lat, lng: lng, venue: _venue.text);
+      final invitees = (_invited ?? friends.map((f) => f.id).toSet()).toList();
+      final id = await ref.read(eventActionsProvider).ttNow(lat: lat, lng: lng, venue: _venue.text, minutes: _minutes, invitees: invitees, address: _picked?.address);
       ref.invalidate(liveEventsProvider);
+      // one invite card in each friend's chat
+      final chat = ref.read(chatActionsProvider);
+      for (final uid in invitees) {
+        try {
+          final conv = await chat.openDm(uid);
+          await chat.attach(conv, eventId: id);
+        } catch (_) {}
+      }
       if (!mounted) return;
       Navigator.of(context).pop();
       context.push(Routes.event(id));
@@ -78,61 +119,146 @@ class _TtNowSheetState extends ConsumerState<_TtNowSheet> {
     }
   }
 
+  String get _durationLabel => _minutes % 60 == 0 ? '${_minutes ~/ 60} h' : (_minutes > 60 ? '${_minutes ~/ 60} h ${_minutes % 60} min' : '$_minutes min');
+
   @override
   Widget build(BuildContext context) {
     final my = ref.watch(myLocationProvider).value;
     final here = ref.watch(userLocationProvider).value;
-    final friends = ref.watch(friendsProvider).value?.length ?? 0;
+    final friends = ref.watch(friendsProvider).value ?? const <Profile>[];
+    final pins = ref.watch(friendPinsProvider).value ?? const [];
+    final liveIds = {for (final p in pins) if (p.isFresh) p.user.id};
     if (!_prefilled && my?.placeName != null) {
       _venue.text = my!.placeName!;
       _prefilled = true;
     }
+    final invited = _invited ?? friends.map((f) => f.id).toSet();
+    final preset = const [60, 120, 180];
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(20, 0, 20, MediaQuery.viewInsetsOf(context).bottom + 20),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Row(
-            children: [
-              ArtIcon(AppArt.coffee, size: 30),
-              SizedBox(width: 8),
-              Text('TT now', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            friends == 0
-                ? 'Tell friends where you are. Add friends first so someone gets pinged.'
-                : 'Tell your $friends friend${friends == 1 ? '' : 's'} where you are. They get pinged right away.',
-            style: const TextStyle(fontSize: 14, color: AppColors.textSecondary, height: 1.4),
-          ),
-          const SizedBox(height: 18),
-          PlaceSearchField(
-            controller: _venue,
-            enabled: !_busy,
-            near: here == null ? null : (here.latitude, here.longitude),
-            hint: 'Where are you?',
-            icon: AppIcons.mapPin,
-            onChanged: (_) {
-              if (_picked != null) setState(() => _picked = null);
-            },
-            onPicked: (d) => setState(() {
-              _picked = d;
-              _venue.text = d.name;
-            }),
-          ),
-          const SizedBox(height: 18),
-          PrimaryButton(label: 'Start TT now', loading: _busy, onPressed: _busy ? null : _go),
-          const SizedBox(height: 8),
-          const Text(
-            'Only friends see it on the map. It ends by itself in 3 hours, or when you end it.',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 12, color: AppColors.textMuted),
-          ),
-        ],
+      padding: EdgeInsets.fromLTRB(20, 0, 20, MediaQuery.viewInsetsOf(context).bottom + 16),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('TT now', style: TextStyle(fontFamily: AppFonts.display, fontSize: 28, fontWeight: FontWeight.w700, height: 1)),
+            const SizedBox(height: 12),
+            // ---- where
+            if (_changing || _venue.text.trim().isEmpty)
+              PlaceSearchField(
+                controller: _venue,
+                autofocus: _changing,
+                enabled: !_busy,
+                near: here == null ? null : (here.latitude, here.longitude),
+                hint: 'Where are you?',
+                icon: AppIcons.mapPin,
+                onChanged: (_) {
+                  if (_picked != null) setState(() => _picked = null);
+                },
+                onPicked: (d) => setState(() {
+                  _picked = d;
+                  _venue.text = d.name;
+                  _changing = false;
+                }),
+              )
+            else
+              Container(
+                padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                decoration: BoxDecoration(color: AppColors.surfaceGray, borderRadius: BorderRadius.circular(AppRadius.md)),
+                child: Row(
+                  children: [
+                    const Icon(AppIcons.mapPin, size: 18),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(_venue.text, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                          if (_picked?.address != null) Text(_picked!.address, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11.5, color: AppColors.textSecondary)),
+                        ],
+                      ),
+                    ),
+                    TextButton(onPressed: _busy ? null : () => setState(() => _changing = true), child: const Text('Change')),
+                  ],
+                ),
+              ),
+            const SizedBox(height: 16),
+            // ---- how long
+            const Text('HOW LONG', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1, color: AppColors.textSecondary)),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                for (final m in preset) ...[
+                  Expanded(child: _Chip(label: '${m ~/ 60} h', on: _minutes == m, onTap: _busy ? null : () => setState(() => _minutes = m))),
+                  const SizedBox(width: 6),
+                ],
+                Expanded(child: _Chip(label: preset.contains(_minutes) ? 'Custom' : _durationLabel, on: !preset.contains(_minutes), onTap: _busy ? null : _customDuration)),
+              ],
+            ),
+            const SizedBox(height: 16),
+            // ---- who
+            Row(
+              children: [
+                Text('INVITE · ${invited.length} of ${friends.length}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1, color: AppColors.textSecondary)),
+                const Spacer(),
+                TextButton(
+                  onPressed: _busy || friends.isEmpty ? null : () => setState(() => _invited = invited.length == friends.length ? <String>{} : friends.map((f) => f.id).toSet()),
+                  style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 28)),
+                  child: Text(invited.length == friends.length ? 'Clear' : 'Select all'),
+                ),
+              ],
+            ),
+            if (friends.isEmpty)
+              const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Text('No friends yet. Your TT still shows on the map for people you add later.', style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)))
+            else
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 220),
+                child: ListView(
+                  shrinkWrap: true,
+                  children: [
+                    for (final f in friends)
+                      ListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        leading: UserAvatar(url: f.avatarUrl, name: f.displayName ?? f.username, size: 36),
+                        title: Text(f.displayName ?? '@${f.username}', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5)),
+                        subtitle: Text(liveIds.contains(f.id) ? 'On the map now' : '@${f.username ?? ''}', style: TextStyle(fontSize: 11.5, color: liveIds.contains(f.id) ? AppColors.success : AppColors.textSecondary)),
+                        trailing: Icon(invited.contains(f.id) ? AppIcons.checkCircleFill : AppIcons.checkCircle, color: invited.contains(f.id) ? AppColors.brand : AppColors.textMuted),
+                        onTap: _busy ? null : () => setState(() => _invited = invited.contains(f.id) ? ({...invited}..remove(f.id)) : {...invited, f.id}),
+                      ),
+                  ],
+                ),
+              ),
+            const SizedBox(height: 12),
+            FilledButton(
+              onPressed: _busy ? null : () => _go(friends),
+              style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50)),
+              child: _busy
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : Text(invited.isEmpty ? 'Start TT' : 'Start TT · invite ${invited.length} friend${invited.length == 1 ? '' : 's'}'),
+            ),
+            const SizedBox(height: 6),
+            Text('Ends by itself in $_durationLabel, or when you end it. Friends see it on the map.', textAlign: TextAlign.center, style: const TextStyle(fontSize: 11.5, color: AppColors.textMuted)),
+          ],
+        ),
       ),
     );
   }
+}
+
+class _Chip extends StatelessWidget {
+  const _Chip({required this.label, required this.on, required this.onTap});
+  final String label;
+  final bool on;
+  final VoidCallback? onTap;
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 9),
+          decoration: BoxDecoration(color: on ? AppColors.ink : AppColors.surfaceGray, borderRadius: BorderRadius.circular(999)),
+          child: Text(label, textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: on ? Colors.white : AppColors.textPrimary)),
+        ),
+      );
 }

@@ -72,9 +72,9 @@ class EventActions {
     _refresh(eventId);
   }
 
-  Future<String> ttNow({required double lat, required double lng, String? venue, int hours = 3}) async {
+  Future<String> ttNow({required double lat, required double lng, String? venue, int minutes = 60, List<String>? invitees, String? address}) async {
     final v = venue?.trim();
-    final id = await _repo.ttNow(lat: lat, lng: lng, venue: v == null || v.isEmpty ? null : v, hours: hours);
+    final id = await _repo.ttNow(lat: lat, lng: lng, venue: v == null || v.isEmpty ? null : v, minutes: minutes, invitees: invitees, address: address);
     _ref.invalidate(myCheckinsProvider);
     _ref.invalidate(myEventsProvider);
     return id;

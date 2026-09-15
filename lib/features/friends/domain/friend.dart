@@ -44,8 +44,21 @@ class FriendPin {
     this.eventTitle,
     this.ghost = false,
     this.viaClub = false,
+    this.viaNearby = false,
     this.clubName,
+    this.heading,
+    this.carMake,
+    this.carModel,
+    this.carColor,
   });
+
+  /// A stranger in nearby mode: rounded position, no face, grey car.
+  final bool viaNearby;
+  final double? heading;
+  final String? carMake;
+  final String? carModel;
+  final String? carColor;
+  String? get carTitle => carMake == null ? null : '$carMake ${carModel ?? ''}'.trim();
 
   /// True when I only see this person because we share a car club.
   final bool viaClub;
@@ -77,14 +90,22 @@ class FriendPin {
         eventId: m['event_id'] as String?,
         eventTitle: (m['events'] as Map<String, dynamic>?)?['title'] as String?,
         viaClub: m['via'] == 'club',
+        viaNearby: m['via'] == 'nearby',
         clubName: m['club_name'] as String?,
+        heading: (m['heading'] as num?)?.toDouble(),
+        carMake: m['car_make'] as String?,
+        carModel: m['car_model'] as String?,
+        carColor: m['car_color'] as String?,
       );
 }
 
 /// My own `user_locations` row (ghost flag + where the server thinks I am).
 class MyLocation {
-  const MyLocation({required this.ghost, this.placeId, this.placeName, this.eventId, this.updatedAt});
+  const MyLocation({required this.ghost, this.placeId, this.placeName, this.eventId, this.updatedAt, this.shareMode = 'friends', this.shareRadiusM = 2000});
   final bool ghost;
+  /// 'friends' | 'nearby' | 'ghost'
+  final String shareMode;
+  final int shareRadiusM;
   final String? placeId;
   final String? placeName;
   final String? eventId;
@@ -98,6 +119,8 @@ class MyLocation {
         placeName: (m['places'] as Map<String, dynamic>?)?['name'] as String?,
         eventId: m['event_id'] as String?,
         updatedAt: m['updated_at'] == null ? null : DateTime.parse(m['updated_at'] as String).toLocal(),
+        shareMode: m['share_mode'] as String? ?? 'friends',
+        shareRadiusM: (m['share_radius_m'] as num?)?.toInt() ?? 2000,
       );
 }
 

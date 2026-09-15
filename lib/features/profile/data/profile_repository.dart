@@ -45,10 +45,12 @@ class ProfileRepository {
     int? year,
     String? description,
     required List<String> photoUrls,
+    String? color,
   }) async {
     final row = await _client
         .from('cars')
         .insert({
+          'color': color,
           'owner_id': ownerId,
           'make': make.trim(),
           'model': model.trim(),
@@ -68,10 +70,12 @@ class ProfileRepository {
     int? year,
     String? description,
     required List<String> photoUrls,
+    String? color,
   }) async {
     final row = await _client
         .from('cars')
         .update({
+          'color': color,
           'make': make.trim(),
           'model': model.trim(),
           'year': year,

@@ -38,6 +38,7 @@ class CarFormController extends AsyncNotifier<void> {
     required String description,
     required List<String> keptPhotoUrls,
     required List<XFile> newPhotos,
+    String? color,
   }) async {
     state = const AsyncLoading();
     String? savedId;
@@ -61,8 +62,8 @@ class CarFormController extends AsyncNotifier<void> {
         urls.add(await repo.uploadCarPhoto(userId: me, bytes: await newPhotos[i].readAsBytes(), index: i));
       }
       final car = carId == null
-          ? await repo.insertCar(ownerId: me, make: make, model: model, year: year, description: description, photoUrls: urls)
-          : await repo.updateCar(id: carId, make: make, model: model, year: year, description: description, photoUrls: urls);
+          ? await repo.insertCar(ownerId: me, make: make, model: model, year: year, description: description, photoUrls: urls, color: color)
+          : await repo.updateCar(id: carId, make: make, model: model, year: year, description: description, photoUrls: urls, color: color);
       savedId = car.id;
       ref.invalidate(userCarsProvider(me));
       ref.invalidate(profileStatsProvider(me));

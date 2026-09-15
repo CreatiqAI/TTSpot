@@ -20,6 +20,8 @@ import '../../../social/domain/post.dart';
 import '../../../social/presentation/story_viewer_screen.dart';
 import '../../application/map_providers.dart';
 import 'map_event_sheet.dart' show EventRow;
+import 'tt_now_sheet.dart';
+import '../../../../core/supabase/supabase_client.dart';
 import 'map_filter_sheet.dart';
 
 /// Draggable dark sheet over the map. Content follows the map mode:
@@ -100,8 +102,41 @@ class _NowContent extends ConsumerWidget {
         return distanceKm(origin, a.latLng).compareTo(distanceKm(origin, b.latLng));
       });
 
+    final me = ref.watch(currentUserIdProvider);
+    final myLoc = ref.watch(myLocationProvider).value;
+    final friendIds = ref.watch(friendIdsProvider);
+    final mine = live.where((e) => e.isInstant && e.organizerId == me).firstOrNull;
+    final friendsTt = live.where((e) => e.isInstant && friendIds.contains(e.organizerId)).toList()
+      ..sort((a, b) => distanceKm(origin, a.latLng).compareTo(distanceKm(origin, b.latLng)));
+    final friendTt = friendsTt.firstOrNull;
+
     return SliverList(
       delegate: SliverChildListDelegate([
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 6),
+          child: mine != null
+              ? _TtPill(
+                  dark: true,
+                  icon: AppIcons.record,
+                  text: 'Live · ${mine.checkinCount} here · ${_minsLeft(mine)} min',
+                  trailing: 'End',
+                  onTap: () => context.push(Routes.event(mine.id)),
+                )
+              : friendTt != null
+                  ? _TtPill(
+                      light: true,
+                      icon: AppIcons.coffee,
+                      text: '${_firstName(friendTt.organizerId, pins.value)}\'s TT · ${friendTt.venueName} · ${distanceKm(origin, friendTt.latLng).toStringAsFixed(1)} km',
+                      trailing: 'Otw!',
+                      onTap: () => context.push(Routes.event(friendTt.id)),
+                    )
+                  : _TtPill(
+                      icon: AppIcons.coffee,
+                      text: myLoc?.placeName != null ? 'TT now here' : 'TT now',
+                      trailing: myLoc?.placeName,
+                      onTap: () => showTtNowSheet(context),
+                    ),
+        ),
         _SectionHeader(
           title: 'Friends & club on the map',
           count: list.length,
@@ -127,6 +162,54 @@ class _NowContent extends ConsumerWidget {
         ],
         const SizedBox(height: 24),
       ]),
+    );
+  }
+}
+
+int _minsLeft(Event e) => e.closesAt.difference(DateTime.now()).inMinutes.clamp(0, 9999);
+
+String _firstName(String userId, List<FriendPin>? pins) {
+  final p = pins?.where((x) => x.user.id == userId).firstOrNull?.user;
+  final n = p?.displayName ?? p?.username ?? 'Friend';
+  return n.split(' ').first;
+}
+
+/// The one TT control: red to start, black while yours is live, white when a
+/// friend's is live near you.
+class _TtPill extends StatelessWidget {
+  const _TtPill({required this.icon, required this.text, required this.onTap, this.trailing, this.dark = false, this.light = false});
+  final IconData icon;
+  final String text;
+  final String? trailing;
+  final VoidCallback onTap;
+  final bool dark;
+  final bool light;
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = dark ? Colors.black : (light ? Colors.white : AppColors.brand);
+    final fg = light ? AppColors.ink : Colors.white;
+    return Material(
+      color: bg,
+      borderRadius: BorderRadius.circular(999),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 11, 14, 11),
+          child: Row(
+            children: [
+              Icon(icon, size: 18, color: dark ? AppColors.brand : fg),
+              const SizedBox(width: 8),
+              Expanded(child: Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: fg, fontWeight: FontWeight.w800, fontSize: 14))),
+              if (trailing != null) ...[
+                const SizedBox(width: 8),
+                Text(trailing!, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: light ? AppColors.brand : fg.withValues(alpha: 0.85), fontWeight: FontWeight.w800, fontSize: 12.5)),
+              ],
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

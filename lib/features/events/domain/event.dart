@@ -54,6 +54,7 @@ class Event {
     this.clubId,
     this.isInstant = false,
     this.friendsOnly = false,
+    this.address,
   });
 
   final String id;
@@ -77,6 +78,8 @@ class Event {
   final bool isInstant;
   /// `visibility = 'friends'`: only the organiser's friends, club members and attendees see it.
   final bool friendsOnly;
+  /// Street address from Google, when the venue was picked by search.
+  final String? address;
 
   LatLng get latLng => LatLng(lat, lng);
   bool get isCancelled => status == EventStatus.cancelled;
@@ -116,5 +119,6 @@ class Event {
         clubId: m['club_id'] as String?,
         isInstant: m['is_instant'] as bool? ?? false,
         friendsOnly: m['visibility'] == 'friends',
+        address: m['address'] as String?,
       );
 }

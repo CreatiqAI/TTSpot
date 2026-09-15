@@ -10,6 +10,7 @@ class Car {
     required this.photoUrls,
     required this.createdAt,
     this.showSpend = true,
+    this.color,
   });
 
   final String id;
@@ -21,6 +22,8 @@ class Car {
   final List<String> photoUrls;
   final DateTime createdAt;
   final bool showSpend;
+  /// One of kCarColors keys (red, black, white, grey, silver, blue, yellow, green, orange).
+  final String? color;
 
   String get title => '$make $model';
   String? get cover => photoUrls.isEmpty ? null : photoUrls.first;
@@ -35,6 +38,7 @@ class Car {
         photoUrls: ((m['photo_urls'] as List?) ?? const []).cast<String>(),
         createdAt: DateTime.parse(m['created_at'] as String).toLocal(),
         showSpend: (m['show_spend'] as bool?) ?? true,
+        color: m['color'] as String?,
       );
 }
 

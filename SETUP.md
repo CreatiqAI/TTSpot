@@ -292,6 +292,14 @@ supabase db reset     # applies migrations AND seed.sql
 
 Use the printed local `API URL` and `anon key` in env.json instead.
 
+### Map v2 (2026-09-15, migration 0018)
+
+- `cars.color` (9 keys, see `car_marker.dart` `kCarColors`); car form has a colour row. Markers are painted with `paintCar` and cached by `CarMarkerFactory`.
+- `user_locations.share_mode` ('friends' | 'nearby' | 'ghost') + `share_radius_m`; `set_share_mode(mode, radius)`; the old `set_ghost` maps onto it. `visible_pins()` returns friends/clubmates as before plus `via = 'nearby'` strangers when both sides are in nearby mode and within the stranger's own radius; their lat/lng is rounded to 3 dp and profile fields are blanked. Blocks are respected.
+- `tt_now(lat, lng, venue, title, p_minutes, p_invitees uuid[], p_address)`: 15–480 min, invitees are RSVP'd + notified; the app then drops one `messages.event_id` card in each invitee's DM.
+- `events.address` (from Google when picked by search). Meet page: address line + Waze / Google Maps / WhatsApp / Copy link. **No url_launcher yet**: each button copies the link/message to the clipboard with a hint. Approve `url_launcher` to open the apps directly. Share link = `https://creatiqai.github.io/TTSpot/m.html?id=<event>` (docs/m.html → `ttspot://event/<id>`).
+- Map: `assets/map_style_light.json` by day (07:00–19:00), dark otherwise. Radar = `Circle`s driven by an AnimationController fired every 5 s only in Now mode. Controls left on the map: layer switch, eye (visibility sheet), locate. TT pill lives in the sheet (`_TtPill` in map_sheet.dart): start / at-a-spot / mine live / friend's live.
+
 ### Routing gotcha: go_router 18 + `package:flutter/material.dart` (2026-09-15)
 
 go_router 18 checks for `MaterialApp` using `package:material_ui`'s class. This app uses `package:flutter/material.dart`'s

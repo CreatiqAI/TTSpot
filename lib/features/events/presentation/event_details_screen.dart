@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -230,6 +231,13 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                                 trailing: d.event.placeId == null ? null : const Icon(AppIcons.caretRight, size: 20, color: AppColors.textMuted),
                               ),
                             ),
+                            if (d.event.address != null)
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(30, 2, 0, 0),
+                                child: Text(d.event.address!, style: const TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.35)),
+                              ),
+                            const SizedBox(height: 10),
+                            _QuickActions(event: d.event),
                             if (d.event.clubId != null) ...[
                               const SizedBox(height: 8),
                               _ClubRow(clubId: d.event.clubId!),
@@ -999,6 +1007,56 @@ class _RecapCard extends ConsumerWidget {
           ],
         ],
       ),
+    );
+  }
+}
+
+
+/// Waze · Google Maps · WhatsApp · Copy link. Until an app-launcher package is
+/// approved, each copies the right link/text and says where to paste it.
+class _QuickActions extends StatelessWidget {
+  const _QuickActions({required this.event});
+  final Event event;
+
+  String get _appLink => 'https://creatiqai.github.io/TTSpot/m.html?id=${event.id}';
+  String get _waze => 'https://waze.com/ul?ll=${event.lat},${event.lng}&navigate=yes';
+  String get _gmaps => 'https://www.google.com/maps/dir/?api=1&destination=${event.lat},${event.lng}';
+  String get _whatsapp {
+    final when = event.isInstant ? 'now until ${formatTime(event.closesAt)}' : formatEventDateFriendly(event.startsAt);
+    return '${event.title} · ${event.venueName} · $when\nWaze: $_waze\nJoin on TT Spot: $_appLink';
+  }
+
+  Future<void> _copy(BuildContext context, String text, String where) async {
+    await Clipboard.setData(ClipboardData(text: text));
+    if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(where)));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    Widget btn(String label, IconData icon, Color bg, Color fg, VoidCallback onTap) => Expanded(
+          child: Material(
+            color: bg,
+            borderRadius: BorderRadius.circular(12),
+            child: InkWell(
+              onTap: onTap,
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 9),
+                child: Column(children: [Icon(icon, size: 20, color: fg), const SizedBox(height: 3), Text(label, style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: fg))]),
+              ),
+            ),
+          ),
+        );
+    return Row(
+      children: [
+        btn('Waze', AppIcons.navigationArrow, const Color(0xFF33CCFF), const Color(0xFF062A3A), () => _copy(context, _waze, 'Waze link copied. Paste it in Waze.')),
+        const SizedBox(width: 8),
+        btn('Maps', AppIcons.mapTrifold, AppColors.surfaceGray, AppColors.ink, () => _copy(context, _gmaps, 'Google Maps link copied. Paste it in Maps.')),
+        const SizedBox(width: 8),
+        btn('WhatsApp', AppIcons.chatCircle, const Color(0xFF25D366), const Color(0xFF063D1D), () => _copy(context, _whatsapp, 'Message copied. Paste it in WhatsApp.')),
+        const SizedBox(width: 8),
+        btn('Copy link', AppIcons.link, AppColors.surfaceGray, AppColors.ink, () => _copy(context, _appLink, 'Link copied.')),
+      ],
     );
   }
 }

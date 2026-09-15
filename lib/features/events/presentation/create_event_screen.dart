@@ -44,6 +44,7 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
   late bool _friendsOnly = widget.clubId == null;
   XFile? _cover;
   LatLng? _pin;
+  String? _address;
   GoogleMapController? _map;
   String? _mapStyle;
 
@@ -151,7 +152,10 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
   Future<void> _expandMap() async {
     final r = await pickPinFullScreen(context, start: _pin ?? (ref.read(userLocationProvider).value ?? kualaLumpur));
     if (r == null || !mounted) return;
-    setState(() => _pin = r.latLng);
+    setState(() {
+      _pin = r.latLng;
+      if (r.name != null) _address = null; // picked by search inside the picker: name only
+    });
     if (r.name != null && r.name!.isNotEmpty) _venue.text = r.name!;
     _map?.animateCamera(CameraUpdate.newLatLngZoom(r.latLng, 16));
   }
@@ -168,6 +172,7 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
           cover: _cover,
           clubId: widget.clubId,
           friendsOnly: _friendsOnly,
+          address: _address,
         );
     if (id != null && mounted) {
       context.pushReplacement(Routes.event(id));
@@ -253,7 +258,10 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
                     hint: 'Search a place or address',
                     onPicked: (d) {
                       final target = LatLng(d.lat, d.lng);
-                      setState(() => _pin = target);
+                      setState(() {
+                        _pin = target;
+                        _address = d.address;
+                      });
                       _venue.text = d.name;
                       _map?.animateCamera(CameraUpdate.newLatLngZoom(target, 16));
                     },
@@ -264,7 +272,10 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
                     style: _mapStyle,
                     hasPin: _pin != null,
                     onCreated: (c) => _map = c,
-                    onIdle: (target) => setState(() => _pin = target),
+                    onIdle: (target) => setState(() {
+                      if (_pin != null && (target.latitude - _pin!.latitude).abs() + (target.longitude - _pin!.longitude).abs() > 0.0005) _address = null;
+                      _pin = target;
+                    }),
                     onMyLocation: busy ? null : _useMyLocation,
                     onExpand: busy ? null : _expandMap,
                   ),

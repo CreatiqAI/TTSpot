@@ -26,6 +26,7 @@ class CreateEventController extends AsyncNotifier<void> {
     XFile? cover,
     String? clubId,
     bool friendsOnly = false,
+    String? address,
   }) async {
     state = const AsyncLoading();
     String? createdId;
@@ -56,6 +57,7 @@ class CreateEventController extends AsyncNotifier<void> {
         maxAttendees: maxAttendees,
         clubId: clubId,
         friendsOnly: friendsOnly,
+        address: address,
       );
       createdId = event.id;
       ref.invalidate(mapEventsProvider);

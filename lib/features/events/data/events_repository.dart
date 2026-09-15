@@ -181,11 +181,13 @@ class EventsRepository {
     int? maxAttendees,
     String? clubId,
     bool friendsOnly = false,
+    String? address,
   }) async {
     final row = await _client
         .from('events')
         .insert({
           'visibility': friendsOnly ? 'friends' : 'public',
+          'address': ?address,
           'organizer_id': organizerId,
           'title': title.trim(),
           'description': ?description?.trim(),
@@ -204,13 +206,15 @@ class EventsRepository {
   }
 
   /// Instant meet at my spot; the database pings my friends. Returns the event id.
-  Future<String> ttNow({required double lat, required double lng, String? venue, String? title, int hours = 3}) async {
+  Future<String> ttNow({required double lat, required double lng, String? venue, String? title, int minutes = 60, List<String>? invitees, String? address}) async {
     final v = await _client.rpc('tt_now', params: {
       'p_lat': lat,
       'p_lng': lng,
       'p_venue': ?venue,
       'p_title': ?title,
-      'p_hours': hours,
+      'p_minutes': minutes,
+      'p_invitees': ?invitees,
+      'p_address': ?address,
     });
     return v as String;
   }

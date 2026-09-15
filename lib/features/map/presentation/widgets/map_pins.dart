@@ -237,6 +237,12 @@ class MapPinFactory {
 
   // ------------------------------------------------------------- helpers ---
 
+  // Public wrappers so other marker factories can share the canvas helpers.
+  Future<ui.Image?> image(String url, {required int targetWidth}) => _image(url, targetWidth: targetWidth);
+  TextPainter text(String t, double size, FontWeight weight, Color color) => _text(t, size, weight, color);
+  void drawCover(Canvas canvas, ui.Image image, Rect dst, {bool dimmed = false}) => _drawCover(canvas, image, dst, dimmed: dimmed);
+  Future<MapPin> finish(ui.PictureRecorder recorder, double w, double h, {required double anchorY}) => _finish(recorder, w, h, anchorY: anchorY);
+
   static String _short(String s, int max) => s.length <= max ? s : '${s.substring(0, max - 1)}…';
 
   static TextPainter _text(String text, double size, FontWeight weight, Color color) => TextPainter(

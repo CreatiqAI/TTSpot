@@ -7,7 +7,6 @@ import 'package:go_router/go_router.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../../../core/router/app_router.dart';
-import '../../../core/theme/app_art.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/friendly_error.dart';
@@ -15,6 +14,8 @@ import '../../../core/utils/geo.dart';
 import '../../events/application/event_providers.dart';
 import '../../events/domain/event.dart';
 import '../../events/presentation/my_events_screen.dart';
+import '../../../core/supabase/supabase_client.dart';
+import '../../profile/application/profile_providers.dart';
 import '../../friends/application/friends_providers.dart';
 import '../../friends/domain/friend.dart';
 import '../../social/domain/club.dart';
@@ -24,7 +25,8 @@ import '../application/map_providers.dart';
 import 'widgets/event_marker_bitmap.dart';
 import 'widgets/map_pins.dart';
 import 'widgets/map_sheet.dart';
-import 'widgets/tt_now_sheet.dart';
+import 'widgets/car_marker.dart';
+import 'widgets/visibility_sheet.dart';
 
 /// Home. One dark map, three time layers: Now (friends, live meets, moments),
 /// Upcoming (meets on the calendar) and Before (places with history).
@@ -35,12 +37,19 @@ class MapScreen extends ConsumerStatefulWidget {
   ConsumerState<MapScreen> createState() => _MapScreenState();
 }
 
-class _MapScreenState extends ConsumerState<MapScreen> {
+class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProviderStateMixin {
   GoogleMapController? _map;
   String? _style;
+  String? _styleDark;
+  String? _styleLight;
   EventMarkerFactory? _eventMarkers;
   MapPinFactory? _pins;
+  CarMarkerFactory? _cars;
   Set<Marker> _markerSet = const {};
+  Set<Circle> _circles = const {};
+  // Radar: one pulse every 5 s on live meets (and a static ring for nearby mode).
+  late final AnimationController _radar = AnimationController(vsync: this, duration: const Duration(milliseconds: 1400))..addListener(_paintCircles);
+  Timer? _radarTimer;
   Timer? _idleDebounce;
   int _generation = 0;
   bool _movedToUser = false;
@@ -55,14 +64,53 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   @override
   void initState() {
     super.initState();
-    rootBundle.loadString('assets/map_style_dark.json').then((s) {
-      if (mounted) setState(() => _style = s);
+    Future.wait([rootBundle.loadString('assets/map_style_dark.json'), rootBundle.loadString('assets/map_style_light.json')]).then((s) {
+      _styleDark = s[0];
+      _styleLight = s[1];
+      if (mounted) setState(() => _style = _isNight ? _styleDark : _styleLight);
+    });
+    _radarTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (mounted && ref.read(mapModeProvider) == MapMode.now) _radar.forward(from: 0);
     });
     WidgetsBinding.instance.addPostFrameCallback((_) => ref.read(locationPublisherProvider.notifier).start());
   }
 
+  /// Light map by day, dark after 7 pm.
+  bool get _isNight {
+    final h = DateTime.now().hour;
+    return h >= 19 || h < 7;
+  }
+
+  void _paintCircles() {
+    if (!mounted) return;
+    final t = _radar.value;
+    final circles = <Circle>{};
+    if (ref.read(mapModeProvider) == MapMode.now) {
+      if (_radar.isAnimating) {
+        for (final e in ref.read(liveEventsProvider).value ?? const <Event>[]) {
+          circles.add(radarCircle(id: 'radar:${e.id}', at: e.latLng, radiusM: 350, t: t));
+        }
+      }
+      final my = ref.read(myLocationProvider).value;
+      final here = ref.read(userLocationProvider).value;
+      if (my != null && my.shareMode == 'nearby' && here != null) {
+        circles.add(Circle(
+          circleId: const CircleId('nearby-ring'),
+          center: here,
+          radius: my.shareRadiusM.toDouble(),
+          strokeWidth: 1,
+          strokeColor: AppColors.brand.withValues(alpha: 0.55),
+          fillColor: AppColors.brand.withValues(alpha: 0.05),
+        ));
+      }
+    }
+    setState(() => _circles = circles);
+  }
+
   @override
   void dispose() {
+    _radarTimer?.cancel();
+    _radar.dispose();
     _idleDebounce?.cancel();
     _eventMarkers?.dispose();
     _pins?.dispose();
@@ -124,6 +172,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   MapPinFactory get _pinFactory => _pins ??= MapPinFactory(devicePixelRatio: MediaQuery.devicePixelRatioOf(context));
   EventMarkerFactory get _eventFactory =>
       _eventMarkers ??= EventMarkerFactory(devicePixelRatio: MediaQuery.devicePixelRatioOf(context));
+  CarMarkerFactory get _carFactory => _cars ??= CarMarkerFactory(devicePixelRatio: MediaQuery.devicePixelRatioOf(context), pins: _pinFactory);
 
   Future<void> _rebuild() async {
     final generation = ++_generation;
@@ -164,13 +213,18 @@ class _MapScreenState extends ConsumerState<MapScreen> {
           ));
         }
         for (final f in ref.read(friendPinsProvider).value ?? const <FriendPin>[]) {
-          final name = f.user.displayName ?? f.user.username ?? '';
-          final pin = await _pinFactory.avatar(
+          final stranger = f.viaNearby;
+          final name = stranger ? '@${f.user.username ?? ''}' : (f.user.displayName ?? f.user.username ?? '');
+          final pin = await _carFactory.car(
             key: f.user.id,
-            imageUrl: f.user.avatarUrl,
-            name: name,
-            ring: f.isFresh ? AppColors.primary : const Color(0xFF6B7280),
-            dimmed: !f.isFresh,
+            colorKey: f.carColor ?? (stranger ? 'grey' : 'silver'),
+            name: stranger ? (f.carTitle ?? name) : name,
+            status: stranger ? null : freshnessLabel(f.updatedAt),
+            statusColor: f.isFresh ? const Color(0xFF22C55E) : const Color(0xFF8A919E),
+            headingDeg: f.heading ?? 0,
+            faceUrl: f.user.avatarUrl,
+            showFace: !stranger,
+            dim: stranger || !f.isFresh,
           );
           if (await stale()) return;
           built.add(Marker(
@@ -178,10 +232,19 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             position: f.latLng,
             icon: pin.descriptor,
             anchor: pin.anchor,
-            zIndexInt: 4,
+            zIndexInt: stranger ? 2 : 4,
             consumeTapEvents: true,
             onTap: () => context.push(Routes.profile(f.user.id)),
           ));
+        }
+        // me, as my own car
+        final here = ref.read(userLocationProvider).value;
+        final me = ref.read(currentUserIdProvider);
+        if (here != null && me != null) {
+          final myCar = (ref.read(userCarsProvider(me)).value ?? const []).firstOrNull;
+          final pin = await _carFactory.car(key: 'me', colorKey: myCar?.color ?? 'red', name: 'Me', status: 'now', showFace: false, me: true);
+          if (await stale()) return;
+          built.add(Marker(markerId: const MarkerId('me'), position: here, icon: pin.descriptor, anchor: pin.anchor, zIndexInt: 6));
         }
       case MapMode.upcoming:
         final now = DateTime.now();
@@ -233,16 +296,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
   // ------------------------------------------------------------- actions ---
 
-  Future<void> _toggleGhost() async {
-    final ghost = ref.read(myLocationProvider).value?.ghost ?? false;
-    try {
-      await ref.read(locationPublisherProvider.notifier).setGhost(!ghost);
-      _snack(!ghost ? 'Ghost mode on. Friends can\'t see you.' : 'You\'re back on the map.');
-    } catch (e) {
-      _snack(friendlyError(e));
-    }
-  }
-
   Future<void> _checkInNearby(({String id, String title}) meet) async {
     try {
       await ref.read(eventActionsProvider).checkIn(meet.id);
@@ -258,17 +311,24 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
   @override
   Widget build(BuildContext context) {
-    ref.listen(mapModeProvider, (_, _) => _rebuild());
+    ref.listen(mapModeProvider, (_, _) {
+      _rebuild();
+      _paintCircles();
+    });
     ref.listen(mapEventsProvider, (_, _) => _rebuild());
     ref.listen(liveEventsProvider, (_, _) => _rebuild());
     ref.listen(liveMomentsProvider, (_, _) => _rebuild());
     ref.listen(friendPinsProvider, (_, _) => _rebuild());
     ref.listen(spotsProvider, (_, _) => _rebuild());
-    ref.listen(userLocationProvider, (_, _) => _moveToUserIfKnown());
+    ref.listen(userLocationProvider, (_, _) {
+      _moveToUserIfKnown();
+      _rebuild();
+    });
+    ref.listen(myLocationProvider, (_, _) => _paintCircles());
 
     final mode = ref.watch(mapModeProvider);
     final hasLocation = ref.watch(userLocationProvider).value != null;
-    final ghost = ref.watch(myLocationProvider).value?.ghost ?? false;
+    final shareMode = ref.watch(myLocationProvider).value?.shareMode ?? 'friends';
     final nearby = ref.watch(nearbyMeetProvider);
     final listView = ref.watch(mapListViewProvider);
     final loading = switch (mode) {
@@ -283,7 +343,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     }
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: _mapOverlay,
+      value: _isNight ? _mapOverlay : SystemUiOverlayStyle.dark,
       child: Scaffold(
         backgroundColor: AppColors.mapBg,
         body: Stack(
@@ -292,9 +352,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               initialCameraPosition: const CameraPosition(target: kualaLumpur, zoom: 11.3),
               style: _style,
               markers: _markerSet,
+              circles: _circles,
               onMapCreated: _onMapCreated,
               onCameraIdle: _onCameraIdle,
-              myLocationEnabled: hasLocation,
+              myLocationEnabled: false,
               myLocationButtonEnabled: false,
               zoomControlsEnabled: false,
               compassEnabled: false,
@@ -336,52 +397,22 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                   child: Column(
                     children: [
                       _RoundButton(
-                        icon: AppIcons.list,
-                        tooltip: 'List view',
-                        onTap: () => ref.read(mapListViewProvider.notifier).set(true),
-                      ),
-                      const SizedBox(height: 10),
-                      _RoundButton(
-                        icon: ghost ? AppIcons.eyeSlash : AppIcons.eye,
-                        tooltip: ghost ? 'Ghost mode on' : 'Friends can see you',
-                        active: ghost,
-                        onTap: _toggleGhost,
+                        icon: switch (shareMode) { 'nearby' => AppIcons.broadcast, 'ghost' => AppIcons.eyeSlash, _ => AppIcons.eye },
+                        tooltip: 'Who can see me',
+                        active: shareMode == 'nearby',
+                        light: !_isNight,
+                        onTap: () => showVisibilitySheet(context),
                       ),
                       const SizedBox(height: 10),
                       _RoundButton(
                         icon: hasLocation ? AppIcons.gpsFix : AppIcons.crosshair,
                         tooltip: 'My location',
+                        light: !_isNight,
                         onTap: _locateMe,
                       ),
                     ],
                   ),
                 ),
-              ),
-            ),
-
-            // Action row: moment · TT now · new meet
-            Positioned(
-              left: 16,
-              right: 16,
-              bottom: sheetPeek + 12,
-              child: Row(
-                children: [
-                  _RoundButton(
-                    icon: AppIcons.camera,
-                    tooltip: 'Add a moment',
-                    size: 52,
-                    onTap: () => context.push(Routes.createMoment(eventId: ref.read(myLocationProvider).value?.eventId)),
-                  ),
-                  const Spacer(),
-                  _TtNowButton(onTap: () => showTtNowSheet(context)),
-                  const Spacer(),
-                  _RoundButton(
-                    icon: AppIcons.plus,
-                    tooltip: 'Plan a meet',
-                    size: 52,
-                    onTap: () => context.push(Routes.createEvent),
-                  ),
-                ],
               ),
             ),
 
@@ -487,51 +518,24 @@ class _NearbyBanner extends StatelessWidget {
   }
 }
 
-class _TtNowButton extends StatelessWidget {
-  const _TtNowButton({required this.onTap});
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.warnColor,
-      shape: const StadiumBorder(),
-      elevation: 8,
-      shadowColor: Colors.black54,
-      child: InkWell(
-        onTap: onTap,
-        customBorder: const StadiumBorder(),
-        child: const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ArtIcon(AppArt.coffee, size: 26),
-              SizedBox(width: 8),
-              Text('TT now', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800)),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 class _RoundButton extends StatelessWidget {
-  const _RoundButton({required this.icon, required this.tooltip, required this.onTap, this.active = false, this.size = 46});
+  const _RoundButton({required this.icon, required this.tooltip, required this.onTap, this.active = false, this.light = false});
   final IconData icon;
   final String tooltip;
   final VoidCallback onTap;
   final bool active;
-  final double size;
+  static const double size = 46;
+  /// White button on the day map.
+  final bool light;
 
   @override
   Widget build(BuildContext context) {
     return Tooltip(
       message: tooltip,
       child: Material(
-        color: active ? Colors.white : const Color(0xF2151820),
-        shape: CircleBorder(side: BorderSide(color: Colors.white.withValues(alpha: 0.10))),
+        color: active ? AppColors.ink : (light ? Colors.white : const Color(0xF2151820)),
+        shape: CircleBorder(side: BorderSide(color: light ? AppColors.border : Colors.white.withValues(alpha: 0.10))),
         elevation: 6,
         shadowColor: Colors.black54,
         child: InkWell(
@@ -540,7 +544,7 @@ class _RoundButton extends StatelessWidget {
           child: SizedBox(
             width: size,
             height: size,
-            child: Icon(icon, color: active ? Colors.black : Colors.white, size: size > 46 ? 24 : 22),
+            child: Icon(icon, color: active ? Colors.white : (light ? AppColors.ink : Colors.white), size: size > 46 ? 24 : 22),
           ),
         ),
       ),

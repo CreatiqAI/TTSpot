@@ -242,6 +242,16 @@ class LocationPublisher extends Notifier<bool> with WidgetsBindingObserver {
     state = false;
   }
 
+  Future<void> setShare(String mode, {int? radiusM}) async {
+    try {
+      await ref.read(friendsRepositoryProvider).setShare(mode, radiusM: radiusM);
+      ref.invalidate(myLocationProvider);
+      ref.invalidate(friendPinsProvider);
+    } catch (e) {
+      throw AppException(friendlyError(e));
+    }
+  }
+
   Future<void> setGhost(bool ghost) async {
     try {
       await ref.read(friendsRepositoryProvider).setGhost(ghost);

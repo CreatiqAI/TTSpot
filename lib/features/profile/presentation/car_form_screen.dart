@@ -11,6 +11,7 @@ import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../application/profile_providers.dart';
+import '../../map/presentation/widgets/car_marker.dart';
 import '../domain/car.dart';
 
 /// Add or edit a car. Pass [carId] to edit.
@@ -26,6 +27,7 @@ class _CarFormScreenState extends ConsumerState<CarFormScreen> {
   final _make = TextEditingController();
   final _model = TextEditingController();
   final _year = TextEditingController();
+  String? _color;
   final _description = TextEditingController();
   final _kept = <String>[];
   final _new = <XFile>[];
@@ -48,6 +50,7 @@ class _CarFormScreenState extends ConsumerState<CarFormScreen> {
     _make.text = c.make;
     _model.text = c.model;
     _year.text = c.year?.toString() ?? '';
+    _color = c.color;
     _description.text = c.description ?? '';
     _kept.addAll(c.photoUrls);
   }
@@ -94,6 +97,7 @@ class _CarFormScreenState extends ConsumerState<CarFormScreen> {
           model: _model.text,
           yearText: _year.text,
           description: _description.text,
+          color: _color,
           keptPhotoUrls: _kept,
           newPhotos: _new,
         );
@@ -191,6 +195,38 @@ class _CarFormScreenState extends ConsumerState<CarFormScreen> {
               keyboardType: TextInputType.number,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(4)],
               decoration: const InputDecoration(labelText: 'Year (optional)', hintText: 'e.g. 2019'),
+            ),
+            const SizedBox(height: 18),
+            const Text('COLOUR', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1, color: AppColors.textSecondary)),
+            const SizedBox(height: 4),
+            const Text('Shows as your car on the map.', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                for (final e in kCarColors.entries)
+                  GestureDetector(
+                    onTap: () => setState(() => _color = e.key),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: e.value,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: _color == e.key ? AppColors.ink : AppColors.border, width: _color == e.key ? 3 : 1),
+                          ),
+                          child: _color == e.key ? Icon(AppIcons.check, size: 18, color: e.value.computeLuminance() > 0.5 ? AppColors.ink : Colors.white) : null,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(kCarColorLabels[e.key]!, style: TextStyle(fontSize: 10.5, fontWeight: _color == e.key ? FontWeight.w800 : FontWeight.w500)),
+                      ],
+                    ),
+                  ),
+              ],
             ),
             const SizedBox(height: 14),
             TextField(

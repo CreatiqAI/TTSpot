@@ -89,7 +89,7 @@ class FriendsRepository {
   }
 
   Future<MyLocation> myLocation(String me) async {
-    final row = await _client.from('user_locations').select('ghost, place_id, event_id, updated_at, places(name)').eq('user_id', me).maybeSingle();
+    final row = await _client.from('user_locations').select('ghost, share_mode, share_radius_m, place_id, event_id, updated_at, places(name)').eq('user_id', me).maybeSingle();
     return row == null ? MyLocation.unknown : MyLocation.fromMap(row);
   }
 
@@ -104,6 +104,7 @@ class FriendsRepository {
   }
 
   Future<void> setGhost(bool ghost) => _client.rpc('set_ghost', params: {'p_ghost': ghost});
+  Future<void> setShare(String mode, {int? radiusM}) => _client.rpc('set_share_mode', params: {'p_mode': mode, 'p_radius': ?radiusM});
 
   /// Realtime: fires on any change to a pin I'm allowed to see.
   RealtimeChannel subscribePins(String me, void Function() onChange) {

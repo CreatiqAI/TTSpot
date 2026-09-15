@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/supabase/supabase_client.dart';
+import '../../admin/application/admin_providers.dart';
 import '../../points/application/points_providers.dart';
 import '../../social/application/notification_providers.dart';
 import '../data/vendors_repository.dart';
@@ -94,6 +95,7 @@ class VendorActions {
   Future<void> reviewApplication(String id, {required bool approve, String? note}) async {
     await _repo.reviewApplication(id, approve: approve, note: note);
     _ref.invalidate(adminPartnerQueueProvider);
+    _ref.invalidate(adminStatsProvider);
   }
 
   Future<void> updateShop({String? address, String? phone, String? description, XFile? logo}) async {

@@ -10,6 +10,17 @@ class ReleaseNote {
 
 const kReleaseNotes = <ReleaseNote>[
   ReleaseNote(
+    version: '0.3.12',
+    date: '16 Sep 2026',
+    title: 'Partner fixes',
+    points: [
+      'Shop address in the partner form now searches Google Places.',
+      'Approved as a partner or club? It shows the moment you open the account switcher, no restart.',
+      'Admin counts refresh when you switch to the admin account.',
+      'Partner statement shows only your own redemptions.',
+    ],
+  ),
+  ReleaseNote(
     version: '0.3.11',
     date: '16 Sep 2026',
     title: 'Map sizing and a quick intro',

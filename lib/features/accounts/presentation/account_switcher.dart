@@ -15,6 +15,10 @@ import '../application/active_account.dart';
 /// Tap the @handle on the Me tab: pick which account you're using. Personal,
 /// each club you run, your partner business. One list, one tap.
 Future<void> showAccountSwitcher(BuildContext context, WidgetRef ref) async {
+  // Always fresh: a partner or club approval should show up the moment you open this.
+  ref.invalidate(myVendorProvider);
+  ref.invalidate(managedClubsProvider);
+  ref.invalidate(currentProfileProvider);
   try {
     await Future.wait([
       ref.read(managedClubsProvider.future),

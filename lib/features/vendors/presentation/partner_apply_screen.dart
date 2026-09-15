@@ -10,6 +10,8 @@ import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_art.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/widgets/picker_field.dart';
+import '../../../core/widgets/place_search_field.dart';
+import '../../map/application/map_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/dates.dart';
 import '../../../core/utils/friendly_error.dart';
@@ -59,6 +61,10 @@ class _PartnerApplyScreenState extends ConsumerState<PartnerApplyScreen> {
     if (!_form.currentState!.validate()) return;
     setState(() => _busy = true);
     try {
+      if (!_club && _address.text.trim().length < 5) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Search and pick your shop address so members can find you.')));
+        return;
+      }
       await ref.read(vendorActionsProvider).apply(
             kind: widget.kind,
             name: _name.text.trim(),
@@ -103,6 +109,7 @@ class _PartnerApplyScreenState extends ConsumerState<PartnerApplyScreen> {
   }
 
   Widget _buildForm() {
+    final here = ref.watch(userLocationProvider).value;
     return Form(
       key: _form,
       child: ListView(
@@ -176,11 +183,13 @@ class _PartnerApplyScreenState extends ConsumerState<PartnerApplyScreen> {
               onChanged: (v) => setState(() => _type = v ?? 'other'),
             ),
             const SizedBox(height: 12),
-            TextFormField(
+            PlaceSearchField(
               controller: _address,
-              textCapitalization: TextCapitalization.sentences,
-              decoration: const InputDecoration(labelText: 'Shop address'),
-              validator: (v) => (v ?? '').trim().length < 5 ? 'Where can members find you?' : null,
+              label: 'Shop address',
+              hint: 'Search your shop on Google',
+              icon: AppIcons.storefront,
+              near: here == null ? null : (here.latitude, here.longitude),
+              onPicked: (d) => _address.text = d.address.isEmpty ? d.name : '${d.name}, ${d.address}',
             ),
           ],
           const SizedBox(height: 12),

@@ -6,6 +6,8 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/theme/app_icons.dart';
+import '../../../core/widgets/place_search_field.dart';
+import '../../map/application/map_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../../core/widgets/photo_picker_sheet.dart';
@@ -51,6 +53,7 @@ class _VendorEditScreenState extends ConsumerState<VendorEditScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final here = ref.watch(userLocationProvider).value;
     final vendor = ref.watch(myVendorProvider).value;
     if (vendor != null && !_filled) {
       _address.text = vendor.address ?? '';
@@ -104,7 +107,14 @@ class _VendorEditScreenState extends ConsumerState<VendorEditScreen> {
                   ],
                 ),
                 const SizedBox(height: 16),
-                TextField(controller: _address, textCapitalization: TextCapitalization.sentences, decoration: const InputDecoration(labelText: 'Address')),
+                PlaceSearchField(
+                  controller: _address,
+                  label: 'Address',
+                  hint: 'Search your shop on Google',
+                  icon: AppIcons.storefront,
+                  near: here == null ? null : (here.latitude, here.longitude),
+                  onPicked: (d) => _address.text = d.address.isEmpty ? d.name : '${d.name}, ${d.address}',
+                ),
                 const SizedBox(height: 12),
                 TextField(controller: _phone, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'Phone / WhatsApp')),
                 const SizedBox(height: 12),

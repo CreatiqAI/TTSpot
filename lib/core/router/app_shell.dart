@@ -10,6 +10,10 @@ import '../theme/app_icons.dart';
 import '../theme/app_theme.dart';
 import '../../features/accounts/application/active_account.dart';
 import 'tab_slot.dart';
+import '../../features/admin/application/admin_providers.dart';
+import '../../features/vendors/application/vendors_providers.dart';
+import '../../features/auth/data/auth_repository.dart';
+import '../../features/auth/application/account_basics.dart';
 
 /// Bottom tabs: Posts · Map · Chats · Me. Creating things happens from the
 /// "+" on the Posts page and the action row on the map.
@@ -21,11 +25,28 @@ class AppShell extends ConsumerStatefulWidget {
   ConsumerState<AppShell> createState() => _AppShellState();
 }
 
-class _AppShellState extends ConsumerState<AppShell> {
+class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) => ref.read(locationPublisherProvider.notifier).start());
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) return;
+    // Back from the background: an admin may have approved a partner or club since.
+    ref.invalidate(myVendorProvider);
+    ref.invalidate(managedClubsProvider);
+    ref.invalidate(currentProfileProvider);
+    ref.invalidate(accountBasicsProvider);
   }
 
   static const _personal = [
@@ -65,7 +86,14 @@ class _AppShellState extends ConsumerState<AppShell> {
     final account = ref.watch(activeAccountProvider);
     final tabs = _tabsFor(account);
     ref.listen(activeAccountProvider, (_, next) {
-      // New hat: start on its first tab.
+      // New hat: start on its first tab, with fresh numbers.
+      if (next is AdminAccount) {
+        ref.invalidate(adminStatsProvider);
+        ref.invalidate(adminReportsProvider);
+        ref.invalidate(adminUsersProvider);
+        ref.invalidate(adminSuggestionsProvider);
+        ref.invalidate(adminPartnerQueueProvider);
+      }
       WidgetsBinding.instance.addPostFrameCallback((_) => shell.goBranch(_tabsFor(next).first.branch));
     });
     final unread = (ref.watch(unreadMessagesProvider).value ?? 0) + (account is PersonalAccount ? (ref.watch(unreadNotificationsProvider).value ?? 0) : 0);

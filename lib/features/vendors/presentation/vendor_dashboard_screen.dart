@@ -115,6 +115,18 @@ class _Body extends ConsumerWidget {
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            child: Row(
+              children: [
+                _Stat(label: 'Page views · 30 d', value: '${vendor.views30d}'),
+                const SizedBox(width: 8),
+                _Stat(label: 'Check-ins · 30 d', value: '${vendor.checkins30d}'),
+                const SizedBox(width: 8),
+                _Stat(label: 'Claimed · 30 d', value: '${vendor.claims30d}'),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
             child: Text(
               'Commission is $ratePct% of each bill you enter at redemption. Your statement is settled monthly.',
               style: const TextStyle(fontSize: 12, color: AppColors.textMuted),

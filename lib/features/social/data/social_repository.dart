@@ -14,7 +14,7 @@ const _storySelect = '*, profiles:profiles!stories_author_id_fkey($profileCols),
 const _postSelect = '*, '
     'author:profiles!posts_author_id_fkey($profileCols), '
     'claimer:profiles!posts_claimed_by_fkey($profileCols), '
-    'car:cars(id, make, model), place:places(id, name), event:events(id, title), club:clubs(id, name, handle, avatar_url), '
+    'car:cars(id, make, model), place:places(id, name), event:events(id, title), club:clubs(id, name, handle, avatar_url), vendor:vendors(id, name, logo_url), '
     'likes:post_likes(count), comments:post_comments(count), votes:poll_votes(count)';
 
 /// Posts, likes, saves, comments, polls, follows, stories, car of the week.
@@ -130,6 +130,8 @@ class SocialRepository {
     String? placeId,
     String? clubId,
     bool asClub = false,
+    String? vendorId,
+    bool asVendor = false,
     LatLng? location,
     List<PollOption>? pollOptions,
     DateTime? pollEndsAt,
@@ -139,6 +141,8 @@ class SocialRepository {
         .from('posts')
         .insert({
           'as_club': asClub && clubId != null,
+          'vendor_id': ?vendorId,
+          'as_vendor': asVendor && vendorId != null,
           'author_id': authorId,
           'kind': kind.db,
           'title': ?title?.trim(),

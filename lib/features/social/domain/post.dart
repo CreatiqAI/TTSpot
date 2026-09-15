@@ -69,6 +69,8 @@ class Post {
     this.event,
     this.club,
     this.asClub = false,
+    this.vendor,
+    this.asVendor = false,
     this.lat,
     this.lng,
     this.claimedBy,
@@ -96,6 +98,9 @@ class Post {
   final NamedRef? club;
   /// Published under the club's name (by its owner or an admin).
   final bool asClub;
+  /// Posted as a partner business.
+  final NamedRef? vendor;
+  final bool asVendor;
   final double? lat;
   final double? lng;
   final String? claimedBy;
@@ -126,6 +131,7 @@ class Post {
     final clubM = m['club'] as Map<String, dynamic>?;
     final authorM = m['author'] as Map<String, dynamic>?;
     final claimerM = m['claimer'] as Map<String, dynamic>?;
+    final vendorM = m['vendor'] as Map<String, dynamic>?;
     return Post(
       id: m['id'] as String,
       authorId: m['author_id'] as String,
@@ -139,6 +145,8 @@ class Post {
       event: eventM == null ? null : NamedRef(id: eventM['id'] as String, name: eventM['title'] as String),
       club: clubM == null ? null : NamedRef(id: clubM['id'] as String, name: clubM['name'] as String, handle: clubM['handle'] as String?, avatarUrl: clubM['avatar_url'] as String?),
       asClub: m['as_club'] as bool? ?? false,
+      vendor: vendorM == null ? null : NamedRef(id: vendorM['id'] as String, name: vendorM['name'] as String, avatarUrl: vendorM['logo_url'] as String?),
+      asVendor: m['as_vendor'] as bool? ?? false,
       lat: (m['lat'] as num?)?.toDouble(),
       lng: (m['lng'] as num?)?.toDouble(),
       claimedBy: m['claimed_by'] as String?,

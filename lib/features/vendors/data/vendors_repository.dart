@@ -68,7 +68,7 @@ class VendorsRepository {
     return rows.isEmpty ? null : Vendor.fromMap(rows.first);
   }
 
-  Future<void> updateMyVendor({String? address, String? phone, String? description, String? logoUrl, double? lat, double? lng, String? hours, List<String>? photoUrls}) =>
+  Future<void> updateMyVendor({String? address, String? phone, String? description, String? logoUrl, double? lat, double? lng, String? hours, List<String>? photoUrls, Map<String, Object?>? hoursJson}) =>
       _client.rpc('update_my_vendor', params: {
         'p_address': address,
         'p_phone': phone,
@@ -78,7 +78,10 @@ class VendorsRepository {
         'p_lng': ?lng,
         'p_hours': ?hours,
         'p_photo_urls': ?photoUrls,
+        'p_hours_json': ?hoursJson,
       });
+
+  Future<void> recordView(String vendorId) => _client.rpc('view_partner', params: {'p_vendor': vendorId});
 
   /// A partner as members see it.
   Future<PublicVendor?> publicVendor(String id) async {

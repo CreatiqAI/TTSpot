@@ -118,7 +118,11 @@ class Vendor {
     this.lat,
     this.lng,
     this.hours,
+    this.hoursJson,
     this.photoUrls = const [],
+    this.views30d = 0,
+    this.checkins30d = 0,
+    this.claims30d = 0,
     this.liveVouchers = 0,
     this.redemptions30d = 0,
     this.bill30d = 0,
@@ -139,7 +143,11 @@ class Vendor {
   final double? lat;
   final double? lng;
   final String? hours;
+  final Object? hoursJson;
   final List<String> photoUrls;
+  final int views30d;
+  final int checkins30d;
+  final int claims30d;
   final int liveVouchers;
   final int redemptions30d;
   final double bill30d;
@@ -160,7 +168,11 @@ class Vendor {
         lat: (m['lat'] as num?)?.toDouble(),
         lng: (m['lng'] as num?)?.toDouble(),
         hours: m['hours'] as String?,
+        hoursJson: m['hours_json'],
         photoUrls: ((m['photo_urls'] as List?) ?? const []).cast<String>(),
+        views30d: (m['views_30d'] as num?)?.toInt() ?? 0,
+        checkins30d: (m['checkins_30d'] as num?)?.toInt() ?? 0,
+        claims30d: (m['claims_30d'] as num?)?.toInt() ?? 0,
         liveVouchers: _int(m['live_vouchers']),
         redemptions30d: _int(m['redemptions_30d']),
         bill30d: _num(m['bill_30d']),
@@ -503,7 +515,7 @@ String rm(double v) {
 
 /// What any member sees of a partner (vendors_public view).
 class PublicVendor {
-  const PublicVendor({required this.id, required this.name, required this.type, this.address, this.lat, this.lng, this.hours, this.photoUrls = const [], this.logoUrl, this.description, this.phone, this.placeId, this.ownerId, this.liveVouchers = 0, this.upcomingEvents = 0});
+  const PublicVendor({required this.id, required this.name, required this.type, this.address, this.lat, this.lng, this.hours, this.hoursJson, this.photoUrls = const [], this.logoUrl, this.description, this.phone, this.placeId, this.ownerId, this.liveVouchers = 0, this.upcomingEvents = 0});
   final String id;
   final String name;
   final String type;
@@ -511,6 +523,7 @@ class PublicVendor {
   final double? lat;
   final double? lng;
   final String? hours;
+  final Object? hoursJson;
   final List<String> photoUrls;
   final String? logoUrl;
   final String? description;
@@ -530,6 +543,7 @@ class PublicVendor {
         lat: (m['lat'] as num?)?.toDouble(),
         lng: (m['lng'] as num?)?.toDouble(),
         hours: m['hours'] as String?,
+        hoursJson: m['hours_json'],
         photoUrls: ((m['photo_urls'] as List?) ?? const []).cast<String>(),
         logoUrl: m['logo_url'] as String?,
         description: m['description'] as String?,

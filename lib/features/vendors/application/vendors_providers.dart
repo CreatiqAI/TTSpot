@@ -38,6 +38,9 @@ final vendorRedemptionsProvider = FutureProvider<List<Redemption>>((ref) {
   return ref.watch(vendorsRepositoryProvider).myRedemptions();
 });
 
+/// Count a page view (once per member per day; owners never count).
+final partnerViewedProvider = FutureProvider.family<void, String>((ref, id) => ref.watch(vendorsRepositoryProvider).recordView(id).catchError((_) {}));
+
 /// A partner's public page.
 final vendorPublicProvider = FutureProvider.family<PublicVendor?, String>((ref, id) => ref.watch(vendorsRepositoryProvider).publicVendor(id));
 final vendorEventsProvider = FutureProvider.family<List<Event>, String>((ref, id) => ref.watch(vendorsRepositoryProvider).vendorEvents(id));
@@ -106,7 +109,7 @@ class VendorActions {
     _ref.invalidate(adminStatsProvider);
   }
 
-  Future<void> updateShop({String? address, String? phone, String? description, XFile? logo, double? lat, double? lng, String? hours, List<String>? keptPhotos, List<XFile> newPhotos = const []}) async {
+  Future<void> updateShop({String? address, String? phone, String? description, XFile? logo, double? lat, double? lng, String? hours, Map<String, Object?>? hoursJson, List<String>? keptPhotos, List<XFile> newPhotos = const []}) async {
     final logoUrl = await _upload(logo);
     List<String>? photos;
     if (keptPhotos != null) {
@@ -116,7 +119,7 @@ class VendorActions {
         if (url != null) photos.add(url);
       }
     }
-    await _repo.updateMyVendor(address: address, phone: phone, description: description, logoUrl: logoUrl, lat: lat, lng: lng, hours: hours, photoUrls: photos);
+    await _repo.updateMyVendor(address: address, phone: phone, description: description, logoUrl: logoUrl, lat: lat, lng: lng, hours: hours, photoUrls: photos, hoursJson: hoursJson);
     _ref.invalidate(myVendorProvider);
     _ref.invalidate(spotsProvider);
   }

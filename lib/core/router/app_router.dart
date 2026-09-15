@@ -141,12 +141,13 @@ abstract final class Routes {
   static String editCar(String id) => '/car/$id/edit';
   static String newCarMod(String carId) => '/car/$carId/mods/new';
   static String post(String id) => '/post/$id';
-  static String createPost(PostKind kind, {String? eventId, String? carId, String? placeId, String? clubId, bool asClub = false}) {
+  static String createPost(PostKind kind, {String? eventId, String? carId, String? placeId, String? clubId, bool asClub = false, String? vendorId}) {
     final q = <String, String>{
       'event': ?eventId,
       'car': ?carId,
       'place': ?placeId,
       'club': ?clubId,
+      'vendor': ?vendorId,
       if (asClub && clubId != null) 'as': 'club',
     };
     return Uri(path: '/create/post/${kind.db}', queryParameters: q.isEmpty ? null : q).toString();
@@ -277,6 +278,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           placeId: s.uri.queryParameters['place'],
           clubId: s.uri.queryParameters['club'],
           asClub: s.uri.queryParameters['as'] == 'club',
+          vendorId: s.uri.queryParameters['vendor'],
         )),
       ),
       GoRoute(

@@ -384,6 +384,12 @@ Migration `20260916000013_accounts_simplify.sql` (the 16 in the name is only the
 - Map: partner places render as `MapPinFactory.partner` (round logo, white ring, red tag; dot at far zoom is red); tap → partner page. Legend row "Partner shop". `places_with_counts` carries `vendor_id/vendor_logo/vendor_name` and `is_spot` is true for partner places. Place kinds now include the business types (`Place.kindLabel/kindArt`).
 - Entry points: Rewards shop voucher card (tap the partner name), event page "Hosted by", place page "Partner page" button, Partner account tab "My partner page".
 
+### Partners, round two (2026-09-16, migration 0033)
+
+- **Opening hours are structured.** `vendors.hours_json` = `{"mon": {"open": "10:00", "close": "19:00"}, …, "sun": null}`; `hours` (text) is still written as the generated summary ("Mon–Fri 10 AM–7 PM · Sat 10 AM–5 PM · Sun closed") so older rows and the place page keep working. Dart: `OpeningHours` / `DayHours` / `HoursEditor` in `features/vendors/presentation/widgets/hours_editor.dart` (per-day switch, tap a time for the wheel picker, "Same as Monday for Tue–Sat"). The partner page shows `OpeningHours.status()` ("Open now · closes 7 PM" / "Closed · opens tomorrow 10 AM") with the week expandable underneath.
+- **Posting as the partner.** `posts.vendor_id + as_vendor`; the insert policy allows `as_vendor` only when `can_act_as_vendor(vendor_id)`. `posts_with_counts` recreated (still `p.*`). Post model has `vendor` (NamedRef from `vendor:vendors(id, name, logo_url)`) and `asVendor`; post card and grid tiles show the partner as the face (→ `/partner/:id`) with "by @username". Entry points: Partner account tab "Post as <name>", the + hub while the partner account is active (Post / Poll only; Spotted, Guide and the Club tag hide). Partner page lists the last 5 posts.
+- **Partner numbers.** `vendor_page_views (vendor_id, viewer_id, day)` + `view_partner(vendor)` (one row per member per day; the owner never counts; called from `partnerViewedProvider` when the page opens). `my_vendor()` now also returns `hours_json, views_30d, checkins_30d` (check-ins at the linked place) and `claims_30d` (voucher_claims on this vendor's vouchers). Dashboard shows them as a second stat row.
+
 ## 3b. Google sign-in (one-time, ~15 min)
 
 Email sign-in works already (email confirmation is switched off on the project for development;

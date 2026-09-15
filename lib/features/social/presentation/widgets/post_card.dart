@@ -121,9 +121,9 @@ class _PostCardState extends ConsumerState<PostCard> {
     final p = f.post;
     final author = p.author;
     final username = author?.username ?? 'user';
-    // Posted as a club: the club is the face of the post, the person is a byline.
-    final club = p.asClub ? p.club : null;
-    final headRoute = club != null ? Routes.club(club.id) : Routes.profile(p.authorId);
+    // Posted as a club or a partner: that is the face of the post, the person is a byline.
+    final club = p.asClub ? p.club : (p.asVendor ? p.vendor : null);
+    final headRoute = p.asVendor && p.vendor != null ? Routes.partner(p.vendor!.id) : club != null ? Routes.club(club.id) : Routes.profile(p.authorId);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,

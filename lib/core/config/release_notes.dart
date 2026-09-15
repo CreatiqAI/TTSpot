@@ -10,6 +10,16 @@ class ReleaseNote {
 
 const kReleaseNotes = <ReleaseNote>[
   ReleaseNote(
+    version: '0.3.14',
+    date: '16 Sep 2026',
+    title: 'Partners, round two',
+    points: [
+      'Opening hours are picked per day, and the partner page shows "Open now" or when it opens next.',
+      'Partners can post to the feed as the business. Posts show on the partner page.',
+      'Partner dashboard shows page views, check-ins and voucher claims for the last 30 days.',
+    ],
+  ),
+  ReleaseNote(
     version: '0.3.13',
     date: '16 Sep 2026',
     title: 'Partner pages and shops on the map',

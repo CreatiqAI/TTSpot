@@ -41,6 +41,7 @@ class AccountTab extends ConsumerWidget {
             _Row(AppIcons.ticket, 'Vouchers', 'What you offer members', () => context.push(Routes.vendor)),
             _Row(AppIcons.chartBar, 'Statement', 'Redemptions and commission', () => context.push(Routes.vendorReport)),
             _Row(AppIcons.storefront, 'My partner page', 'What members see', () => context.push(Routes.partner(vendor.id))),
+            _Row(AppIcons.image, 'Post as ${vendor.name}', 'New stock, a build, a promo', () => context.push(Routes.createPost(PostKind.post, vendorId: vendor.id))),
             _Row(AppIcons.pencilSimple, 'Edit partner profile', 'Logo, photos, address, hours', () => context.push(Routes.vendorEdit)),
             _Row(AppIcons.flagCheckered, 'New event', 'Host a gathering at your place', () => context.push(Routes.createEventAs(vendorId: vendor.id))),
           ],

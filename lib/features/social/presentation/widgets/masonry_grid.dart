@@ -57,6 +57,7 @@ class PostTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = feed.post;
     final aspect = p.photoUrls.isEmpty ? 1.2 : p.coverAspect.clamp(0.6, 1.6);
+    final face = p.asClub ? p.club : (p.asVendor ? p.vendor : null);
     final text = p.kind == PostKind.guide || p.kind == PostKind.poll ? (p.title ?? p.caption ?? '') : (p.caption ?? '');
     return Padding(
       padding: const EdgeInsets.only(bottom: MasonryGrid._gap),
@@ -120,10 +121,11 @@ class PostTile extends StatelessWidget {
                     ],
                     Row(
                       children: [
-                        UserAvatar(url: p.author?.avatarUrl, name: p.author?.displayName ?? p.author?.username, size: 18),
+                        // Posted as a club or partner: that is the face on the tile.
+                        UserAvatar(url: face?.avatarUrl ?? p.author?.avatarUrl, name: face?.name ?? p.author?.displayName ?? p.author?.username, size: 18),
                         const SizedBox(width: 6),
                         Expanded(
-                          child: Text(p.author?.username ?? '', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                          child: Text(face?.name ?? p.author?.username ?? '', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                         ),
                         Icon(feed.likedByMe ? AppIcons.heartFill : AppIcons.heart, size: 14, color: feed.likedByMe ? AppColors.danger : AppColors.textSecondary),
                         const SizedBox(width: 3),

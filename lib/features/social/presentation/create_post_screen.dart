@@ -28,7 +28,7 @@ import '../domain/post.dart';
 
 /// New post / spotted / poll / guide. Instagram "New post" style: X, title, blue Share.
 class CreatePostScreen extends ConsumerStatefulWidget {
-  const CreatePostScreen({super.key, required this.kind, this.eventId, this.carId, this.placeId, this.clubId, this.asClub = false});
+  const CreatePostScreen({super.key, required this.kind, this.eventId, this.carId, this.placeId, this.clubId, this.asClub = false, this.vendorId});
   final PostKind kind;
   final String? eventId;
   final String? carId;
@@ -36,6 +36,8 @@ class CreatePostScreen extends ConsumerStatefulWidget {
   final String? clubId;
   /// Publish under the club's name (owner / admin only).
   final bool asClub;
+  /// Posting as a partner business.
+  final String? vendorId;
 
   @override
   ConsumerState<CreatePostScreen> createState() => _CreatePostScreenState();
@@ -173,6 +175,8 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
         placeId: _place?.id,
         clubId: _clubId,
         asClub: widget.asClub && _clubId == widget.clubId,
+        vendorId: widget.vendorId,
+        asVendor: widget.vendorId != null,
         location: _kind == PostKind.spotted ? _pin : null,
         pollOptions: options,
         pollEndsAt: _kind == PostKind.poll ? DateTime.now().add(Duration(days: _pollDays)) : null,
@@ -180,6 +184,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
       );
       ref.read(socialActionsProvider).refreshPost(post.id, authorId: me);
       if (_eventId != null) ref.invalidate(postsWhereProvider((column: 'event_id', value: _eventId!)));
+      if (widget.vendorId != null) ref.invalidate(postsWhereProvider((column: 'vendor_id', value: widget.vendorId!)));
       if (mounted) context.pushReplacement(Routes.post(post.id));
     } catch (e) {
       if (mounted) {
@@ -351,6 +356,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
               eventId: _eventId,
               clubId: _clubId,
               place: _place,
+              showClub: widget.vendorId == null,
               onCar: (v) => setState(() => _carId = v),
               onEvent: (v) => setState(() => _eventId = v),
               onClub: (v) => setState(() => _clubId = v),
@@ -486,6 +492,7 @@ class _TagRow extends ConsumerWidget {
     required this.eventId,
     required this.clubId,
     required this.place,
+    this.showClub = true,
     required this.onCar,
     required this.onEvent,
     required this.onClub,
@@ -496,6 +503,7 @@ class _TagRow extends ConsumerWidget {
   final String? eventId;
   final String? clubId;
   final Place? place;
+  final bool showClub;
   final ValueChanged<String?> onCar;
   final ValueChanged<String?> onEvent;
   final ValueChanged<String?> onClub;
@@ -535,7 +543,7 @@ class _TagRow extends ConsumerWidget {
           active: place != null,
           onTap: () => _pickPlace(context, ref),
         ),
-        _TagChip(
+        if (showClub) _TagChip(
           icon: AppIcons.shield,
           label: clubName ?? 'Club',
           active: clubId != null,

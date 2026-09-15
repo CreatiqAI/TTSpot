@@ -11,6 +11,7 @@ import '../../map/application/map_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../../core/widgets/photo_picker_sheet.dart';
+import 'widgets/hours_editor.dart';
 import '../../../core/widgets/primary_button.dart';
 import '../application/vendors_providers.dart';
 import '../domain/vendor.dart';
@@ -29,7 +30,8 @@ class _VendorEditScreenState extends ConsumerState<VendorEditScreen> {
   final _desc = TextEditingController();
   XFile? _logo;
   double? _lat, _lng;
-  final _hours = TextEditingController();
+  OpeningHours _hours = OpeningHours.empty;
+  bool _hoursLoaded = false;
   List<String> _kept = [];
   final List<XFile> _newPhotos = [];
   bool _photosLoaded = false;
@@ -39,7 +41,6 @@ class _VendorEditScreenState extends ConsumerState<VendorEditScreen> {
   @override
   void dispose() {
     _address.dispose();
-    _hours.dispose();
     _phone.dispose();
     _desc.dispose();
     super.dispose();
@@ -48,7 +49,7 @@ class _VendorEditScreenState extends ConsumerState<VendorEditScreen> {
   Future<void> _save() async {
     setState(() => _busy = true);
     try {
-      await ref.read(vendorActionsProvider).updateShop(address: _address.text, phone: _phone.text, description: _desc.text, logo: _logo, lat: _lat, lng: _lng, hours: _hours.text, keptPhotos: _kept, newPhotos: _newPhotos);
+      await ref.read(vendorActionsProvider).updateShop(address: _address.text, phone: _phone.text, description: _desc.text, logo: _logo, lat: _lat, lng: _lng, hours: _hours.summary, hoursJson: _hours.toJson(), keptPhotos: _kept, newPhotos: _newPhotos);
       if (mounted) context.pop();
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
@@ -63,7 +64,10 @@ class _VendorEditScreenState extends ConsumerState<VendorEditScreen> {
     final vendor = ref.watch(myVendorProvider).value;
     if (vendor != null && !_filled) {
       _address.text = vendor.address ?? '';
-      _hours.text = vendor.hours ?? '';
+      if (!_hoursLoaded) {
+        _hours = OpeningHours.fromJson(vendor.hoursJson);
+        _hoursLoaded = true;
+      }
       if (!_photosLoaded) {
         _kept = [...vendor.photoUrls];
         _photosLoaded = true;
@@ -136,7 +140,9 @@ class _VendorEditScreenState extends ConsumerState<VendorEditScreen> {
                   style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
                 ),
                 const SizedBox(height: 12),
-                TextField(controller: _hours, decoration: const InputDecoration(labelText: 'Opening hours', hintText: 'e.g. Mon–Sat 10am–7pm, Sun closed')),
+                const Text('OPENING HOURS', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, letterSpacing: 1, color: AppColors.textSecondary)),
+                const SizedBox(height: 6),
+                HoursEditor(value: _hours, onChanged: (v) => setState(() => _hours = v)),
                 const SizedBox(height: 12),
                 TextField(controller: _phone, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'Phone / WhatsApp')),
                 const SizedBox(height: 16),

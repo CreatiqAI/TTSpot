@@ -56,10 +56,10 @@ Future<void> showCreateHub(BuildContext context, WidgetRef ref) {
             ),
             if (kSocialFeed) ...[
               const SizedBox(height: 16),
-              _Row(icon: AppIcons.image, title: 'Post', subtitle: 'Photos of your ride or a meet', onTap: () => _go(ctx, context, Routes.createPost(PostKind.post, clubId: clubId, asClub: asClub))),
-              _Row(icon: AppIcons.binoculars, title: 'Spotted', subtitle: 'Saw a nice car? Let the owner claim it', onTap: () => _go(ctx, context, Routes.createPost(PostKind.spotted, clubId: clubId, asClub: asClub))),
-              _Row(icon: AppIcons.chartBar, title: 'Poll', subtitle: 'Ask the community', onTap: () => _go(ctx, context, Routes.createPost(PostKind.poll, clubId: clubId, asClub: asClub))),
-              _Row(icon: AppIcons.signpost, title: 'Guide', subtitle: 'A route or a list of spots', onTap: () => _go(ctx, context, Routes.createPost(PostKind.guide, clubId: clubId, asClub: asClub))),
+              _Row(icon: AppIcons.image, title: 'Post', subtitle: vendor != null ? 'New stock, a build, a promo' : 'Photos of your ride or a meet', onTap: () => _go(ctx, context, Routes.createPost(PostKind.post, clubId: clubId, asClub: clubId != null, vendorId: vendor?.id))),
+              if (vendor == null) _Row(icon: AppIcons.binoculars, title: 'Spotted', subtitle: 'Saw a nice car? Let the owner claim it', onTap: () => _go(ctx, context, Routes.createPost(PostKind.spotted, clubId: clubId, asClub: asClub))),
+              _Row(icon: AppIcons.chartBar, title: 'Poll', subtitle: 'Ask the community', onTap: () => _go(ctx, context, Routes.createPost(PostKind.poll, clubId: clubId, asClub: clubId != null, vendorId: vendor?.id))),
+              if (vendor == null) _Row(icon: AppIcons.signpost, title: 'Guide', subtitle: 'A route or a list of spots', onTap: () => _go(ctx, context, Routes.createPost(PostKind.guide, clubId: clubId, asClub: asClub))),
             ],
             if (!asClub) ...[
               const Divider(height: 20),

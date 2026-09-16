@@ -1,12 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-/// Opens another app (Waze, Google Maps, WhatsApp) or a web page.
+/// Opens another app (Waze, Google Maps, WhatsApp, the dialler) or a web page.
 ///
-/// When the app is installed we hand off once and stop, even if the person
-/// taps Cancel on the "Open in …?" prompt. The browser fallback is only for
-/// phones that do not have the app at all.
-Future<void> openExternal(BuildContext context, String url, {String? fallbackUrl}) async {
+/// Pass [appName] to ask first ("Open Waze?") so nobody leaves TT Spot by
+/// accident; Cancel does nothing. When the app is installed we hand off once
+/// and stop. The browser fallback is only for phones without the app.
+Future<void> openExternal(BuildContext context, String url, {String? fallbackUrl, String? appName}) async {
+  if (appName != null) {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Open $appName?'),
+        content: Text('This leaves TT Spot and opens $appName.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Open')),
+        ],
+      ),
+    );
+    if (ok != true || !context.mounted) return;
+  }
+
   final uri = Uri.parse(url);
   final isAppScheme = !uri.scheme.startsWith('http');
 
@@ -19,10 +34,10 @@ Future<void> openExternal(BuildContext context, String url, {String? fallbackUrl
       try {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
       } catch (_) {}
-      return; // their choice on the prompt is final
+      return;
     }
     if (fallbackUrl == null) {
-      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('That app isn\'t installed.')));
+      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${appName ?? 'That app'} isn\'t installed.')));
       return;
     }
     url = fallbackUrl;

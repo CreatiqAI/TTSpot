@@ -7,6 +7,7 @@ import '../../../../core/supabase/supabase_client.dart';
 import '../../../../core/theme/app_icons.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/friendly_error.dart';
+import '../../../../core/utils/image_source.dart';
 import '../../../../core/widgets/primary_button.dart';
 import '../../../social/application/chat_providers.dart';
 import '../../application/vendors_providers.dart';
@@ -34,7 +35,7 @@ class ProductCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(AppRadius.md),
                     child: product.photoUrls.isEmpty
                         ? const ColoredBox(color: AppColors.surfaceGray, child: Icon(AppIcons.shoppingBag, color: AppColors.textSecondary))
-                        : Image.network(product.photoUrls.first, fit: BoxFit.cover),
+                        : Image(image: imageFor(product.photoUrls.first), fit: BoxFit.cover),
                   ),
                   if (voucherCount > 0)
                     Positioned(
@@ -43,12 +44,12 @@ class ProductCard extends StatelessWidget {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                         decoration: BoxDecoration(color: AppColors.brand, borderRadius: BorderRadius.circular(999)),
-                        child: Row(
+                        child: const Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(AppIcons.ticket, size: 11, color: Colors.white),
-                            const SizedBox(width: 3),
-                            Text('Voucher', style: const TextStyle(color: Colors.white, fontSize: 10.5, fontWeight: FontWeight.w800)),
+                            Icon(AppIcons.ticket, size: 11, color: Colors.white),
+                            SizedBox(width: 3),
+                            Text('Voucher', style: TextStyle(color: Colors.white, fontSize: 10.5, fontWeight: FontWeight.w800)),
                           ],
                         ),
                       ),
@@ -65,9 +66,10 @@ class ProductCard extends StatelessWidget {
       );
 }
 
-/// Full product view: photos, price, variants, what it is, vouchers that
-/// apply, and a Message button (no ordering in-app yet).
-Future<void> showProductSheet(BuildContext context, {required Product product, required PublicVendor vendor}) {
+/// Full product view: photos, price, variants (each may switch the photo and
+/// the price), what it is, vouchers that apply, and a Message button. With
+/// [preview] the partner sees exactly this but nothing is tappable.
+Future<void> showProductSheet(BuildContext context, {required Product product, required PublicVendor vendor, bool preview = false}) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
@@ -75,27 +77,68 @@ Future<void> showProductSheet(BuildContext context, {required Product product, r
     useSafeArea: true,
     builder: (ctx) => DraggableScrollableSheet(
       expand: false,
-      initialChildSize: 0.88,
+      initialChildSize: 0.9,
       maxChildSize: 0.95,
       minChildSize: 0.5,
-      builder: (ctx, scroll) => _ProductBody(product: product, vendor: vendor, scroll: scroll),
+      builder: (ctx, scroll) => _ProductBody(product: product, vendor: vendor, scroll: scroll, preview: preview),
     ),
   );
 }
 
 class _ProductBody extends ConsumerStatefulWidget {
-  const _ProductBody({required this.product, required this.vendor, required this.scroll});
+  const _ProductBody({required this.product, required this.vendor, required this.scroll, required this.preview});
   final Product product;
   final PublicVendor vendor;
   final ScrollController scroll;
+  final bool preview;
   @override
   ConsumerState<_ProductBody> createState() => _ProductBodyState();
 }
 
 class _ProductBodyState extends ConsumerState<_ProductBody> {
+  final _pages = PageController();
   int _page = 0;
-  final _picked = <String, String>{};
+  final _picked = <String, VariantOption>{};
   bool _busy = false;
+
+  /// Product photos first, then every option photo that is not already there.
+  late final List<String> _gallery = () {
+    final g = [...widget.product.photoUrls];
+    for (final v in widget.product.variants) {
+      for (final o in v.options) {
+        if (o.photoUrl != null && !g.contains(o.photoUrl)) g.add(o.photoUrl!);
+      }
+    }
+    return g;
+  }();
+
+  @override
+  void dispose() {
+    _pages.dispose();
+    super.dispose();
+  }
+
+  /// The first picked option with its own price wins; otherwise the base price.
+  String get _priceLabel {
+    for (final v in widget.product.variants) {
+      final o = _picked[v.name];
+      if (o?.price != null) return rm(o!.price!);
+    }
+    return widget.product.priceLabel;
+  }
+
+  bool get _askPrice {
+    for (final v in widget.product.variants) {
+      if (_picked[v.name]?.price != null) return false;
+    }
+    return widget.product.price == null;
+  }
+
+  void _pick(ProductVariant group, VariantOption o) {
+    setState(() => _picked[group.name] = o);
+    final i = o.photoUrl == null ? -1 : _gallery.indexOf(o.photoUrl!);
+    if (i >= 0 && _pages.hasClients) _pages.animateToPage(i, duration: const Duration(milliseconds: 260), curve: Curves.easeOut);
+  }
 
   Future<void> _message() async {
     setState(() => _busy = true);
@@ -115,15 +158,29 @@ class _ProductBodyState extends ConsumerState<_ProductBody> {
   Widget build(BuildContext context) {
     final p = widget.product;
     final me = ref.watch(currentUserIdProvider);
-    final vouchers = (ref.watch(shopVouchersProvider).value ?? const <Voucher>[]).where((v) => v.productId == p.id).toList();
+    final vouchers = widget.preview ? const <Voucher>[] : (ref.watch(shopVouchersProvider).value ?? const <Voucher>[]).where((v) => v.productId == p.id).toList();
     return Column(
       children: [
+        if (widget.preview)
+          Container(
+            margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(color: AppColors.surfaceGray, borderRadius: BorderRadius.circular(999)),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(AppIcons.eye, size: 15, color: AppColors.textSecondary),
+                SizedBox(width: 6),
+                Text('Preview · this is what members see', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppColors.textSecondary)),
+              ],
+            ),
+          ),
         Expanded(
           child: ListView(
             controller: widget.scroll,
             padding: EdgeInsets.zero,
             children: [
-              if (p.photoUrls.isNotEmpty)
+              if (_gallery.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
                   child: ClipRRect(
@@ -134,10 +191,11 @@ class _ProductBodyState extends ConsumerState<_ProductBody> {
                         fit: StackFit.expand,
                         children: [
                           PageView(
+                            controller: _pages,
                             onPageChanged: (i) => setState(() => _page = i),
-                            children: [for (final u in p.photoUrls) Image.network(u, fit: BoxFit.cover)],
+                            children: [for (final u in _gallery) Image(image: imageFor(u), fit: BoxFit.cover)],
                           ),
-                          if (p.photoUrls.length > 1)
+                          if (_gallery.length > 1)
                             Positioned(
                               bottom: 10,
                               left: 0,
@@ -145,7 +203,7 @@ class _ProductBodyState extends ConsumerState<_ProductBody> {
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  for (var i = 0; i < p.photoUrls.length; i++)
+                                  for (var i = 0; i < _gallery.length; i++)
                                     Container(
                                       width: 6,
                                       height: 6,
@@ -167,13 +225,15 @@ class _ProductBodyState extends ConsumerState<_ProductBody> {
                   children: [
                     Text(p.name, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, height: 1.2)),
                     const SizedBox(height: 4),
-                    Text(p.priceLabel, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: p.price == null ? AppColors.textSecondary : AppColors.brand)),
+                    Text(_priceLabel, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: _askPrice ? AppColors.textSecondary : AppColors.brand)),
                     const SizedBox(height: 4),
                     GestureDetector(
-                      onTap: () {
-                        Navigator.pop(context);
-                        context.push(Routes.partner(widget.vendor.id));
-                      },
+                      onTap: widget.preview
+                          ? null
+                          : () {
+                              Navigator.pop(context);
+                              context.push(Routes.partner(widget.vendor.id));
+                            },
                       child: Row(
                         children: [
                           const Icon(AppIcons.storefront, size: 14, color: AppColors.textSecondary),
@@ -197,17 +257,7 @@ class _ProductBodyState extends ConsumerState<_ProductBody> {
                         spacing: 8,
                         runSpacing: 8,
                         children: [
-                          for (final o in g.options)
-                            ChoiceChip(
-                              label: Text(o),
-                              selected: _picked[g.name] == o,
-                              onSelected: (_) => setState(() => _picked[g.name] = o),
-                              showCheckmark: false,
-                              selectedColor: AppColors.textPrimary,
-                              labelStyle: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: _picked[g.name] == o ? Colors.white : AppColors.textPrimary),
-                              side: BorderSide(color: _picked[g.name] == o ? AppColors.textPrimary : AppColors.border),
-                              backgroundColor: Colors.white,
-                            ),
+                          for (final o in g.options) _OptionChip(option: o, selected: _picked[g.name] == o, onTap: () => _pick(g, o)),
                         ],
                       ),
                     ],
@@ -251,7 +301,7 @@ class _ProductBodyState extends ConsumerState<_ProductBody> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              PrimaryButton(label: 'Message ${widget.vendor.name}', loading: _busy, onPressed: widget.vendor.ownerIsMe(me) || _busy ? null : _message),
+              PrimaryButton(label: 'Message ${widget.vendor.name}', loading: _busy, onPressed: widget.preview || widget.vendor.ownerIsMe(me) || _busy ? null : _message),
               const SizedBox(height: 6),
               const Text('Ask about stock, fitment or price. Ordering happens with the shop directly.', textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
             ],
@@ -260,4 +310,39 @@ class _ProductBodyState extends ConsumerState<_ProductBody> {
       ],
     );
   }
+}
+
+/// One variant choice: a chip with an optional thumbnail and its own price.
+class _OptionChip extends StatelessWidget {
+  const _OptionChip({required this.option, required this.selected, required this.onTap});
+  final VariantOption option;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: EdgeInsets.fromLTRB(option.photoUrl == null ? 12 : 4, 4, 12, 4),
+          decoration: BoxDecoration(
+            color: selected ? AppColors.textPrimary : Colors.white,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: selected ? AppColors.textPrimary : AppColors.border),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (option.photoUrl != null) ...[
+                ClipOval(child: Image(image: imageFor(option.photoUrl!), width: 28, height: 28, fit: BoxFit.cover)),
+                const SizedBox(width: 8),
+              ],
+              Text(option.label, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: selected ? Colors.white : AppColors.textPrimary)),
+              if (option.price != null) ...[
+                const SizedBox(width: 6),
+                Text(rm(option.price!), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: selected ? Colors.white70 : AppColors.textSecondary)),
+              ],
+            ],
+          ),
+        ),
+      );
 }

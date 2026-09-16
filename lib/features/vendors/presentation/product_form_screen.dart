@@ -1,21 +1,24 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../core/supabase/supabase_client.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/friendly_error.dart';
+import '../../../core/utils/image_source.dart';
 import '../../../core/widgets/photo_picker_sheet.dart';
 import '../../../core/widgets/primary_button.dart';
 import '../application/vendors_providers.dart';
 import '../domain/vendor.dart';
+import 'widgets/product_sheet.dart';
 
 /// Add or edit one product: photos, name, price, what it is, and up to three
-/// variant groups ("Size: S, M, L"). Display only — members message the shop.
+/// variant groups. Each option can carry its own price and photo. The eye in
+/// the corner previews the sheet members will see. Display only — members
+/// message the shop.
 class ProductFormScreen extends ConsumerStatefulWidget {
   const ProductFormScreen({super.key, this.productId});
   final String? productId;
@@ -24,15 +27,33 @@ class ProductFormScreen extends ConsumerStatefulWidget {
   ConsumerState<ProductFormScreen> createState() => _ProductFormScreenState();
 }
 
-class _VariantDraft {
-  _VariantDraft([String name = '', String options = '']) : name = TextEditingController(text: name), options = TextEditingController(text: options);
-  final TextEditingController name;
-  final TextEditingController options;
+class _OptionDraft {
+  _OptionDraft({String label = '', double? price, this.photoUrl}) : label = TextEditingController(text: label), price = TextEditingController(text: price == null ? '' : _money(price));
+  final TextEditingController label;
+  final TextEditingController price;
+  String? photoUrl; // already uploaded
+  XFile? photo; // picked now
+  String? get photoSrc => photo?.path ?? photoUrl;
   void dispose() {
-    name.dispose();
-    options.dispose();
+    label.dispose();
+    price.dispose();
   }
 }
+
+class _VariantDraft {
+  _VariantDraft([String name = '']) : name = TextEditingController(text: name);
+  final TextEditingController name;
+  final options = <_OptionDraft>[];
+  void dispose() {
+    name.dispose();
+    for (final o in options) {
+      o.dispose();
+    }
+  }
+}
+
+String _money(double v) => v % 1 == 0 ? '${v.toInt()}' : v.toStringAsFixed(2);
+double? _parseMoney(String s) => double.tryParse(s.trim().replaceAll(',', ''));
 
 class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
   final _form = GlobalKey<FormState>();
@@ -62,43 +83,68 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     _name.text = p.name;
     _desc.text = p.description ?? '';
     _askPrice = p.price == null;
-    _price.text = p.price == null ? '' : (p.price! % 1 == 0 ? '${p.price!.toInt()}' : p.price!.toStringAsFixed(2));
+    _price.text = p.price == null ? '' : _money(p.price!);
     _active = p.active;
     _kept.addAll(p.photoUrls);
     for (final v in p.variants) {
-      _variants.add(_VariantDraft(v.name, v.options.join(', ')));
+      final d = _VariantDraft(v.name);
+      for (final o in v.options) {
+        d.options.add(_OptionDraft(label: o.label, price: o.price, photoUrl: o.photoUrl));
+      }
+      _variants.add(d);
     }
     _loaded = true;
   }
 
+  /// Variants as they stand, with local photo paths (for the preview) or
+  /// uploaded URLs (after [_uploadOptionPhotos]).
   List<ProductVariant> _variantValues() => [
         for (final v in _variants)
           if (v.name.text.trim().isNotEmpty)
             ProductVariant(
               name: v.name.text.trim(),
-              options: v.options.text.split(RegExp(r'[,\n]')).map((s) => s.trim()).where((s) => s.isNotEmpty).take(8).toList(),
+              options: [
+                for (final o in v.options)
+                  if (o.label.text.trim().isNotEmpty) VariantOption(label: o.label.text.trim(), price: _parseMoney(o.price.text), photoUrl: o.photoSrc),
+              ],
             ),
       ];
 
-  Future<void> _save() async {
-    if (!_form.currentState!.validate()) return;
-    if (_kept.isEmpty && _newPhotos.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Add at least one photo so members know what it looks like.')));
-      return;
-    }
+  String? _validate() {
+    if (!_form.currentState!.validate()) return 'Check the highlighted fields.';
+    if (_kept.isEmpty && _newPhotos.isEmpty) return 'Add at least one photo so members know what it looks like.';
     for (final v in _variantValues()) {
-      if (v.options.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Add options for "${v.name}", separated by commas.')));
-        return;
+      if (v.options.isEmpty) return 'Add at least one option under "${v.name}".';
+    }
+    return null;
+  }
+
+  Future<void> _uploadOptionPhotos() async {
+    final actions = ref.read(vendorActionsProvider);
+    for (final v in _variants) {
+      for (final o in v.options) {
+        if (o.photo != null) {
+          o.photoUrl = await actions.upload(o.photo!);
+          o.photo = null;
+        }
       }
+    }
+  }
+
+  Future<void> _save() async {
+    final problem = _validate();
+    if (problem != null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(problem)));
+      return;
     }
     setState(() => _busy = true);
     try {
+      await _uploadOptionPhotos();
       await ref.read(vendorActionsProvider).saveProduct(
             id: widget.productId,
             name: _name.text.trim(),
             description: _desc.text.trim(),
-            price: _askPrice ? null : double.tryParse(_price.text.trim().replaceAll(',', '')),
+            price: _askPrice ? null : _parseMoney(_price.text),
             keptPhotos: _kept,
             newPhotos: _newPhotos,
             variants: _variantValues(),
@@ -110,6 +156,24 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  /// Show the member-side sheet for what is typed right now, unsaved.
+  void _preview() {
+    final vendor = ref.read(myVendorProvider).value;
+    if (vendor == null) return;
+    final product = Product(
+      id: widget.productId ?? 'preview',
+      vendorId: vendor.id,
+      name: _name.text.trim().isEmpty ? 'Product name' : _name.text.trim(),
+      active: _active,
+      description: _desc.text.trim(),
+      price: _askPrice ? null : _parseMoney(_price.text),
+      photoUrls: [..._kept, ..._newPhotos.map((f) => f.path)],
+      variants: _variantValues(),
+    );
+    final pv = PublicVendor(id: vendor.id, name: vendor.name, type: vendor.type, logoUrl: vendor.logoUrl, ownerId: ref.read(currentUserIdProvider));
+    showProductSheet(context, product: product, vendor: pv, preview: true);
   }
 
   Future<void> _delete() async {
@@ -136,6 +200,11 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     }
   }
 
+  Future<void> _pickOptionPhoto(_OptionDraft o) async {
+    final files = await pickPhotos(context, max: 1, multi: false);
+    if (files.isNotEmpty) setState(() => o.photo = files.first);
+  }
+
   @override
   Widget build(BuildContext context) {
     final editing = widget.productId != null;
@@ -148,7 +217,10 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       appBar: AppBar(
         leading: IconButton(icon: const Icon(AppIcons.arrowLeft), onPressed: () => context.pop()),
         title: Text(editing ? 'Edit product' : 'New product'),
-        actions: [if (editing) IconButton(tooltip: 'Remove', icon: const Icon(AppIcons.trash), onPressed: _busy ? null : _delete)],
+        actions: [
+          IconButton(tooltip: 'Preview as a member', icon: const Icon(AppIcons.eye), onPressed: _preview),
+          if (editing) IconButton(tooltip: 'Remove', icon: const Icon(AppIcons.trash), onPressed: _busy ? null : _delete),
+        ],
       ),
       body: Form(
         key: _form,
@@ -162,9 +234,8 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
               child: ListView(
                 scrollDirection: Axis.horizontal,
                 children: [
-                  for (var i = 0; i < _kept.length; i++) _PhotoTile(image: NetworkImage(_kept[i]), cover: i == 0, onRemove: () => setState(() => _kept.removeAt(i))),
-                  for (var i = 0; i < _newPhotos.length; i++)
-                    _PhotoTile(image: FileImage(File(_newPhotos[i].path)), cover: _kept.isEmpty && i == 0, onRemove: () => setState(() => _newPhotos.removeAt(i))),
+                  for (var i = 0; i < _kept.length; i++) _PhotoTile(src: _kept[i], cover: i == 0, onRemove: () => setState(() => _kept.removeAt(i))),
+                  for (var i = 0; i < _newPhotos.length; i++) _PhotoTile(src: _newPhotos[i].path, cover: _kept.isEmpty && i == 0, onRemove: () => setState(() => _newPhotos.removeAt(i))),
                   if (photoCount < 4)
                     GestureDetector(
                       onTap: () async {
@@ -203,10 +274,10 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                     enabled: !_askPrice,
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
-                    decoration: InputDecoration(labelText: 'Price', prefixText: 'RM ', hintText: _askPrice ? 'Members ask you' : '0.00'),
+                    decoration: InputDecoration(labelText: _variants.isEmpty ? 'Price' : 'Base price', prefixText: 'RM ', hintText: _askPrice ? 'Members ask you' : '0.00'),
                     validator: (v) {
                       if (_askPrice) return null;
-                      final n = double.tryParse((v ?? '').trim().replaceAll(',', ''));
+                      final n = _parseMoney(v ?? '');
                       return n == null || n < 0 ? 'Enter a price, or switch to "Ask for price"' : null;
                     },
                   ),
@@ -221,6 +292,11 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                 ),
               ],
             ),
+            if (_variants.isNotEmpty)
+              const Padding(
+                padding: EdgeInsets.only(top: 4),
+                child: Text('Options with their own price override this.', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
+              ),
             const SizedBox(height: 12),
             TextFormField(
               controller: _desc,
@@ -237,7 +313,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                 if (_variants.length < 3)
                   TextButton.icon(
                     style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
-                    onPressed: () => setState(() => _variants.add(_VariantDraft())),
+                    onPressed: () => setState(() => _variants.add(_VariantDraft()..options.add(_OptionDraft()))),
                     icon: const Icon(AppIcons.plus, size: 16),
                     label: Text(_variants.isEmpty ? 'Add' : 'Add another'),
                   ),
@@ -246,45 +322,9 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
             if (_variants.isEmpty)
               const Padding(
                 padding: EdgeInsets.only(top: 4),
-                child: Text('Optional. Sizes, colours, fitments — e.g. "Size" with "S, M, L".', style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
+                child: Text('Optional. Sizes, colours, compounds. Each option can have its own price and photo.', style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
               ),
-            for (var i = 0; i < _variants.length; i++)
-              Container(
-                margin: const EdgeInsets.only(top: 10),
-                padding: const EdgeInsets.fromLTRB(12, 10, 6, 12),
-                decoration: BoxDecoration(color: AppColors.surfaceGray, borderRadius: BorderRadius.circular(AppRadius.md)),
-                child: Column(
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextFormField(
-                            controller: _variants[i].name,
-                            maxLength: 30,
-                            textCapitalization: TextCapitalization.sentences,
-                            decoration: const InputDecoration(labelText: 'Group', hintText: 'Size', counterText: '', filled: true, fillColor: Colors.white),
-                            validator: (v) => (v ?? '').trim().isEmpty ? 'Name this group' : null,
-                          ),
-                        ),
-                        IconButton(
-                          tooltip: 'Remove group',
-                          icon: const Icon(AppIcons.x, size: 18),
-                          onPressed: () => setState(() => _variants.removeAt(i).dispose()),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Padding(
-                      padding: const EdgeInsets.only(right: 6),
-                      child: TextFormField(
-                        controller: _variants[i].options,
-                        textCapitalization: TextCapitalization.sentences,
-                        decoration: const InputDecoration(labelText: 'Options', hintText: 'S, M, L', helperText: 'Separate with commas. Up to 8.', filled: true, fillColor: Colors.white),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+            for (var i = 0; i < _variants.length; i++) _groupCard(i),
             const SizedBox(height: 20),
             SwitchListTile.adaptive(
               contentPadding: EdgeInsets.zero,
@@ -293,10 +333,105 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
               value: _active,
               onChanged: (v) => setState(() => _active = v),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 8),
+            SecondaryButton(label: 'Preview as a member', icon: AppIcons.eye, onPressed: _preview),
+            const SizedBox(height: 10),
             PrimaryButton(label: editing ? 'Save' : 'Add product', loading: _busy, onPressed: _busy ? null : _save),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _groupCard(int i) {
+    final g = _variants[i];
+    return Container(
+      margin: const EdgeInsets.only(top: 10),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+      decoration: BoxDecoration(color: AppColors.surfaceGray, borderRadius: BorderRadius.circular(AppRadius.md)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: TextFormField(
+                  controller: g.name,
+                  maxLength: 30,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: const InputDecoration(labelText: 'Group', hintText: 'Size, Colour, Compound…', counterText: '', filled: true, fillColor: Colors.white),
+                  validator: (v) => (v ?? '').trim().isEmpty ? 'Name this group' : null,
+                ),
+              ),
+              IconButton(
+                tooltip: 'Remove group',
+                icon: const Icon(AppIcons.x, size: 18),
+                onPressed: () => setState(() => _variants.removeAt(i).dispose()),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          for (var k = 0; k < g.options.length; k++) _optionRow(g, k),
+          if (g.options.length < 8)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+                onPressed: () => setState(() => g.options.add(_OptionDraft())),
+                icon: const Icon(AppIcons.plus, size: 15),
+                label: const Text('Add option'),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _optionRow(_VariantDraft g, int k) {
+    final o = g.options[k];
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          GestureDetector(
+            onTap: () => _pickOptionPhoto(o),
+            onLongPress: o.photoSrc == null ? null : () => setState(() { o.photo = null; o.photoUrl = null; }),
+            child: Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(AppRadius.sm), border: Border.all(color: AppColors.border)),
+              clipBehavior: Clip.antiAlias,
+              child: o.photoSrc == null ? const Icon(AppIcons.cameraPlus, size: 18, color: AppColors.textSecondary) : Image(image: imageFor(o.photoSrc!), fit: BoxFit.cover),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            flex: 5,
+            child: TextFormField(
+              controller: o.label,
+              maxLength: 30,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: const InputDecoration(hintText: 'Option', isDense: true, counterText: '', filled: true, fillColor: Colors.white, contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 13)),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            flex: 4,
+            child: TextFormField(
+              controller: o.price,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
+              decoration: const InputDecoration(hintText: 'Price', prefixText: 'RM ', isDense: true, filled: true, fillColor: Colors.white, contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 13)),
+            ),
+          ),
+          IconButton(
+            tooltip: 'Remove option',
+            visualDensity: VisualDensity.compact,
+            icon: const Icon(AppIcons.x, size: 16),
+            onPressed: g.options.length == 1 ? null : () => setState(() => g.options.removeAt(k).dispose()),
+          ),
+        ],
       ),
     );
   }
@@ -310,8 +445,8 @@ class _Label extends StatelessWidget {
 }
 
 class _PhotoTile extends StatelessWidget {
-  const _PhotoTile({required this.image, required this.onRemove, this.cover = false});
-  final ImageProvider image;
+  const _PhotoTile({required this.src, required this.onRemove, this.cover = false});
+  final String src;
   final VoidCallback onRemove;
   final bool cover;
   @override
@@ -319,7 +454,7 @@ class _PhotoTile extends StatelessWidget {
         padding: const EdgeInsets.only(right: 8),
         child: Stack(
           children: [
-            ClipRRect(borderRadius: BorderRadius.circular(AppRadius.md), child: Image(image: image, width: 104, height: 104, fit: BoxFit.cover)),
+            ClipRRect(borderRadius: BorderRadius.circular(AppRadius.md), child: Image(image: imageFor(src), width: 104, height: 104, fit: BoxFit.cover)),
             if (cover)
               Positioned(
                 left: 6,

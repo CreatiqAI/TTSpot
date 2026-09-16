@@ -38,7 +38,8 @@ class AccountTab extends ConsumerWidget {
           const Icon(AppIcons.storefront, color: AppColors.brand),
           [
             _Row(AppIcons.scan, 'Redeem a voucher', 'Scan a member\'s voucher QR', () => context.push(Routes.scan)),
-            _Row(AppIcons.ticket, 'Vouchers', 'What you offer members', () => context.push(Routes.vendor)),
+            _Row(AppIcons.shoppingBag, 'Products', 'Up to 5, with variants', () => context.go(Routes.map)),
+            _Row(AppIcons.ticket, 'Vouchers', 'What you offer members', () => context.go(Routes.shopVouchers)),
             _Row(AppIcons.chartBar, 'Statement', 'Redemptions and commission', () => context.push(Routes.vendorReport)),
             _Row(AppIcons.storefront, 'My partner page', 'What members see', () => context.push(Routes.partner(vendor.id))),
             _Row(AppIcons.image, 'Post as ${vendor.name}', 'New stock, a build, a promo', () => context.push(Routes.createPost(PostKind.post, vendorId: vendor.id))),

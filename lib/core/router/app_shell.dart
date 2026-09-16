@@ -62,7 +62,9 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
     TabSpec(3, AppIcons.gear, AppIcons.gear, 'Account'),
   ];
   static const _partner = [
-    TabSpec(0, AppIcons.storefront, AppIcons.storefront, 'Dashboard'),
+    TabSpec(0, AppIcons.storefront, AppIcons.storefront, 'Overview'),
+    TabSpec(1, AppIcons.shoppingBag, AppIcons.shoppingBag, 'Products'),
+    TabSpec(4, AppIcons.ticket, AppIcons.ticket, 'Vouchers'),
     TabSpec(2, AppIcons.chatCircle, AppIcons.chatCircleFill, 'Chats'),
     TabSpec(3, AppIcons.gear, AppIcons.gear, 'Account'),
   ];

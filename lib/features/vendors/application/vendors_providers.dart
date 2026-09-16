@@ -91,6 +91,9 @@ class VendorActions {
   final Ref _ref;
   VendorsRepository get _repo => _ref.read(vendorsRepositoryProvider);
 
+  /// Upload one picked photo and get its public URL (product / variant photos).
+  Future<String?> upload(XFile photo) => _upload(photo);
+
   Future<String?> _upload(XFile? photo) async {
     if (photo == null) return null;
     final me = _ref.read(currentUserIdProvider);

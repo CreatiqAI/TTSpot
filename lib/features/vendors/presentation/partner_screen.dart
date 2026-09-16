@@ -130,7 +130,7 @@ class _Body extends ConsumerWidget {
                 Expanded(child: PrimaryButton(label: 'Message', onPressed: v.ownerIsMe(me) ? null : () => _message(context, ref))),
                 if (digits.isNotEmpty) ...[
                   const SizedBox(width: 8),
-                  Expanded(child: SecondaryButton(label: 'WhatsApp', icon: AppIcons.whatsappLogo, onPressed: () => openExternal(context, 'whatsapp://send?phone=$digits', fallbackUrl: 'https://wa.me/$digits'))),
+                  Expanded(child: SecondaryButton(label: 'WhatsApp', icon: AppIcons.whatsappLogo, onPressed: () => openExternal(context, 'whatsapp://send?phone=$digits', fallbackUrl: 'https://wa.me/$digits', appName: 'WhatsApp'))),
                 ],
               ],
             ),
@@ -168,9 +168,9 @@ class _Body extends ConsumerWidget {
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
               child: Row(
                 children: [
-                  Expanded(child: SecondaryButton(label: 'Waze', icon: AppIcons.navigationArrow, onPressed: () => openExternal(context, 'waze://?ll=${v.lat},${v.lng}&navigate=yes', fallbackUrl: wazeUrl(v.lat!, v.lng!)))),
+                  Expanded(child: SecondaryButton(label: 'Waze', icon: AppIcons.navigationArrow, onPressed: () => openExternal(context, 'waze://?ll=${v.lat},${v.lng}&navigate=yes', fallbackUrl: wazeUrl(v.lat!, v.lng!), appName: 'Waze'))),
                   const SizedBox(width: 8),
-                  Expanded(child: SecondaryButton(label: 'Maps', icon: AppIcons.mapTrifold, onPressed: () => openExternal(context, googleMapsUrl(v.lat!, v.lng!)))),
+                  Expanded(child: SecondaryButton(label: 'Maps', icon: AppIcons.mapTrifold, onPressed: () => openExternal(context, 'comgooglemaps://?daddr=${v.lat},${v.lng}', fallbackUrl: googleMapsUrl(v.lat!, v.lng!), appName: 'Google Maps'))),
                   if (v.placeId != null) ...[
                     const SizedBox(width: 8),
                     Expanded(child: SecondaryButton(label: 'Check in', onPressed: () => context.push(Routes.place(v.placeId!)))),

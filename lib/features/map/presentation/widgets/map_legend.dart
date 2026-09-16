@@ -28,6 +28,7 @@ class _MapLegendState extends State<MapLegend> {
           _Item(_Glyph.flag, 'TT session'),
           _Item(_Glyph.balloon, 'Event'),
           _Item(_Glyph.moment, 'Moment'),
+          _Item(_Glyph.partner, 'Partner shop'),
           _Item(_Glyph.me, 'You'),
           _Item(_Glyph.friend, 'Friend'),
           _Item(_Glyph.club, 'Club'),
@@ -36,6 +37,7 @@ class _MapLegendState extends State<MapLegend> {
       MapMode.upcoming => const [
           _Item(_Glyph.balloon, 'Event'),
           _Item(_Glyph.flag, 'TT session'),
+          _Item(_Glyph.partner, 'Partner shop'),
           _Item(_Glyph.me, 'You'),
         ],
       MapMode.spots => const [

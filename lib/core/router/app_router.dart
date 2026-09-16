@@ -81,6 +81,8 @@ abstract final class Routes {
   static const map = '/map';
   static const inbox = '/chats';
   static const garage = '/me';
+  /// Fifth tab branch, used by the partner account for Vouchers.
+  static const shopVouchers = '/shop-vouchers';
 
   // Full-screen
   static const meets = '/meets';
@@ -349,6 +351,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(routes: [GoRoute(path: Routes.map, pageBuilder: (_, s) => page(s, const TabSlot(1)))]),
           StatefulShellBranch(routes: [GoRoute(path: Routes.inbox, pageBuilder: (_, s) => page(s, const TabSlot(2)))]),
           StatefulShellBranch(routes: [GoRoute(path: Routes.garage, pageBuilder: (_, s) => page(s, const TabSlot(3)))]),
+          StatefulShellBranch(routes: [GoRoute(path: Routes.shopVouchers, pageBuilder: (_, s) => page(s, const TabSlot(4)))]),
         ],
       ),
     ],

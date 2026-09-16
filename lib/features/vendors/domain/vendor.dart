@@ -101,15 +101,32 @@ class PartnerApplication {
       );
 }
 
-/// One variant group on a product: "Size" → S, M, L.
+/// One choice inside a variant group. Its own price and photo are optional:
+/// picking it can switch the shown price and jump the gallery to its photo.
+class VariantOption {
+  const VariantOption({required this.label, this.price, this.photoUrl});
+  final String label;
+  final double? price;
+  final String? photoUrl;
+  Map<String, Object?> toJson() => {'label': label, 'price': price, 'photo_url': photoUrl};
+  static VariantOption? fromJson(Object? j) {
+    if (j is String) return j.trim().isEmpty ? null : VariantOption(label: j);
+    if (j is Map && j['label'] is String) {
+      return VariantOption(label: j['label'] as String, price: j['price'] == null ? null : _num(j['price']), photoUrl: j['photo_url'] as String?);
+    }
+    return null;
+  }
+}
+
+/// One variant group on a product: "Compound" → Street, Sport, Track.
 class ProductVariant {
   const ProductVariant({required this.name, required this.options});
   final String name;
-  final List<String> options;
-  Map<String, Object?> toJson() => {'name': name, 'options': options};
+  final List<VariantOption> options;
+  Map<String, Object?> toJson() => {'name': name, 'options': options.map((o) => o.toJson()).toList()};
   static ProductVariant? fromJson(Object? j) {
     if (j is! Map || j['name'] is! String) return null;
-    return ProductVariant(name: j['name'] as String, options: ((j['options'] as List?) ?? const []).whereType<String>().toList());
+    return ProductVariant(name: j['name'] as String, options: ((j['options'] as List?) ?? const []).map(VariantOption.fromJson).whereType<VariantOption>().toList());
   }
 }
 

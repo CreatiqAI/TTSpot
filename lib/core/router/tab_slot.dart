@@ -13,10 +13,12 @@ import '../../features/social/presentation/club_screen.dart';
 import '../../features/social/presentation/explore_screen.dart';
 import '../../features/social/presentation/inbox_screen.dart';
 import '../../features/vendors/presentation/vendor_dashboard_screen.dart';
+import '../../features/vendors/presentation/vendor_products_screen.dart';
+import '../../features/vendors/presentation/vendor_vouchers_screen.dart';
 
 /// The four bottom-tab branches, each showing whatever the active account
 /// needs there. Personal: Posts · Map · Chats · Me. Club: Club · Events ·
-/// Chats · Account. Partner: Dashboard · Chats · Account. Admin: Dashboard ·
+/// Chats · Account. Partner: Overview · Products · Vouchers · Chats · Account. Admin: Dashboard ·
 /// Members · Queues · Account. Every account has its own inbox.
 class TabSlot extends ConsumerWidget {
   const TabSlot(this.index, {super.key});
@@ -39,8 +41,10 @@ class TabSlot extends ConsumerWidget {
           _ => const AccountTab(),
         },
       PartnerAccount() => switch (index) {
+          1 => const VendorProductsScreen(),
           2 => const InboxScreen(),
           3 => const AccountTab(),
+          4 => const VendorVouchersScreen(),
           _ => const VendorDashboardScreen(embedded: true),
         },
       AdminAccount() => switch (index) {

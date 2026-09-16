@@ -1116,11 +1116,11 @@ class _QuickActions extends StatelessWidget {
         );
     return Row(
       children: [
-        btn('Waze', AppIcons.navigationArrow, const Color(0xFF33CCFF), const Color(0xFF062A3A), () => openExternal(context, 'waze://?ll=${event.lat},${event.lng}&navigate=yes', fallbackUrl: _waze)),
+        btn('Waze', AppIcons.navigationArrow, const Color(0xFF33CCFF), const Color(0xFF062A3A), () => openExternal(context, 'waze://?ll=${event.lat},${event.lng}&navigate=yes', fallbackUrl: _waze, appName: 'Waze')),
         const SizedBox(width: 8),
-        btn('Maps', AppIcons.mapTrifold, AppColors.surfaceGray, AppColors.ink, () => openExternal(context, 'comgooglemaps://?daddr=${event.lat},${event.lng}', fallbackUrl: _gmaps)),
+        btn('Maps', AppIcons.mapTrifold, AppColors.surfaceGray, AppColors.ink, () => openExternal(context, 'comgooglemaps://?daddr=${event.lat},${event.lng}', fallbackUrl: _gmaps, appName: 'Google Maps')),
         const SizedBox(width: 8),
-        btn('WhatsApp', AppIcons.chatCircle, const Color(0xFF25D366), const Color(0xFF063D1D), () => openExternal(context, 'whatsapp://send?text=${Uri.encodeComponent(_whatsapp)}', fallbackUrl: whatsappUrl(_whatsapp))),
+        btn('WhatsApp', AppIcons.chatCircle, const Color(0xFF25D366), const Color(0xFF063D1D), () => openExternal(context, 'whatsapp://send?text=${Uri.encodeComponent(_whatsapp)}', fallbackUrl: whatsappUrl(_whatsapp), appName: 'WhatsApp')),
         const SizedBox(width: 8),
         btn('Copy link', AppIcons.link, AppColors.surfaceGray, AppColors.ink, () => _copy(context, _appLink, 'Link copied.')),
       ],

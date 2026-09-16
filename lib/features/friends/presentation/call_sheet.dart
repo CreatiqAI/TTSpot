@@ -45,7 +45,7 @@ Future<void> showCallSheet(BuildContext context, WidgetRef ref, {required String
             title: const Text('Phone call', style: TextStyle(fontWeight: FontWeight.w600)),
             onTap: () {
               Navigator.pop(ctx);
-              openExternal(context, 'tel:$tel');
+              openExternal(context, 'tel:$tel', appName: 'the phone dialler');
             },
           ),
           ListTile(
@@ -54,7 +54,7 @@ Future<void> showCallSheet(BuildContext context, WidgetRef ref, {required String
             subtitle: const Text('Voice or video call from the chat', style: TextStyle(fontSize: 12)),
             onTap: () {
               Navigator.pop(ctx);
-              openExternal(context, 'whatsapp://send?phone=$digits', fallbackUrl: 'https://wa.me/$digits');
+              openExternal(context, 'whatsapp://send?phone=$digits', fallbackUrl: 'https://wa.me/$digits', appName: 'WhatsApp');
             },
           ),
           const SizedBox(height: 8),

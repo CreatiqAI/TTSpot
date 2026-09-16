@@ -243,6 +243,7 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
             onTap: () => _openMoment(m),
           ));
         }
+        await _addPartners(built, stale);
         await _addPeople(built, stale);
       case MapMode.upcoming:
         final now = DateTime.now();
@@ -258,6 +259,7 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
             onTap: () => context.push(Routes.event(e.id)),
           ));
         }
+        await _addPartners(built, stale);
       case MapMode.spots:
         for (final p in ref.read(spotsProvider).value ?? const <Place>[]) {
           final pin = _far
@@ -285,6 +287,23 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
     }
     if (mode != MapMode.now) await _addPeople(built, stale, onlyMe: true);
     if (mounted) setState(() => _markerSet = built);
+  }
+
+  /// Partner shops show on every layer: logo pin when zoomed in, red dot far out.
+  Future<void> _addPartners(Set<Marker> built, Future<bool> Function() stale) async {
+    for (final p in (ref.read(spotsProvider).value ?? const <Place>[]).where((p) => p.isPartner)) {
+      final pin = _far ? await _glyphFactory.dot(key: p.id, color: kEventRed) : await _pinFactory.partner(key: p.id, logoUrl: p.vendorLogo, scale: _glyphScale);
+      if (await stale()) return;
+      built.add(Marker(
+        markerId: MarkerId('place:${p.id}'),
+        position: p.latLng,
+        icon: pin.descriptor,
+        anchor: pin.anchor,
+        zIndexInt: 2,
+        consumeTapEvents: true,
+        onTap: () => context.push(Routes.partner(p.vendorId!)),
+      ));
+    }
   }
 
   /// Friends, clubmates, nearby strangers and me. Cars when zoomed in, dots

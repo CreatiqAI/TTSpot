@@ -10,6 +10,18 @@ class ReleaseNote {
 
 const kReleaseNotes = <ReleaseNote>[
   ReleaseNote(
+    version: '0.3.16',
+    date: '17 Sep 2026',
+    title: 'Partner tabs and variant photos',
+    points: [
+      'Partner accounts get five tabs: Overview, Products, Vouchers, Chats, Account. The overview is new: quick actions, a setup checklist and 30-day numbers.',
+      'Variant options can carry their own price and photo. Picking one switches the price and the photo.',
+      'Preview a product as a member before saving.',
+      'Waze, Google Maps, WhatsApp and calls ask before leaving the app.',
+      'Partner shops show on every map layer, not only Spots.',
+    ],
+  ),
+  ReleaseNote(
     version: '0.3.15',
     date: '17 Sep 2026',
     title: 'Partner shops, and a pile of fixes',

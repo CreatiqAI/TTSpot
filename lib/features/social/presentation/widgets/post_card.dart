@@ -8,6 +8,7 @@ import '../../../../core/theme/app_icons.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/dates.dart';
 import '../../../../core/utils/friendly_error.dart';
+import '../../../../core/widgets/pop_icon.dart';
 import '../../../../core/widgets/user_avatar.dart';
 import '../../../safety/data/safety_repository.dart';
 import '../../../safety/presentation/report_sheet.dart';
@@ -18,10 +19,12 @@ import 'poll_widget.dart';
 
 /// Instagram feed card. [expanded] shows the full caption (post detail).
 class PostCard extends ConsumerStatefulWidget {
-  const PostCard({super.key, required this.feed, this.expanded = false, this.onOpen});
+  const PostCard({super.key, required this.feed, this.expanded = false, this.onOpen, this.onComment});
   final FeedPost feed;
   final bool expanded;
   final VoidCallback? onOpen;
+  /// On the post page: focus the comment box instead of reopening the post.
+  final VoidCallback? onComment;
 
   @override
   ConsumerState<PostCard> createState() => _PostCardState();
@@ -31,6 +34,46 @@ class _PostCardState extends ConsumerState<PostCard> {
   int _page = 0;
   bool _showFullCaption = false;
   bool _heartBurst = false;
+  // Optimistic like / save so the icon pops the instant you tap, not after the round trip.
+  bool? _liked;
+  bool? _saved;
+
+  bool get _isLiked => _liked ?? widget.feed.likedByMe;
+  bool get _isSaved => _saved ?? widget.feed.savedByMe;
+  int get _likeCount => widget.feed.post.likeCount + (_isLiked == widget.feed.likedByMe ? 0 : (_isLiked ? 1 : -1));
+
+  @override
+  void didUpdateWidget(covariant PostCard old) {
+    super.didUpdateWidget(old);
+    if (old.feed.likedByMe != widget.feed.likedByMe) _liked = null;
+    if (old.feed.savedByMe != widget.feed.savedByMe) _saved = null;
+  }
+
+  Future<void> _toggleLike() async {
+    final was = _isLiked;
+    setState(() => _liked = !was);
+    try {
+      await ref.read(socialActionsProvider).toggleLike(widget.feed);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _liked = null);
+        _snack(friendlyError(e));
+      }
+    }
+  }
+
+  Future<void> _toggleSave() async {
+    final was = _isSaved;
+    setState(() => _saved = !was);
+    try {
+      await ref.read(socialActionsProvider).toggleSave(widget.feed);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _saved = null);
+        _snack(friendlyError(e));
+      }
+    }
+  }
 
   void _snack(String msg) => ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()
@@ -49,7 +92,7 @@ class _PostCardState extends ConsumerState<PostCard> {
     Future.delayed(const Duration(milliseconds: 700), () {
       if (mounted) setState(() => _heartBurst = false);
     });
-    if (!widget.feed.likedByMe) await _guard(() => ref.read(socialActionsProvider).toggleLike(widget.feed));
+    if (!_isLiked) await _toggleLike();
   }
 
   Future<void> _menu() async {
@@ -179,12 +222,12 @@ class _PostCardState extends ConsumerState<PostCard> {
           child: Row(
             children: [
               IconButton(
-                icon: Icon(f.likedByMe ? AppIcons.heartFill : AppIcons.heart, color: f.likedByMe ? AppColors.danger : AppColors.textPrimary, size: 26),
-                onPressed: () => _guard(() => ref.read(socialActionsProvider).toggleLike(f)),
+                icon: PopIcon(active: _isLiked, child: Icon(_isLiked ? AppIcons.heartFill : AppIcons.heart, color: _isLiked ? AppColors.danger : AppColors.textPrimary, size: 26)),
+                onPressed: _toggleLike,
               ),
               IconButton(
                 icon: const Icon(AppIcons.chatCircle, size: 24),
-                onPressed: widget.onOpen ?? () => context.push(Routes.post(p.id)),
+                onPressed: widget.onComment ?? widget.onOpen ?? () => context.push(Routes.post(p.id)),
               ),
               IconButton(
                 tooltip: 'Send to a friend',
@@ -211,8 +254,8 @@ class _PostCardState extends ConsumerState<PostCard> {
                 ),
               const Spacer(),
               IconButton(
-                icon: Icon(f.savedByMe ? AppIcons.bookmarkSimpleFill : AppIcons.bookmarkSimple, size: 26),
-                onPressed: () => _guard(() => ref.read(socialActionsProvider).toggleSave(f)),
+                icon: PopIcon(active: _isSaved, child: Icon(_isSaved ? AppIcons.bookmarkSimpleFill : AppIcons.bookmarkSimple, size: 26)),
+                onPressed: _toggleSave,
               ),
             ],
           ),
@@ -224,10 +267,10 @@ class _PostCardState extends ConsumerState<PostCard> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (p.likeCount > 0)
+              if (_likeCount > 0)
                 GestureDetector(
                   onTap: () => _showLikers(context, p.id),
-                  child: Text('${p.likeCount} ${p.likeCount == 1 ? 'like' : 'likes'}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                  child: Text('$_likeCount ${_likeCount == 1 ? 'like' : 'likes'}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
                 ),
               if ((p.caption ?? '').trim().isNotEmpty || p.title != null) ...[
                 const SizedBox(height: 4),
@@ -304,23 +347,36 @@ class _Subtitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final parts = <String>[];
+    // Each tagged thing is a link: the car, the spot, the meet, the club.
+    final parts = <(String, String?)>[];
     switch (post.kind) {
       case PostKind.spotted:
-        parts.add('👀 Spotted');
+        parts.add(('👀 Spotted', null));
       case PostKind.poll:
-        parts.add('📊 Poll');
+        parts.add(('📊 Poll', null));
       case PostKind.guide:
-        parts.add('🗺️ Guide');
+        parts.add(('🗺️ Guide', null));
       case PostKind.post:
         break;
     }
-    if (post.car != null) parts.add('🚗 ${post.car!.title}');
-    if (post.place != null) parts.add('📍 ${post.place!.name}');
-    if (post.event != null) parts.add('🏁 ${post.event!.name}');
-    if (post.club != null) parts.add('🛡️ ${post.club!.name}');
+    if (post.car != null) parts.add(('🚗 ${post.car!.title}', Routes.car(post.car!.id)));
+    if (post.place != null) parts.add(('📍 ${post.place!.name}', Routes.place(post.place!.id)));
+    if (post.event != null) parts.add(('🏁 ${post.event!.name}', Routes.event(post.event!.id)));
+    if (post.club != null && !post.asClub) parts.add(('🛡️ ${post.club!.name}', Routes.club(post.club!.id)));
     if (parts.isEmpty) return const SizedBox.shrink();
-    return Text(parts.join(' · '), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary));
+    const style = TextStyle(fontSize: 12, color: AppColors.textSecondary);
+    return Wrap(
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        for (var i = 0; i < parts.length; i++) ...[
+          if (i > 0) const Text(' · ', style: style),
+          GestureDetector(
+            onTap: parts[i].$2 == null ? null : () => context.push(parts[i].$2!),
+            child: Text(parts[i].$1, style: parts[i].$2 == null ? style : style.copyWith(fontWeight: FontWeight.w600, decoration: TextDecoration.underline, decorationColor: AppColors.border)),
+          ),
+        ],
+      ],
+    );
   }
 }
 

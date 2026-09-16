@@ -6,6 +6,7 @@ import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/dates.dart';
 import '../../../core/utils/friendly_error.dart';
+import '../../../core/widgets/picker_field.dart';
 import '../../../core/widgets/primary_button.dart';
 import '../application/vendors_providers.dart';
 import '../domain/vendor.dart';
@@ -30,6 +31,7 @@ class _VoucherFormScreenState extends ConsumerState<VoucherFormScreen> {
   final _maxClaims = TextEditingController();
   final _perUser = TextEditingController(text: '1');
   DiscountKind _kind = DiscountKind.percent;
+  String? _productId; // null = whole shop
   DateTime? _endsAt;
   bool _active = true;
   bool _busy = false;
@@ -53,6 +55,7 @@ class _VoucherFormScreenState extends ConsumerState<VoucherFormScreen> {
     _maxClaims.text = v.maxClaims?.toString() ?? '';
     _perUser.text = '${v.perUserLimit}';
     _kind = v.kind;
+    _productId = v.productId;
     _endsAt = v.endsAt;
     _active = v.active;
     _loaded = true;
@@ -82,6 +85,7 @@ class _VoucherFormScreenState extends ConsumerState<VoucherFormScreen> {
             perUser: int.tryParse(_perUser.text.trim()) ?? 1,
             endsAt: _endsAt,
             active: _active,
+            productId: _productId,
           );
       if (mounted) context.pop();
     } catch (e) {
@@ -116,6 +120,20 @@ class _VoucherFormScreenState extends ConsumerState<VoucherFormScreen> {
               validator: (v) => (v ?? '').trim().length < 2 ? 'Give it a title' : null,
             ),
             const SizedBox(height: 12),
+            Builder(builder: (context) {
+              final products = ref.watch(vendorProductsProvider).value ?? const <Product>[];
+              if (products.isEmpty) return const SizedBox.shrink();
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: PickerField<String>(
+                  label: 'Applies to',
+                  icon: AppIcons.shoppingBag,
+                  value: _productId ?? '',
+                  options: [('', 'Whole shop'), for (final p in products) (p.id, p.name)],
+                  onChanged: (v) => setState(() => _productId = (v == null || v.isEmpty) ? null : v),
+                ),
+              );
+            }),
             SegmentedButton<DiscountKind>(
               segments: const [
                 ButtonSegment(value: DiscountKind.percent, label: Text('% off')),

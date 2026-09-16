@@ -9,7 +9,12 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/dates.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../../core/widgets/empty_state.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart' show LatLng;
+
+import '../../../core/utils/geo.dart';
+import '../../map/application/map_providers.dart';
 import '../../points/application/points_providers.dart';
+import 'widgets/hours_editor.dart';
 import '../application/vendors_providers.dart';
 import '../domain/vendor.dart';
 
@@ -23,7 +28,7 @@ class RewardsScreen extends ConsumerStatefulWidget {
 }
 
 class _RewardsScreenState extends ConsumerState<RewardsScreen> with SingleTickerProviderStateMixin {
-  late final TabController _tabs = TabController(length: 2, vsync: this, initialIndex: widget.initialTab.clamp(0, 1));
+  late final TabController _tabs = TabController(length: 3, vsync: this, initialIndex: widget.initialTab.clamp(0, 2));
 
   @override
   void dispose() {
@@ -48,14 +53,111 @@ class _RewardsScreenState extends ConsumerState<RewardsScreen> with SingleTicker
           dividerColor: AppColors.border,
           labelStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
           tabs: [
-            const Tab(text: 'Shop'),
+            const Tab(text: 'Partners'),
+            const Tab(text: 'Vouchers'),
             Tab(text: walletCount == 0 ? 'My vouchers' : 'My vouchers · $walletCount'),
           ],
         ),
       ),
       body: TabBarView(
         controller: _tabs,
-        children: const [_ShopTab(), _WalletTab()],
+        children: const [_PartnersTab(), _ShopTab(), _WalletTab()],
+      ),
+    );
+  }
+}
+
+/// Every partner shop: logo, what they do, open now, vouchers and products.
+class _PartnersTab extends ConsumerWidget {
+  const _PartnersTab();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final partners = ref.watch(partnersDirectoryProvider);
+    final here = ref.watch(userLocationProvider).value;
+    return RefreshIndicator(
+      onRefresh: () async {
+        ref.invalidate(partnersDirectoryProvider);
+        await ref.read(partnersDirectoryProvider.future);
+      },
+      child: partners.when(
+        loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+        error: (e, _) => Center(child: Text(friendlyError(e))),
+        data: (list) {
+          final sorted = [...list];
+          if (here != null) {
+            double d(PublicVendor v) => v.lat == null || v.lng == null ? 1e9 : distanceKm(here, LatLng(v.lat!, v.lng!));
+            sorted.sort((a, b) => d(a).compareTo(d(b)));
+          }
+          if (sorted.isEmpty) {
+            return const Padding(padding: EdgeInsets.only(top: 60), child: EmptyState(art: AppArt.coffee, title: 'No partners yet', subtitle: 'Shops and workshops are joining. Check back soon.'));
+          }
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+            children: [
+              const Text('Workshops, parts shops and hangouts that welcome TT Spot members. Tap one to see their products, vouchers and hours.',
+                  style: TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.4)),
+              const SizedBox(height: 8),
+              for (final v in sorted) _PartnerCard(v: v, here: here),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _PartnerCard extends StatelessWidget {
+  const _PartnerCard({required this.v, required this.here});
+  final PublicVendor v;
+  final LatLng? here;
+
+  @override
+  Widget build(BuildContext context) {
+    final status = OpeningHours.fromJson(v.hoursJson).status();
+    final open = status != null && status.startsWith('Open');
+    final km = here == null || v.lat == null || v.lng == null ? null : distanceKm(here!, LatLng(v.lat!, v.lng!));
+    final facts = <String>[
+      if (v.productCount > 0) '${v.productCount} product${v.productCount == 1 ? '' : 's'}',
+      if (v.liveVouchers > 0) '${v.liveVouchers} voucher${v.liveVouchers == 1 ? '' : 's'}',
+      if (km != null) km < 1 ? '${(km * 1000).round()} m' : '${km.toStringAsFixed(1)} km',
+    ];
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      decoration: BoxDecoration(border: Border.all(color: AppColors.border), borderRadius: BorderRadius.circular(AppRadius.lg)),
+      child: ListTile(
+        onTap: () => context.push(Routes.partner(v.id)),
+        contentPadding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+        leading: ClipRRect(
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          child: SizedBox(
+            width: 56,
+            height: 56,
+            child: v.logoUrl == null
+                ? const ColoredBox(color: AppColors.surfaceGray, child: Icon(AppIcons.storefront, color: AppColors.textSecondary))
+                : Image.network(v.logoUrl!, fit: BoxFit.cover),
+          ),
+        ),
+        title: Text(v.name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(businessTypeLabel(v.type), style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
+            const SizedBox(height: 3),
+            Row(
+              children: [
+                if (status != null) ...[
+                  Container(width: 7, height: 7, decoration: BoxDecoration(shape: BoxShape.circle, color: open ? AppColors.success : AppColors.textMuted)),
+                  const SizedBox(width: 5),
+                  Text(open ? 'Open' : 'Closed', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: open ? AppColors.success : AppColors.textSecondary)),
+                  if (facts.isNotEmpty) const Text(' · ', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                ],
+                Expanded(child: Text(facts.join(' · '), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary))),
+              ],
+            ),
+          ],
+        ),
+        trailing: const Icon(AppIcons.caretRight, size: 16, color: AppColors.textMuted),
       ),
     );
   }
@@ -291,6 +393,11 @@ class _VoucherCardState extends ConsumerState<_VoucherCard> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(v.title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                      if (v.productName != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2, bottom: 2),
+                          child: Row(children: [const Icon(AppIcons.shoppingBag, size: 13, color: AppColors.brand), const SizedBox(width: 4), Expanded(child: Text('For ${v.productName}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppColors.brand)))]),
+                        ),
                       if (v.description != null) Text(v.description!, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
                       const SizedBox(height: 4),
                       Text(

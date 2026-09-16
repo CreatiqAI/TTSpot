@@ -64,6 +64,7 @@ class _Body extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final vouchers = ref.watch(vendorVouchersProvider).value ?? const <Voucher>[];
+    final products = ref.watch(vendorProductsProvider).value ?? const <Product>[];
     final redemptions = (ref.watch(vendorRedemptionsProvider).value ?? const <Redemption>[]).take(5).toList();
     final ratePct = (vendor.commissionRate * 100).toStringAsFixed(vendor.commissionRate * 100 % 1 == 0 ? 0 : 2);
     return RefreshIndicator(
@@ -71,6 +72,7 @@ class _Body extends ConsumerWidget {
         ref.invalidate(myVendorProvider);
         ref.invalidate(vendorVouchersProvider);
         ref.invalidate(vendorRedemptionsProvider);
+        ref.invalidate(vendorProductsProvider);
         await ref.read(myVendorProvider.future);
       },
       child: ListView(
@@ -132,6 +134,33 @@ class _Body extends ConsumerWidget {
               style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
             ),
           ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 6),
+            child: Row(
+              children: [
+                Expanded(child: _SectionTitle('PRODUCTS · ${products.length}/5')),
+                TextButton.icon(
+                  onPressed: products.length >= 5 ? null : () => context.push(Routes.productNew),
+                  icon: const Icon(AppIcons.plus, size: 16),
+                  label: const Text('Add'),
+                ),
+              ],
+            ),
+          ),
+          if (products.isEmpty)
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Text('Show up to 5 things you sell. Members see them on your page and can message you about them.', style: TextStyle(color: AppColors.textSecondary)),
+            )
+          else
+            SizedBox(
+              height: 150,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                children: [for (final p in products) _ProductTile(p: p)],
+              ),
+            ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 20, 16, 6),
             child: Row(
@@ -216,6 +245,51 @@ class _SectionTitle extends StatelessWidget {
   Widget build(BuildContext context) => Text(text, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textSecondary));
 }
 
+class _ProductTile extends StatelessWidget {
+  const _ProductTile({required this.p});
+  final Product p;
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+        onTap: () => context.push(Routes.productEdit(p.id)),
+        child: Container(
+          width: 120,
+          margin: const EdgeInsets.only(right: 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(AppRadius.md),
+                    child: SizedBox(
+                      width: 120,
+                      height: 96,
+                      child: p.photoUrls.isEmpty
+                          ? const ColoredBox(color: AppColors.surfaceGray, child: Icon(AppIcons.shoppingBag, color: AppColors.textSecondary))
+                          : Opacity(opacity: p.active ? 1 : 0.45, child: Image.network(p.photoUrls.first, fit: BoxFit.cover)),
+                    ),
+                  ),
+                  if (!p.active)
+                    Positioned(
+                      left: 6,
+                      top: 6,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(6)),
+                        child: const Text('Hidden', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700)),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(p.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+              Text(p.priceLabel, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+            ],
+          ),
+        ),
+      );
+}
+
 class _VoucherRow extends ConsumerWidget {
   const _VoucherRow({required this.v});
   final Voucher v;
@@ -236,6 +310,7 @@ class _VoucherRow extends ConsumerWidget {
       subtitle: Text(
         [
           v.headline,
+          if (v.productName != null) 'for ${v.productName}',
           if (v.pointsCost > 0) '${v.pointsCost} pts',
           '${v.claimsCount} claimed${v.maxClaims == null ? '' : ' / ${v.maxClaims}'}',
           '${v.redemptions} used',

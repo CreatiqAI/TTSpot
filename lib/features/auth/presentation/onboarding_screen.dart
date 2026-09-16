@@ -18,6 +18,7 @@ import '../../profile/application/profile_providers.dart';
 import '../application/auth_controller.dart';
 import '../application/account_basics.dart';
 import '../application/onboarding_controller.dart';
+import 'widgets/username_field.dart';
 import '../../../core/legal/legal_text.dart';
 import '../../settings/presentation/settings_screen.dart' show LegalScreen;
 import '../data/auth_repository.dart';
@@ -236,24 +237,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   validator: (v) => (v?.trim().length ?? 0) < 2 ? 'Enter your name' : null,
                 ),
                 const SizedBox(height: 14),
-                TextFormField(
-                  controller: _username,
-                  textInputAction: TextInputAction.next,
-                  autocorrect: false,
-                  maxLength: 20,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9_]')),
-                    _LowercaseFormatter(),
-                  ],
-                  decoration: const InputDecoration(
-                    labelText: 'Username',
-                    prefixText: '@',
-                    helperText: 'Letters, numbers and underscores. 3–20 characters.',
-                    counterText: '',
-                  ),
-                  validator: (v) =>
-                      usernamePattern.hasMatch(v?.trim().toLowerCase() ?? '') ? null : 'Choose a valid username',
-                ),
+                UsernameField(controller: _username, textInputAction: TextInputAction.next),
                 const SizedBox(height: 14),
                 PickerField<String>(
                   label: 'Home state',
@@ -271,10 +255,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   keyboardType: TextInputType.phone,
                   textInputAction: TextInputAction.next,
                   autofillHints: const [AutofillHints.telephoneNumber],
-                  inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9+\-\s]'))],
+                  inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9+\-\s]')), MyPhoneFormatter()],
                   decoration: const InputDecoration(
                     labelText: 'Phone number',
-                    hintText: '012-345 6789',
+                    hintText: '+60 12-345 6789',
                     prefixIcon: Icon(AppIcons.phone, size: 20),
                     helperText: 'Private. Malaysian numbers can skip the +60.',
                   ),

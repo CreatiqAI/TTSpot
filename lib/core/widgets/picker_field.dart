@@ -41,6 +41,8 @@ class PickerField<T> extends FormField<T> {
               child: InputDecorator(
                 decoration: InputDecoration(
                   labelText: label,
+                  // With a hint the label must float, or the two overlap in the empty box.
+                  floatingLabelBehavior: hint == null ? null : FloatingLabelBehavior.always,
                   errorText: state.errorText,
                   prefixIcon: icon == null ? null : Icon(icon),
                   suffixIcon: const Icon(AppIcons.caretDown, color: AppColors.textSecondary, size: 18),

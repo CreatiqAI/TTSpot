@@ -10,6 +10,19 @@ class ReleaseNote {
 
 const kReleaseNotes = <ReleaseNote>[
   ReleaseNote(
+    version: '0.3.15',
+    date: '17 Sep 2026',
+    title: 'Partner shops, and a pile of fixes',
+    points: [
+      'Partners can show up to 5 products with variants. Members browse them on the partner page and message the shop.',
+      'Vouchers can apply to one product. Rewards has a Partners tab listing every shop, nearest first.',
+      'Waze and WhatsApp no longer open the browser after you tap Cancel.',
+      'Phone numbers format themselves as you type. Usernames are checked while you type.',
+      'Likes and saves pop. Tapping the comment bubble on a post jumps to the comment box.',
+      'Only the owner can post from a car page. Tagged cars, spots and meets on posts are links.',
+    ],
+  ),
+  ReleaseNote(
     version: '0.3.14',
     date: '16 Sep 2026',
     title: 'Partners, round two',

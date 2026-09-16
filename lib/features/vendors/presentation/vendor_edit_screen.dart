@@ -13,6 +13,7 @@ import '../../../core/utils/friendly_error.dart';
 import '../../../core/widgets/photo_picker_sheet.dart';
 import 'widgets/hours_editor.dart';
 import '../../../core/widgets/primary_button.dart';
+import '../../auth/application/account_basics.dart' show MyPhoneFormatter;
 import '../application/vendors_providers.dart';
 import '../domain/vendor.dart';
 
@@ -144,7 +145,7 @@ class _VendorEditScreenState extends ConsumerState<VendorEditScreen> {
                 const SizedBox(height: 6),
                 HoursEditor(value: _hours, onChanged: (v) => setState(() => _hours = v)),
                 const SizedBox(height: 12),
-                TextField(controller: _phone, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'Phone / WhatsApp')),
+                TextField(controller: _phone, keyboardType: TextInputType.phone, inputFormatters: [MyPhoneFormatter()], decoration: const InputDecoration(labelText: 'Phone / WhatsApp', hintText: '+60 12-345 6789')),
                 const SizedBox(height: 16),
                 const Text('PHOTOS', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, letterSpacing: 1, color: AppColors.textSecondary)),
                 const SizedBox(height: 8),

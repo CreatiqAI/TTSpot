@@ -129,11 +129,13 @@ class _CarDetailScreenState extends ConsumerState<CarDetailScreen> {
                     const SizedBox(height: 14),
                     Row(
                       children: [
-                        Expanded(child: SecondaryButton(label: 'Post about it', icon: AppIcons.cameraPlus, onPressed: () => context.push(Routes.createPost(PostKind.post, carId: c.id)))),
+                        // Only the owner posts about their own car; visitors can Spot it from the feed.
                         if (mine) ...[
+                          Expanded(child: SecondaryButton(label: 'Post about it', icon: AppIcons.cameraPlus, onPressed: () => context.push(Routes.createPost(PostKind.post, carId: c.id)))),
                           const SizedBox(width: 8),
                           Expanded(child: PrimaryButton(label: 'Log a mod', onPressed: () => context.push(Routes.newCarMod(c.id)))),
-                        ],
+                        ] else
+                          Expanded(child: SecondaryButton(label: 'Message owner', icon: AppIcons.chatCircle, onPressed: () => context.push(Routes.profile(c.ownerId)))),
                       ],
                     ),
                     const SizedBox(height: 18),

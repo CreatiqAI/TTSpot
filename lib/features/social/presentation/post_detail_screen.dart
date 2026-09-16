@@ -27,11 +27,13 @@ class PostDetailScreen extends ConsumerStatefulWidget {
 
 class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
   final _comment = TextEditingController();
+  final _commentFocus = FocusNode();
   bool _busy = false;
 
   @override
   void dispose() {
     _comment.dispose();
+    _commentFocus.dispose();
     super.dispose();
   }
 
@@ -79,7 +81,7 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                   child: ListView(
                     padding: EdgeInsets.zero,
                     children: [
-                      PostCard(feed: f, expanded: true),
+                      PostCard(feed: f, expanded: true, onComment: () => _commentFocus.requestFocus()),
                       if (f.post.kind == PostKind.guide && (f.post.guideStops ?? const []).isNotEmpty) _GuideMap(post: f.post),
                       if (f.post.kind == PostKind.spotted && f.post.latLng != null) _SpottedMap(post: f.post),
                       const Divider(),
@@ -110,6 +112,7 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                         Expanded(
                           child: TextField(
                             controller: _comment,
+                            focusNode: _commentFocus,
                             minLines: 1,
                             maxLines: 4,
                             maxLength: 1000,

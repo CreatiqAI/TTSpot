@@ -38,6 +38,20 @@ final vendorRedemptionsProvider = FutureProvider<List<Redemption>>((ref) {
   return ref.watch(vendorsRepositoryProvider).myRedemptions();
 });
 
+final vendorProductsProvider = FutureProvider<List<Product>>((ref) {
+  if (ref.watch(currentUserIdProvider) == null) return Future.value(const []);
+  return ref.watch(vendorsRepositoryProvider).myProducts();
+});
+
+/// A partner's products as members see them.
+final partnerProductsProvider = FutureProvider.family<List<Product>, String>((ref, id) => ref.watch(vendorsRepositoryProvider).partnerProducts(id));
+
+/// Every active partner (Rewards → Partners).
+final partnersDirectoryProvider = FutureProvider<List<PublicVendor>>((ref) {
+  if (ref.watch(currentUserIdProvider) == null) return Future.value(const []);
+  return ref.watch(vendorsRepositoryProvider).allPartners();
+});
+
 /// Count a page view (once per member per day; owners never count).
 final partnerViewedProvider = FutureProvider.family<void, String>((ref, id) => ref.watch(vendorsRepositoryProvider).recordView(id).catchError((_) {}));
 
@@ -124,6 +138,24 @@ class VendorActions {
     _ref.invalidate(spotsProvider);
   }
 
+  Future<void> saveProduct({String? id, required String name, String? description, double? price, required List<String> keptPhotos, List<XFile> newPhotos = const [], required List<ProductVariant> variants, required bool active}) async {
+    final photos = [...keptPhotos];
+    for (final f in newPhotos) {
+      final url = await _upload(f);
+      if (url != null) photos.add(url);
+    }
+    await _repo.saveProduct(id: id, name: name, description: description, price: price, photoUrls: photos, variants: variants, active: active);
+    _ref.invalidate(vendorProductsProvider);
+    _ref.invalidate(myVendorProvider);
+  }
+
+  Future<void> deleteProduct(String id) async {
+    await _repo.deleteProduct(id);
+    _ref.invalidate(vendorProductsProvider);
+    _ref.invalidate(vendorVouchersProvider);
+    _ref.invalidate(myVendorProvider);
+  }
+
   Future<String> saveVoucher({
     String? id,
     required String title,
@@ -138,6 +170,7 @@ class VendorActions {
     DateTime? startsAt,
     DateTime? endsAt,
     required bool active,
+    String? productId,
   }) async {
     final out = await _repo.saveVoucher(
       id: id,
@@ -153,6 +186,7 @@ class VendorActions {
       startsAt: startsAt,
       endsAt: endsAt,
       active: active,
+      productId: productId,
     );
     _ref.invalidate(vendorVouchersProvider);
     _ref.invalidate(myVendorProvider);

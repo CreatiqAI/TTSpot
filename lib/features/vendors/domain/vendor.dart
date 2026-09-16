@@ -101,6 +101,57 @@ class PartnerApplication {
       );
 }
 
+/// One variant group on a product: "Size" → S, M, L.
+class ProductVariant {
+  const ProductVariant({required this.name, required this.options});
+  final String name;
+  final List<String> options;
+  Map<String, Object?> toJson() => {'name': name, 'options': options};
+  static ProductVariant? fromJson(Object? j) {
+    if (j is! Map || j['name'] is! String) return null;
+    return ProductVariant(name: j['name'] as String, options: ((j['options'] as List?) ?? const []).whereType<String>().toList());
+  }
+}
+
+/// A display-only product in a partner's mini store (max 5 per shop).
+class Product {
+  const Product({
+    required this.id,
+    required this.vendorId,
+    required this.name,
+    required this.active,
+    this.description,
+    this.price,
+    this.photoUrls = const [],
+    this.variants = const [],
+    this.sortOrder = 0,
+  });
+  final String id;
+  final String vendorId;
+  final String name;
+  final bool active;
+  final String? description;
+  /// null = ask the shop.
+  final double? price;
+  final List<String> photoUrls;
+  final List<ProductVariant> variants;
+  final int sortOrder;
+
+  String get priceLabel => price == null ? 'Ask for price' : rm(price!);
+
+  factory Product.fromMap(Map<String, dynamic> m) => Product(
+        id: m['id'] as String,
+        vendorId: m['vendor_id'] as String,
+        name: m['name'] as String,
+        active: m['active'] as bool? ?? true,
+        description: m['description'] as String?,
+        price: m['price'] == null ? null : _num(m['price']),
+        photoUrls: ((m['photo_urls'] as List?) ?? const []).cast<String>(),
+        variants: ((m['variants'] as List?) ?? const []).map(ProductVariant.fromJson).whereType<ProductVariant>().toList(),
+        sortOrder: _int(m['sort_order']),
+      );
+}
+
 /// My shop, with the 30-day headline numbers.
 class Vendor {
   const Vendor({
@@ -213,11 +264,16 @@ class Voucher {
     this.myClaims = 0,
     this.myActiveClaim,
     this.redemptions = 0,
+    this.productId,
+    this.productName,
   });
 
   final String id;
   final String title;
   final DiscountKind kind;
+  /// Set when the voucher applies to one product only.
+  final String? productId;
+  final String? productName;
   final double value;
   final double minSpend;
   final int pointsCost;
@@ -278,6 +334,8 @@ class Voucher {
         myClaims: _int(m['my_claims']),
         myActiveClaim: m['my_active_claim'] as String?,
         redemptions: _int(m['redemptions']),
+        productId: m['product_id'] as String?,
+        productName: m['product_name'] as String?,
       );
 }
 
@@ -515,7 +573,7 @@ String rm(double v) {
 
 /// What any member sees of a partner (vendors_public view).
 class PublicVendor {
-  const PublicVendor({required this.id, required this.name, required this.type, this.address, this.lat, this.lng, this.hours, this.hoursJson, this.photoUrls = const [], this.logoUrl, this.description, this.phone, this.placeId, this.ownerId, this.liveVouchers = 0, this.upcomingEvents = 0});
+  const PublicVendor({required this.id, required this.name, required this.type, this.address, this.lat, this.lng, this.hours, this.hoursJson, this.photoUrls = const [], this.logoUrl, this.description, this.phone, this.placeId, this.ownerId, this.liveVouchers = 0, this.upcomingEvents = 0, this.productCount = 0});
   final String id;
   final String name;
   final String type;
@@ -532,6 +590,7 @@ class PublicVendor {
   final String? ownerId;
   final int liveVouchers;
   final int upcomingEvents;
+  final int productCount;
 
   bool ownerIsMe(String? me) => me != null && ownerId == me;
 
@@ -552,5 +611,6 @@ class PublicVendor {
         ownerId: m['owner_id'] as String?,
         liveVouchers: (m['live_vouchers'] as num?)?.toInt() ?? 0,
         upcomingEvents: (m['upcoming_events'] as num?)?.toInt() ?? 0,
+        productCount: (m['product_count'] as num?)?.toInt() ?? 0,
       );
 }

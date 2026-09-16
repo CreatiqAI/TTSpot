@@ -18,6 +18,7 @@ import '../domain/vendor.dart';
 import '../../social/application/social_providers.dart';
 import '../../social/domain/post.dart';
 import 'widgets/hours_editor.dart';
+import 'widgets/product_sheet.dart';
 
 /// A partner's page for members: logo, what they do, where, hours, photos,
 /// their vouchers, their upcoming events, and a Message button.
@@ -60,6 +61,7 @@ class _Body extends ConsumerWidget {
     final status = hours.status();
     final posts = ref.watch(postsWhereProvider((column: 'vendor_id', value: v.id))).value ?? const <FeedPost>[];
     final vouchers = (ref.watch(shopVouchersProvider).value ?? const <Voucher>[]).where((x) => x.vendorId == v.id).toList();
+    final products = ref.watch(partnerProductsProvider(v.id)).value ?? const <Product>[];
     final events = ref.watch(vendorEventsProvider(v.id)).value ?? const <Event>[];
     final hasLocation = v.lat != null && v.lng != null;
     final digits = (v.phone ?? '').replaceAll(RegExp(r'[^0-9]'), '');
@@ -177,6 +179,24 @@ class _Body extends ConsumerWidget {
               ),
             ),
 
+          if (products.isNotEmpty) ...[
+            _Head('PRODUCTS · ${products.length}'),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+              child: GridView.builder(
+                shrinkWrap: true,
+                padding: EdgeInsets.zero,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, crossAxisSpacing: 10, mainAxisSpacing: 12, childAspectRatio: 0.6),
+                itemCount: products.length,
+                itemBuilder: (_, i) => ProductCard(
+                  product: products[i],
+                  voucherCount: vouchers.where((x) => x.productId == products[i].id).length,
+                  onTap: () => showProductSheet(context, product: products[i], vendor: v),
+                ),
+              ),
+            ),
+          ],
           _Head('VOUCHERS · ${vouchers.length}'),
           if (vouchers.isEmpty)
             const Padding(padding: EdgeInsets.fromLTRB(16, 0, 16, 4), child: Text('No vouchers right now. Check back after the next meet.', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)))
@@ -190,7 +210,7 @@ class _Body extends ConsumerWidget {
                   child: const Center(child: ArtIcon(AppArt.ticket, size: 26)),
                 ),
                 title: Text(x.title, style: const TextStyle(fontWeight: FontWeight.w700)),
-                subtitle: Text(x.pointsCost == 0 ? 'Free to claim' : '${x.pointsCost} points', style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
+                subtitle: Text('${x.pointsCost == 0 ? 'Free to claim' : '${x.pointsCost} points'}${x.productName == null ? '' : ' · for ${x.productName}'}', style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
                 trailing: const Icon(AppIcons.caretRight, size: 16, color: AppColors.textMuted),
                 onTap: () => context.push(Routes.rewards),
               ),

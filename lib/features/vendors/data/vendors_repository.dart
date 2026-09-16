@@ -81,6 +81,40 @@ class VendorsRepository {
         'p_hours_json': ?hoursJson,
       });
 
+  // ------------------------------------------------------------ products ---
+  Future<List<Product>> myProducts() async {
+    final id = (await _client.rpc('my_vendor_id')) as String?;
+    if (id == null) return const [];
+    final rows = await _client.from('vendor_products').select().eq('vendor_id', id).order('sort_order').order('created_at');
+    return (rows as List).map((r) => Product.fromMap((r as Map).cast<String, dynamic>())).toList();
+  }
+
+  Future<List<Product>> partnerProducts(String vendorId) async {
+    final rows = await _client.from('vendor_products').select().eq('vendor_id', vendorId).eq('active', true).order('sort_order').order('created_at');
+    return (rows as List).map((r) => Product.fromMap((r as Map).cast<String, dynamic>())).toList();
+  }
+
+  Future<String> saveProduct({String? id, required String name, String? description, double? price, required List<String> photoUrls, required List<ProductVariant> variants, required bool active}) async {
+    final v = await _client.rpc('save_product', params: {
+      'p_id': id,
+      'p_name': name,
+      'p_description': description,
+      'p_price': price,
+      'p_photo_urls': photoUrls,
+      'p_variants': variants.map((v) => v.toJson()).toList(),
+      'p_active': active,
+    });
+    return v as String;
+  }
+
+  Future<void> deleteProduct(String id) => _client.rpc('delete_product', params: {'p_id': id});
+
+  /// Every active partner, for the directory.
+  Future<List<PublicVendor>> allPartners() async {
+    final rows = await _client.from('vendors_public').select().order('name');
+    return (rows as List).map((r) => PublicVendor.fromMap((r as Map).cast<String, dynamic>())).toList();
+  }
+
   Future<void> recordView(String vendorId) => _client.rpc('view_partner', params: {'p_vendor': vendorId});
 
   /// A partner as members see it.
@@ -119,8 +153,10 @@ class VendorsRepository {
     DateTime? startsAt,
     DateTime? endsAt,
     required bool active,
+    String? productId,
   }) async {
     final v = await _client.rpc('save_voucher', params: {
+      'p_product_id': productId,
       'p_id': id,
       'p_title': title,
       'p_description': description,

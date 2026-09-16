@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/legal/legal_text.dart';
@@ -68,6 +69,49 @@ String prettyPhone(String e164) {
     if (n.length >= 9) return '+60 ${n.substring(0, 2)}-${n.substring(2, n.length - 4)} ${n.substring(n.length - 4)}';
   }
   return e164;
+}
+
+/// Formats a Malaysian number as you type: 0165230268 → +60 16-523 0268.
+/// Anything that starts with a "+" for another country is left as typed.
+class MyPhoneFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+    final raw = newValue.text;
+    if (raw.isEmpty) return newValue;
+    if (raw.startsWith('+') && !raw.startsWith('+6') && !raw.startsWith('+60')) return newValue; // other country
+    var d = raw.replaceAll(RegExp(r'[^0-9]'), '');
+    if (d.isEmpty) return const TextEditingValue(text: '+');
+    if (d.startsWith('0')) d = '60${d.substring(1)}';
+    if (!d.startsWith('60')) {
+      if (d.startsWith('6')) {
+        // typing "6" on the way to "60"
+      } else if (d.startsWith('1')) {
+        d = '60$d';
+      } else {
+        return newValue;
+      }
+    }
+    if (d.length > 13) d = d.substring(0, 13);
+    final b = StringBuffer('+');
+    b.write(d.substring(0, d.length.clamp(0, 2)));
+    if (d.length > 2) {
+      b.write(' ');
+      b.write(d.substring(2, d.length.clamp(2, 4)));
+    }
+    if (d.length > 4) {
+      final rest = d.substring(4);
+      b.write('-');
+      if (rest.length <= 4) {
+        b.write(rest);
+      } else {
+        b.write(rest.substring(0, rest.length - 4));
+        b.write(' ');
+        b.write(rest.substring(rest.length - 4));
+      }
+    }
+    final t = b.toString();
+    return TextEditingValue(text: t, selection: TextSelection.collapsed(offset: t.length));
+  }
 }
 
 class AccountActions {

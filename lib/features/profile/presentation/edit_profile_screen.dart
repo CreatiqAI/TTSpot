@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
@@ -13,6 +12,7 @@ import '../../../core/widgets/picker_field.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../../core/widgets/user_avatar.dart';
 import '../../auth/application/onboarding_controller.dart';
+import '../../auth/presentation/widgets/username_field.dart';
 import '../../auth/data/auth_repository.dart';
 import '../application/profile_providers.dart';
 
@@ -147,13 +147,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
               decoration: const InputDecoration(labelText: 'Name', counterText: ''),
             ),
             const SizedBox(height: 14),
-            TextField(
-              controller: _username,
-              autocorrect: false,
-              maxLength: 20,
-              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9_]')), _Lower()],
-              decoration: const InputDecoration(labelText: 'Username', prefixText: '@', counterText: ''),
-            ),
+            UsernameField(controller: _username, current: ref.watch(currentProfileProvider).value?.username),
             const SizedBox(height: 14),
             TextField(
               controller: _bio,
@@ -177,10 +171,4 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       ),
     );
   }
-}
-
-class _Lower extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) =>
-      newValue.copyWith(text: newValue.text.toLowerCase());
 }

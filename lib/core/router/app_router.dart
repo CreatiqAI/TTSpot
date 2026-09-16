@@ -25,6 +25,7 @@ import '../../features/vendors/presentation/vendor_dashboard_screen.dart';
 import '../../features/vendors/presentation/vendor_edit_screen.dart';
 import '../../features/vendors/presentation/vendor_report_screen.dart';
 import '../../features/vendors/presentation/voucher_form_screen.dart';
+import '../../features/vendors/presentation/product_form_screen.dart';
 import '../../features/vendors/presentation/voucher_qr_screen.dart';
 import '../../features/points/presentation/event_qr_screen.dart';
 import '../../features/points/presentation/my_qr_screen.dart';
@@ -100,6 +101,8 @@ abstract final class Routes {
   static const vendorEdit = '/vendor/edit';
   static const vendorReport = '/vendor/report';
   static const voucherNew = '/vendor/voucher/new';
+  static const productNew = '/vendor/product/new';
+  static String productEdit(String id) => '/vendor/product/$id/edit';
   static String voucherEdit(String id) => '/vendor/voucher/$id/edit';
   static String redeem(String claimId, String code) => '/vendor/redeem/$claimId?code=$code';
   static const rewards = '/rewards';
@@ -306,12 +309,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: Routes.vendorEdit, pageBuilder: (_, s) => page(s, const VendorEditScreen())),
       GoRoute(path: Routes.vendorReport, pageBuilder: (_, s) => page(s, const VendorReportScreen())),
       GoRoute(path: Routes.voucherNew, pageBuilder: (_, s) => page(s, const VoucherFormScreen())),
+      GoRoute(path: Routes.productNew, pageBuilder: (_, s) => page(s, const ProductFormScreen())),
+      GoRoute(path: '/vendor/product/:id/edit', pageBuilder: (_, s) => page(s, ProductFormScreen(productId: s.pathParameters['id']!))),
       GoRoute(path: '/vendor/voucher/:id/edit', pageBuilder: (_, s) => page(s, VoucherFormScreen(voucherId: s.pathParameters['id']!))),
       GoRoute(
         path: '/vendor/redeem/:claim',
         pageBuilder: (_, s) => page(s, RedeemScreen(claimId: s.pathParameters['claim']!, code: s.uri.queryParameters['code'] ?? '')),
       ),
-      GoRoute(path: Routes.rewards, pageBuilder: (_, s) => page(s, RewardsScreen(initialTab: s.uri.queryParameters['tab'] == 'vouchers' ? 1 : 0))),
+      GoRoute(path: Routes.rewards, pageBuilder: (_, s) => page(s, RewardsScreen(initialTab: switch (s.uri.queryParameters['tab']) { 'vouchers' => 2, 'partners' => 0, _ => 1 }))),
       GoRoute(path: '/voucher/:claim', pageBuilder: (_, s) => page(s, VoucherQrScreen(claimId: s.pathParameters['claim']!))),
       GoRoute(
         path: '/spot/:id/verify',

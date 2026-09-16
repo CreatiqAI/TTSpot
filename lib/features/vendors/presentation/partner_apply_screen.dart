@@ -17,6 +17,7 @@ import '../../../core/utils/dates.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../../core/widgets/photo_picker_sheet.dart';
 import '../../../core/widgets/primary_button.dart';
+import '../../auth/application/account_basics.dart' show MyPhoneFormatter;
 import '../../auth/data/auth_repository.dart';
 import '../application/vendors_providers.dart';
 import '../domain/vendor.dart';
@@ -203,7 +204,8 @@ class _PartnerApplyScreenState extends ConsumerState<PartnerApplyScreen> {
           TextFormField(
             controller: _phone,
             keyboardType: TextInputType.phone,
-            decoration: const InputDecoration(labelText: 'Phone / WhatsApp'),
+            inputFormatters: [MyPhoneFormatter()],
+            decoration: const InputDecoration(labelText: 'Phone / WhatsApp', hintText: '+60 12-345 6789'),
             validator: (v) => (v ?? '').trim().length < 8 ? 'Enter a phone number we can reach' : null,
           ),
           if (!_club) ...[

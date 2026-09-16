@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
+import 'glass.dart';
 
-/// Flat blue action, Instagram style, with a loading spinner.
+/// Red main action with a loading spinner. Squeezes while pressed.
 class PrimaryButton extends StatelessWidget {
   const PrimaryButton({
     super.key,
@@ -17,20 +18,23 @@ class PrimaryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return FilledButton(
-      onPressed: loading ? null : onPressed,
-      child: loading
-          ? const SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2.2, color: Colors.white),
-            )
-          : Text(label),
+    return PressScale(
+      enabled: onPressed != null && !loading,
+      child: FilledButton(
+        onPressed: loading ? null : onPressed,
+        child: loading
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2.2, color: Colors.white),
+              )
+            : Text(label),
+      ),
     );
   }
 }
 
-/// Gray secondary action, like Instagram's "Edit profile".
+/// Gray secondary action. Squeezes while pressed.
 class SecondaryButton extends StatelessWidget {
   const SecondaryButton({super.key, required this.label, required this.onPressed, this.icon});
 
@@ -40,11 +44,13 @@ class SecondaryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (icon == null) return ElevatedButton(onPressed: onPressed, child: Text(label));
-    return ElevatedButton.icon(
-      onPressed: onPressed,
-      icon: Icon(icon, size: 18, color: AppColors.textPrimary),
-      label: Text(label),
-    );
+    final button = icon == null
+        ? ElevatedButton(onPressed: onPressed, child: Text(label))
+        : ElevatedButton.icon(
+            onPressed: onPressed,
+            icon: Icon(icon, size: 18, color: AppColors.textPrimary),
+            label: Text(label),
+          );
+    return PressScale(enabled: onPressed != null, child: button);
   }
 }

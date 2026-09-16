@@ -130,6 +130,14 @@ class _Row extends ConsumerWidget {
               : 'invited you to join ${n.clubName ?? n.body ?? 'their club'}. Open the club to accept.',
           n.clubId == null ? null : Routes.club(n.clubId!)
         ),
+      NotificationType.clubRequest => (
+          switch (n.body) {
+            'approved' => 'let you into ${n.clubName ?? 'the club'}. Welcome!',
+            'declined' => 'said not this time for ${n.clubName ?? 'the club'}.',
+            _ => 'wants to join ${n.clubName ?? 'your club'}${(n.body ?? '').length > 4 ? ': “${n.body!.substring(4)}”' : ''}. Open the club to decide.',
+          },
+          n.clubId == null ? null : Routes.club(n.clubId!)
+        ),
       NotificationType.unknown => ('did something.', null),
     };
     final systemMessage = n.type == NotificationType.badge ||

@@ -22,6 +22,7 @@ import '../domain/club.dart';
 import '../domain/post.dart';
 import '../../profile/presentation/profile_menu.dart';
 import 'create_hub_sheet.dart';
+import 'widgets/club_requests.dart';
 import 'widgets/masonry_grid.dart';
 
 /// A car club's page. Owners invite members and admins; members see each
@@ -76,6 +77,8 @@ class ClubScreen extends ConsumerWidget {
               ref.invalidate(clubEventsProvider(clubId));
               ref.invalidate(myClubInviteProvider(clubId));
               ref.invalidate(myClubInviteRoleProvider(clubId));
+              ref.invalidate(myClubRequestProvider(clubId));
+              ref.invalidate(clubJoinRequestsProvider(clubId));
               ref.invalidate(myClubShareProvider(clubId));
               ref.invalidate(postsWhereProvider((column: 'club_id', value: clubId)));
               await ref.read(clubProvider(clubId).future);
@@ -94,7 +97,9 @@ class ClubScreen extends ConsumerWidget {
                             ? PrimaryButton(label: 'Invite members', onPressed: () => _invite(context, ref, c))
                             : isMember
                                 ? SecondaryButton(label: 'Member', icon: AppIcons.checkCircle, onPressed: () => _leave(context, ref))
-                                : SecondaryButton(label: 'Message club', icon: AppIcons.chatCircle, onPressed: () => _messageClub(context, ref)),
+                                : invite != null
+                                    ? SecondaryButton(label: 'Message club', icon: AppIcons.chatCircle, onPressed: () => _messageClub(context, ref))
+                                    : JoinRequestButton(clubId: clubId, clubName: c.name),
                       ),
                       const SizedBox(width: 8),
                       Expanded(
@@ -112,6 +117,12 @@ class ClubScreen extends ConsumerWidget {
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                     child: SecondaryButton(label: 'Schedule a meet as ${c.name}', icon: AppIcons.flagCheckered, onPressed: () => context.push(Routes.createEventAs(clubId: clubId))),
                   ),
+                if (!isMember && !isManager && invite == null)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                    child: SecondaryButton(label: 'Message club', icon: AppIcons.chatCircle, onPressed: () => _messageClub(context, ref)),
+                  ),
+                if (isManager) ClubRequestsSection(clubId: clubId),
                 if (isMember || isManager)
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),

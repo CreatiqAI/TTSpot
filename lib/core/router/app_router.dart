@@ -38,6 +38,7 @@ import '../../features/profile/presentation/car_form_screen.dart';
 import '../../features/profile/presentation/car_mod_form_screen.dart';
 import '../../features/profile/presentation/edit_profile_screen.dart';
 import '../../features/profile/presentation/follow_list_screen.dart';
+import 'branch_stack.dart';
 import 'tab_slot.dart';
 import '../../features/settings/presentation/settings_screen.dart';
 import '../../features/settings/presentation/about_screen.dart';
@@ -202,6 +203,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     refreshListenable: refresh,
     debugLogDiagnostics: kDebugMode,
     redirect: (context, state) {
+      // ttspot://club/<id> (share links, invites) → /club/<id>. The host is the first path segment.
+      if (state.uri.scheme == 'ttspot' && state.uri.host.isNotEmpty) {
+        return Uri(path: '/${state.uri.host}${state.uri.path}', queryParameters: state.uri.queryParameters.isEmpty ? null : state.uri.queryParameters).toString();
+      }
       final signedIn = ref.read(currentUserIdProvider) != null;
       final path = state.uri.path;
       final onAuthPage = path == Routes.signIn || path == '/verify';
@@ -344,8 +349,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/place/:id', pageBuilder: (_, s) => page(s, PlaceScreen(placeId: s.pathParameters['id']!))),
 
       // Tabbed shell: Posts · Map · Chats · Me
-      StatefulShellRoute.indexedStack(
+      StatefulShellRoute(
         builder: (_, _, shell) => AppShell(navigationShell: shell),
+        navigatorContainerBuilder: (_, shell, children) => AnimatedBranchStack(index: shell.currentIndex, children: children),
         branches: [
           StatefulShellBranch(routes: [GoRoute(path: Routes.explore, pageBuilder: (_, s) => page(s, const TabSlot(0)))]),
           StatefulShellBranch(routes: [GoRoute(path: Routes.map, pageBuilder: (_, s) => page(s, const TabSlot(1)))]),

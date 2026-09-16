@@ -3,6 +3,27 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../../core/theme/app_art.dart';
 import '../../auth/domain/profile.dart';
 
+/// Someone asking to join a club (owner / admins review it).
+class ClubJoinRequest {
+  const ClubJoinRequest({required this.id, required this.userId, required this.createdAt, this.message, this.username, this.displayName, this.avatarUrl});
+  final String id;
+  final String userId;
+  final DateTime createdAt;
+  final String? message;
+  final String? username;
+  final String? displayName;
+  final String? avatarUrl;
+  factory ClubJoinRequest.fromMap(Map<String, dynamic> m) => ClubJoinRequest(
+        id: m['id'] as String,
+        userId: m['user_id'] as String,
+        createdAt: DateTime.parse(m['created_at'] as String).toLocal(),
+        message: m['message'] as String?,
+        username: m['username'] as String?,
+        displayName: m['display_name'] as String?,
+        avatarUrl: m['avatar_url'] as String?,
+      );
+}
+
 class Club {
   const Club({
     required this.id,

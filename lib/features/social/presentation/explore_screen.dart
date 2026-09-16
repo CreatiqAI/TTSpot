@@ -10,7 +10,6 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/utils/geo.dart';
-import '../../../core/widgets/user_avatar.dart';
 import '../../map/application/map_providers.dart';
 import '../../map/presentation/widgets/map_sheet.dart' show SpotRow;
 import '../application/community_providers.dart';
@@ -68,14 +67,12 @@ class _ForYou extends ConsumerWidget {
       onRefresh: () async {
         ref.invalidate(exploreFeedProvider);
         ref.invalidate(storiesProvider);
-        ref.invalidate(weekLeaderProvider);
         await ref.read(exploreFeedProvider.future);
       },
       child: CustomScrollView(
         slivers: [
           const SliverToBoxAdapter(child: StoriesRow()),
           const SliverToBoxAdapter(child: Divider()),
-          const SliverToBoxAdapter(child: _CarOfWeekCard()),
           feed.when(
             loading: () => const SliverFillRemaining(hasScrollBody: false, child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
             error: (e, _) => SliverFillRemaining(hasScrollBody: false, child: Center(child: Text(friendlyError(e)))),
@@ -141,72 +138,6 @@ class _Following extends ConsumerWidget {
 }
 
 /// Live leader for this week (most-liked car post since Monday) + last week's winner.
-class _CarOfWeekCard extends ConsumerWidget {
-  const _CarOfWeekCard();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final leader = ref.watch(weekLeaderProvider).value;
-    final winner = ref.watch(lastWinnerProvider).value;
-    if (leader == null && winner?.post == null) return const SizedBox.shrink();
-
-    final post = leader?.post ?? winner!.post!;
-    final likes = leader?.likes ?? winner!.likeCount;
-    final isLive = leader != null;
-    return GestureDetector(
-      onTap: () => context.push(Routes.post(post.id)),
-      child: Container(
-        margin: const EdgeInsets.fromLTRB(12, 10, 12, 2),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: AppColors.surfaceRaised,
-          borderRadius: BorderRadius.circular(AppRadius.md),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: Row(
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(AppRadius.sm),
-              child: SizedBox(
-                width: 64,
-                height: 64,
-                child: post.cover == null
-                    ? const ColoredBox(color: AppColors.surfaceGray, child: Icon(AppIcons.car, color: AppColors.textMuted))
-                    : Image.network(post.cover!, fit: BoxFit.cover, errorBuilder: (_, _, _) => const ColoredBox(color: AppColors.surfaceGray)),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(isLive ? '🏆 CAR OF THE WEEK · LEADING' : '🏆 CAR OF THE WEEK', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 0.8, color: AppColors.textSecondary)),
-                  const SizedBox(height: 3),
-                  Text(post.car?.title ?? post.caption ?? 'Build', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 3),
-                  Row(
-                    children: [
-                      UserAvatar(url: post.author?.avatarUrl, name: post.author?.username, size: 16),
-                      const SizedBox(width: 5),
-                      Text(post.author?.username ?? '', style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
-                      const SizedBox(width: 8),
-                      const Icon(AppIcons.heartFill, size: 13, color: AppColors.danger),
-                      const SizedBox(width: 3),
-                      Text('$likes', style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const Icon(AppIcons.caretRight, color: AppColors.textMuted),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Places worth a check-in, best first. Tap for the spot's page.
 class _Spots extends ConsumerWidget {
   const _Spots();
 

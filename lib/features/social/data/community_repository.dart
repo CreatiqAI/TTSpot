@@ -93,6 +93,24 @@ class CommunityRepository {
   Future<void> respondClubInvite(String clubId, {required bool accept}) =>
       _client.rpc('respond_club_invite', params: {'p_club': clubId, 'p_accept': accept});
 
+  // ------------------------------------------------------- join requests ---
+
+  Future<void> requestClubJoin(String clubId, String? message) =>
+      _client.rpc('request_club_join', params: {'p_club': clubId, 'p_message': message});
+
+  Future<void> cancelClubRequest(String clubId) => _client.rpc('cancel_club_request', params: {'p_club': clubId});
+
+  /// 'pending' | 'declined' | null.
+  Future<String?> myClubRequest(String clubId) async => await _client.rpc('my_club_request', params: {'p_club': clubId}) as String?;
+
+  Future<List<ClubJoinRequest>> clubJoinRequests(String clubId) async {
+    final rows = await _client.rpc('club_join_requests_for', params: {'p_club': clubId}) as List;
+    return rows.map((r) => ClubJoinRequest.fromMap((r as Map).cast<String, dynamic>())).toList();
+  }
+
+  Future<void> reviewClubRequest(String id, {required bool approve}) =>
+      _client.rpc('review_club_request', params: {'p_id': id, 'p_approve': approve});
+
   /// Pending invite id for me on this club, or null.
   Future<String?> myClubInvite(String clubId) async => await _client.rpc('my_club_invite', params: {'p_club': clubId}) as String?;
 

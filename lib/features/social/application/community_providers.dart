@@ -53,6 +53,18 @@ final myClubShareProvider = FutureProvider.family<bool, String>((ref, clubId) {
   return ref.watch(communityRepositoryProvider).myClubShare(clubId);
 });
 
+/// My join request on a club: 'pending' | 'declined' | null.
+final myClubRequestProvider = FutureProvider.family<String?, String>((ref, clubId) {
+  if (ref.watch(currentUserIdProvider) == null) return Future.value(null);
+  return ref.watch(communityRepositoryProvider).myClubRequest(clubId);
+});
+
+/// Pending requests on a club (empty unless I am owner / admin).
+final clubJoinRequestsProvider = FutureProvider.family<List<ClubJoinRequest>, String>((ref, clubId) {
+  if (ref.watch(currentUserIdProvider) == null) return Future.value(const []);
+  return ref.watch(communityRepositoryProvider).clubJoinRequests(clubId);
+});
+
 final isClubMemberProvider = FutureProvider.family<bool, String>((ref, clubId) async {
   final me = ref.watch(currentUserIdProvider);
   if (me == null) return false;
@@ -102,6 +114,23 @@ class CommunityActions {
   }
 
   Future<void> inviteToClub(String clubId, String userId, {String role = 'member'}) => _repo.inviteToClub(clubId, userId, role: role);
+
+  Future<void> requestClubJoin(String clubId, String? message) async {
+    await _repo.requestClubJoin(clubId, message);
+    _ref.invalidate(myClubRequestProvider(clubId));
+  }
+
+  Future<void> cancelClubRequest(String clubId) async {
+    await _repo.cancelClubRequest(clubId);
+    _ref.invalidate(myClubRequestProvider(clubId));
+  }
+
+  Future<void> reviewClubRequest(String id, {required String clubId, required bool approve}) async {
+    await _repo.reviewClubRequest(id, approve: approve);
+    _ref.invalidate(clubJoinRequestsProvider(clubId));
+    _ref.invalidate(clubMembersProvider(clubId));
+    _ref.invalidate(clubMemberRolesProvider(clubId));
+  }
 
   Future<void> respondClubInvite(String clubId, {required bool accept}) async {
     await _repo.respondClubInvite(clubId, accept: accept);

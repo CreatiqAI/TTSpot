@@ -10,6 +10,17 @@ class ReleaseNote {
 
 const kReleaseNotes = <ReleaseNote>[
   ReleaseNote(
+    version: '0.3.19',
+    date: '17 Sep 2026',
+    title: 'Glass, motion, and club requests',
+    points: [
+      'Frosted glass tab bar with a sliding highlight; tabs fade in; buttons squeeze when pressed. Map controls are glass too.',
+      'Tapping a pin from far out glides in first, then opens it. Your own dot always shows.',
+      'Moments are photo cards now, not rings. Car of the week is gone from the feed.',
+      'Ask to join a club. The owner and admins approve or decline from the club page.',
+    ],
+  ),
+  ReleaseNote(
     version: '0.3.18',
     date: '17 Sep 2026',
     title: 'Map pins that scale',

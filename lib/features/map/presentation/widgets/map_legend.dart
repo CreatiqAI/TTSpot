@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_icons.dart';
+import '../../../../core/widgets/glass.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../application/map_providers.dart';
 import 'car_marker.dart';
@@ -48,10 +49,10 @@ class _MapLegendState extends State<MapLegend> {
         ],
     };
 
-    return Material(
-      color: p.surface.withValues(alpha: widget.light ? 0.92 : 0.88),
-      borderRadius: BorderRadius.circular(12),
-      elevation: 0,
+    return GlassPanel(
+      dark: !widget.light,
+      radius: 12,
+      blur: 14,
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
         onTap: () => setState(() => _open = !_open),

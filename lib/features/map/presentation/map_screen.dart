@@ -9,6 +9,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/glass.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../../core/utils/geo.dart';
 import '../../events/application/event_providers.dart';
@@ -93,7 +94,7 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
   /// with name chips, cars with faces.
   static const _midZoom = 13.0;
   static const _closeZoom = 14.5;
-  /// Below this nobody is drawn, not even me: the map is a region, not a street.
+  /// Below this nobody else is drawn (I always am): the map is a region, not a street.
   static const _peopleZoom = 11.0;
   int _tier = 0;
   bool get _far => _tier == 0;
@@ -219,6 +220,18 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
   }
   CarMarkerFactory get _carFactory => _cars ??= CarMarkerFactory(devicePixelRatio: MediaQuery.devicePixelRatioOf(context), pins: _pinFactory);
 
+  /// From a zoomed-out view, glide in to the pin first, then open its page.
+  /// Up close, open straight away.
+  Future<void> _openAt(LatLng at, VoidCallback open) async {
+    final map = _map;
+    if (map != null && _zoom < 14.5) {
+      await map.animateCamera(CameraUpdate.newLatLngZoom(at, 16));
+      await Future<void>.delayed(const Duration(milliseconds: 520));
+      if (!mounted) return;
+    }
+    open();
+  }
+
   Future<void> _rebuild() async {
     final generation = ++_generation;
     final mode = ref.read(mapModeProvider);
@@ -238,7 +251,7 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
             anchor: bmp.anchor,
             zIndexInt: 3,
             consumeTapEvents: true,
-            onTap: () => context.push(Routes.event(e.id)),
+            onTap: () => _openAt(e.latLng, () => context.push(Routes.event(e.id))),
           ));
         }
         for (final m in _far ? const <Story>[] : (ref.read(liveMomentsProvider).value ?? const <Story>[])) {
@@ -253,7 +266,7 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
             anchor: pin.anchor,
             zIndexInt: 1,
             consumeTapEvents: true,
-            onTap: () => _openMoment(m),
+            onTap: () => _openAt(at, () => _openMoment(m)),
           ));
         }
         await _addPartners(built, stale);
@@ -269,7 +282,7 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
             icon: bmp.descriptor,
             anchor: bmp.anchor,
             consumeTapEvents: true,
-            onTap: () => context.push(Routes.event(e.id)),
+            onTap: () => _openAt(e.latLng, () => context.push(Routes.event(e.id))),
           ));
         }
         await _addPartners(built, stale);
@@ -294,7 +307,7 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
             anchor: pin.anchor,
             zIndexInt: p.isPartner ? 3 : (p.recommended ? 2 : 1),
             consumeTapEvents: true,
-            onTap: () => context.push(p.isPartner ? Routes.partner(p.vendorId!) : Routes.place(p.id)),
+            onTap: () => _openAt(p.latLng, () => context.push(p.isPartner ? Routes.partner(p.vendorId!) : Routes.place(p.id))),
           ));
         }
     }
@@ -314,7 +327,7 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
         anchor: pin.anchor,
         zIndexInt: 2,
         consumeTapEvents: true,
-        onTap: () => context.push(Routes.partner(p.vendorId!)),
+        onTap: () => _openAt(p.latLng, () => context.push(Routes.partner(p.vendorId!))),
       ));
     }
   }
@@ -324,7 +337,7 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
   Future<void> _addPeople(Set<Marker> built, Future<bool> Function() stale, {bool onlyMe = false}) async {
     final tags = ref.read(friendTagsProvider).value ?? const <String, String>{};
     final showColor = ref.read(settingsProvider).showCarColor;
-    if (!onlyMe && !_far) {
+    if (!onlyMe && !_far && _showPeople) {
       for (final f in ref.read(friendPinsProvider).value ?? const <FriendPin>[]) {
         final stranger = f.isStranger;
         final relation = stranger ? kRelationStranger : (kTagColors[tags[f.user.id]] ?? (f.viaClub ? kRelationClub : kRelationFriend));
@@ -351,14 +364,14 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
           anchor: pin.anchor,
           zIndexInt: stranger ? 2 : 4,
           consumeTapEvents: true,
-          onTap: () => context.push(Routes.profile(f.user.id)),
+          onTap: () => _openAt(f.latLng, () => context.push(Routes.profile(f.user.id))),
         ));
       }
     }
     final here = ref.read(userLocationProvider).value ?? _lastHere;
     if (here != null) _lastHere = here;
     final me = ref.read(currentUserIdProvider);
-    if (here != null && me != null && _showPeople) {
+    if (here != null && me != null) {
       final myCar = (ref.read(userCarsProvider(me)).value ?? const []).firstOrNull;
       final pin = !_close
           ? await _carFactory.dot(key: 'me', color: kRelationMe, me: true, scale: _glyphScale)
@@ -517,7 +530,11 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
               ),
             ),
 
-            MapPalette(light: !_isNight, child: MapSheet(controller: _sheet, onFocus: _focus)),
+            // The glass tab bar floats over the page: keep the sheet above it.
+            Padding(
+              padding: EdgeInsets.only(bottom: MediaQuery.paddingOf(context).bottom),
+              child: MapPalette(light: !_isNight, child: MapSheet(controller: _sheet, onFocus: _focus)),
+            ),
           ],
         ),
       ),
@@ -535,16 +552,13 @@ class _ModeSwitch extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 42,
+    return GlassPanel(
+      dark: true,
+      radius: 21,
       padding: const EdgeInsets.all(3),
-      decoration: BoxDecoration(
-        color: const Color(0xF2151820),
-        borderRadius: BorderRadius.circular(21),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
-        boxShadow: const [BoxShadow(color: Color(0x55000000), blurRadius: 16, offset: Offset(0, 4))],
-      ),
-      child: Row(
+      child: SizedBox(
+        height: 36,
+        child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           for (final m in MapMode.values)
@@ -579,6 +593,7 @@ class _ModeSwitch extends StatelessWidget {
               ),
             ),
         ],
+      ),
       ),
     );
   }
@@ -632,20 +647,34 @@ class _RoundButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (active) {
+      return Tooltip(
+        message: tooltip,
+        child: PressScale(
+          child: Material(
+            color: AppColors.ink,
+            shape: const CircleBorder(),
+            elevation: 6,
+            shadowColor: Colors.black54,
+            child: InkWell(onTap: onTap, customBorder: const CircleBorder(), child: const SizedBox(width: size, height: size, child: Icon(null))),
+          ),
+        ),
+      );
+    }
     return Tooltip(
       message: tooltip,
-      child: Material(
-        color: active ? AppColors.ink : (light ? Colors.white : const Color(0xF2151820)),
-        shape: CircleBorder(side: BorderSide(color: light ? AppColors.border : Colors.white.withValues(alpha: 0.10))),
-        elevation: 6,
-        shadowColor: Colors.black54,
-        child: InkWell(
-          onTap: onTap,
-          customBorder: const CircleBorder(),
-          child: SizedBox(
-            width: size,
-            height: size,
-            child: Icon(icon, color: active ? Colors.white : (light ? AppColors.ink : Colors.white), size: size > 46 ? 24 : 22),
+      child: PressScale(
+        child: GlassPanel(
+          circle: true,
+          dark: !light,
+          child: Material(
+            color: Colors.transparent,
+            shape: const CircleBorder(),
+            child: InkWell(
+              onTap: onTap,
+              customBorder: const CircleBorder(),
+              child: SizedBox(width: size, height: size, child: Icon(icon, color: light ? AppColors.ink : Colors.white, size: 22)),
+            ),
           ),
         ),
       ),

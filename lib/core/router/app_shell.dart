@@ -7,9 +7,9 @@ import '../../features/profile/presentation/profile_menu.dart';
 import '../../features/social/application/chat_providers.dart';
 import '../../features/social/application/notification_providers.dart';
 import '../theme/app_icons.dart';
-import '../theme/app_theme.dart';
 import '../../features/accounts/application/active_account.dart';
 import 'tab_slot.dart';
+import '../widgets/glass_tab_bar.dart';
 import '../../features/admin/application/admin_providers.dart';
 import '../../features/vendors/application/vendors_providers.dart';
 import '../../features/auth/data/auth_repository.dart';
@@ -103,31 +103,21 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
     if (selected < 0) selected = 0;
     return Scaffold(
       body: shell,
-      bottomNavigationBar: DecoratedBox(
-        decoration: const BoxDecoration(
-          color: AppColors.bg,
-          border: Border(top: BorderSide(color: AppColors.border, width: 0.5)),
-        ),
-        child: NavigationBar(
-          selectedIndex: selected,
-          onDestinationSelected: (i) {
-            final t = tabs[i];
-            // Me tab tapped while already on it: open the menu, no hamburger needed.
-            if (account is PersonalAccount && t.branch == 3 && shell.currentIndex == 3) {
-              showProfileMenu(context, ref);
-              return;
-            }
-            shell.goBranch(t.branch, initialLocation: t.branch == shell.currentIndex);
-          },
-          destinations: [
-            for (final t in tabs)
-              NavigationDestination(
-                icon: t.branch == 2 ? Badge(isLabelVisible: unread > 0, label: Text('$unread'), child: Icon(t.icon)) : Icon(t.icon),
-                selectedIcon: t.branch == 2 ? Badge(isLabelVisible: unread > 0, label: Text('$unread'), child: Icon(t.selectedIcon)) : Icon(t.selectedIcon),
-                label: t.label,
-              ),
-          ],
-        ),
+      extendBody: true,
+      bottomNavigationBar: GlassTabBar(
+        tabs: [
+          for (final t in tabs) GlassTab(icon: t.icon, selectedIcon: t.selectedIcon, label: t.label, badge: t.branch == 2 ? unread : 0),
+        ],
+        selected: selected,
+        onTap: (i) {
+          final t = tabs[i];
+          // Me tab tapped while already on it: open the menu, no hamburger needed.
+          if (account is PersonalAccount && t.branch == 3 && shell.currentIndex == 3) {
+            showProfileMenu(context, ref);
+            return;
+          }
+          shell.goBranch(t.branch, initialLocation: t.branch == shell.currentIndex);
+        },
       ),
     );
   }

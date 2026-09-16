@@ -44,7 +44,7 @@ final vendorProductsProvider = FutureProvider<List<Product>>((ref) {
 });
 
 /// A partner's products as members see them.
-final partnerProductsProvider = FutureProvider.family<List<Product>, String>((ref, id) => ref.watch(vendorsRepositoryProvider).partnerProducts(id));
+final partnerProductsProvider = FutureProvider.autoDispose.family<List<Product>, String>((ref, id) => ref.watch(vendorsRepositoryProvider).partnerProducts(id));
 
 /// Every active partner (Rewards → Partners).
 final partnersDirectoryProvider = FutureProvider<List<PublicVendor>>((ref) {
@@ -56,8 +56,8 @@ final partnersDirectoryProvider = FutureProvider<List<PublicVendor>>((ref) {
 final partnerViewedProvider = FutureProvider.family<void, String>((ref, id) => ref.watch(vendorsRepositoryProvider).recordView(id).catchError((_) {}));
 
 /// A partner's public page.
-final vendorPublicProvider = FutureProvider.family<PublicVendor?, String>((ref, id) => ref.watch(vendorsRepositoryProvider).publicVendor(id));
-final vendorEventsProvider = FutureProvider.family<List<Event>, String>((ref, id) => ref.watch(vendorsRepositoryProvider).vendorEvents(id));
+final vendorPublicProvider = FutureProvider.autoDispose.family<PublicVendor?, String>((ref, id) => ref.watch(vendorsRepositoryProvider).publicVendor(id));
+final vendorEventsProvider = FutureProvider.autoDispose.family<List<Event>, String>((ref, id) => ref.watch(vendorsRepositoryProvider).vendorEvents(id));
 
 final vendorMonthlyProvider = FutureProvider.family<List<MonthRow>, String?>((ref, vendorId) {
   ref.watch(currentUserIdProvider);
@@ -139,6 +139,7 @@ class VendorActions {
     await _repo.updateMyVendor(address: address, phone: phone, description: description, logoUrl: logoUrl, lat: lat, lng: lng, hours: hours, photoUrls: photos, hoursJson: hoursJson);
     _ref.invalidate(myVendorProvider);
     _ref.invalidate(spotsProvider);
+    _ref.invalidate(partnersDirectoryProvider);
   }
 
   Future<void> saveProduct({String? id, required String name, String? description, double? price, required List<String> keptPhotos, List<XFile> newPhotos = const [], required List<ProductVariant> variants, required bool active}) async {

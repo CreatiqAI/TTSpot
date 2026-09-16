@@ -123,13 +123,21 @@ class _GlyphPainter extends CustomPainter {
       case _Glyph.topSpot:
         paintSpotBadge(c, Offset(centre.dx - 11 * 0.75, centre.dy - 11 * 0.75), scale: 0.75, recommended: true);
       case _Glyph.partner:
-        c.drawCircle(centre, 8.5, Paint()..color = Colors.white);
-        c.drawCircle(centre, 7, Paint()..color = const Color(0xFF101010));
-        c.drawCircle(centre.translate(5, 5), 3.5, Paint()..color = Colors.white);
-        c.drawCircle(centre.translate(5, 5), 2.5, Paint()..color = const Color(0xFFE00008));
+        final box = Rect.fromCenter(center: centre.translate(0, -1), width: 15, height: 15);
+        c.drawRRect(RRect.fromRectAndRadius(box.inflate(1.5), const Radius.circular(5)), Paint()..color = Colors.white);
+        c.drawRRect(RRect.fromRectAndRadius(box, const Radius.circular(4)), Paint()..color = const Color(0xFF101010));
+        c.drawPath(Path()..moveTo(centre.dx - 3, box.bottom + 1)..lineTo(centre.dx + 3, box.bottom + 1)..lineTo(centre.dx, box.bottom + 4.5)..close(), Paint()..color = Colors.white);
+        c.drawCircle(Offset(box.right - 2, box.bottom - 2), 4, Paint()..color = Colors.white);
+        c.drawCircle(Offset(box.right - 2, box.bottom - 2), 3, Paint()..color = const Color(0xFFE00008));
       case _Glyph.moment:
-        c.drawCircle(centre, 8, Paint()..color = Colors.white);
-        c.drawCircle(centre, 6.5, Paint()..color = const Color(0xFF9AA0A6));
+        c.save();
+        c.translate(centre.dx, centre.dy);
+        c.rotate(-0.14);
+        const frame = Rect.fromLTWH(-7.5, -8, 15, 17);
+        c.drawRRect(RRect.fromRectAndRadius(frame, const Radius.circular(2)), Paint()..color = Colors.white);
+        c.drawRRect(RRect.fromRectAndRadius(frame, const Radius.circular(2)), Paint()..style = PaintingStyle.stroke..strokeWidth = 0.8..color = const Color(0xFFCFD3DA));
+        c.drawRect(const Rect.fromLTWH(-6, -6.5, 12, 12), Paint()..color = const Color(0xFF9AA0A6));
+        c.restore();
       case _Glyph.me:
         paintDot(c, centre, r: 4.5, color: kRelationMe);
       case _Glyph.friend:

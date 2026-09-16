@@ -7,6 +7,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import '../../../../core/theme/app_icons.dart';
+
 /// A rendered marker plus its anchor (fraction of the image).
 class MapPin {
   const MapPin(this.descriptor, this.anchor);
@@ -206,66 +208,113 @@ class MapPinFactory {
     final cached = _cache[k];
     if (cached != null) return cached;
     final image = logoUrl == null ? null : await _image(logoUrl, targetWidth: 120);
-    final size = 30.0 * scale, ring = 2.5 * scale, tag = 9.0 * scale;
-    final totalW = size + ring * 2 + tag, totalH = size + ring * 2 + tag;
-    final centre = Offset(ring + size / 2, ring + size / 2);
+    // A shop signboard: rounded square with the logo, a pointer underneath,
+    // and a small red storefront badge so it never reads as a person.
+    final size = 34.0 * scale, ring = 2.5 * scale, tail = 7.0 * scale, badge = 13.0 * scale;
+    final totalW = size + ring * 2 + badge * 0.6, totalH = size + ring * 2 + tail + 2;
+    final left = ring, top = ring;
+    final box = Rect.fromLTWH(left, top, size, size);
+    final outer = RRect.fromRectAndRadius(box.inflate(ring), Radius.circular(10 * scale));
+    final inner = RRect.fromRectAndRadius(box, Radius.circular(8 * scale));
+    final cx = box.center.dx;
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder)..scale(devicePixelRatio);
-    canvas.drawCircle(centre.translate(0, 1.5), size / 2 + ring, Paint()..color = Colors.black.withValues(alpha: 0.22)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.5));
-    canvas.drawCircle(centre, size / 2 + ring, Paint()..color = Colors.white);
+    final shadow = Paint()..color = Colors.black.withValues(alpha: 0.22)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.5);
+    canvas.drawRRect(outer.shift(Offset(0, 1.5)), shadow);
+    final white = Paint()..color = Colors.white;
+    canvas.drawRRect(outer, white);
+    canvas.drawPath(
+      Path()
+        ..moveTo(cx - 6 * scale, box.bottom + ring - 1)
+        ..lineTo(cx + 6 * scale, box.bottom + ring - 1)
+        ..lineTo(cx, box.bottom + ring + tail)
+        ..close(),
+      white,
+    );
     canvas.save();
-    canvas.clipPath(Path()..addOval(Rect.fromCircle(center: centre, radius: size / 2)));
+    canvas.clipRRect(inner);
     if (image != null) {
-      _drawCover(canvas, image, Rect.fromCircle(center: centre, radius: size / 2));
+      _drawCover(canvas, image, box);
     } else {
-      canvas.drawRect(Rect.fromCircle(center: centre, radius: size / 2), Paint()..color = const Color(0xFF101010));
-      final tp = _text('S', 13 * scale, FontWeight.w800, Colors.white);
-      tp.paint(canvas, centre - Offset(tp.width / 2, tp.height / 2));
+      canvas.drawRect(box, Paint()..color = const Color(0xFF101010));
+      final tp = _icon(AppIcons.storefront, 17 * scale, Colors.white);
+      tp.paint(canvas, box.center - Offset(tp.width / 2, tp.height / 2));
     }
     canvas.restore();
-    // red tag, bottom-right
-    final tc = Offset(centre.dx + size / 2 - tag * 0.35, centre.dy + size / 2 - tag * 0.35);
-    canvas.drawCircle(tc, tag / 2 + 1.5 * scale, Paint()..color = Colors.white);
-    canvas.drawCircle(tc, tag / 2, Paint()..color = const Color(0xFFE00008));
-    final pin = await _finish(recorder, totalW, totalH, anchorY: centre.dy / totalH);
+    // red storefront badge, bottom-right corner
+    final bc = Offset(box.right - badge * 0.2, box.bottom - badge * 0.2);
+    canvas.drawCircle(bc, badge / 2 + 1.5 * scale, white);
+    canvas.drawCircle(bc, badge / 2, Paint()..color = const Color(0xFFE00008));
+    final ic = _icon(AppIcons.storefront, badge * 0.62, Colors.white);
+    ic.paint(canvas, bc - Offset(ic.width / 2, ic.height / 2));
+    final pin = await _finish(recorder, totalW, totalH, anchorY: (box.bottom + ring + tail) / totalH);
+    return _cache[k] = pin;
+  }
+
+  /// Far-zoom partner marker: a small red rounded square with a storefront
+  /// glyph (people are the round dots).
+  Future<MapPin> partnerMini({required String key}) async {
+    final k = 'vm|$key';
+    final cached = _cache[k];
+    if (cached != null) return cached;
+    const size = 16.0, ring = 2.0;
+    const totalW = size + ring * 2 + 2, totalH = size + ring * 2 + 2;
+    final box = const Rect.fromLTWH(ring + 1, ring + 1, size, size);
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder)..scale(devicePixelRatio);
+    canvas.drawRRect(RRect.fromRectAndRadius(box.inflate(ring), const Radius.circular(6)), Paint()..color = Colors.white);
+    canvas.drawRRect(RRect.fromRectAndRadius(box, const Radius.circular(4.5)), Paint()..color = const Color(0xFFE00008));
+    final ic = _icon(AppIcons.storefront, 10.5, Colors.white);
+    ic.paint(canvas, box.center - Offset(ic.width / 2, ic.height / 2));
+    final pin = await _finish(recorder, totalW, totalH, anchorY: 0.5);
     return _cache[k] = pin;
   }
 
   // ------------------------------------------------------------- moments ---
 
-  /// Small round photo bubble with a white ring (24 h moments).
+  /// A tilted polaroid: photo in a white frame with a thicker bottom edge
+  /// and a pointer, so a moment never looks like a person dot.
   Future<MapPin> moment({required String key, required String imageUrl}) async {
     final k = 'm|$key';
     final cached = _cache[k];
     if (cached != null) return cached;
 
     final image = await _image(imageUrl, targetWidth: 120);
-    const size = 40.0, ring = 2.5, tail = 6.0;
-    final totalW = size + ring * 2 + 4, totalH = size + ring * 2 + tail + 3;
-    final centre = Offset(totalW / 2, 1 + ring + size / 2);
+    const photo = 36.0, frame = 3.0, foot = 7.0, tail = 6.0, tilt = -0.14;
+    const frameW = photo + frame * 2, frameH = photo + frame + foot;
+    const totalW = frameW + 16, totalH = frameH + tail + 12;
+    const cx = totalW / 2, cy = 4 + frameH / 2;
 
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder)..scale(devicePixelRatio);
     final white = Paint()..color = Colors.white;
-    canvas.drawCircle(centre, size / 2 + ring, white);
+    // pointer (upright, under the frame)
     canvas.drawPath(
       Path()
-        ..moveTo(centre.dx - 5, centre.dy + size / 2 + ring - 2)
-        ..lineTo(centre.dx + 5, centre.dy + size / 2 + ring - 2)
-        ..lineTo(centre.dx, centre.dy + size / 2 + ring + tail)
+        ..moveTo(cx - 5, 4 + frameH - 2)
+        ..lineTo(cx + 5, 4 + frameH - 2)
+        ..lineTo(cx, 4 + frameH + tail)
         ..close(),
       white,
     );
     canvas.save();
-    canvas.clipPath(Path()..addOval(Rect.fromCircle(center: centre, radius: size / 2)));
+    canvas.translate(cx, cy);
+    canvas.rotate(tilt);
+    final frameRect = const Rect.fromLTWH(-frameW / 2, -frameH / 2, frameW, frameH);
+    canvas.drawRRect(RRect.fromRectAndRadius(frameRect.shift(const Offset(0, 1.5)), const Radius.circular(4)), Paint()..color = Colors.black.withValues(alpha: 0.22)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.5));
+    canvas.drawRRect(RRect.fromRectAndRadius(frameRect, const Radius.circular(4)), white);
+    final photoRect = Rect.fromLTWH(frameRect.left + frame, frameRect.top + frame, photo, photo);
+    canvas.save();
+    canvas.clipRRect(RRect.fromRectAndRadius(photoRect, const Radius.circular(2)));
     if (image != null) {
-      _drawCover(canvas, image, Rect.fromCircle(center: centre, radius: size / 2));
+      _drawCover(canvas, image, photoRect);
     } else {
-      canvas.drawCircle(centre, size / 2, Paint()..color = const Color(0xFF2A2F3A));
+      canvas.drawRect(photoRect, Paint()..color = const Color(0xFF2A2F3A));
     }
     canvas.restore();
+    canvas.restore();
 
-    final pin = await _finish(recorder, totalW, totalH, anchorY: (centre.dy + size / 2 + ring + tail) / totalH);
+    final pin = await _finish(recorder, totalW, totalH, anchorY: (4 + frameH + tail) / totalH);
     return _cache[k] = pin;
   }
 
@@ -278,6 +327,11 @@ class MapPinFactory {
   Future<MapPin> finish(ui.PictureRecorder recorder, double w, double h, {required double anchorY}) => _finish(recorder, w, h, anchorY: anchorY);
 
   static String _short(String s, int max) => s.length <= max ? s : '${s.substring(0, max - 1)}…';
+
+  static TextPainter _icon(IconData icon, double size, Color color) => TextPainter(
+        text: TextSpan(text: String.fromCharCode(icon.codePoint), style: TextStyle(fontFamily: icon.fontFamily, fontSize: size, color: color, height: 1)),
+        textDirection: TextDirection.ltr,
+      )..layout();
 
   static TextPainter _text(String text, double size, FontWeight weight, Color color) => TextPainter(
         text: TextSpan(text: text, style: TextStyle(fontSize: size, fontWeight: weight, color: color, height: 1.1)),

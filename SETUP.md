@@ -384,6 +384,12 @@ Migration `20260916000013_accounts_simplify.sql` (the 16 in the name is only the
 - Map: partner places render as `MapPinFactory.partner` (round logo, white ring, red tag; dot at far zoom is red); tap → partner page. Legend row "Partner shop". `places_with_counts` carries `vendor_id/vendor_logo/vendor_name` and `is_spot` is true for partner places. Place kinds now include the business types (`Place.kindLabel/kindArt`).
 - Entry points: Rewards shop voucher card (tap the partner name), event page "Hosted by", place page "Partner page" button, Partner account tab "My partner page".
 
+### Partner page v2 + map shapes (2026-09-17, no migration)
+
+- **Partner page** (`partner_screen.dart`): `SliverAppBar` cover (shop photos, else the logo blurred behind a dark wash), 76 px logo card, name, chips (type · Partner · Open now/Closed), Message · WhatsApp · Waze row, then a pinned `_ChipBar` (Info · Products · Vouchers · Posts · Events with counts) that scrolls to `_SectionCard`s held in one `SliverToBoxAdapter` column (GlobalKeys per section; `_jump` animates to `offset + sectionTop − stickyBottom`; scroll listener marks the active chip). About card holds address + Waze/Maps, hours (tap to expand the week) and the Check-in explainer with a button.
+- **Fresh data on open.** `vendorPublicProvider`, `partnerProductsProvider`, `vendorEventsProvider` are `autoDispose` now, so a logo or shop edit shows the next time the page opens; `updateShop` also invalidates `partnersDirectoryProvider`.
+- **Map shapes.** `MapPinFactory.partner` = rounded-square signboard with the logo, pointer and a red storefront badge; `partnerMini` = small red square with the storefront glyph for far zoom (replaces the plain dot); `moment` = tilted polaroid with a pointer. Legend glyphs match. `_icon()` paints a Phosphor glyph on canvas.
+
 ### Partner tabs, variant photos + prices (2026-09-17, migration 0035)
 
 - **Variant options are objects.** `variants` jsonb is now `[{name, options: [{label, price?, photo_url?} | "plain string"]}]`; `save_product` validates both shapes (label 1–30, price ≥ 0). Dart `VariantOption {label, price, photoUrl}`; `ProductVariant.options` is a list of them. In the sheet the gallery = product photos + every option photo; picking an option with a photo animates the `PageController` to it, and the first picked option with a price replaces the shown price. The form has an option row per choice (photo tile, label, RM price; long-press the tile to clear the photo). Option photos are uploaded on save via `VendorActions.upload`.

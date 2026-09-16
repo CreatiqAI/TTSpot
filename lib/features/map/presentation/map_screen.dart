@@ -263,7 +263,7 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
       case MapMode.spots:
         for (final p in ref.read(spotsProvider).value ?? const <Place>[]) {
           final pin = _far
-              ? await _glyphFactory.dot(key: p.id, color: p.isPartner ? kEventRed : (p.recommended ? kInk : kSpotGrey))
+              ? (p.isPartner ? await _pinFactory.partnerMini(key: p.id) : await _glyphFactory.dot(key: p.id, color: p.recommended ? kInk : kSpotGrey))
               : p.isPartner
                   ? await _pinFactory.partner(key: p.id, logoUrl: p.vendorLogo, scale: _glyphScale)
                   : await _glyphFactory.spot(
@@ -292,7 +292,7 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
   /// Partner shops show on every layer: logo pin when zoomed in, red dot far out.
   Future<void> _addPartners(Set<Marker> built, Future<bool> Function() stale) async {
     for (final p in (ref.read(spotsProvider).value ?? const <Place>[]).where((p) => p.isPartner)) {
-      final pin = _far ? await _glyphFactory.dot(key: p.id, color: kEventRed) : await _pinFactory.partner(key: p.id, logoUrl: p.vendorLogo, scale: _glyphScale);
+      final pin = _far ? await _pinFactory.partnerMini(key: p.id) : await _pinFactory.partner(key: p.id, logoUrl: p.vendorLogo, scale: _glyphScale);
       if (await stale()) return;
       built.add(Marker(
         markerId: MarkerId('place:${p.id}'),

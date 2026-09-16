@@ -10,6 +10,16 @@ class ReleaseNote {
 
 const kReleaseNotes = <ReleaseNote>[
   ReleaseNote(
+    version: '0.3.17',
+    date: '17 Sep 2026',
+    title: 'Partner page, cleaner',
+    points: [
+      'Partner pages have a cover, the logo, and Info · Products · Vouchers · Posts · Events sections you can jump to.',
+      'Partner shops are a signboard on the map and moments are a polaroid, so neither looks like a person.',
+      'Logo and shop changes show on the partner page straight away.',
+    ],
+  ),
+  ReleaseNote(
     version: '0.3.16',
     date: '17 Sep 2026',
     title: 'Partner tabs and variant photos',

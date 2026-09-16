@@ -93,10 +93,23 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
   /// with name chips, cars with faces.
   static const _midZoom = 13.0;
   static const _closeZoom = 14.5;
+  /// Below this nobody is drawn, not even me: the map is a region, not a street.
+  static const _peopleZoom = 11.0;
   int _tier = 0;
   bool get _far => _tier == 0;
   bool get _close => _tier == 2;
-  double get _glyphScale => _close ? 1.0 : 0.85;
+
+  /// Pins grow and shrink with the zoom, not in three fixed jumps. Quantised
+  /// to 0.05 so a small pan never re-renders every marker. 0.4 at zoom 10 or
+  /// less, ~0.8 at 13, 1.0 around 14.7, 1.3 from zoom 17 up.
+  double _zoom = 12;
+  double get _glyphScale {
+    final t = ((_zoom - 10) / 7).clamp(0.0, 1.0);
+    return ((0.4 + t * 0.9) / 0.05).round() * 0.05;
+  }
+  /// Last position we drew myself at, so a location refresh never blinks me away.
+  LatLng? _lastHere;
+  bool get _showPeople => _zoom >= _peopleZoom;
 
   void _paintCircles() {
     if (!mounted) return;
@@ -161,10 +174,10 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
       if (!mounted) return;
       ref.read(mapViewportProvider.notifier).set(bounds);
       final tier = zoom < _midZoom ? 0 : (zoom < _closeZoom ? 1 : 2);
-      if (tier != _tier) {
-        _tier = tier;
-        _rebuild();
-      }
+      final before = (_tier, _glyphScale, _showPeople);
+      _zoom = zoom;
+      _tier = tier;
+      if (before != (_tier, _glyphScale, _showPeople)) _rebuild();
     });
   }
 
@@ -198,7 +211,7 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
   /// Balloon for events, feather flag for TT sessions. Dots when far out,
   /// label only when close.
   Future<MapPin> _eventPin(Event e, {String? sub}) {
-    if (_far) return _glyphFactory.dot(key: e.id, color: kEventRed);
+    if (_far) return _glyphFactory.dot(key: e.id, color: kEventRed, r: 4.5 * _glyphScale);
     final label = _close ? (e.isInstant ? e.venueName : e.title) : null;
     return e.type == EventType.tt || e.isInstant
         ? _glyphFactory.flag(key: e.id, label: label, sub: _close ? sub : null, scale: _glyphScale)
@@ -231,7 +244,7 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
         for (final m in _far ? const <Story>[] : (ref.read(liveMomentsProvider).value ?? const <Story>[])) {
           final at = m.latLng;
           if (at == null) continue;
-          final pin = await _pinFactory.moment(key: m.id, imageUrl: m.photoUrl);
+          final pin = await _pinFactory.moment(key: m.id, imageUrl: m.photoUrl, scale: _glyphScale);
           if (await stale()) return;
           built.add(Marker(
             markerId: MarkerId('moment:${m.id}'),
@@ -263,7 +276,7 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
       case MapMode.spots:
         for (final p in ref.read(spotsProvider).value ?? const <Place>[]) {
           final pin = _far
-              ? (p.isPartner ? await _pinFactory.partnerMini(key: p.id) : await _glyphFactory.dot(key: p.id, color: p.recommended ? kInk : kSpotGrey))
+              ? (p.isPartner ? await _pinFactory.partnerMini(key: p.id, scale: _glyphScale) : await _glyphFactory.dot(key: p.id, color: p.recommended ? kInk : kSpotGrey, r: 4.5 * _glyphScale))
               : p.isPartner
                   ? await _pinFactory.partner(key: p.id, logoUrl: p.vendorLogo, scale: _glyphScale)
                   : await _glyphFactory.spot(
@@ -292,7 +305,7 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
   /// Partner shops show on every layer: logo pin when zoomed in, red dot far out.
   Future<void> _addPartners(Set<Marker> built, Future<bool> Function() stale) async {
     for (final p in (ref.read(spotsProvider).value ?? const <Place>[]).where((p) => p.isPartner)) {
-      final pin = _far ? await _pinFactory.partnerMini(key: p.id) : await _pinFactory.partner(key: p.id, logoUrl: p.vendorLogo, scale: _glyphScale);
+      final pin = _far ? await _pinFactory.partnerMini(key: p.id, scale: _glyphScale) : await _pinFactory.partner(key: p.id, logoUrl: p.vendorLogo, scale: _glyphScale);
       if (await stale()) return;
       built.add(Marker(
         markerId: MarkerId('place:${p.id}'),
@@ -317,7 +330,7 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
         final relation = stranger ? kRelationStranger : (kTagColors[tags[f.user.id]] ?? (f.viaClub ? kRelationClub : kRelationFriend));
         final name = stranger ? '@${f.user.username ?? ''}' : (f.user.displayName ?? f.user.username ?? '');
         final pin = !_close
-            ? await _carFactory.dot(key: f.user.id, color: relation)
+            ? await _carFactory.dot(key: f.user.id, color: relation, scale: _glyphScale)
             : await _carFactory.car(
                 key: f.user.id,
                 colorKey: f.carColor ?? (stranger ? 'grey' : 'silver'),
@@ -342,12 +355,13 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
         ));
       }
     }
-    final here = ref.read(userLocationProvider).value;
+    final here = ref.read(userLocationProvider).value ?? _lastHere;
+    if (here != null) _lastHere = here;
     final me = ref.read(currentUserIdProvider);
-    if (here != null && me != null) {
+    if (here != null && me != null && _showPeople) {
       final myCar = (ref.read(userCarsProvider(me)).value ?? const []).firstOrNull;
       final pin = !_close
-          ? await _carFactory.dot(key: 'me', color: kRelationMe, me: true)
+          ? await _carFactory.dot(key: 'me', color: kRelationMe, me: true, scale: _glyphScale)
           : await _carFactory.car(key: 'me', colorKey: showColor ? (myCar?.color ?? 'red') : 'red', name: 'Me', status: 'now', showFace: false, me: true);
       if (await stale()) return;
       built.add(Marker(markerId: const MarkerId('me'), position: here, icon: pin.descriptor, anchor: pin.anchor, zIndexInt: 6));

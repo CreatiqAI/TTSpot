@@ -10,6 +10,15 @@ class ReleaseNote {
 
 const kReleaseNotes = <ReleaseNote>[
   ReleaseNote(
+    version: '0.3.18',
+    date: '17 Sep 2026',
+    title: 'Map pins that scale',
+    points: [
+      'Pins grow as you zoom in and shrink as you zoom out, instead of jumping between three sizes.',
+      'Zoomed out past city level, nobody is drawn, not even you. Zoom in and people come back.',
+    ],
+  ),
+  ReleaseNote(
     version: '0.3.17',
     date: '17 Sep 2026',
     title: 'Partner page, cleaner',

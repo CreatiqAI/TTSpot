@@ -384,6 +384,11 @@ Migration `20260916000013_accounts_simplify.sql` (the 16 in the name is only the
 - Map: partner places render as `MapPinFactory.partner` (round logo, white ring, red tag; dot at far zoom is red); tap → partner page. Legend row "Partner shop". `places_with_counts` carries `vendor_id/vendor_logo/vendor_name` and `is_spot` is true for partner places. Place kinds now include the business types (`Place.kindLabel/kindArt`).
 - Entry points: Rewards shop voucher card (tap the partner name), event page "Hosted by", place page "Partner page" button, Partner account tab "My partner page".
 
+### Map pins scale with zoom (2026-09-17, no migration)
+
+- `_glyphScale` in `map_screen.dart` is continuous: `0.4 + 0.9 × clamp((zoom − 10) / 7)`, quantised to 0.05 (≈0.8 at zoom 13, 1.0 at 14.7, 1.3 from 17). `_onCameraIdle` stores `_zoom` and rebuilds when the tier, the quantised scale or `_showPeople` changes. Tiers still decide *what* is drawn (dots vs shapes, labels); scale decides *how big*. Every factory takes `scale` now (`partnerMini`, `moment`, `CarMarkerFactory.dot`; glyph dots via `r: 4.5 × scale`).
+- Nobody is drawn below zoom 11 (`_peopleZoom`), not even me. `_lastHere` keeps my last position so a location refresh never blinks me away mid-rebuild.
+
 ### Partner page v2 + map shapes (2026-09-17, no migration)
 
 - **Partner page** (`partner_screen.dart`): `SliverAppBar` cover (shop photos, else the logo blurred behind a dark wash), 76 px logo card, name, chips (type · Partner · Open now/Closed), Message · WhatsApp · Waze row, then a pinned `_ChipBar` (Info · Products · Vouchers · Posts · Events with counts) that scrolls to `_SectionCard`s held in one `SliverToBoxAdapter` column (GlobalKeys per section; `_jump` animates to `offset + sectionTop − stickyBottom`; scroll listener marks the active chip). About card holds address + Waze/Maps, hours (tap to expand the week) and the Check-in explainer with a button.

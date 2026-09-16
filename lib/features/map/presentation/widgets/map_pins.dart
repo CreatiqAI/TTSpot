@@ -253,18 +253,18 @@ class MapPinFactory {
 
   /// Far-zoom partner marker: a small red rounded square with a storefront
   /// glyph (people are the round dots).
-  Future<MapPin> partnerMini({required String key}) async {
-    final k = 'vm|$key';
+  Future<MapPin> partnerMini({required String key, double scale = 1}) async {
+    final k = 'vm|$key|$scale';
     final cached = _cache[k];
     if (cached != null) return cached;
-    const size = 16.0, ring = 2.0;
-    const totalW = size + ring * 2 + 2, totalH = size + ring * 2 + 2;
-    final box = const Rect.fromLTWH(ring + 1, ring + 1, size, size);
+    final size = 18.0 * scale, ring = 2.0;
+    final totalW = size + ring * 2 + 2, totalH = size + ring * 2 + 2;
+    final box = Rect.fromLTWH(ring + 1, ring + 1, size, size);
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder)..scale(devicePixelRatio);
-    canvas.drawRRect(RRect.fromRectAndRadius(box.inflate(ring), const Radius.circular(6)), Paint()..color = Colors.white);
-    canvas.drawRRect(RRect.fromRectAndRadius(box, const Radius.circular(4.5)), Paint()..color = const Color(0xFFE00008));
-    final ic = _icon(AppIcons.storefront, 10.5, Colors.white);
+    canvas.drawRRect(RRect.fromRectAndRadius(box.inflate(ring), Radius.circular(6 * scale)), Paint()..color = Colors.white);
+    canvas.drawRRect(RRect.fromRectAndRadius(box, Radius.circular(4.5 * scale)), Paint()..color = const Color(0xFFE00008));
+    final ic = _icon(AppIcons.storefront, 11.5 * scale, Colors.white);
     ic.paint(canvas, box.center - Offset(ic.width / 2, ic.height / 2));
     final pin = await _finish(recorder, totalW, totalH, anchorY: 0.5);
     return _cache[k] = pin;
@@ -274,16 +274,17 @@ class MapPinFactory {
 
   /// A tilted polaroid: photo in a white frame with a thicker bottom edge
   /// and a pointer, so a moment never looks like a person dot.
-  Future<MapPin> moment({required String key, required String imageUrl}) async {
-    final k = 'm|$key';
+  Future<MapPin> moment({required String key, required String imageUrl, double scale = 1}) async {
+    final k = 'm|$key|$scale';
     final cached = _cache[k];
     if (cached != null) return cached;
 
     final image = await _image(imageUrl, targetWidth: 120);
-    const photo = 36.0, frame = 3.0, foot = 7.0, tail = 6.0, tilt = -0.14;
-    const frameW = photo + frame * 2, frameH = photo + frame + foot;
-    const totalW = frameW + 16, totalH = frameH + tail + 12;
-    const cx = totalW / 2, cy = 4 + frameH / 2;
+    final photo = 36.0 * scale, frame = 3.0 * scale, foot = 7.0 * scale, tail = 6.0 * scale;
+    const tilt = -0.14;
+    final frameW = photo + frame * 2, frameH = photo + frame + foot;
+    final totalW = frameW + 16, totalH = frameH + tail + 12;
+    final cx = totalW / 2, cy = 4 + frameH / 2;
 
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder)..scale(devicePixelRatio);
@@ -300,7 +301,7 @@ class MapPinFactory {
     canvas.save();
     canvas.translate(cx, cy);
     canvas.rotate(tilt);
-    final frameRect = const Rect.fromLTWH(-frameW / 2, -frameH / 2, frameW, frameH);
+    final frameRect = Rect.fromLTWH(-frameW / 2, -frameH / 2, frameW, frameH);
     canvas.drawRRect(RRect.fromRectAndRadius(frameRect.shift(const Offset(0, 1.5)), const Radius.circular(4)), Paint()..color = Colors.black.withValues(alpha: 0.22)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.5));
     canvas.drawRRect(RRect.fromRectAndRadius(frameRect, const Radius.circular(4)), white);
     final photoRect = Rect.fromLTWH(frameRect.left + frame, frameRect.top + frame, photo, photo);

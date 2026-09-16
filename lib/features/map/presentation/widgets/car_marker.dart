@@ -171,11 +171,11 @@ class CarMarkerFactory {
   }
 
   /// Far-zoom marker: a small dot in the relationship colour with a white ring.
-  Future<MapPin> dot({required String key, required Color color, bool me = false}) async {
-    final k = 'dot|$key|${color.toARGB32()}|$me';
+  Future<MapPin> dot({required String key, required Color color, bool me = false, double scale = 1}) async {
+    final k = 'dot|$key|${color.toARGB32()}|$me|$scale';
     final cached = _cache[k];
     if (cached != null) return cached;
-    final size = me ? 18.0 : 14.0;
+    final size = (me ? 18.0 : 14.0) * scale;
     const pad = 4.0;
     final total = size + pad * 2;
     final recorder = ui.PictureRecorder();

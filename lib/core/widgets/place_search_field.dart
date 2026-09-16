@@ -143,9 +143,9 @@ class _PlaceSearchFieldState extends ConsumerState<PlaceSearchField> {
                         if (i > 0) const Divider(height: 1, indent: 52),
                         ListTile(
                           dense: true,
-                          leading: const Icon(AppIcons.mapPin, size: 20, color: AppColors.textSecondary),
+                          leading: Icon(AppIcons.mapPin, size: 20, color: AppColors.textSecondary),
                           title: Text(_items[i].main, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600)),
-                          subtitle: Text(_items[i].secondary, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                          subtitle: Text(_items[i].secondary, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                           onTap: () => _pick(_items[i]),
                         ),
                       ],

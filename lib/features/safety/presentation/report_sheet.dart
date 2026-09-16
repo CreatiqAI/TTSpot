@@ -91,7 +91,7 @@ class _ReportSheetState extends ConsumerState<_ReportSheet> {
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
               child: Text('Why are you reporting this $what?', style: AppText.sectionTitle.copyWith(fontSize: 18)),
             ),
-            const Padding(
+            Padding(
               padding: EdgeInsets.fromLTRB(20, 0, 20, 8),
               child: Text(
                 'Your report is anonymous. If someone is in immediate danger, call 999.',

@@ -60,7 +60,7 @@ class MyQrScreen extends ConsumerWidget {
                 UserAvatar(url: profile?.avatarUrl, name: profile?.displayName ?? profile?.username, size: 64),
                 const SizedBox(height: 8),
                 Text(profile?.displayName ?? '', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
-                Text('@${profile?.username ?? ''}', style: const TextStyle(color: AppColors.textSecondary)),
+                Text('@${profile?.username ?? ''}', style: TextStyle(color: AppColors.textSecondary)),
                 const SizedBox(height: 16),
                 payload.when(
                   loading: () => const SizedBox(height: 240, child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
@@ -74,7 +74,7 @@ class MyQrScreen extends ConsumerWidget {
                         ),
                 ),
                 const SizedBox(height: 14),
-                const Text(
+                Text(
                   'Friends scan this to add you on the spot. It changes when you tap the refresh icon.',
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.4),
@@ -85,7 +85,7 @@ class MyQrScreen extends ConsumerWidget {
           const SizedBox(height: 16),
           PrimaryButton(label: 'Scan a code', onPressed: () => context.pushReplacement(Routes.scan)),
           const SizedBox(height: 24),
-          const Text('BRING A FRIEND', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textSecondary)),
+          Text('BRING A FRIEND', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textSecondary)),
           const SizedBox(height: 8),
           Text(
             'Your username is your referral code. When someone signs up with it and does their first check-in, you get $referrerPts points.',
@@ -118,7 +118,7 @@ class MyQrScreen extends ConsumerWidget {
             const SizedBox(height: 10),
             Text(
               '${referrals.total} joined with your code · ${referrals.rewarded} rewarded',
-              style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+              style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
             ),
           ],
         ],

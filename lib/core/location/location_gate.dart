@@ -95,7 +95,7 @@ class _LocationGateScreenState extends ConsumerState<LocationGateScreen> with Wi
               const SizedBox(height: 26),
               const Text('TT Spot runs on location', textAlign: TextAlign.center, style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, height: 1.15)),
               const SizedBox(height: 12),
-              const Text(
+              Text(
                 'It\'s how the map works. Turn it on to see friends and your club on the map, check in at meets and spots, and scan a meet\'s QR when you\'re actually there.',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 15, color: AppColors.textSecondary, height: 1.45),
@@ -113,7 +113,7 @@ class _LocationGateScreenState extends ConsumerState<LocationGateScreen> with Wi
               PrimaryButton(label: _deniedForever ? 'Open settings' : 'Turn on location', loading: _busy, onPressed: _allow),
               TextButton(
                 onPressed: () => ref.read(locationGateSkippedProvider.notifier).skip(),
-                child: const Text('Not now', style: TextStyle(color: AppColors.textSecondary)),
+                child: Text('Not now', style: TextStyle(color: AppColors.textSecondary)),
               ),
             ],
           ),

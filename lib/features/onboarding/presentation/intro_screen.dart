@@ -62,7 +62,7 @@ class _IntroScreenState extends ConsumerState<IntroScreen> {
                 padding: const EdgeInsets.fromLTRB(0, 6, 12, 0),
                 child: TextButton(
                   onPressed: _busy ? null : _finish,
-                  child: Text(last ? '' : 'Skip', style: const TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.w600)),
+                  child: Text(last ? '' : 'Skip', style: TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.w600)),
                 ),
               ),
             ),
@@ -81,13 +81,13 @@ class _IntroScreenState extends ConsumerState<IntroScreen> {
                         Container(
                           width: 180,
                           height: 180,
-                          decoration: const BoxDecoration(color: AppColors.surfaceGray, shape: BoxShape.circle),
+                          decoration: BoxDecoration(color: AppColors.surfaceGray, shape: BoxShape.circle),
                           child: Center(child: ArtIcon(p.$1, size: 112)),
                         ),
                         const SizedBox(height: 36),
-                        Text(p.$2, textAlign: TextAlign.center, style: const TextStyle(fontFamily: AppFonts.display, fontSize: 36, fontWeight: FontWeight.w700, height: 1, color: AppColors.textPrimary)),
+                        Text(p.$2, textAlign: TextAlign.center, style: TextStyle(fontFamily: AppFonts.display, fontSize: 36, fontWeight: FontWeight.w700, height: 1, color: AppColors.textPrimary)),
                         const SizedBox(height: 14),
-                        Text(p.$3, textAlign: TextAlign.center, style: const TextStyle(fontSize: 15, height: 1.5, color: AppColors.textSecondary)),
+                        Text(p.$3, textAlign: TextAlign.center, style: TextStyle(fontSize: 15, height: 1.5, color: AppColors.textSecondary)),
                       ],
                     ),
                   );

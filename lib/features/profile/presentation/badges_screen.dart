@@ -47,7 +47,7 @@ class BadgesScreen extends ConsumerWidget {
                         const SizedBox(height: 2),
                         Text(
                           streak > 0 ? 'A teh tarik session every week for $streak week${streak == 1 ? '' : 's'}. Keep it going.' : 'Join a TT session each week to start one.',
-                          style: const TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.35),
+                          style: TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.35),
                         ),
                       ],
                     ),
@@ -56,7 +56,7 @@ class BadgesScreen extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 16),
-            Text('${earned.length} of ${badges.length} earned', style: const TextStyle(fontSize: 13, color: AppColors.textSecondary, fontWeight: FontWeight.w600)),
+            Text('${earned.length} of ${badges.length} earned', style: TextStyle(fontSize: 13, color: AppColors.textSecondary, fontWeight: FontWeight.w600)),
             const SizedBox(height: 10),
             GridView.builder(
               shrinkWrap: true,
@@ -82,7 +82,7 @@ class BadgesScreen extends ConsumerWidget {
                         const SizedBox(height: 6),
                         Text(b.name, textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
                         const SizedBox(height: 3),
-                        Text(got != null ? formatDate(got.awardedAt) : b.description, textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10.5, color: AppColors.textSecondary, height: 1.2)),
+                        Text(got != null ? formatDate(got.awardedAt) : b.description, textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10.5, color: AppColors.textSecondary, height: 1.2)),
                       ],
                     ),
                   ),

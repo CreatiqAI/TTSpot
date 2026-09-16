@@ -142,7 +142,7 @@ class ClubScreen extends ConsumerWidget {
                         title: const Text('Show me on the club map', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                         subtitle: Text(
                           sharing ? 'Members of ${c.name} can see where you are while the app is open.' : 'Hidden from this club. Friends still see you.',
-                          style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                          style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
                         ),
                       ),
                     ),
@@ -167,19 +167,19 @@ class ClubScreen extends ConsumerWidget {
                     ),
                   ),
                   if (isOwner)
-                    const Padding(
+                    Padding(
                       padding: EdgeInsets.fromLTRB(16, 0, 16, 0),
                       child: Text('Tap a member to make them an admin. Admins can post and schedule meets as the club.', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                     ),
                 ],
                 const _Section('MEETS'),
                 if (events.isEmpty)
-                  const Padding(padding: EdgeInsets.fromLTRB(16, 0, 16, 8), child: Text('No meets tagged to this club yet.', style: TextStyle(color: AppColors.textSecondary)))
+                  Padding(padding: EdgeInsets.fromLTRB(16, 0, 16, 8), child: Text('No meets tagged to this club yet.', style: TextStyle(color: AppColors.textSecondary)))
                 else
                   for (final e in events) EventListTile(event: e, onTap: () => context.push(Routes.event(e.id)), isOrganiser: e.organizerId == me),
                 const _Section('POSTS'),
                 if (posts.isEmpty)
-                  const Padding(padding: EdgeInsets.fromLTRB(16, 0, 16, 8), child: Text('No posts yet.', style: TextStyle(color: AppColors.textSecondary)))
+                  Padding(padding: EdgeInsets.fromLTRB(16, 0, 16, 8), child: Text('No posts yet.', style: TextStyle(color: AppColors.textSecondary)))
                 else
                   MasonryGrid(items: posts),
               ],
@@ -322,7 +322,7 @@ class _MemberTile extends StatelessWidget {
             const SizedBox(height: 4),
             SizedBox(width: 62, child: Text(m.username ?? '', maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center, style: const TextStyle(fontSize: 11))),
             if (role != 'member')
-              Text(role == 'owner' ? 'Owner' : 'Admin', style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, color: AppColors.textSecondary)),
+              Text(role == 'owner' ? 'Owner' : 'Admin', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, color: AppColors.textSecondary)),
           ],
         ),
       ),
@@ -522,13 +522,13 @@ class _InviteSheetState extends ConsumerState<_InviteSheet> {
                 children: [
                   Text('Invite to ${widget.clubName}', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
                   const SizedBox(height: 4),
-                  const Text('Pick from your friends. They accept from Activity or the club page.', textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+                  Text('Pick from your friends. They accept from Activity or the club page.', textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
                 ],
               ),
             ),
             Expanded(
               child: candidates.isEmpty
-                  ? const Center(child: Padding(padding: EdgeInsets.all(24), child: Text('All your friends are already in, or you have no friends on TT Spot yet. Add friends first.', textAlign: TextAlign.center, style: TextStyle(color: AppColors.textSecondary))))
+                  ? Center(child: Padding(padding: EdgeInsets.all(24), child: Text('All your friends are already in, or you have no friends on TT Spot yet. Add friends first.', textAlign: TextAlign.center, style: TextStyle(color: AppColors.textSecondary))))
                   : ListView.builder(
                       itemCount: candidates.length,
                       itemBuilder: (_, i) {
@@ -537,7 +537,7 @@ class _InviteSheetState extends ConsumerState<_InviteSheet> {
                         return ListTile(
                           leading: UserAvatar(url: p.avatarUrl, name: p.displayName ?? p.username, size: 40),
                           title: Text(p.displayName ?? '@${p.username}', style: const TextStyle(fontWeight: FontWeight.w600)),
-                          subtitle: Text('@${p.username ?? ''}', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                          subtitle: Text('@${p.username ?? ''}', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                           trailing: SizedBox(
                             width: 96,
                             child: sent
@@ -565,6 +565,6 @@ class _Section extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-        child: Text(text, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textSecondary)),
+        child: Text(text, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textSecondary)),
       );
 }

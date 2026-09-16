@@ -78,7 +78,7 @@ class _VoiceBubbleState extends State<VoiceBubble> {
 
   @override
   Widget build(BuildContext context) {
-    const fg = AppColors.textPrimary;
+    final fg = AppColors.textPrimary;
     final total = widget.ms <= 0 ? (_player?.duration?.inMilliseconds ?? 1) : widget.ms;
     final frac = (_at.inMilliseconds / total).clamp(0.0, 1.0);
     return Container(
@@ -97,7 +97,7 @@ class _VoiceBubbleState extends State<VoiceBubble> {
       child: Row(
         children: [
           Material(
-            color: Colors.white,
+            color: AppColors.surface,
             shape: CircleBorder(side: BorderSide(color: widget.mine ? Colors.transparent : AppColors.border)),
             elevation: widget.mine ? 1 : 0,
             shadowColor: Colors.black26,

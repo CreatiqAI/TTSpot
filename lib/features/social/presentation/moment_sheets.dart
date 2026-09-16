@@ -34,7 +34,7 @@ Future<void> showMomentViewers(BuildContext context, String storyId) {
                     loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
                     error: (e, _) => Center(child: Text(friendlyError(e))),
                     data: (list) => list.isEmpty
-                        ? const Center(child: Text('No views yet. Friends see it on the Posts tab.', style: TextStyle(color: AppColors.textSecondary)))
+                        ? Center(child: Text('No views yet. Friends see it on the Posts tab.', style: TextStyle(color: AppColors.textSecondary)))
                         : ListView.builder(
                             itemCount: list.length,
                             itemBuilder: (_, i) {
@@ -42,7 +42,7 @@ Future<void> showMomentViewers(BuildContext context, String storyId) {
                               return ListTile(
                                 leading: UserAvatar(url: v.profile.avatarUrl, name: v.profile.displayName ?? v.profile.username, size: 42),
                                 title: Text(v.profile.displayName ?? '@${v.profile.username}', style: const TextStyle(fontWeight: FontWeight.w600)),
-                                subtitle: Text('@${v.profile.username ?? ''} · ${timeAgo(v.viewedAt)}', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                                subtitle: Text('@${v.profile.username ?? ''} · ${timeAgo(v.viewedAt)}', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                                 onTap: () {
                                   Navigator.pop(ctx);
                                   context.push(Routes.profile(v.profile.id));
@@ -85,16 +85,16 @@ class _AddToAlbum extends ConsumerWidget {
         children: [
           const Padding(padding: EdgeInsets.fromLTRB(20, 0, 20, 8), child: Text('Add to album', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800))),
           if (albums.isEmpty)
-            const Padding(padding: EdgeInsets.fromLTRB(20, 0, 20, 8), child: Text('No albums yet. Make one and this moment goes in.', style: TextStyle(color: AppColors.textSecondary))),
+            Padding(padding: EdgeInsets.fromLTRB(20, 0, 20, 8), child: Text('No albums yet. Make one and this moment goes in.', style: TextStyle(color: AppColors.textSecondary))),
           for (final a in albums)
             ListTile(
               leading: SizedBox(
                 width: 44,
                 height: 44,
-                child: ClipOval(child: a.coverUrl == null ? const ColoredBox(color: AppColors.surfaceGray) : Image.network(a.coverUrl!, fit: BoxFit.cover)),
+                child: ClipOval(child: a.coverUrl == null ? ColoredBox(color: AppColors.surfaceGray) : Image.network(a.coverUrl!, fit: BoxFit.cover)),
               ),
               title: Text(a.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-              subtitle: Text('${a.count} moment${a.count == 1 ? '' : 's'}', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+              subtitle: Text('${a.count} moment${a.count == 1 ? '' : 's'}', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
               trailing: Icon(inIds.contains(a.id) ? AppIcons.checkCircleFill : AppIcons.checkCircle, color: inIds.contains(a.id) ? AppColors.brand : AppColors.textMuted),
               onTap: () async {
                 try {
@@ -105,7 +105,7 @@ class _AddToAlbum extends ConsumerWidget {
               },
             ),
           ListTile(
-            leading: const CircleAvatar(backgroundColor: AppColors.surfaceGray, child: Icon(AppIcons.plus, color: AppColors.textPrimary)),
+            leading: CircleAvatar(backgroundColor: AppColors.surfaceGray, child: Icon(AppIcons.plus, color: AppColors.textPrimary)),
             title: const Text('New album', style: TextStyle(fontWeight: FontWeight.w600)),
             onTap: () {
               Navigator.pop(context);

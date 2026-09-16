@@ -246,7 +246,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                         width: 104,
                         height: 104,
                         decoration: BoxDecoration(color: AppColors.surfaceGray, borderRadius: BorderRadius.circular(AppRadius.md), border: Border.all(color: AppColors.border)),
-                        child: const Column(
+                        child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [Icon(AppIcons.cameraPlus, color: AppColors.textSecondary), SizedBox(height: 4), Text('Add', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.textSecondary))],
                         ),
@@ -256,7 +256,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
               ),
             ),
             const SizedBox(height: 6),
-            const Text('First photo is the cover.', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
+            Text('First photo is the cover.', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
             const SizedBox(height: 16),
             TextFormField(
               controller: _name,
@@ -293,7 +293,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
               ],
             ),
             if (_variants.isNotEmpty)
-              const Padding(
+              Padding(
                 padding: EdgeInsets.only(top: 4),
                 child: Text('Options with their own price override this.', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
               ),
@@ -320,7 +320,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
               ],
             ),
             if (_variants.isEmpty)
-              const Padding(
+              Padding(
                 padding: EdgeInsets.only(top: 4),
                 child: Text('Optional. Sizes, colours, compounds. Each option can have its own price and photo.', style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
               ),
@@ -359,7 +359,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                   controller: g.name,
                   maxLength: 30,
                   textCapitalization: TextCapitalization.sentences,
-                  decoration: const InputDecoration(labelText: 'Group', hintText: 'Size, Colour, Compound…', counterText: '', filled: true, fillColor: Colors.white),
+                  decoration: InputDecoration(labelText: 'Group', hintText: 'Size, Colour, Compound…', counterText: '', filled: true, fillColor: AppColors.surface),
                   validator: (v) => (v ?? '').trim().isEmpty ? 'Name this group' : null,
                 ),
               ),
@@ -402,7 +402,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
               height: 48,
               decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(AppRadius.sm), border: Border.all(color: AppColors.border)),
               clipBehavior: Clip.antiAlias,
-              child: o.photoSrc == null ? const Icon(AppIcons.cameraPlus, size: 18, color: AppColors.textSecondary) : Image(image: imageFor(o.photoSrc!), fit: BoxFit.cover),
+              child: o.photoSrc == null ? Icon(AppIcons.cameraPlus, size: 18, color: AppColors.textSecondary) : Image(image: imageFor(o.photoSrc!), fit: BoxFit.cover),
             ),
           ),
           const SizedBox(width: 8),
@@ -441,7 +441,7 @@ class _Label extends StatelessWidget {
   const _Label(this.text);
   final String text;
   @override
-  Widget build(BuildContext context) => Text(text, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, letterSpacing: 1, color: AppColors.textSecondary));
+  Widget build(BuildContext context) => Text(text, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, letterSpacing: 1, color: AppColors.textSecondary));
 }
 
 class _PhotoTile extends StatelessWidget {

@@ -56,7 +56,7 @@ class _VisibilitySheetState extends ConsumerState<_VisibilitySheet> {
           children: [
             const Text('Who can see my car', style: TextStyle(fontFamily: AppFonts.display, fontSize: 26, fontWeight: FontWeight.w700, height: 1)),
             const SizedBox(height: 4),
-            const Text('Only while the app is open. Change it any time.', style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
+            Text('Only while the app is open. Change it any time.', style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
             const SizedBox(height: 14),
             _Option(
               icon: AppIcons.users,
@@ -113,7 +113,7 @@ class _VisibilitySheetState extends ConsumerState<_VisibilitySheet> {
                           ],
                         ),
                         const SizedBox(height: 6),
-                        Text(nearbyCount == 0 ? 'Nobody nearby right now.' : '$nearbyCount ${nearbyCount == 1 ? 'person' : 'people'} around you now.', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                        Text(nearbyCount == 0 ? 'Nobody nearby right now.' : '$nearbyCount ${nearbyCount == 1 ? 'person' : 'people'} around you now.', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                       ],
                     ),
             ),
@@ -171,7 +171,7 @@ class _Option extends StatelessWidget {
                   children: [
                     Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
                     const SizedBox(height: 2),
-                    Text(subtitle, style: const TextStyle(fontSize: 12, height: 1.35, color: AppColors.textSecondary)),
+                    Text(subtitle, style: TextStyle(fontSize: 12, height: 1.35, color: AppColors.textSecondary)),
                     ?child,
                   ],
                 ),

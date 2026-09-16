@@ -119,7 +119,7 @@ class _Group extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.fromLTRB(20, 10, 20, 2),
-        child: Text(text, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textSecondary)),
+        child: Text(text, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textSecondary)),
       );
 }
 
@@ -135,7 +135,7 @@ class _Item extends StatelessWidget {
         visualDensity: const VisualDensity(vertical: -1),
         leading: Icon(icon, color: danger ? AppColors.danger : AppColors.textPrimary),
         title: Text(label, style: TextStyle(fontWeight: FontWeight.w600, color: danger ? AppColors.danger : AppColors.textPrimary)),
-        trailing: danger ? null : const Icon(AppIcons.caretRight, size: 16, color: AppColors.textMuted),
+        trailing: danger ? null : Icon(AppIcons.caretRight, size: 16, color: AppColors.textMuted),
         onTap: () => Navigator.pop(context, value),
       );
 }

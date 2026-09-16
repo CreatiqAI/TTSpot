@@ -64,7 +64,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
             const SizedBox(height: 16),
             const Text('Choose a new password', textAlign: TextAlign.center, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
             const SizedBox(height: 6),
-            const Text('At least 6 characters. You\'ll stay signed in on this phone.', textAlign: TextAlign.center, style: TextStyle(color: AppColors.textSecondary)),
+            Text('At least 6 characters. You\'ll stay signed in on this phone.', textAlign: TextAlign.center, style: TextStyle(color: AppColors.textSecondary)),
             const SizedBox(height: 24),
             TextFormField(
               controller: _p1,

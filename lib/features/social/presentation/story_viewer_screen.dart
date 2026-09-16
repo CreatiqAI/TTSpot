@@ -13,6 +13,7 @@ import '../application/social_providers.dart';
 import '../domain/post.dart';
 import 'moment_sheets.dart';
 import 'share_sheet.dart';
+import 'widgets/story_video.dart';
 
 class StoryViewerArgs {
   const StoryViewerArgs({required this.groups, required this.initialGroup, this.initialIndex = 0});
@@ -42,6 +43,8 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> with Sing
   late int _group;
   int _index = 0;
   DateTime? _downAt;
+  /// True while the finger is down or a sheet is up (videos pause too).
+  bool _paused = false;
 
   StoryGroup get _g => widget.args.groups[_group];
   Story get _story => _g.stories[_index];
@@ -83,11 +86,26 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> with Sing
 
   void _start() {
     ref.read(socialActionsProvider).markStoryViewed(_story.id).catchError((_) {});
+    _paused = false;
     _ctrl
       ..stop()
       ..reset()
-      ..forward();
+      ..duration = _duration;
+    // Videos start the bar once they know how long they are (see StoryVideo.onReady).
+    if (!_story.isVideo) _ctrl.forward();
     if (mounted) _precacheAround();
+  }
+
+  void _pause() {
+    _paused = true;
+    _ctrl.stop();
+    if (mounted) setState(() {});
+  }
+
+  void _resume() {
+    _paused = false;
+    _ctrl.forward();
+    if (mounted) setState(() {});
   }
 
   void _next() {
@@ -130,7 +148,7 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> with Sing
   // ---- touch: down = pause now; up within 250 ms = tap; later = resume.
   void _down(TapDownDetails d) {
     _downAt = DateTime.now();
-    _ctrl.stop();
+    _pause();
   }
 
   void _up(TapUpDetails d) {
@@ -139,13 +157,13 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> with Sing
     if (held < const Duration(milliseconds: 250)) {
       d.localPosition.dx < MediaQuery.sizeOf(context).width / 3 ? _prev() : _next();
     } else {
-      _ctrl.forward();
+      _resume();
     }
   }
 
   void _cancel() {
     _downAt = null;
-    _ctrl.forward();
+    _resume();
   }
 
   Future<void> _menu() async {
@@ -198,9 +216,9 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> with Sing
 
   /// Pause while a sheet is up, resume when it closes.
   Future<void> _hold(Future<void> Function() open) async {
-    _ctrl.stop();
+    _pause();
     await open();
-    if (mounted) _ctrl.forward();
+    if (mounted) _resume();
   }
 
   Future<bool> _confirm(String title, String? body) async {
@@ -238,13 +256,30 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> with Sing
           child: Stack(
             fit: StackFit.expand,
             children: [
-              Image.network(
-                s.photoUrl,
-                fit: BoxFit.contain,
-                gaplessPlayback: true,
-                loadingBuilder: (_, child, prog) => prog == null ? child : const Center(child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
-                errorBuilder: (_, _, _) => const Center(child: Icon(AppIcons.imageBroken, color: Colors.white54, size: 48)),
-              ),
+              if (s.isVideo)
+                StoryVideo(
+                  key: ValueKey('v:${s.id}'),
+                  url: s.videoUrl!,
+                  posterUrl: s.photoUrl,
+                  paused: _paused,
+                  onReady: (d) {
+                    if (!mounted || _story.id != s.id) return;
+                    _ctrl
+                      ..duration = d < const Duration(seconds: 1) ? const Duration(seconds: 1) : d
+                      ..reset();
+                    if (!_paused) _ctrl.forward();
+                  },
+                  // The progress bar (sized to the video) advances the story; nothing to do here.
+                  onEnded: () {},
+                )
+              else
+                Image.network(
+                  s.photoUrl,
+                  fit: BoxFit.contain,
+                  gaplessPlayback: true,
+                  loadingBuilder: (_, child, prog) => prog == null ? child : const Center(child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
+                  errorBuilder: (_, _, _) => const Center(child: Icon(AppIcons.imageBroken, color: Colors.white54, size: 48)),
+                ),
               // top fade so the bars and name read on bright photos
               const Positioned(
                 left: 0,

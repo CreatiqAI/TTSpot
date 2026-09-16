@@ -91,7 +91,7 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                           loading: () => const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator(strokeWidth: 2))),
                           error: (e, _) => Text(friendlyError(e)),
                           data: (list) => list.isEmpty
-                              ? const Text('No comments yet.', style: TextStyle(color: AppColors.textSecondary))
+                              ? Text('No comments yet.', style: TextStyle(color: AppColors.textSecondary))
                               : Column(children: [for (final c in list) _CommentTile(comment: c, isMine: c.userId == me, postId: widget.postId)]),
                         ),
                       ),
@@ -100,7 +100,7 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                 ),
               ),
               Container(
-                decoration: const BoxDecoration(color: AppColors.bg, border: Border(top: BorderSide(color: AppColors.border, width: 0.5))),
+                decoration: BoxDecoration(color: AppColors.bg, border: Border(top: BorderSide(color: AppColors.border, width: 0.5))),
                 child: SafeArea(
                   top: false,
                   child: Padding(
@@ -203,12 +203,12 @@ class _CommentTile extends ConsumerWidget {
                 children: [
                   RichText(
                     text: TextSpan(
-                      style: const TextStyle(fontSize: 14, color: AppColors.textPrimary, height: 1.4),
+                      style: TextStyle(fontSize: 14, color: AppColors.textPrimary, height: 1.4),
                       children: [TextSpan(text: '$name  ', style: const TextStyle(fontWeight: FontWeight.w600)), TextSpan(text: comment.body)],
                     ),
                   ),
                   const SizedBox(height: 3),
-                  Text(timeAgo(comment.createdAt), style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                  Text(timeAgo(comment.createdAt), style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                 ],
               ),
             ),

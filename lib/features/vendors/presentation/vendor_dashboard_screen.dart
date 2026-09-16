@@ -96,7 +96,7 @@ class _Body extends ConsumerWidget {
                 ClipRRect(
                   borderRadius: BorderRadius.circular(AppRadius.lg),
                   child: vendor.logoUrl == null
-                      ? Container(width: 64, height: 64, color: AppColors.surfaceGray, child: const Icon(AppIcons.storefront, color: AppColors.textSecondary, size: 28))
+                      ? Container(width: 64, height: 64, color: AppColors.surfaceGray, child: Icon(AppIcons.storefront, color: AppColors.textSecondary, size: 28))
                       : Image.network(vendor.logoUrl!, width: 64, height: 64, fit: BoxFit.cover),
                 ),
                 const SizedBox(width: 12),
@@ -106,7 +106,7 @@ class _Body extends ConsumerWidget {
                     children: [
                       Text(vendor.name, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, height: 1.1)),
                       const SizedBox(height: 3),
-                      Text(businessTypeLabel(vendor.type), style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+                      Text(businessTypeLabel(vendor.type), style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
                       if (status != null) ...[
                         const SizedBox(height: 4),
                         Row(
@@ -153,13 +153,13 @@ class _Body extends ConsumerWidget {
                   Row(
                     children: [
                       const Expanded(child: Text('Finish setting up', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15))),
-                      Text('$done of ${steps.length}', style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppColors.textSecondary)),
+                      Text('$done of ${steps.length}', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppColors.textSecondary)),
                     ],
                   ),
                   const SizedBox(height: 6),
                   ClipRRect(
                     borderRadius: BorderRadius.circular(999),
-                    child: LinearProgressIndicator(value: done / steps.length, minHeight: 5, backgroundColor: Colors.white, color: AppColors.brand),
+                    child: LinearProgressIndicator(value: done / steps.length, minHeight: 5, backgroundColor: AppColors.surface, color: AppColors.brand),
                   ),
                   const SizedBox(height: 4),
                   for (final s in steps.where((s) => !s.done))
@@ -169,7 +169,7 @@ class _Body extends ConsumerWidget {
                       leading: const Icon(AppIcons.plusCircle, size: 20, color: AppColors.brand),
                       title: Text(s.title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
                       subtitle: Text(s.subtitle, style: const TextStyle(fontSize: 12)),
-                      trailing: const Icon(AppIcons.caretRight, size: 14, color: AppColors.textMuted),
+                      trailing: Icon(AppIcons.caretRight, size: 14, color: AppColors.textMuted),
                       onTap: s.onTap,
                     ),
                 ],
@@ -208,14 +208,14 @@ class _Body extends ConsumerWidget {
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
             child: Text(
               '$liveVouchers live voucher${liveVouchers == 1 ? '' : 's'} · ${products.where((p) => p.active).length} product${products.length == 1 ? '' : 's'} on your page. Commission is $ratePct% of each bill you enter at redemption, settled monthly.',
-              style: const TextStyle(fontSize: 12, color: AppColors.textMuted, height: 1.4),
+              style: TextStyle(fontSize: 12, color: AppColors.textMuted, height: 1.4),
             ),
           ),
 
           // ---- recent redemptions
           const Padding(padding: EdgeInsets.fromLTRB(16, 22, 16, 6), child: _SectionTitle('RECENT REDEMPTIONS')),
           if (redemptions.isEmpty)
-            const Padding(
+            Padding(
               padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
               child: Text('Nothing redeemed yet. Tap Scan voucher when a member shows their QR.', style: TextStyle(color: AppColors.textSecondary)),
             ),
@@ -224,13 +224,13 @@ class _Body extends ConsumerWidget {
               dense: true,
               leading: UserAvatar(url: r.avatarUrl, name: r.username, size: 36),
               title: Text('@${r.username ?? ''} · ${r.title}', maxLines: 1, overflow: TextOverflow.ellipsis),
-              subtitle: Text('${timeAgo(r.createdAt)}${r.note == null ? '' : ' · ${r.note}'}', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+              subtitle: Text('${timeAgo(r.createdAt)}${r.note == null ? '' : ' · ${r.note}'}', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
               trailing: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(rm(r.billAmount), style: const TextStyle(fontWeight: FontWeight.w700)),
-                  Text('fee ${rm(r.commissionAmount)}', style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                  Text('fee ${rm(r.commissionAmount)}', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
                 ],
               ),
             ),
@@ -316,5 +316,5 @@ class _SectionTitle extends StatelessWidget {
   const _SectionTitle(this.text);
   final String text;
   @override
-  Widget build(BuildContext context) => Text(text, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textSecondary));
+  Widget build(BuildContext context) => Text(text, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textSecondary));
 }

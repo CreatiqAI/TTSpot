@@ -54,7 +54,7 @@ class MyMomentsScreen extends ConsumerWidget {
                       Text('$live live', style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.brand)),
                     ],
                     const Spacer(),
-                    const Text('Only you see this', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                    Text('Only you see this', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                   ],
                 ),
               ),
@@ -73,7 +73,7 @@ class MyMomentsScreen extends ConsumerWidget {
                       child: Stack(
                         fit: StackFit.expand,
                         children: [
-                          Image.network(m.photoUrl, fit: BoxFit.cover, errorBuilder: (_, _, _) => const ColoredBox(color: AppColors.surfaceGray)),
+                          Image.network(m.photoUrl, fit: BoxFit.cover, errorBuilder: (_, _, _) => ColoredBox(color: AppColors.surfaceGray)),
                           if (m.isLive)
                             Positioned(left: 6, top: 6, child: Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: AppColors.brand, borderRadius: BorderRadius.circular(6)), child: const Text('LIVE', style: TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.w800, letterSpacing: 0.5)))),
                           Positioned(

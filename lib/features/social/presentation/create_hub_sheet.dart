@@ -138,12 +138,12 @@ class _Row extends StatelessWidget {
         leading: Container(
           width: 42,
           height: 42,
-          decoration: const BoxDecoration(color: AppColors.surfaceGray, shape: BoxShape.circle),
+          decoration: BoxDecoration(color: AppColors.surfaceGray, shape: BoxShape.circle),
           child: Icon(icon, size: 20, color: AppColors.textPrimary),
         ),
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-        subtitle: Text(subtitle, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-        trailing: const Icon(AppIcons.caretRight, size: 16, color: AppColors.textMuted),
+        subtitle: Text(subtitle, style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+        trailing: Icon(AppIcons.caretRight, size: 16, color: AppColors.textMuted),
         onTap: onTap,
       );
 }

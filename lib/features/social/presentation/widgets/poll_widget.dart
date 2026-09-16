@@ -48,7 +48,7 @@ class PollWidget extends ConsumerWidget {
         ],
         Text(
           '${p.voteCount} ${p.voteCount == 1 ? 'vote' : 'votes'}${p.pollClosed ? ' · Final' : p.pollEndsAt == null ? '' : ' · ${_left(p.pollEndsAt!)} left'}',
-          style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
+          style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
         ),
       ],
     );

@@ -63,11 +63,11 @@ class SettingsScreen extends ConsumerWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(profile?.displayName ?? '@${profile?.username ?? ''}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-                            Text('@${profile?.username ?? ''} · $email', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
+                            Text('@${profile?.username ?? ''} · $email', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
                           ],
                         ),
                       ),
-                      const Icon(AppIcons.caretRight, size: 18, color: AppColors.textMuted),
+                      Icon(AppIcons.caretRight, size: 18, color: AppColors.textMuted),
                     ],
                   ),
                 ),
@@ -83,14 +83,17 @@ class SettingsScreen extends ConsumerWidget {
           _Toggle(icon: AppIcons.gift, title: 'Rewards', subtitle: 'Points earned, vouchers, badges', value: s.notifRewards, onChanged: (v) => set({'notif_rewards': v})),
           const _Note('Push notifications arrive once the app is published. These choices are saved now.'),
 
-          const _Head('MAP'),
+          const _Head('APPEARANCE'),
           _Choice(
-            icon: AppIcons.mapTrifold,
-            title: 'Map theme',
-            value: s.mapTheme,
-            options: const [('auto', 'Auto · light by day, dark after 7 pm'), ('light', 'Always light'), ('dark', 'Always dark')],
-            onChanged: (v) => set({'map_theme': v}),
+            icon: AppIcons.moon,
+            title: 'Theme',
+            value: s.theme,
+            options: const [('auto', 'Auto · light 7 am to 7 pm, dark at night'), ('light', 'Always light'), ('dark', 'Always dark')],
+            onChanged: (v) => set({'theme': v, 'map_theme': v}),
           ),
+          const _Note('The whole app follows this, map included.'),
+
+          const _Head('MAP'),
           _Toggle(icon: AppIcons.car, title: 'Show my car colour', subtitle: 'Friends see your car in its real colour', value: s.showCarColor, onChanged: (v) => set({'show_car_color': v})),
           _Toggle(icon: AppIcons.checkCircle, title: 'Auto check-in', subtitle: 'Check in by itself when you arrive at a meet you joined', value: s.autoCheckin, onChanged: (v) => set({'auto_checkin': v})),
           _Choice(icon: AppIcons.gauge, title: 'Distances', value: s.units, options: const [('km', 'Kilometres'), ('mi', 'Miles')], onChanged: (v) => set({'units': v})),
@@ -177,7 +180,7 @@ class SettingsScreen extends ConsumerWidget {
           children: [
             const Text('Phone number', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
             const SizedBox(height: 4),
-            const Text('Only you and TT Spot staff can see it. Malaysian numbers can skip the +60.', style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
+            Text('Only you and TT Spot staff can see it. Malaysian numbers can skip the +60.', style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
             const SizedBox(height: 14),
             TextField(
               controller: ctrl,
@@ -217,7 +220,7 @@ class SettingsScreen extends ConsumerWidget {
             children: [
               const Text('Sign-in methods', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
               const SizedBox(height: 4),
-              const Text('Link Google so you can log in with one tap. You always keep at least one method.', style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
+              Text('Link Google so you can log in with one tap. You always keep at least one method.', style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
               const SizedBox(height: 12),
               _Method(
                 icon: AppIcons.envelope,
@@ -267,7 +270,7 @@ class SettingsScreen extends ConsumerWidget {
           children: [
             const Text('Set a password', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
             const SizedBox(height: 4),
-            const Text('At least 6 characters. You can then log in with your email as well as Google.', style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
+            Text('At least 6 characters. You can then log in with your email as well as Google.', style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
             const SizedBox(height: 14),
             TextField(controller: ctrl, autofocus: true, obscureText: true, decoration: const InputDecoration(hintText: 'New password'), onSubmitted: (v) => Navigator.pop(ctx, v)),
             const SizedBox(height: 14),
@@ -327,7 +330,7 @@ class BlockedScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(leading: IconButton(icon: const Icon(AppIcons.arrowLeft), onPressed: () => context.pop()), title: const Text('Blocked people')),
       body: ids.isEmpty
-          ? const Center(child: Padding(padding: EdgeInsets.all(32), child: Text('Nobody blocked. Block someone from their profile\'s ⋯ menu.', textAlign: TextAlign.center, style: TextStyle(color: AppColors.textSecondary))))
+          ? Center(child: Padding(padding: EdgeInsets.all(32), child: Text('Nobody blocked. Block someone from their profile\'s ⋯ menu.', textAlign: TextAlign.center, style: TextStyle(color: AppColors.textSecondary))))
           : ListView(
               children: [
                 for (final id in ids)
@@ -337,7 +340,7 @@ class BlockedScreen extends ConsumerWidget {
                       return ListTile(
                         leading: UserAvatar(url: p?.avatarUrl, name: p?.displayName ?? p?.username, size: 42),
                         title: Text(p?.displayName ?? '@${p?.username ?? '…'}', style: const TextStyle(fontWeight: FontWeight.w600)),
-                        subtitle: Text('@${p?.username ?? ''}', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                        subtitle: Text('@${p?.username ?? ''}', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                         trailing: TextButton(
                           onPressed: me == null
                               ? null
@@ -377,7 +380,7 @@ class LegalScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
         children: [
-          Text('Last updated $kLegalUpdated', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+          Text('Last updated $kLegalUpdated', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
           const SizedBox(height: 8),
           for (final line in blocks)
             if (line.startsWith('# '))
@@ -412,7 +415,7 @@ class _Head extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.fromLTRB(20, 22, 20, 6),
-        child: Text(text, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, letterSpacing: 1, color: AppColors.textSecondary)),
+        child: Text(text, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, letterSpacing: 1, color: AppColors.textSecondary)),
       );
 }
 
@@ -422,7 +425,7 @@ class _Note extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
-        child: Text(text, style: const TextStyle(fontSize: 12, color: AppColors.textMuted, height: 1.35)),
+        child: Text(text, style: TextStyle(fontSize: 12, color: AppColors.textMuted, height: 1.35)),
       );
 }
 
@@ -440,7 +443,7 @@ class _Toggle extends StatelessWidget {
         activeTrackColor: AppColors.brand,
         secondary: Icon(icon, color: AppColors.textPrimary),
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14.5)),
-        subtitle: subtitle == null ? null : Text(subtitle!, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+        subtitle: subtitle == null ? null : Text(subtitle!, style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
       );
 }
 
@@ -465,7 +468,7 @@ class _Method extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14.5)),
-                  Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                  Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                 ],
               ),
             ),
@@ -489,8 +492,8 @@ class _Row extends StatelessWidget {
   Widget build(BuildContext context) => ListTile(
         leading: Icon(icon, color: danger ? AppColors.danger : AppColors.textPrimary),
         title: Text(title, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14.5, color: danger ? AppColors.danger : AppColors.textPrimary)),
-        subtitle: subtitle == null ? null : Text(subtitle!, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-        trailing: danger ? null : const Icon(AppIcons.caretRight, size: 16, color: AppColors.textMuted),
+        subtitle: subtitle == null ? null : Text(subtitle!, style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+        trailing: danger ? null : Icon(AppIcons.caretRight, size: 16, color: AppColors.textMuted),
         onTap: onTap,
       );
 }
@@ -509,8 +512,8 @@ class _Choice extends StatelessWidget {
     return ListTile(
       leading: Icon(icon, color: AppColors.textPrimary),
       title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14.5)),
-      subtitle: Text(label, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-      trailing: const Icon(AppIcons.caretRight, size: 16, color: AppColors.textMuted),
+      subtitle: Text(label, style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+      trailing: Icon(AppIcons.caretRight, size: 16, color: AppColors.textMuted),
       onTap: () async {
         final picked = await showModalBottomSheet<String>(
           context: context,

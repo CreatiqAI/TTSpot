@@ -50,7 +50,7 @@ class _ChatComposerState extends State<ChatComposer> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(color: AppColors.bg, border: Border(top: BorderSide(color: AppColors.border, width: 0.5))),
+      decoration: BoxDecoration(color: AppColors.bg, border: Border(top: BorderSide(color: AppColors.border, width: 0.5))),
       child: SafeArea(
         top: false,
         child: Padding(
@@ -101,7 +101,7 @@ class _ChatComposerState extends State<ChatComposer> {
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(22), borderSide: BorderSide.none),
                   enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(22), borderSide: BorderSide.none),
-                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(22), borderSide: const BorderSide(color: AppColors.textMuted)),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(22), borderSide: BorderSide(color: AppColors.textMuted)),
                 ),
                 onSubmitted: (_) => widget.onSend(),
               ),
@@ -245,7 +245,7 @@ Future<ComposerAction?> showComposerSheet(BuildContext context) {
                       ),
                     ),
                     const SizedBox(height: 6),
-                    Text(t.$3, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
+                    Text(t.$3, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
                   ],
                 ),
               ),

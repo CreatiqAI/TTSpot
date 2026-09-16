@@ -257,7 +257,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                           border: Border.all(color: AppColors.border),
                           image: _pollPhotos[i] == null ? null : DecorationImage(image: FileImage(File(_pollPhotos[i]!.path)), fit: BoxFit.cover),
                         ),
-                        child: _pollPhotos[i] == null ? const Icon(AppIcons.cameraPlus, size: 18, color: AppColors.textSecondary) : null,
+                        child: _pollPhotos[i] == null ? Icon(AppIcons.cameraPlus, size: 18, color: AppColors.textSecondary) : null,
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -405,7 +405,7 @@ class _Label extends StatelessWidget {
   final String text;
   @override
   Widget build(BuildContext context) =>
-      Text(text, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textSecondary));
+      Text(text, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textSecondary));
 }
 
 class _PhotoStrip extends StatelessWidget {
@@ -423,7 +423,7 @@ class _PhotoStrip extends StatelessWidget {
           aspectRatio: 4 / 3,
           child: Container(
             decoration: BoxDecoration(color: AppColors.surfaceGray, borderRadius: BorderRadius.circular(AppRadius.md)),
-            child: const Column(
+            child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(AppIcons.cameraPlus, size: 36, color: AppColors.textSecondary),
@@ -472,14 +472,14 @@ class _PhotoStrip extends StatelessWidget {
                     width: 72,
                     height: 72,
                     decoration: BoxDecoration(color: AppColors.surfaceRaised, borderRadius: BorderRadius.circular(8), border: Border.all(color: AppColors.border)),
-                    child: const Icon(AppIcons.plus, color: AppColors.textSecondary),
+                    child: Icon(AppIcons.plus, color: AppColors.textSecondary),
                   ),
                 ),
             ],
           ),
         ),
         const SizedBox(height: 4),
-        Text('${photos.length} of 10 · first photo is the cover', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+        Text('${photos.length} of 10 · first photo is the cover', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
       ],
     );
   }
@@ -562,7 +562,7 @@ class _TagRow extends ConsumerWidget {
           shrinkWrap: true,
           children: [
             Padding(padding: const EdgeInsets.fromLTRB(16, 0, 16, 8), child: Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700))),
-            if (items.isEmpty) const Padding(padding: EdgeInsets.all(16), child: Text('Nothing to tag yet.', style: TextStyle(color: AppColors.textSecondary))),
+            if (items.isEmpty) Padding(padding: EdgeInsets.all(16), child: Text('Nothing to tag yet.', style: TextStyle(color: AppColors.textSecondary))),
             for (final it in items) ListTile(title: Text(label(it)), onTap: () => Navigator.pop(ctx, it)),
             ListTile(leading: const Icon(AppIcons.x), title: const Text('No tag'), onTap: () => Navigator.pop(ctx, const _None())),
           ],

@@ -231,7 +231,7 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
                       margin: const EdgeInsets.only(bottom: 14),
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(color: AppColors.surfaceGray, borderRadius: BorderRadius.circular(AppRadius.md)),
-                      child: const Row(
+                      child: Row(
                         children: [
                           Icon(AppIcons.coffee, size: 20),
                           SizedBox(width: 10),
@@ -442,7 +442,7 @@ class _Label extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Text(
         text,
-        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textSecondary),
+        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textSecondary),
       );
 }
 
@@ -458,7 +458,7 @@ class _CoverPicker extends StatelessWidget {
       child: AspectRatio(
         aspectRatio: 16 / 9,
         child: file == null
-            ? const ColoredBox(
+            ? ColoredBox(
                 color: AppColors.surfaceGray,
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -632,13 +632,13 @@ class _PinMapBodyState extends State<_PinMapBody> {
           right: 10,
           top: 10,
           child: Material(
-            color: Colors.white,
+            color: AppColors.surface,
             shape: const CircleBorder(),
             elevation: 3,
             child: InkWell(
               onTap: widget.onExpand,
               customBorder: const CircleBorder(),
-              child: const SizedBox(width: 40, height: 40, child: Icon(AppIcons.arrowsOut, size: 20, color: AppColors.textPrimary)),
+              child: SizedBox(width: 40, height: 40, child: Icon(AppIcons.arrowsOut, size: 20, color: AppColors.textPrimary)),
             ),
           ),
         ),
@@ -646,13 +646,13 @@ class _PinMapBodyState extends State<_PinMapBody> {
           right: 10,
           bottom: 10,
           child: Material(
-            color: Colors.white,
+            color: AppColors.surface,
             shape: const CircleBorder(),
             elevation: 3,
             child: InkWell(
               onTap: widget.onMyLocation,
               customBorder: const CircleBorder(),
-              child: const SizedBox(width: 40, height: 40, child: Icon(AppIcons.gpsFix, size: 20, color: AppColors.textPrimary)),
+              child: SizedBox(width: 40, height: 40, child: Icon(AppIcons.gpsFix, size: 20, color: AppColors.textPrimary)),
             ),
           ),
         ),

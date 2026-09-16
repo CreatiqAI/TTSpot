@@ -159,7 +159,7 @@ class _Row extends ConsumerWidget {
                 width: 44,
                 height: 44,
                 alignment: Alignment.center,
-                decoration: const BoxDecoration(color: AppColors.surfaceGray, shape: BoxShape.circle),
+                decoration: BoxDecoration(color: AppColors.surfaceGray, shape: BoxShape.circle),
                 child: ArtIcon.emoji(
                   switch (n.type) {
                     NotificationType.badge => badge?.emoji ?? '🏅',
@@ -183,11 +183,11 @@ class _Row extends ConsumerWidget {
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
                 text: TextSpan(
-                  style: const TextStyle(fontSize: 14, color: AppColors.textPrimary, height: 1.35),
+                  style: TextStyle(fontSize: 14, color: AppColors.textPrimary, height: 1.35),
                   children: [
                     if (!systemMessage) TextSpan(text: '$actor ', style: const TextStyle(fontWeight: FontWeight.w600)),
                     TextSpan(text: text),
-                    TextSpan(text: '  ${timeAgo(n.createdAt)}', style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+                    TextSpan(text: '  ${timeAgo(n.createdAt)}', style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
                   ],
                 ),
               ),

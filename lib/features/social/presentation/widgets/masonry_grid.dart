@@ -91,8 +91,8 @@ class PostTile extends StatelessWidget {
                           Image.network(
                             p.cover!,
                             fit: BoxFit.cover,
-                            loadingBuilder: (_, child, prog) => prog == null ? child : const ColoredBox(color: AppColors.surfaceGray),
-                            errorBuilder: (_, _, _) => const ColoredBox(color: AppColors.surfaceGray),
+                            loadingBuilder: (_, child, prog) => prog == null ? child : ColoredBox(color: AppColors.surfaceGray),
+                            errorBuilder: (_, _, _) => ColoredBox(color: AppColors.surfaceGray),
                           ),
                           if (p.kind != PostKind.post)
                             Positioned(
@@ -125,11 +125,11 @@ class PostTile extends StatelessWidget {
                         UserAvatar(url: face?.avatarUrl ?? p.author?.avatarUrl, name: face?.name ?? p.author?.displayName ?? p.author?.username, size: 18),
                         const SizedBox(width: 6),
                         Expanded(
-                          child: Text(face?.name ?? p.author?.username ?? '', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                          child: Text(face?.name ?? p.author?.username ?? '', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                         ),
                         Icon(feed.likedByMe ? AppIcons.heartFill : AppIcons.heart, size: 14, color: feed.likedByMe ? AppColors.danger : AppColors.textSecondary),
                         const SizedBox(width: 3),
-                        Text('${p.likeCount}', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                        Text('${p.likeCount}', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                       ],
                     ),
                   ],

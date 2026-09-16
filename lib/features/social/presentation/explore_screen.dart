@@ -40,7 +40,7 @@ class ExploreScreen extends ConsumerWidget {
             IconButton(tooltip: 'Create', icon: const Icon(AppIcons.plusCircle, size: 26), onPressed: () => showCreateHub(context, ref)),
             const SizedBox(width: 4),
           ],
-          bottom: const TabBar(
+          bottom: TabBar(
             labelColor: AppColors.textPrimary,
             unselectedLabelColor: AppColors.textSecondary,
             indicatorColor: AppColors.textPrimary,
@@ -204,7 +204,7 @@ class _SpotsHeader extends StatelessWidget {
                       fit: StackFit.expand,
                       children: [
                         if (p.coverUrl != null)
-                          Image.network(p.coverUrl!, fit: BoxFit.cover, errorBuilder: (_, _, _) => const ColoredBox(color: AppColors.surfaceGray))
+                          Image.network(p.coverUrl!, fit: BoxFit.cover, errorBuilder: (_, _, _) => ColoredBox(color: AppColors.surfaceGray))
                         else
                           ColoredBox(color: AppColors.surfaceGray, child: Center(child: ArtIcon(p.kindArt, size: 64))),
                         const DecoratedBox(
@@ -246,7 +246,7 @@ class _SpotsHeader extends StatelessWidget {
             },
           ),
         ),
-        const Padding(
+        Padding(
           padding: EdgeInsets.fromLTRB(16, 18, 16, 4),
           child: Text('ALL SPOTS', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textSecondary)),
         ),

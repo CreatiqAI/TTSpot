@@ -7,13 +7,17 @@ import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/dates.dart';
 import '../../../core/utils/friendly_error.dart';
+import '../../../core/widgets/glass_tab_bar.dart';
+import '../../../core/widgets/user_avatar.dart';
 import '../../accounts/presentation/account_switcher.dart';
 import '../../accounts/presentation/account_title.dart';
+import '../../vendors/domain/vendor.dart' show rm;
 import '../application/admin_providers.dart';
+import 'widgets/admin_widgets.dart';
 
-/// Admin · Dashboard: the numbers, what needs a decision, platform settings.
-/// Same light theme as the rest of the app. Members and Queues have their
-/// own tabs.
+/// Admin · Overview. Right now (on the map, live meets, check-ins today),
+/// what needs a decision, the last 7 days as small trends, community and
+/// money totals, top spots, newest members, platform settings.
 class AdminDashboardScreen extends ConsumerWidget {
   const AdminDashboardScreen({super.key, this.embedded = false});
   final bool embedded;
@@ -22,8 +26,17 @@ class AdminDashboardScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final stats = ref.watch(adminStatsProvider);
     final settings = ref.watch(platformSettingsProvider).value ?? const {};
-    final reports = ref.watch(adminReportsProvider).value ?? const <AdminReport>[];
-    final open = reports.where((r) => r.resolvedAt == null).toList();
+    final users = ref.watch(adminUsersProvider).value ?? const <AdminUser>[];
+    final newest = users.where((u) => u.username.isNotEmpty).toList()..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+    Future<void> refresh() async {
+      ref.invalidate(adminStatsProvider);
+      ref.invalidate(adminReportsProvider);
+      ref.invalidate(adminUsersProvider);
+      ref.invalidate(platformSettingsProvider);
+      ref.invalidate(adminSuggestionsProvider);
+      await ref.read(adminStatsProvider.future);
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -32,76 +45,125 @@ class AdminDashboardScreen extends ConsumerWidget {
         titleSpacing: embedded ? 16 : null,
         leading: embedded ? null : IconButton(icon: const Icon(AppIcons.arrowLeft), onPressed: () => context.pop()),
         title: embedded ? AccountTitle(text: 'TT Spot Admin', onTap: () => showAccountSwitcher(context, ref)) : const Text('TT Spot Admin'),
-        actions: [
-          IconButton(
-            tooltip: 'Refresh',
-            icon: const Icon(AppIcons.arrowsClockwise),
-            onPressed: () {
-              ref.invalidate(adminStatsProvider);
-              ref.invalidate(adminReportsProvider);
-              ref.invalidate(adminUsersProvider);
-              ref.invalidate(platformSettingsProvider);
-              ref.invalidate(adminSuggestionsProvider);
-            },
-          ),
-        ],
+        actions: [IconButton(tooltip: 'Refresh', icon: const Icon(AppIcons.arrowsClockwise), onPressed: refresh)],
       ),
       body: stats.when(
         loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
         error: (e, _) => Center(child: Text(friendlyError(e))),
-        data: (s) => ListView(
-          padding: const EdgeInsets.only(bottom: 40),
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-              child: GridView.count(
-                crossAxisCount: 3,
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                mainAxisSpacing: 8,
-                crossAxisSpacing: 8,
-                childAspectRatio: 1.15,
-                children: [
-                  _Stat('Members', s['users'], sub: '+${s['users_7d']} this week'),
-                  _Stat('On the map', s['on_map_now'], accent: true),
-                  _Stat('Live meets', s['meets_live']),
-                  _Stat('Upcoming', s['meets_upcoming']),
-                  _Stat('Check-ins today', s['checkins_today']),
-                  _Stat('Posts · 7d', s['posts_7d']),
+        data: (s) {
+          final pending = s['pending_verifications'] + s['pending_partners'] + s['pending_suggestions'] + s['open_reports'];
+          final topPlaces = s.rows('top_places');
+          return RefreshIndicator(
+            onRefresh: refresh,
+            child: ListView(
+              padding: EdgeInsets.only(bottom: GlassTabBar.height + 40),
+              children: [
+                // ---- right now
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
+                  child: Text(formatDate(DateTime.now()), style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
+                ),
+                const AdminHead('RIGHT NOW'),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    children: [
+                      AdminStat(label: 'On the map', value: '${s['on_map_now']}', accent: true, onTap: () => context.go(Routes.map)),
+                      const SizedBox(width: 8),
+                      AdminStat(label: 'Live meets', value: '${s['meets_live']}', delta: '${s['tt_today']} TT today'),
+                      const SizedBox(width: 8),
+                      AdminStat(label: 'Check-ins today', value: '${s['checkins_today']}'),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    children: [
+                      AdminStat(label: 'Members', value: '${s['users']}', delta: s['users_today'] > 0 ? '+${s['users_today']} today' : '+${s['users_7d']} this week', onTap: () => context.go(Routes.map)),
+                      const SizedBox(width: 8),
+                      AdminStat(label: 'Active · 24 h', value: '${s['active_24h']}', delta: s['users'] == 0 ? null : '${(100 * s['active_24h'] / s['users']).round()}% of members'),
+                      const SizedBox(width: 8),
+                      AdminStat(label: 'Upcoming meets', value: '${s['meets_upcoming']}', delta: '${s['meets_7d']} made this week'),
+                    ],
+                  ),
+                ),
+
+                // ---- decisions
+                AdminHead(pending == 0 ? 'NEEDS A DECISION · ALL CLEAR' : 'NEEDS A DECISION · $pending', action: 'Queues', onAction: () => context.go(Routes.inbox)),
+                AdminQueueTile(icon: AppIcons.handshake, title: 'Partner & club applications', hint: 'Approve a shop or a club owner', count: s['pending_partners'], onTap: () => context.push(Routes.adminPartners)),
+                AdminQueueTile(icon: AppIcons.sealCheck, title: 'Spot photo reviews', hint: 'Sticker check-ins the AI was unsure about', count: s['pending_verifications'], onTap: () => context.push(Routes.adminReview)),
+                AdminQueueTile(icon: AppIcons.mapPinPlus, title: 'Spot suggestions', hint: 'Places members want on the map', count: s['pending_suggestions'], onTap: () => showSuggestionsSheet(context)),
+                AdminQueueTile(icon: AppIcons.flag, title: 'Open reports', hint: 'Profiles, posts and meets flagged by members', count: s['open_reports'], onTap: () => showReportsSheet(context)),
+
+                // ---- 7 days
+                const AdminHead('LAST 7 DAYS'),
+                AdminTrend(label: 'New members', values: s.series('signups_by_day')),
+                AdminTrend(label: 'Members active', values: s.series('active_by_day'), color: AppColors.textPrimary),
+                AdminTrend(label: 'Check-ins', values: s.series('checkins_by_day'), color: AppColors.success),
+                AdminTrend(label: 'Posts', values: s.series('posts_by_day'), color: const Color(0xFF2B7CFF)),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                  child: Text('${s['messages_7d']} chat messages this week.', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                ),
+
+                // ---- community + money
+                const AdminHead('COMMUNITY'),
+                AdminCard(children: [
+                  AdminFactRow('Clubs', '${s['clubs']} · ${s['club_members']} memberships'),
+                  AdminFactRow('Partners', '${s['vendors']} active', onTap: () => context.push(Routes.adminPartners)),
+                  AdminFactRow('Spots on the map', '${s['places']}'),
+                  AdminFactRow('Live vouchers', '${s['vouchers_live']}'),
+                ]),
+                const AdminHead('REWARDS · 30 DAYS'),
+                AdminCard(children: [
+                  AdminFactRow('Vouchers claimed', '${s['claims_30d']}'),
+                  AdminFactRow('Redeemed at the counter', '${s['redemptions_30d']}'),
+                  AdminFactRow('Bills entered', rm(s.amount('bills_30d'))),
+                  AdminFactRow('Commission due', rm(s.amount('commission_30d')), onTap: () => context.push(Routes.adminCommission)),
+                ]),
+
+                // ---- top spots
+                if (topPlaces.isNotEmpty) ...[
+                  const AdminHead('TOP SPOTS THIS WEEK'),
+                  AdminCard(children: [
+                    for (var i = 0; i < topPlaces.length; i++)
+                      AdminFactRow('${i + 1}. ${topPlaces[i]['name']}', '${topPlaces[i]['count']} check-in${topPlaces[i]['count'] == 1 ? '' : 's'}', onTap: () => context.push(Routes.place(topPlaces[i]['id'] as String))),
+                  ]),
                 ],
-              ),
-            ),
 
-            const _Head('NEEDS A DECISION'),
-            _Queue(icon: AppIcons.sealCheck, title: 'Spot photo reviews', count: s['pending_verifications'], onTap: () => context.push(Routes.adminReview)),
-            _Queue(icon: AppIcons.handshake, title: 'Partner & club applications', count: s['pending_partners'], onTap: () => context.push(Routes.adminPartners)),
-            _Queue(icon: AppIcons.mapPinPlus, title: 'Spot suggestions', count: s['pending_suggestions'], onTap: () => showSuggestionsSheet(context)),
-            _Queue(icon: AppIcons.flag, title: 'Open reports', count: s['open_reports'], onTap: () => showReportsSheet(context)),
+                // ---- newest members
+                if (newest.isNotEmpty) ...[
+                  AdminHead('NEWEST MEMBERS', action: 'All members', onAction: () => context.go(Routes.map)),
+                  for (final u in newest.take(4))
+                    ListTile(
+                      dense: true,
+                      leading: UserAvatar(url: u.avatarUrl, name: u.displayName ?? u.username, size: 36),
+                      title: Text(u.displayName ?? u.username, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                      subtitle: Text('@${u.username} · joined ${timeAgo(u.createdAt)}${u.homeState == null ? '' : ' · ${u.homeState}'}', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                      trailing: u.lastSeen == null ? null : Text(timeAgo(u.lastSeen!), style: TextStyle(fontSize: 11.5, color: AppColors.textMuted)),
+                      onTap: () => context.push(Routes.profile(u.id)),
+                    ),
+                ],
 
-            if (open.isNotEmpty) ...[
-              const _Head('LATEST REPORTS'),
-              for (final r in open.take(3)) _ReportTile(r: r),
-            ],
-
-            const _Head('PLATFORM'),
-            _SettingTile(
-              title: 'Commission rate',
-              value: '${(((settings['commission_rate'] as num?) ?? 0.01) * 100).toStringAsFixed(1)} % of the bill',
-              onTap: () => _editNumber(context, ref, 'commission_rate', 'Commission rate (%)', ((settings['commission_rate'] as num?) ?? 0.01) * 100, (v) => v / 100),
+                // ---- platform
+                const AdminHead('PLATFORM'),
+                _SettingTile(
+                  title: 'Commission rate',
+                  value: '${(((settings['commission_rate'] as num?) ?? 0.01) * 100).toStringAsFixed(1)} % of the bill',
+                  onTap: () => _editNumber(context, ref, 'commission_rate', 'Commission rate (%)', ((settings['commission_rate'] as num?) ?? 0.01) * 100, (v) => v / 100),
+                ),
+                _SettingTile(
+                  title: 'Check-in radius',
+                  value: '${(settings['checkin_radius_m'] as num?) ?? 300} m',
+                  onTap: () => _editNumber(context, ref, 'checkin_radius_m', 'Check-in radius (m)', ((settings['checkin_radius_m'] as num?) ?? 300).toDouble(), (v) => v.round()),
+                ),
+                _SettingTile(title: 'Commission report', value: 'Per partner, per month', onTap: () => context.push(Routes.adminCommission)),
+              ],
             ),
-            _SettingTile(
-              title: 'Check-in radius',
-              value: '${(settings['checkin_radius_m'] as num?) ?? 300} m',
-              onTap: () => _editNumber(context, ref, 'checkin_radius_m', 'Check-in radius (m)', ((settings['checkin_radius_m'] as num?) ?? 300).toDouble(), (v) => v.round()),
-            ),
-            _SettingTile(
-              title: 'Partners · clubs',
-              value: '${s['vendors']} active partners · ${s['clubs']} clubs',
-              onTap: () => context.push(Routes.adminPartners),
-            ),
-            _SettingTile(title: 'Commission report', value: 'Per partner, per month', onTap: () => context.push(Routes.adminCommission)),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -148,7 +210,7 @@ Future<void> showSuggestionsSheet(BuildContext context) {
                 const Padding(padding: EdgeInsets.fromLTRB(20, 0, 20, 8), child: Text('Spot suggestions', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800))),
                 Expanded(
                   child: list.isEmpty
-                      ? const Center(child: Text('Nothing waiting.', style: TextStyle(color: AppColors.textSecondary)))
+                      ? Center(child: Text('Nothing waiting.', style: TextStyle(color: AppColors.textSecondary)))
                       : ListView(children: [for (final g in list) _SuggestionTile(g: g)]),
                 ),
               ],
@@ -176,7 +238,7 @@ Future<void> showReportsSheet(BuildContext context) {
                 const Padding(padding: EdgeInsets.fromLTRB(20, 0, 20, 8), child: Text('Reports', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800))),
                 Expanded(
                   child: list.isEmpty
-                      ? const Center(child: Text('No reports. Nice.', style: TextStyle(color: AppColors.textSecondary)))
+                      ? Center(child: Text('No reports. Nice.', style: TextStyle(color: AppColors.textSecondary)))
                       : ListView(children: [for (final r in list) _ReportTile(r: r)]),
                 ),
               ],
@@ -186,60 +248,6 @@ Future<void> showReportsSheet(BuildContext context) {
       },
     ),
   );
-}
-
-class _Stat extends StatelessWidget {
-  const _Stat(this.label, this.value, {this.sub, this.accent = false});
-  final String label;
-  final int value;
-  final String? sub;
-  final bool accent;
-  @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-        decoration: BoxDecoration(color: accent ? AppColors.brand : AppColors.surfaceGray, borderRadius: BorderRadius.circular(14)),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text('$value', style: TextStyle(fontFamily: AppFonts.display, color: accent ? Colors.white : AppColors.textPrimary, fontSize: 30, fontWeight: FontWeight.w700, height: 1)),
-            const SizedBox(height: 4),
-            Text(label, style: TextStyle(color: accent ? Colors.white70 : AppColors.textSecondary, fontSize: 11.5, fontWeight: FontWeight.w600)),
-            if (sub != null) Text(sub!, style: TextStyle(color: accent ? Colors.white60 : AppColors.textMuted, fontSize: 10.5)),
-          ],
-        ),
-      );
-}
-
-class _Head extends StatelessWidget {
-  const _Head(this.text);
-  final String text;
-  @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.fromLTRB(20, 22, 20, 6),
-        child: Text(text, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, letterSpacing: 1, color: AppColors.textSecondary)),
-      );
-}
-
-class _Queue extends StatelessWidget {
-  const _Queue({required this.icon, required this.title, required this.count, required this.onTap});
-  final IconData icon;
-  final String title;
-  final int? count;
-  final VoidCallback onTap;
-  @override
-  Widget build(BuildContext context) => ListTile(
-        leading: Icon(icon, color: AppColors.textPrimary),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14.5)),
-        trailing: count == null
-            ? const Icon(AppIcons.caretRight, size: 16, color: AppColors.textMuted)
-            : Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(color: count! > 0 ? AppColors.brand : AppColors.surfaceGray, borderRadius: BorderRadius.circular(999)),
-                child: Text('$count', style: TextStyle(color: count! > 0 ? Colors.white : AppColors.textSecondary, fontWeight: FontWeight.w800, fontSize: 12.5)),
-              ),
-        onTap: onTap,
-      );
 }
 
 class _ReportTile extends ConsumerWidget {
@@ -252,7 +260,7 @@ class _ReportTile extends ConsumerWidget {
     return ListTile(
       leading: Icon(done ? AppIcons.checkCircle : AppIcons.flag, color: done ? AppColors.success : AppColors.brand),
       title: Text('${r.targetType}: ${r.targetLabel ?? r.targetId.substring(0, 8)}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600)),
-      subtitle: Text('${r.reason}\nby @${r.reporterUsername} · ${timeAgo(r.createdAt)}', style: const TextStyle(fontSize: 12, height: 1.3, color: AppColors.textSecondary)),
+      subtitle: Text('${r.reason}\nby @${r.reporterUsername} · ${timeAgo(r.createdAt)}', style: TextStyle(fontSize: 12, height: 1.3, color: AppColors.textSecondary)),
       isThreeLine: true,
       trailing: done
           ? null
@@ -302,7 +310,7 @@ class _SuggestionTile extends ConsumerWidget {
               child: SizedBox(
                 width: 64,
                 height: 64,
-                child: g.photoUrl == null ? const ColoredBox(color: Color(0xFFE6E6E6), child: Icon(AppIcons.mapPin, color: AppColors.textSecondary)) : Image.network(g.photoUrl!, fit: BoxFit.cover),
+                child: g.photoUrl == null ? ColoredBox(color: Color(0xFFE6E6E6), child: Icon(AppIcons.mapPin, color: AppColors.textSecondary)) : Image.network(g.photoUrl!, fit: BoxFit.cover),
               ),
             ),
             const SizedBox(width: 12),
@@ -311,8 +319,8 @@ class _SuggestionTile extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(g.name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5)),
-                  if (g.address != null) Text(g.address!, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-                  Text('${g.kind} · @${g.username} · ${timeAgo(g.createdAt)}', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                  if (g.address != null) Text(g.address!, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                  Text('${g.kind} · @${g.username} · ${timeAgo(g.createdAt)}', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                   if (g.note != null) Padding(padding: const EdgeInsets.only(top: 4), child: Text(g.note!, style: const TextStyle(fontSize: 12.5, height: 1.35))),
                   const SizedBox(height: 6),
                   if (pending)
@@ -343,8 +351,8 @@ class _SettingTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ListTile(
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14.5)),
-        subtitle: Text(value, style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
-        trailing: const Icon(AppIcons.caretRight, size: 16, color: AppColors.textMuted),
+        subtitle: Text(value, style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
+        trailing: Icon(AppIcons.caretRight, size: 16, color: AppColors.textMuted),
         onTap: onTap,
       );
 }

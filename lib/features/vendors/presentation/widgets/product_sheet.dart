@@ -34,7 +34,7 @@ class ProductCard extends StatelessWidget {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(AppRadius.md),
                     child: product.photoUrls.isEmpty
-                        ? const ColoredBox(color: AppColors.surfaceGray, child: Icon(AppIcons.shoppingBag, color: AppColors.textSecondary))
+                        ? ColoredBox(color: AppColors.surfaceGray, child: Icon(AppIcons.shoppingBag, color: AppColors.textSecondary))
                         : Image(image: imageFor(product.photoUrls.first), fit: BoxFit.cover),
                   ),
                   if (voucherCount > 0)
@@ -166,7 +166,7 @@ class _ProductBodyState extends ConsumerState<_ProductBody> {
             margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(color: AppColors.surfaceGray, borderRadius: BorderRadius.circular(999)),
-            child: const Row(
+            child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(AppIcons.eye, size: 15, color: AppColors.textSecondary),
@@ -236,9 +236,9 @@ class _ProductBodyState extends ConsumerState<_ProductBody> {
                             },
                       child: Row(
                         children: [
-                          const Icon(AppIcons.storefront, size: 14, color: AppColors.textSecondary),
+                          Icon(AppIcons.storefront, size: 14, color: AppColors.textSecondary),
                           const SizedBox(width: 5),
-                          Text(widget.vendor.name, style: const TextStyle(fontSize: 13, color: AppColors.textSecondary, fontWeight: FontWeight.w600)),
+                          Text(widget.vendor.name, style: TextStyle(fontSize: 13, color: AppColors.textSecondary, fontWeight: FontWeight.w600)),
                         ],
                       ),
                     ),
@@ -251,7 +251,7 @@ class _ProductBodyState extends ConsumerState<_ProductBody> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(g.name.toUpperCase(), style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, letterSpacing: 1, color: AppColors.textSecondary)),
+                      Text(g.name.toUpperCase(), style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, letterSpacing: 1, color: AppColors.textSecondary)),
                       const SizedBox(height: 8),
                       Wrap(
                         spacing: 8,
@@ -269,7 +269,7 @@ class _ProductBodyState extends ConsumerState<_ProductBody> {
                   child: Text(p.description!.trim(), style: const TextStyle(fontSize: 14.5, height: 1.5)),
                 ),
               if (vouchers.isNotEmpty) ...[
-                const Padding(
+                Padding(
                   padding: EdgeInsets.fromLTRB(16, 20, 16, 6),
                   child: Text('VOUCHERS FOR THIS', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, letterSpacing: 1, color: AppColors.textSecondary)),
                 ),
@@ -285,7 +285,7 @@ class _ProductBodyState extends ConsumerState<_ProductBody> {
                     ),
                     title: Text('${v.headline} · ${v.title}', style: const TextStyle(fontWeight: FontWeight.w700)),
                     subtitle: Text(v.pointsCost == 0 ? 'Free to claim in Rewards' : '${v.pointsCost} points in Rewards', style: const TextStyle(fontSize: 12.5)),
-                    trailing: const Icon(AppIcons.caretRight, size: 16, color: AppColors.textMuted),
+                    trailing: Icon(AppIcons.caretRight, size: 16, color: AppColors.textMuted),
                     onTap: () {
                       Navigator.pop(context);
                       context.push(Routes.rewards);
@@ -303,7 +303,7 @@ class _ProductBodyState extends ConsumerState<_ProductBody> {
             children: [
               PrimaryButton(label: 'Message ${widget.vendor.name}', loading: _busy, onPressed: widget.preview || widget.vendor.ownerIsMe(me) || _busy ? null : _message),
               const SizedBox(height: 6),
-              const Text('Ask about stock, fitment or price. Ordering happens with the shop directly.', textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
+              Text('Ask about stock, fitment or price. Ordering happens with the shop directly.', textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
             ],
           ),
         ),

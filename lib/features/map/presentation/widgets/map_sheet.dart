@@ -8,6 +8,7 @@ import '../../../../core/theme/app_art.dart';
 import '../../../../core/places/places_service.dart';
 import '../../../../core/theme/app_icons.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/glass_tab_bar.dart';
 import '../../../../core/utils/dates.dart';
 import '../../../../core/utils/geo.dart';
 import '../../../../core/widgets/user_avatar.dart';
@@ -33,7 +34,7 @@ class MapSheet extends ConsumerWidget {
   final DraggableScrollableController controller;
   final void Function(LatLng target) onFocus;
 
-  static const peek = 0.17;
+  static const peek = 0.24;
   static const half = 0.5;
   static const full = 0.92;
 
@@ -63,6 +64,8 @@ class MapSheet extends ConsumerWidget {
                 MapMode.upcoming => _UpcomingContent(expand: () => _expand(controller)),
                 MapMode.spots => _SpotsContent(expand: () => _expand(controller), onFocus: onFocus),
               },
+              // The glass tab bar floats over the sheet: leave room under the last row.
+              SliverToBoxAdapter(child: SizedBox(height: GlassTabBar.height + GlassTabBar.margin.bottom + MediaQuery.paddingOf(context).bottom + 8)),
             ],
           ),
         );

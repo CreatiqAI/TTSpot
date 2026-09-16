@@ -214,7 +214,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     margin: const EdgeInsets.only(bottom: 18),
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(color: AppColors.surfaceGray, borderRadius: BorderRadius.circular(AppRadius.md)),
-                    child: const Text(
+                    child: Text(
                       'Two quick things every member needs: a phone number and a tick on the Terms. Then you are back on the map.',
                       style: TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.4),
                     ),
@@ -290,7 +290,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 ),
                 const SizedBox(height: 20),
 
-                const Text(
+                Text(
                   'Your name, username and home state are visible to everyone. Your phone number is private. You can change them any time.',
                   style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary, height: 1.4),
                 ),
@@ -322,7 +322,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 children: [
                   const ArtIcon(AppArt.car, size: 44),
                   const SizedBox(width: 12),
-                  const Expanded(
+                  Expanded(
                     child: Text(
                       'What do you drive? Everyone on TT Spot has a car in the garage, and it needs a photo.',
                       style: TextStyle(fontSize: 14, color: AppColors.textSecondary, height: 1.4),
@@ -331,7 +331,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 ],
               ),
               const SizedBox(height: 22),
-              const Text('PHOTOS', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textSecondary)),
+              Text('PHOTOS', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textSecondary)),
               const SizedBox(height: 8),
               SizedBox(
                 height: 110,
@@ -376,9 +376,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Icon(AppIcons.cameraPlus, size: 26, color: AppColors.textSecondary),
+                              Icon(AppIcons.cameraPlus, size: 26, color: AppColors.textSecondary),
                               const SizedBox(height: 6),
-                              Text(_carPhotos.isEmpty ? 'Add photo' : 'Add more', style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary, fontWeight: FontWeight.w600)),
+                              Text(_carPhotos.isEmpty ? 'Add photo' : 'Add more', style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary, fontWeight: FontWeight.w600)),
                             ],
                           ),
                         ),
@@ -417,7 +417,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               const SizedBox(height: 26),
               PrimaryButton(label: 'Park it in my garage', loading: busy, onPressed: busy ? null : _submitCar),
               const SizedBox(height: 10),
-              const Text(
+              Text(
                 'You can add more cars, mods and a build log later from your garage.',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary, height: 1.4),
@@ -439,7 +439,7 @@ class _TermsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const link = TextStyle(fontWeight: FontWeight.w700, color: AppColors.textPrimary, decoration: TextDecoration.underline);
+    final link = TextStyle(fontWeight: FontWeight.w700, color: AppColors.textPrimary, decoration: TextDecoration.underline);
     return Container(
       padding: const EdgeInsets.fromLTRB(10, 8, 12, 8),
       decoration: BoxDecoration(
@@ -466,7 +466,7 @@ class _TermsRow extends StatelessWidget {
               behavior: HitTestBehavior.opaque,
               child: Text.rich(
                 TextSpan(
-                  style: const TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.45),
+                  style: TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.45),
                   children: [
                     const TextSpan(text: 'I am 18 or older and I agree to the '),
                     TextSpan(text: 'Terms of Use', style: link, recognizer: TapGestureRecognizer()..onTap = () => onOpen('Terms of Use', kTerms)),
@@ -514,7 +514,7 @@ class _AvatarPicker extends StatelessWidget {
               image: image == null ? null : DecorationImage(image: image, fit: BoxFit.cover),
             ),
             child: image == null
-                ? const Icon(AppIcons.userFill, size: 56, color: AppColors.textMuted)
+                ? Icon(AppIcons.userFill, size: 56, color: AppColors.textMuted)
                 : null,
           ),
         ),

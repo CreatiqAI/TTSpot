@@ -31,7 +31,7 @@ class VendorProductsScreen extends ConsumerWidget {
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 16),
-            child: Center(child: Text('$count of 5', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textSecondary))),
+            child: Center(child: Text('$count of 5', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textSecondary))),
           ),
         ],
       ),
@@ -79,7 +79,7 @@ class _ProductRow extends StatelessWidget {
       if (voucherCount > 0) '$voucherCount voucher${voucherCount == 1 ? '' : 's'}',
     ];
     return Material(
-      color: Colors.white,
+      color: AppColors.surface,
       borderRadius: BorderRadius.circular(AppRadius.lg),
       child: InkWell(
         borderRadius: BorderRadius.circular(AppRadius.lg),
@@ -95,7 +95,7 @@ class _ProductRow extends StatelessWidget {
                   width: 72,
                   height: 72,
                   child: p.photoUrls.isEmpty
-                      ? const ColoredBox(color: AppColors.surfaceGray, child: Icon(AppIcons.shoppingBag, color: AppColors.textSecondary))
+                      ? ColoredBox(color: AppColors.surfaceGray, child: Icon(AppIcons.shoppingBag, color: AppColors.textSecondary))
                       : Opacity(opacity: p.active ? 1 : 0.5, child: Image(image: imageFor(p.photoUrls.first), fit: BoxFit.cover)),
                 ),
               ),
@@ -112,21 +112,21 @@ class _ProductRow extends StatelessWidget {
                             margin: const EdgeInsets.only(left: 6),
                             padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                             decoration: BoxDecoration(color: AppColors.surfaceGray, borderRadius: BorderRadius.circular(999)),
-                            child: const Text('Hidden', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: AppColors.textSecondary)),
+                            child: Text('Hidden', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: AppColors.textSecondary)),
                           ),
                       ],
                     ),
                     const SizedBox(height: 3),
-                    Text(facts.join(' · '), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
+                    Text(facts.join(' · '), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
                     if ((p.description ?? '').trim().isNotEmpty) ...[
                       const SizedBox(height: 3),
-                      Text(p.description!.trim(), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5, color: AppColors.textMuted)),
+                      Text(p.description!.trim(), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12.5, color: AppColors.textMuted)),
                     ],
                   ],
                 ),
               ),
               const SizedBox(width: 6),
-              const Icon(AppIcons.caretRight, size: 16, color: AppColors.textMuted),
+              Icon(AppIcons.caretRight, size: 16, color: AppColors.textMuted),
             ],
           ),
         ),

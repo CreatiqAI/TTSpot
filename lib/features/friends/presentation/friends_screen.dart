@@ -111,7 +111,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
                 data: (list) {
                   final people = list.where((p) => p.id != me).toList();
                   if (people.isEmpty) {
-                    return const Padding(padding: EdgeInsets.all(24), child: Text('Nobody by that name yet. Tell them to join TT Spot.', style: TextStyle(color: AppColors.textSecondary)));
+                    return Padding(padding: EdgeInsets.all(24), child: Text('Nobody by that name yet. Tell them to join TT Spot.', style: TextStyle(color: AppColors.textSecondary)));
                   }
                   return Column(
                     children: [
@@ -240,7 +240,7 @@ class _PersonTile extends StatelessWidget {
       onTap: () => context.push(Routes.profile(p.id)),
       leading: UserAvatar(url: p.avatarUrl, name: p.displayName ?? p.username, size: 44),
       title: Text(p.displayName ?? '@${p.username}', style: const TextStyle(fontWeight: FontWeight.w600)),
-      subtitle: Text(subtitle ?? '@${p.username ?? ''}', style: const TextStyle(color: AppColors.textSecondary, fontSize: 12.5)),
+      subtitle: Text(subtitle ?? '@${p.username ?? ''}', style: TextStyle(color: AppColors.textSecondary, fontSize: 12.5)),
       trailing: trailing,
     );
   }
@@ -263,6 +263,6 @@ class _Section extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-        child: Text(text, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textSecondary)),
+        child: Text(text, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textSecondary)),
       );
 }

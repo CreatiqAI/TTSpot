@@ -100,11 +100,11 @@ class _AdminMembersScreenState extends ConsumerState<AdminMembersScreen> {
                   children: [
                     Padding(
                       padding: const EdgeInsets.fromLTRB(20, 2, 20, 4),
-                      child: Align(alignment: Alignment.centerLeft, child: Text('${list.length} of ${all.length}', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary, fontWeight: FontWeight.w600))),
+                      child: Align(alignment: Alignment.centerLeft, child: Text('${list.length} of ${all.length}', style: TextStyle(fontSize: 12, color: AppColors.textSecondary, fontWeight: FontWeight.w600))),
                     ),
                     Expanded(
                       child: list.isEmpty
-                          ? const Center(child: Text('No one matches.', style: TextStyle(color: AppColors.textSecondary)))
+                          ? Center(child: Text('No one matches.', style: TextStyle(color: AppColors.textSecondary)))
                           : ListView.separated(
                               itemCount: list.length,
                               separatorBuilder: (_, _) => const Divider(height: 1, indent: 72),
@@ -150,7 +150,7 @@ class _MemberRow extends ConsumerWidget {
       ),
       subtitle: Text(
         '@${u.username}${u.email == null ? '' : ' · ${u.email}'}\n${u.phone ?? 'no phone'} · ${u.cars} car${u.cars == 1 ? '' : 's'} · joined ${u.createdAt.day}/${u.createdAt.month}/${u.createdAt.year % 100}${u.lastSeen == null ? '' : ' · seen ${timeAgo(u.lastSeen!)}'}',
-        style: const TextStyle(fontSize: 12, color: AppColors.textSecondary, height: 1.35),
+        style: TextStyle(fontSize: 12, color: AppColors.textSecondary, height: 1.35),
       ),
       isThreeLine: true,
       trailing: isMe

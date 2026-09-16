@@ -162,6 +162,8 @@ abstract final class AppIcons {
   static const IconData stop = IconData(0xe46c, fontFamily: _family);
   static const IconData whatsappLogo = IconData(0xe5d0, fontFamily: _family);
   static const IconData phoneCall = IconData(0xe3ba, fontFamily: _family);
+  static const IconData videoCamera = IconData(0xe4da, fontFamily: _family);
+  static const IconData moon = IconData(0xe330, fontFamily: _family);
 
   // ---- filled twins ----
   static const IconData mapTrifoldFill = IconData(0xe31a, fontFamily: _fill);

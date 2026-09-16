@@ -74,11 +74,11 @@ class _EventTile extends StatelessWidget {
           ),
         ),
         title: Text(e.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontWeight: FontWeight.w700, color: past ? AppColors.textSecondary : AppColors.textPrimary)),
-        subtitle: Text('${e.type.label} · ${formatEventDateFriendly(e.startsAt)} · ${e.venueName}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
+        subtitle: Text('${e.type.label} · ${formatEventDateFriendly(e.startsAt)} · ${e.venueName}', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
         trailing: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(AppIcons.users, size: 16, color: AppColors.textSecondary),
+            Icon(AppIcons.users, size: 16, color: AppColors.textSecondary),
             Text('${e.attendeeCount}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
           ],
         ),
@@ -92,6 +92,6 @@ class _Head extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 6),
-        child: Text(text, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, letterSpacing: 1, color: AppColors.textSecondary)),
+        child: Text(text, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, letterSpacing: 1, color: AppColors.textSecondary)),
       );
 }

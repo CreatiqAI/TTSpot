@@ -109,10 +109,10 @@ class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
               const SizedBox(height: 8),
               Text.rich(
                 TextSpan(
-                  style: const TextStyle(fontSize: 14.5, color: AppColors.textSecondary, height: 1.45),
+                  style: TextStyle(fontSize: 14.5, color: AppColors.textSecondary, height: 1.45),
                   children: [
                     const TextSpan(text: 'We sent a 6-digit code to '),
-                    TextSpan(text: widget.email, style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                    TextSpan(text: widget.email, style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
                     const TextSpan(text: '. Type it here. It expires in 15 minutes.'),
                   ],
                 ),
@@ -176,11 +176,11 @@ class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
               const SizedBox(height: 16),
               Center(
                 child: _cooldown > 0
-                    ? Text('Resend code in ${_cooldown}s', style: const TextStyle(fontSize: 13, color: AppColors.textMuted, fontWeight: FontWeight.w600))
+                    ? Text('Resend code in ${_cooldown}s', style: TextStyle(fontSize: 13, color: AppColors.textMuted, fontWeight: FontWeight.w600))
                     : TextButton(onPressed: _resend, child: const Text('Resend code')),
               ),
               const SizedBox(height: 8),
-              const Text(
+              Text(
                 'No email? Check spam, or make sure the address is spelt right. Wrong address: go back and sign up again.',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary, height: 1.4),

@@ -6,6 +6,9 @@ class AdminStats {
   const AdminStats(this.m);
   final Map<String, dynamic> m;
   int operator [](String k) => (m[k] as num?)?.toInt() ?? 0;
+  double amount(String k) => (m[k] as num?)?.toDouble() ?? 0;
+  List<int> series(String k) => ((m[k] as List?) ?? const []).map((v) => (v as num?)?.toInt() ?? 0).toList();
+  List<Map<String, dynamic>> rows(String k) => ((m[k] as List?) ?? const []).map((v) => (v as Map).cast<String, dynamic>()).toList();
 }
 
 class AdminReport {

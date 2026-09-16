@@ -102,13 +102,13 @@ class PinMapState extends State<PinMap> {
                 right: 10,
                 bottom: 10,
                 child: Material(
-                  color: Colors.white,
+                  color: AppColors.surface,
                   shape: const CircleBorder(),
                   elevation: 3,
                   child: InkWell(
                     onTap: widget.onMyLocation,
                     customBorder: const CircleBorder(),
-                    child: const SizedBox(width: 40, height: 40, child: Icon(AppIcons.gpsFix, size: 20, color: AppColors.textPrimary)),
+                    child: SizedBox(width: 40, height: 40, child: Icon(AppIcons.gpsFix, size: 20, color: AppColors.textPrimary)),
                   ),
                 ),
               ),

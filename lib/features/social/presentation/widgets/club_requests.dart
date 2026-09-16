@@ -39,7 +39,7 @@ class _JoinRequestButtonState extends ConsumerState<JoinRequestButton> {
           children: [
             Text('Join ${widget.clubName}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
             const SizedBox(height: 4),
-            const Text('The club owner and admins decide. A line about you and your car helps.', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+            Text('The club owner and admins decide. A line about you and your car helps.', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
             const SizedBox(height: 14),
             TextField(
               controller: ctrl,
@@ -116,7 +116,7 @@ class ClubRequestsSection extends ConsumerWidget {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-          child: Text('WANT TO JOIN · ${list.length}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textSecondary)),
+          child: Text('WANT TO JOIN · ${list.length}', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textSecondary)),
         ),
         for (final r in list) _RequestRow(r: r, clubId: clubId),
       ],
@@ -165,7 +165,7 @@ class _RequestRowState extends ConsumerState<_RequestRow> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(r.displayName ?? r.username ?? 'Member', style: const TextStyle(fontWeight: FontWeight.w700)),
-                    Text('@${r.username ?? ''} · ${timeAgo(r.createdAt)}', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                    Text('@${r.username ?? ''} · ${timeAgo(r.createdAt)}', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                   ],
                 ),
               ),
@@ -181,7 +181,7 @@ class _RequestRowState extends ConsumerState<_RequestRow> {
               Expanded(
                 child: SizedBox(
                   height: 40,
-                  child: OutlinedButton(onPressed: _busy ? null : () => _decide(false), style: OutlinedButton.styleFrom(minimumSize: const Size(0, 40), backgroundColor: Colors.white), child: const Text('Decline')),
+                  child: OutlinedButton(onPressed: _busy ? null : () => _decide(false), style: OutlinedButton.styleFrom(minimumSize: const Size(0, 40), backgroundColor: AppColors.surface), child: const Text('Decline')),
                 ),
               ),
               const SizedBox(width: 8),

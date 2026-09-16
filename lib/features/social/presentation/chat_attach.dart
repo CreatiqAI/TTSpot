@@ -140,7 +140,7 @@ class _AttachSheetState extends ConsumerState<_AttachSheet> {
                                     child: SizedBox(width: 48, height: 48, child: e.coverUrl == null ? ColoredBox(color: AppColors.surfaceGray, child: Center(child: ArtIcon(e.type.art, size: 26))) : Image.network(e.coverUrl!, fit: BoxFit.cover)),
                                   ),
                                   title: Text(e.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600)),
-                                  subtitle: Text('${formatEventDate(e.startsAt)} · ${e.venueName}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                                  subtitle: Text('${formatEventDate(e.startsAt)} · ${e.venueName}', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                                   onTap: () => Navigator.pop(context, ChatAttachment(eventId: e.id)),
                                 ),
                             ],
@@ -156,7 +156,7 @@ class _AttachSheetState extends ConsumerState<_AttachSheet> {
                                 child: SizedBox(width: 48, height: 48, child: p.coverUrl == null ? ColoredBox(color: AppColors.surfaceGray, child: Center(child: ArtIcon(p.kindArt, size: 26))) : Image.network(p.coverUrl!, fit: BoxFit.cover)),
                               ),
                               title: Text(p.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600)),
-                              subtitle: Text(p.kindLabel, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                              subtitle: Text(p.kindLabel, style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                               onTap: () => Navigator.pop(context, ChatAttachment(placeId: p.id)),
                             ),
                         ],
@@ -171,10 +171,10 @@ class _AttachSheetState extends ConsumerState<_AttachSheet> {
                                 ListTile(
                                   leading: ClipRRect(
                                     borderRadius: BorderRadius.circular(10),
-                                    child: SizedBox(width: 48, height: 48, child: c.cover == null ? const ColoredBox(color: AppColors.surfaceGray, child: Center(child: ArtIcon(AppArt.car, size: 26))) : Image.network(c.cover!, fit: BoxFit.cover)),
+                                    child: SizedBox(width: 48, height: 48, child: c.cover == null ? ColoredBox(color: AppColors.surfaceGray, child: Center(child: ArtIcon(AppArt.car, size: 26))) : Image.network(c.cover!, fit: BoxFit.cover)),
                                   ),
                                   title: Text('${c.make} ${c.model}', style: const TextStyle(fontWeight: FontWeight.w600)),
-                                  subtitle: Text(c.year?.toString() ?? 'Garage', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                                  subtitle: Text(c.year?.toString() ?? 'Garage', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                                   onTap: () => Navigator.pop(context, ChatAttachment(carId: c.id)),
                                 ),
                             ],
@@ -192,7 +192,7 @@ class _Empty extends StatelessWidget {
   const _Empty(this.text);
   final String text;
   @override
-  Widget build(BuildContext context) => Center(child: Padding(padding: const EdgeInsets.all(24), child: Text(text, textAlign: TextAlign.center, style: const TextStyle(color: AppColors.textSecondary))));
+  Widget build(BuildContext context) => Center(child: Padding(padding: const EdgeInsets.all(24), child: Text(text, textAlign: TextAlign.center, style: TextStyle(color: AppColors.textSecondary))));
 }
 
 class _Pill extends StatelessWidget {

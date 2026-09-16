@@ -58,13 +58,13 @@ class VoucherQrScreen extends ConsumerWidget {
             ),
             if (claim?.terms != null) ...[
               const SizedBox(height: 16),
-              const Text('TERMS', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textSecondary)),
+              Text('TERMS', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textSecondary)),
               const SizedBox(height: 4),
               Text(claim!.terms!, style: const TextStyle(fontSize: 13, height: 1.4)),
             ],
             if (claim != null && claim.minSpend > 0) ...[
               const SizedBox(height: 8),
-              Text('Minimum spend ${rm(claim.minSpend)}.', style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+              Text('Minimum spend ${rm(claim.minSpend)}.', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
             ],
           ],
         ),

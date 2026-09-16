@@ -132,10 +132,10 @@ class HoursEditor extends StatelessWidget {
                 ),
                 const SizedBox(width: 6),
                 if (value.days[d] == null)
-                  const Text('Closed', style: TextStyle(color: AppColors.textSecondary))
+                  Text('Closed', style: TextStyle(color: AppColors.textSecondary))
                 else ...[
                   _TimeChip(text: OpeningHours.fmt(value.days[d]!.open), onTap: () => _pick(context, d, value.days[d]!, openSide: true)),
-                  const Padding(padding: EdgeInsets.symmetric(horizontal: 6), child: Text('–', style: TextStyle(color: AppColors.textSecondary))),
+                  Padding(padding: EdgeInsets.symmetric(horizontal: 6), child: Text('–', style: TextStyle(color: AppColors.textSecondary))),
                   _TimeChip(text: OpeningHours.fmt(value.days[d]!.close), onTap: () => _pick(context, d, value.days[d]!, openSide: false)),
                 ],
               ],

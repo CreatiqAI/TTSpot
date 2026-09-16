@@ -17,7 +17,9 @@ class AppSettings {
   bool get notifRewards => _b('notif_rewards', true);
 
   /// 'auto' (light by day, dark after 7 pm) | 'light' | 'dark'
-  String get mapTheme => (_m['map_theme'] as String?) ?? 'auto';
+  /// 'auto' (light 7 am–7 pm, dark otherwise) | 'light' | 'dark'. Older builds saved it as map_theme.
+  String get theme => (_m['theme'] as String?) ?? (_m['map_theme'] as String?) ?? 'auto';
+  String get mapTheme => theme;
 
   /// Who can start a chat with me: 'everyone' | 'friends'
   String get dmFrom => (_m['dm_from'] as String?) ?? 'everyone';

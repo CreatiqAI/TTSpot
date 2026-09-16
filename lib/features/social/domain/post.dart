@@ -205,6 +205,7 @@ class Story {
     required this.id,
     required this.authorId,
     required this.photoUrl,
+    this.videoUrl,
     this.caption,
     required this.createdAt,
     required this.expiresAt,
@@ -218,7 +219,10 @@ class Story {
   });
   final String id;
   final String authorId;
+  /// Poster for video moments; the photo itself otherwise.
   final String photoUrl;
+  final String? videoUrl;
+  bool get isVideo => videoUrl != null;
   final String? caption;
   final DateTime createdAt;
   final DateTime expiresAt;
@@ -240,6 +244,7 @@ class Story {
         id: m['id'] as String,
         authorId: m['author_id'] as String,
         photoUrl: m['photo_url'] as String,
+        videoUrl: m['video_url'] as String?,
         caption: m['caption'] as String?,
         createdAt: DateTime.parse(m['created_at'] as String).toLocal(),
         expiresAt: DateTime.parse(m['expires_at'] as String).toLocal(),

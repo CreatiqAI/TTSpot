@@ -244,7 +244,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                             : conv.showEntity
                                 ? (conv.clubId != null ? 'Car club' : 'Partner')
                                 : '@${conv.other?.username ?? ''}',
-                        style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                        style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
                       ),
                   ],
                 ),
@@ -284,7 +284,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                           const SizedBox(height: 10),
                           Text(conv?.isMeet ?? false ? 'Meet chat is empty' : 'Say hi to $first', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
                           const SizedBox(height: 4),
-                          const Text('Tap one to start, or type your own.', style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
+                          Text('Tap one to start, or type your own.', style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
                           const SizedBox(height: 14),
                           Wrap(
                             spacing: 8,
@@ -386,7 +386,7 @@ class _Bubble extends StatelessWidget {
               bottomRight: Radius.circular(mine ? 4 : 18),
             ),
           ),
-          child: Text(text, style: const TextStyle(color: AppColors.textPrimary, fontSize: 15, height: 1.35)),
+          child: Text(text, style: TextStyle(color: AppColors.textPrimary, fontSize: 15, height: 1.35)),
         );
 
     // A shared post / moment sits on its own, no bubble around it. A note, if any, follows underneath.
@@ -419,7 +419,7 @@ class _Bubble extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(senderName ?? '', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                  Text(senderName ?? '', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                   if (host) ...[
                     const SizedBox(width: 6),
                     Container(
@@ -483,11 +483,11 @@ class _HostingCard extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(who, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
-                      Text('${formatTime(e.startsAt)} · ${e.venueName}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
+                      Text('${formatTime(e.startsAt)} · ${e.venueName}', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
                     ],
                   ),
                 ),
-                const Icon(AppIcons.caretRight, size: 16, color: AppColors.textMuted),
+                Icon(AppIcons.caretRight, size: 16, color: AppColors.textMuted),
               ],
             ),
           ),
@@ -506,8 +506,8 @@ class _SharedPost extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final post = ref.watch(postProvider(postId)).value?.post;
-    const fg = AppColors.textPrimary;
-    const sub = AppColors.textSecondary;
+    final fg = AppColors.textPrimary;
+    final sub = AppColors.textSecondary;
     return GestureDetector(
       onTap: () => context.push(Routes.post(postId)),
       child: Container(
@@ -559,7 +559,7 @@ class _SharedMoment extends ConsumerWidget {
         decoration: BoxDecoration(color: AppColors.surfaceGray, borderRadius: BorderRadius.circular(14)),
         clipBehavior: Clip.antiAlias,
         child: story == null
-            ? const Center(child: Text('Moment no longer available', textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: AppColors.textSecondary)))
+            ? Center(child: Text('Moment no longer available', textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: AppColors.textSecondary)))
             : Stack(
                 fit: StackFit.expand,
                 children: [
@@ -633,7 +633,7 @@ class _Card extends StatelessWidget {
                     children: [
                       Text(eyebrow, style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: AppColors.brand)),
                       Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, height: 1.2)),
-                      if (subtitle != null) Text(subtitle!, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11.5, color: AppColors.textSecondary)),
+                      if (subtitle != null) Text(subtitle!, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11.5, color: AppColors.textSecondary)),
                     ],
                   ),
                 ),

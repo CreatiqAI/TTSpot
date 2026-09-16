@@ -163,7 +163,7 @@ class _BodyState extends ConsumerState<_Body> {
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(17),
                         child: v.logoUrl == null
-                            ? const ColoredBox(color: AppColors.surfaceGray, child: Icon(AppIcons.storefront, size: 30, color: AppColors.textSecondary))
+                            ? ColoredBox(color: AppColors.surfaceGray, child: Icon(AppIcons.storefront, size: 30, color: AppColors.textSecondary))
                             : Image.network(v.logoUrl!, fit: BoxFit.cover),
                       ),
                     ),
@@ -189,27 +189,19 @@ class _BodyState extends ConsumerState<_Body> {
                   ],
                 ),
                 const SizedBox(height: 14),
-                Row(
-                  children: [
-                    Expanded(child: PrimaryButton(label: 'Message', onPressed: v.ownerIsMe(widget.me) ? null : _message)),
-                    if (digits.isNotEmpty) ...[
-                      const SizedBox(width: 8),
-                      Expanded(child: SecondaryButton(label: 'WhatsApp', icon: AppIcons.whatsappLogo, onPressed: () => openExternal(context, 'whatsapp://send?phone=$digits', fallbackUrl: 'https://wa.me/$digits', appName: 'WhatsApp'))),
+                PrimaryButton(label: 'Message', onPressed: v.ownerIsMe(widget.me) ? null : _message),
+                if (digits.isNotEmpty || hasLocation) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      if (digits.isNotEmpty)
+                        Expanded(child: SecondaryButton(label: 'WhatsApp', icon: AppIcons.whatsappLogo, onPressed: () => openExternal(context, 'whatsapp://send?phone=$digits', fallbackUrl: 'https://wa.me/$digits', appName: 'WhatsApp'))),
+                      if (digits.isNotEmpty && hasLocation) const SizedBox(width: 8),
+                      if (hasLocation)
+                        Expanded(child: SecondaryButton(label: 'Directions', icon: AppIcons.navigationArrow, onPressed: () => showDirectionsSheet(context, lat: v.lat!, lng: v.lng!, label: v.name))),
                     ],
-                    if (hasLocation) ...[
-                      const SizedBox(width: 8),
-                      Material(
-                        color: AppColors.surfaceGray,
-                        borderRadius: BorderRadius.circular(AppRadius.md),
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(AppRadius.md),
-                          onTap: () => openExternal(context, 'waze://?ll=${v.lat},${v.lng}&navigate=yes', fallbackUrl: wazeUrl(v.lat!, v.lng!), appName: 'Waze'),
-                          child: const SizedBox(width: 52, height: 48, child: Icon(AppIcons.navigationArrow, size: 20)),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
+                  ),
+                ],
                 const SizedBox(height: 8),
               ],
             ),
@@ -431,10 +423,9 @@ class _RoundButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Center(
         child: Material(
-          color: Colors.white,
+          color: Colors.black.withValues(alpha: 0.45),
           shape: const CircleBorder(),
-          elevation: 1,
-          child: InkWell(customBorder: const CircleBorder(), onTap: onTap, child: SizedBox(width: 38, height: 38, child: Icon(icon, size: 20))),
+          child: InkWell(customBorder: const CircleBorder(), onTap: onTap, child: SizedBox(width: 38, height: 38, child: Icon(icon, size: 20, color: Colors.white))),
         ),
       );
 }
@@ -452,7 +443,7 @@ class _ChipBar extends SliverPersistentHeaderDelegate {
   @override
   Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) => Container(
         height: height,
-        decoration: const BoxDecoration(color: AppColors.bg, border: Border(bottom: BorderSide(color: AppColors.border, width: 0.5))),
+        decoration: BoxDecoration(color: AppColors.bg, border: Border(bottom: BorderSide(color: AppColors.border, width: 0.5))),
         child: ListView(
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
@@ -494,7 +485,7 @@ class _SectionCard extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         margin: const EdgeInsets.only(top: 14),
         padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(AppRadius.lg), border: Border.all(color: AppColors.border)),
+        decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(AppRadius.lg), border: Border.all(color: AppColors.border)),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -506,7 +497,7 @@ class _SectionCard extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1),
                     decoration: BoxDecoration(color: AppColors.surfaceGray, borderRadius: BorderRadius.circular(999)),
-                    child: Text('$count', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AppColors.textSecondary)),
+                    child: Text('$count', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AppColors.textSecondary)),
                   ),
                 ],
                 const Spacer(),
@@ -524,7 +515,7 @@ class _Muted extends StatelessWidget {
   const _Muted(this.text);
   final String text;
   @override
-  Widget build(BuildContext context) => Text(text, style: const TextStyle(fontSize: 13, color: AppColors.textSecondary));
+  Widget build(BuildContext context) => Text(text, style: TextStyle(fontSize: 13, color: AppColors.textSecondary));
 }
 
 class _InfoRow extends StatelessWidget {
@@ -544,7 +535,7 @@ class _InfoRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(title, style: const TextStyle(fontSize: 14, height: 1.4)),
-                if (subtitle != null) Text(subtitle!, style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary, height: 1.35)),
+                if (subtitle != null) Text(subtitle!, style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary, height: 1.35)),
               ],
             ),
           ),
@@ -581,7 +572,7 @@ class _HoursRowState extends State<_HoursRow> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(widget.status, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: widget.open ? AppColors.success : AppColors.textSecondary)),
-                      Text(widget.hours.summary, maxLines: _expanded ? null : 1, overflow: _expanded ? null : TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
+                      Text(widget.hours.summary, maxLines: _expanded ? null : 1, overflow: _expanded ? null : TextOverflow.ellipsis, style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
                     ],
                   ),
                 ),
@@ -658,11 +649,11 @@ class _Tile extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14.5)),
-                    Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
+                    Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
                   ],
                 ),
               ),
-              const Icon(AppIcons.caretRight, size: 16, color: AppColors.textMuted),
+              Icon(AppIcons.caretRight, size: 16, color: AppColors.textMuted),
             ],
           ),
         ),

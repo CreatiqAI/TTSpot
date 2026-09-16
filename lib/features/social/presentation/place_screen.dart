@@ -118,7 +118,7 @@ class _PlaceScreenState extends ConsumerState<PlaceScreen> {
                       fit: StackFit.expand,
                       children: [
                         if (cover != null)
-                          Image.network(cover, fit: BoxFit.cover, errorBuilder: (_, _, _) => const ColoredBox(color: AppColors.surfaceGray))
+                          Image.network(cover, fit: BoxFit.cover, errorBuilder: (_, _, _) => ColoredBox(color: AppColors.surfaceGray))
                         else
                           ColoredBox(color: AppColors.surfaceGray, child: Center(child: ArtIcon(p.kindArt, size: 110))),
                         const DecoratedBox(
@@ -185,7 +185,7 @@ class _PlaceScreenState extends ConsumerState<PlaceScreen> {
                           ],
                           if (days.isNotEmpty) ...[
                             const SizedBox(height: 8),
-                            Text('Meets usually on ${days.join(' & ')}', style: const TextStyle(fontSize: 13.5, color: AppColors.textSecondary)),
+                            Text('Meets usually on ${days.join(' & ')}', style: TextStyle(fontSize: 13.5, color: AppColors.textSecondary)),
                           ],
                           const SizedBox(height: 14),
                           Row(
@@ -196,7 +196,7 @@ class _PlaceScreenState extends ConsumerState<PlaceScreen> {
                                     ? ElevatedButton.icon(
                                         onPressed: null,
                                         icon: const Icon(AppIcons.checkCircleFill, size: 18, color: AppColors.success),
-                                        label: const Text('Checked in today', style: TextStyle(color: AppColors.textPrimary)),
+                                        label: Text('Checked in today', style: TextStyle(color: AppColors.textPrimary)),
                                       )
                                     : PrimaryButton(label: 'Check in here', loading: _busy, onPressed: _busy ? null : _checkIn),
                               ),
@@ -205,7 +205,7 @@ class _PlaceScreenState extends ConsumerState<PlaceScreen> {
                             ],
                           ),
                           const SizedBox(height: 6),
-                          const Text('Check-ins need your location, within 300 m of the spot.', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                          Text('Check-ins need your location, within 300 m of the spot.', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
                           if (p.isPartner) ...[
                             const SizedBox(height: 12),
                             SecondaryButton(label: 'Partner page · ${p.vendorName ?? ''}', icon: AppIcons.storefront, onPressed: () => context.push(Routes.partner(p.vendorId!))),
@@ -245,7 +245,7 @@ class _PlaceScreenState extends ConsumerState<PlaceScreen> {
                                 '${visitors.first.profile.username ?? 'someone'} ${timeAgo(visitors.first.at)}${visitors.length > 1 ? ' · ${visitors.length - 1} more' : ''}',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontSize: 13.5, color: AppColors.textSecondary),
+                                style: TextStyle(fontSize: 13.5, color: AppColors.textSecondary),
                               ),
                             ),
                           ],
@@ -272,7 +272,7 @@ class _PlaceScreenState extends ConsumerState<PlaceScreen> {
                                     UserAvatar(url: r.profile.avatarUrl, name: r.profile.displayName ?? r.profile.username, size: 52),
                                     const SizedBox(height: 4),
                                     Text(r.profile.username ?? '', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11.5)),
-                                    Text('${r.visits}×', style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                                    Text('${r.visits}×', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
                                   ],
                                 ),
                               ),
@@ -287,7 +287,7 @@ class _PlaceScreenState extends ConsumerState<PlaceScreen> {
                     ],
                     _Section('ALBUM${moments.isEmpty ? '' : ' · ${moments.length}'}'),
                     if (moments.isEmpty)
-                      const Padding(padding: EdgeInsets.fromLTRB(16, 0, 16, 8), child: Text('No moments here yet. Snap one when you check in.', style: TextStyle(color: AppColors.textSecondary)))
+                      Padding(padding: EdgeInsets.fromLTRB(16, 0, 16, 8), child: Text('No moments here yet. Snap one when you check in.', style: TextStyle(color: AppColors.textSecondary)))
                     else
                       _Album(moments: moments),
                     if (kSocialFeed) ...[
@@ -297,7 +297,7 @@ class _PlaceScreenState extends ConsumerState<PlaceScreen> {
                           padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                           child: Row(
                             children: [
-                              const Expanded(child: Text('Parking tips? Best table? Write it up.', style: TextStyle(color: AppColors.textSecondary))),
+                              Expanded(child: Text('Parking tips? Best table? Write it up.', style: TextStyle(color: AppColors.textSecondary))),
                               TextButton(onPressed: () => context.push(Routes.createPost(PostKind.post, placeId: id)), child: const Text('Write a post')),
                             ],
                           ),
@@ -363,7 +363,7 @@ class _Album extends StatelessWidget {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              Image.network(m.photoUrl, fit: BoxFit.cover, errorBuilder: (_, _, _) => const ColoredBox(color: AppColors.surfaceGray)),
+              Image.network(m.photoUrl, fit: BoxFit.cover, errorBuilder: (_, _, _) => ColoredBox(color: AppColors.surfaceGray)),
               Positioned(left: 6, bottom: 6, child: UserAvatar(url: m.author?.avatarUrl, name: m.author?.username, size: 22, borderColor: Colors.white)),
             ],
           ),
@@ -383,7 +383,7 @@ class _Stat extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-            Text(label, style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
+            Text(label, style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
           ],
         ),
       );
@@ -416,6 +416,6 @@ class _Section extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-        child: Text(text, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textSecondary)),
+        child: Text(text, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textSecondary)),
       );
 }

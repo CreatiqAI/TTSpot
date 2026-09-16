@@ -93,7 +93,7 @@ class _ShareSheetState extends ConsumerState<_ShareSheet> {
               ),
               Expanded(
                 child: friends.isEmpty
-                    ? const Center(child: Padding(padding: EdgeInsets.all(24), child: Text('Add friends first, then you can send them things.', textAlign: TextAlign.center, style: TextStyle(color: AppColors.textSecondary))))
+                    ? Center(child: Padding(padding: EdgeInsets.all(24), child: Text('Add friends first, then you can send them things.', textAlign: TextAlign.center, style: TextStyle(color: AppColors.textSecondary))))
                     : ListView.builder(
                         itemCount: list.length,
                         itemBuilder: (_, i) {
@@ -102,7 +102,7 @@ class _ShareSheetState extends ConsumerState<_ShareSheet> {
                           return ListTile(
                             leading: UserAvatar(url: f.avatarUrl, name: f.displayName ?? f.username, size: 44),
                             title: Text(f.displayName ?? '@${f.username}', style: const TextStyle(fontWeight: FontWeight.w600)),
-                            subtitle: Text('@${f.username ?? ''}', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                            subtitle: Text('@${f.username ?? ''}', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                             trailing: Icon(on ? AppIcons.checkCircleFill : AppIcons.checkCircle, color: on ? AppColors.brand : AppColors.textMuted),
                             onTap: () => setState(() => on ? _picked.remove(f.id) : _picked.add(f.id)),
                           );

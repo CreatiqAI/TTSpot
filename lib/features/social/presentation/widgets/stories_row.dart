@@ -28,27 +28,31 @@ class StoriesRow extends ConsumerWidget {
     final others = [for (var i = 0; i < groups.length; i++) if (i != mineIndex) i];
 
     return SizedBox(
-      height: 158,
+      height: 132,
       child: ListView(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
         children: [
-          _MomentCard(
-            photoUrl: mineIndex >= 0 ? groups[mineIndex].stories.last.photoUrl : null,
-            avatarUrl: myProfile?.avatarUrl,
-            name: 'You',
-            avatarName: myProfile?.displayName ?? myProfile?.username,
-            when: mineIndex >= 0 ? groups[mineIndex].stories.last.createdAt : null,
-            unseen: mineIndex >= 0 && !groups[mineIndex].allSeen,
-            mine: true,
-            onTap: () => mineIndex >= 0
-                ? context.push(Routes.stories, extra: StoryViewerArgs(groups: groups, initialGroup: mineIndex))
-                : context.push(Routes.createStory),
-            onAdd: () => context.push(Routes.createStory),
-          ),
+          if (mineIndex >= 0)
+            _MomentCard(
+              photoUrl: groups[mineIndex].stories.last.photoUrl,
+              video: groups[mineIndex].stories.last.isVideo,
+              avatarUrl: myProfile?.avatarUrl,
+              name: 'You',
+              avatarName: myProfile?.displayName ?? myProfile?.username,
+              when: groups[mineIndex].stories.last.createdAt,
+              unseen: !groups[mineIndex].allSeen,
+              mine: true,
+              count: groups[mineIndex].stories.length,
+              onTap: () => context.push(Routes.stories, extra: StoryViewerArgs(groups: groups, initialGroup: mineIndex)),
+              onAdd: () => context.push(Routes.createStory),
+            )
+          else
+            _AddCard(onTap: () => context.push(Routes.createStory)),
           for (final i in others)
             _MomentCard(
               photoUrl: groups[i].stories.last.photoUrl,
+              video: groups[i].stories.last.isVideo,
               avatarUrl: groups[i].author.avatarUrl,
               name: (groups[i].author.displayName ?? groups[i].author.username ?? '').split(' ').first,
               avatarName: groups[i].author.displayName ?? groups[i].author.username,
@@ -63,9 +67,48 @@ class StoriesRow extends ConsumerWidget {
   }
 }
 
+/// Compact "+" card when you have no live moment.
+class _AddCard extends StatelessWidget {
+  const _AddCard({required this.onTap});
+  final VoidCallback onTap;
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(right: 10),
+        child: PressScale(
+          scale: 0.95,
+          child: GestureDetector(
+            onTap: onTap,
+            child: Container(
+              width: 72,
+              height: 116,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                color: AppColors.surfaceGray,
+                border: Border.all(color: AppColors.border, width: 0.5),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 34,
+                    height: 34,
+                    decoration: const BoxDecoration(color: AppColors.brand, shape: BoxShape.circle),
+                    child: const Icon(AppIcons.plus, size: 18, color: Colors.white),
+                  ),
+                  const SizedBox(height: 8),
+                  Text('Moment', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+}
+
 class _MomentCard extends StatelessWidget {
   const _MomentCard({
     required this.photoUrl,
+    this.video = false,
     required this.avatarUrl,
     required this.name,
     required this.avatarName,
@@ -77,6 +120,7 @@ class _MomentCard extends StatelessWidget {
     this.count = 1,
   });
   final String? photoUrl;
+  final bool video;
   final String? avatarUrl;
   final String name;
   final String? avatarName;
@@ -89,7 +133,7 @@ class _MomentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const w = 98.0, h = 140.0;
+    const w = 84.0, h = 116.0;
     final empty = photoUrl == null;
     return Padding(
       padding: const EdgeInsets.only(right: 10),
@@ -102,7 +146,7 @@ class _MomentCard extends StatelessWidget {
             height: h,
             clipBehavior: Clip.antiAlias,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: BorderRadius.circular(16),
               color: AppColors.surfaceGray,
               border: unseen ? Border.all(color: AppColors.brand, width: 2) : Border.all(color: AppColors.border, width: 0.5),
             ),
@@ -123,17 +167,23 @@ class _MomentCard extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.all(2),
                     decoration: BoxDecoration(shape: BoxShape.circle, color: empty ? AppColors.surfaceGray : Colors.white),
-                    child: UserAvatar(url: avatarUrl, name: avatarName, size: 26),
+                    child: UserAvatar(url: avatarUrl, name: avatarName, size: 22),
                   ),
                 ),
+                if (video)
+                  const Positioned(
+                    right: 8,
+                    bottom: 30,
+                    child: Icon(AppIcons.play, size: 14, color: Colors.white),
+                  ),
                 if (when != null)
                   Positioned(
-                    right: 8,
-                    top: 10,
+                    left: 8,
+                    top: 34,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
                       decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.45), borderRadius: BorderRadius.circular(999)),
-                      child: Text(count > 1 ? '$count · ${timeAgo(when!)}' : timeAgo(when!), style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700)),
+                      child: Text(count > 1 ? '$count · ${timeAgo(when!)}' : timeAgo(when!), style: const TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.w700)),
                     ),
                   ),
                 // name
@@ -145,11 +195,11 @@ class _MomentCard extends StatelessWidget {
                     empty ? 'Add a moment' : name,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: empty ? AppColors.textPrimary : Colors.white, fontSize: 12.5, fontWeight: FontWeight.w800, height: 1.15),
+                    style: TextStyle(color: empty ? AppColors.textPrimary : Colors.white, fontSize: 11.5, fontWeight: FontWeight.w800, height: 1.15),
                   ),
                 ),
                 if (empty)
-                  const Center(child: Icon(AppIcons.cameraPlus, size: 30, color: AppColors.textSecondary)),
+                  Center(child: Icon(AppIcons.cameraPlus, size: 30, color: AppColors.textSecondary)),
                 if (mine && !empty)
                   Positioned(
                     right: 8,
@@ -157,10 +207,10 @@ class _MomentCard extends StatelessWidget {
                     child: GestureDetector(
                       onTap: onAdd,
                       child: Container(
-                        width: 26,
-                        height: 26,
+                        width: 22,
+                        height: 22,
                         decoration: BoxDecoration(color: AppColors.brand, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)),
-                        child: const Icon(AppIcons.plus, size: 14, color: Colors.white),
+                        child: const Icon(AppIcons.plus, size: 12, color: Colors.white),
                       ),
                     ),
                   ),

@@ -42,7 +42,7 @@ class EmptyState extends StatelessWidget {
                 width: 96,
                 height: 96,
                 alignment: Alignment.center,
-                decoration: const BoxDecoration(shape: BoxShape.circle, color: AppColors.surfaceGray),
+                decoration: BoxDecoration(shape: BoxShape.circle, color: AppColors.surfaceGray),
                 child: ArtIcon(asset, size: 60),
               )
             else
@@ -65,7 +65,7 @@ class EmptyState extends StatelessWidget {
               Text(
                 subtitle!,
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: AppColors.textSecondary, fontSize: 14, height: 1.4),
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 14, height: 1.4),
               ),
             ],
             if (actionLabel != null && onAction != null) ...[

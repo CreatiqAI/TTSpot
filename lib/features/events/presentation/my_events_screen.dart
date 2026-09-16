@@ -52,7 +52,7 @@ class MyEventsScreen extends ConsumerWidget {
           actions: [
             IconButton(tooltip: 'Plan a meet', icon: const Icon(AppIcons.plusCircle), onPressed: () => context.push(Routes.createEvent)),
           ],
-          bottom: const TabBar(
+          bottom: TabBar(
             labelColor: AppColors.textPrimary,
             unselectedLabelColor: AppColors.textSecondary,
             indicatorColor: AppColors.textPrimary,
@@ -69,7 +69,7 @@ class MyEventsScreen extends ConsumerWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(friendlyError(e), style: const TextStyle(color: AppColors.textSecondary)),
+                Text(friendlyError(e), style: TextStyle(color: AppColors.textSecondary)),
                 TextButton(onPressed: refresh, child: const Text('Retry')),
               ],
             ),
@@ -198,6 +198,6 @@ class _Section extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-        child: Text(text, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textSecondary)),
+        child: Text(text, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textSecondary)),
       );
 }

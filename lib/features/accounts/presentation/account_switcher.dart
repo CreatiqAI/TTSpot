@@ -124,7 +124,7 @@ class _Row extends StatelessWidget {
   Widget build(BuildContext context) => ListTile(
         leading: avatar,
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
-        subtitle: Text(subtitle, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+        subtitle: Text(subtitle, style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
         trailing: selected ? const Icon(AppIcons.checkCircleFill, color: AppColors.brand) : null,
         onTap: onTap,
       );

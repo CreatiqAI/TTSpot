@@ -86,7 +86,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
           children: [
             const Text('Reset your password', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
             const SizedBox(height: 6),
-            const Text("We'll email you a link. Open it on this phone and choose a new password.", style: TextStyle(color: AppColors.textSecondary, height: 1.4)),
+            Text("We'll email you a link. Open it on this phone and choose a new password.", style: TextStyle(color: AppColors.textSecondary, height: 1.4)),
             const SizedBox(height: 16),
             TextField(
               controller: ctrl,
@@ -145,7 +145,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                           const SizedBox(height: 8),
                           Center(child: Image.asset('assets/brand/logo.png', height: 150, filterQuality: FilterQuality.medium)),
                           const SizedBox(height: 10),
-                          const Text(
+                          Text(
                             "Malaysia's car meet spot",
                             textAlign: TextAlign.center,
                             style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
@@ -195,7 +195,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                             curve: Curves.easeOut,
                             alignment: Alignment.topCenter,
                             child: _isSignUp
-                                ? const Padding(
+                                ? Padding(
                                     padding: EdgeInsets.only(top: 12),
                                     child: Text(
                                       'We email you a 6-digit code to confirm. Next: your name, phone number and the Terms.',
@@ -248,7 +248,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                   behavior: HitTestBehavior.opaque,
                   child: RichText(
                     text: TextSpan(
-                      style: const TextStyle(fontSize: 14, color: AppColors.textSecondary),
+                      style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
                       children: [
                         TextSpan(text: _isSignUp ? 'Have an account? ' : "Don't have an account? "),
                         TextSpan(
@@ -273,7 +273,7 @@ class _OrDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Row(children: [
+    return Row(children: [
       Expanded(child: Divider()),
       Padding(
         padding: EdgeInsets.symmetric(horizontal: 16),

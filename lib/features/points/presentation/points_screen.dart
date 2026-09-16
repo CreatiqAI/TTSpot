@@ -79,7 +79,7 @@ class PointsScreen extends ConsumerWidget {
               ListTile(
                 leading: ArtIcon(_art(r.reason), size: 32),
                 title: Text(r.label, style: const TextStyle(fontWeight: FontWeight.w600)),
-                subtitle: Text(r.description, style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+                subtitle: Text(r.description, style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
                 trailing: Text('+${r.points}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
                 onTap: r.reason.startsWith('referral') ? () => context.push(Routes.myQr) : null,
               ),
@@ -97,7 +97,7 @@ class PointsScreen extends ConsumerWidget {
                     v.status == VerificationStatus.approved ? timeAgo(v.createdAt) : (v.reason ?? v.status.label),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                    style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
                   ),
                   trailing: Text(
                     v.status.label,
@@ -119,7 +119,7 @@ class PointsScreen extends ConsumerWidget {
               loading: () => const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
               error: (e, _) => Padding(padding: const EdgeInsets.all(16), child: Text(friendlyError(e))),
               data: (list) => list.isEmpty
-                  ? const Padding(
+                  ? Padding(
                       padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
                       child: Text('Nothing yet. Check in at a meet or a spot to start.', style: TextStyle(color: AppColors.textSecondary)),
                     )
@@ -130,7 +130,7 @@ class PointsScreen extends ConsumerWidget {
                             dense: true,
                             leading: ArtIcon(_art(e.reason), size: 26),
                             title: Text(e.label),
-                            subtitle: Text(timeAgo(e.createdAt), style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                            subtitle: Text(timeAgo(e.createdAt), style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                             trailing: Text(
                               '${e.delta > 0 ? '+' : ''}${e.delta}',
                               style: TextStyle(fontWeight: FontWeight.w800, color: e.delta > 0 ? AppColors.success : AppColors.danger),
@@ -152,6 +152,6 @@ class _Section extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.fromLTRB(16, 18, 16, 6),
-        child: Text(text, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textSecondary)),
+        child: Text(text, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textSecondary)),
       );
 }

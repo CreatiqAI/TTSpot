@@ -98,7 +98,7 @@ class _CardState extends ConsumerState<_Card> {
         ),
         AspectRatio(
           aspectRatio: 4 / 3,
-          child: Image.network(v.photoUrl, fit: BoxFit.cover, errorBuilder: (_, _, _) => const ColoredBox(color: AppColors.surfaceGray)),
+          child: Image.network(v.photoUrl, fit: BoxFit.cover, errorBuilder: (_, _, _) => ColoredBox(color: AppColors.surfaceGray)),
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
@@ -110,11 +110,11 @@ class _CardState extends ConsumerState<_Card> {
                   if (v.distanceM != null) '${v.distanceM} m from the spot' else 'no GPS',
                   if (ai.isNotEmpty) ai,
                 ].join(' · '),
-                style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
               ),
               if ((v.aiNote ?? '').isNotEmpty) ...[
                 const SizedBox(height: 4),
-                Text('AI: ${v.aiNote}', style: const TextStyle(fontSize: 13, color: AppColors.textSecondary, fontStyle: FontStyle.italic)),
+                Text('AI: ${v.aiNote}', style: TextStyle(fontSize: 13, color: AppColors.textSecondary, fontStyle: FontStyle.italic)),
               ],
               if ((v.reason ?? '').isNotEmpty) ...[
                 const SizedBox(height: 4),

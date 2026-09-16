@@ -199,7 +199,7 @@ class _PostCardState extends ConsumerState<PostCard> {
                         ],
                       ),
                       club != null
-                          ? Text('by @$username', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary))
+                          ? Text('by @$username', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: AppColors.textSecondary))
                           : _Subtitle(post: p),
                     ],
                   ),
@@ -280,7 +280,7 @@ class _PostCardState extends ConsumerState<PostCard> {
                     maxLines: widget.expanded || _showFullCaption ? null : 3,
                     overflow: widget.expanded || _showFullCaption ? TextOverflow.visible : TextOverflow.ellipsis,
                     text: TextSpan(
-                      style: const TextStyle(fontSize: 14, color: AppColors.textPrimary, height: 1.4),
+                      style: TextStyle(fontSize: 14, color: AppColors.textPrimary, height: 1.4),
                       children: [
                         TextSpan(text: '$username ', style: const TextStyle(fontWeight: FontWeight.w600)),
                         if (p.kind == PostKind.guide && p.title != null) TextSpan(text: '${p.title}\n', style: const TextStyle(fontWeight: FontWeight.w600)),
@@ -294,11 +294,11 @@ class _PostCardState extends ConsumerState<PostCard> {
                 const SizedBox(height: 4),
                 GestureDetector(
                   onTap: widget.onOpen ?? () => context.push(Routes.post(p.id)),
-                  child: Text('View all ${p.commentCount} comments', style: const TextStyle(fontSize: 14, color: AppColors.textSecondary)),
+                  child: Text('View all ${p.commentCount} comments', style: TextStyle(fontSize: 14, color: AppColors.textSecondary)),
                 ),
               ],
               const SizedBox(height: 4),
-              Text(timeAgo(p.createdAt), style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+              Text(timeAgo(p.createdAt), style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
             ],
           ),
         ),
@@ -363,13 +363,13 @@ class _Subtitle extends StatelessWidget {
     if (post.place != null) parts.add(('📍 ${post.place!.name}', Routes.place(post.place!.id)));
     if (post.event != null) parts.add(('🏁 ${post.event!.name}', Routes.event(post.event!.id)));
     if (post.club != null && !post.asClub) parts.add(('🛡️ ${post.club!.name}', Routes.club(post.club!.id)));
-    if (parts.isEmpty) return const SizedBox.shrink();
-    const style = TextStyle(fontSize: 12, color: AppColors.textSecondary);
+    if (parts.isEmpty) return SizedBox.shrink();
+    final style = TextStyle(fontSize: 12, color: AppColors.textSecondary);
     return Wrap(
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         for (var i = 0; i < parts.length; i++) ...[
-          if (i > 0) const Text(' · ', style: style),
+          if (i > 0) Text(' · ', style: style),
           GestureDetector(
             onTap: parts[i].$2 == null ? null : () => context.push(parts[i].$2!),
             child: Text(parts[i].$1, style: parts[i].$2 == null ? style : style.copyWith(fontWeight: FontWeight.w600, decoration: TextDecoration.underline, decorationColor: AppColors.border)),
@@ -406,8 +406,8 @@ class _Media extends StatelessWidget {
               itemBuilder: (_, i) => Image.network(
                 post.photoUrls[i],
                 fit: BoxFit.cover,
-                loadingBuilder: (_, child, prog) => prog == null ? child : const ColoredBox(color: AppColors.surfaceGray),
-                errorBuilder: (_, _, _) => const ColoredBox(color: AppColors.surfaceGray, child: Icon(AppIcons.imageBroken, color: AppColors.textMuted)),
+                loadingBuilder: (_, child, prog) => prog == null ? child : ColoredBox(color: AppColors.surfaceGray),
+                errorBuilder: (_, _, _) => ColoredBox(color: AppColors.surfaceGray, child: Icon(AppIcons.imageBroken, color: AppColors.textMuted)),
               ),
             ),
             if (post.photoUrls.length > 1)
@@ -450,7 +450,7 @@ class _GuideStrip extends StatelessWidget {
         decoration: BoxDecoration(color: AppColors.surfaceRaised, borderRadius: BorderRadius.circular(AppRadius.md), border: Border.all(color: AppColors.border)),
         child: Row(
           children: [
-            const Icon(AppIcons.path, color: AppColors.textPrimary),
+            Icon(AppIcons.path, color: AppColors.textPrimary),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
@@ -458,11 +458,11 @@ class _GuideStrip extends StatelessWidget {
                 children: [
                   Text(post.title ?? 'Guide', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600)),
                   Text(stops.isEmpty ? 'Tap to read' : '${stops.length} stop${stops.length == 1 ? '' : 's'} · ${stops.map((s) => s.name).join(' → ')}',
-                      maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
+                      maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
                 ],
               ),
             ),
-            const Icon(AppIcons.caretRight, color: AppColors.textMuted),
+            Icon(AppIcons.caretRight, color: AppColors.textMuted),
           ],
         ),
       ),
@@ -492,7 +492,7 @@ class _SpottedStrip extends ConsumerWidget {
             child: claimed
                 ? RichText(
                     text: TextSpan(
-                      style: const TextStyle(fontSize: 13.5, color: AppColors.textPrimary),
+                      style: TextStyle(fontSize: 13.5, color: AppColors.textPrimary),
                       children: [
                         const TextSpan(text: 'Claimed by '),
                         TextSpan(text: '@${p.claimer?.username ?? 'owner'}', style: const TextStyle(fontWeight: FontWeight.w600)),

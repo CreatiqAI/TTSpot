@@ -259,7 +259,7 @@ class _TtNowSheetState extends ConsumerState<_TtNowSheet> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(_venue.text, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
-                          if (_picked?.address != null) Text(_picked!.address, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11.5, color: AppColors.textSecondary)),
+                          if (_picked?.address != null) Text(_picked!.address, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11.5, color: AppColors.textSecondary)),
                         ],
                       ),
                     ),
@@ -295,11 +295,11 @@ class _TtNowSheetState extends ConsumerState<_TtNowSheet> {
               const SizedBox(height: 10),
               Row(
                 children: [
-                  const Text('ALSO NEAR YOU', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1, color: AppColors.textSecondary)),
+                  Text('ALSO NEAR YOU', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1, color: AppColors.textSecondary)),
                   const Spacer(),
                   Text('swipe for more', style: TextStyle(fontSize: 11, color: AppColors.textMuted, fontWeight: FontWeight.w600)),
                   const SizedBox(width: 2),
-                  const Icon(AppIcons.caretRight, size: 12, color: AppColors.textMuted),
+                  Icon(AppIcons.caretRight, size: 12, color: AppColors.textMuted),
                 ],
               ),
               const SizedBox(height: 6),
@@ -336,7 +336,7 @@ class _TtNowSheetState extends ConsumerState<_TtNowSheet> {
             ],
             const SizedBox(height: 16),
             // ---- how long
-            const Text('HOW LONG', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1, color: AppColors.textSecondary)),
+            Text('HOW LONG', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1, color: AppColors.textSecondary)),
             const SizedBox(height: 8),
             Row(
               children: [
@@ -351,7 +351,7 @@ class _TtNowSheetState extends ConsumerState<_TtNowSheet> {
             // ---- who
             Row(
               children: [
-                Text('INVITE · ${invited.length} of ${friends.length}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1, color: AppColors.textSecondary)),
+                Text('INVITE · ${invited.length} of ${friends.length}', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1, color: AppColors.textSecondary)),
                 const Spacer(),
                 TextButton(
                   onPressed: _busy || friends.isEmpty ? null : () => setState(() => _invited = invited.length == friends.length ? <String>{} : friends.map((f) => f.id).toSet()),
@@ -361,7 +361,7 @@ class _TtNowSheetState extends ConsumerState<_TtNowSheet> {
               ],
             ),
             if (friends.isEmpty)
-              const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Text('No friends yet. Your TT still shows on the map for people you add later.', style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)))
+              Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Text('No friends yet. Your TT still shows on the map for people you add later.', style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)))
             else
               ConstrainedBox(
                 constraints: const BoxConstraints(maxHeight: 220),
@@ -390,7 +390,7 @@ class _TtNowSheetState extends ConsumerState<_TtNowSheet> {
                   : Text(invited.isEmpty ? 'Start TT' : 'Start TT · invite ${invited.length} friend${invited.length == 1 ? '' : 's'}'),
             ),
             const SizedBox(height: 6),
-            Text('Ends by itself in $_durationLabel, or when you end it. Friends see it on the map.', textAlign: TextAlign.center, style: const TextStyle(fontSize: 11.5, color: AppColors.textMuted)),
+            Text('Ends by itself in $_durationLabel, or when you end it. Friends see it on the map.', textAlign: TextAlign.center, style: TextStyle(fontSize: 11.5, color: AppColors.textMuted)),
           ],
         ),
       ),

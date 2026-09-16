@@ -46,7 +46,7 @@ class GlassTabBar extends StatelessWidget {
                     child: Container(
                       width: 52,
                       height: 44,
-                      decoration: BoxDecoration(color: AppColors.ink, borderRadius: BorderRadius.circular(16)),
+                      decoration: BoxDecoration(color: AppColors.textPrimary, borderRadius: BorderRadius.circular(16)),
                     ),
                   ),
                   Row(
@@ -102,7 +102,7 @@ class _TabButtonState extends State<_TabButton> with SingleTickerProviderStateMi
   @override
   Widget build(BuildContext context) {
     final t = widget.tab;
-    final icon = Icon(widget.selected ? t.selectedIcon : t.icon, size: 25, color: widget.selected ? Colors.white : AppColors.textPrimary);
+    final icon = Icon(widget.selected ? t.selectedIcon : t.icon, size: 25, color: widget.selected ? AppColors.onInk : AppColors.textPrimary);
     return Semantics(
       label: t.label,
       selected: widget.selected,

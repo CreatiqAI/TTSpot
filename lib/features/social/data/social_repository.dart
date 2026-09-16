@@ -112,6 +112,20 @@ class SocialRepository {
 
   // --------------------------------------------------------------- create ---
 
+  /// Story videos go to the chat-media bucket (it allows mp4 / mov, 50 MB).
+  Future<String> uploadStoryVideo({required String userId, required Uint8List bytes, required String ext}) async {
+    final path = '$userId/story-${DateTime.now().microsecondsSinceEpoch}.$ext';
+    await _client.storage.from('chat-media').uploadBinary(path, bytes, fileOptions: FileOptions(contentType: ext == 'mov' ? 'video/quicktime' : 'video/mp4'));
+    return _client.storage.from('chat-media').getPublicUrl(path);
+  }
+
+  /// PNG poster for a video moment.
+  Future<String> uploadPoster({required String userId, required Uint8List bytes}) async {
+    final path = '$userId/stories/${DateTime.now().microsecondsSinceEpoch}.png';
+    await _client.storage.from('post-photos').uploadBinary(path, bytes, fileOptions: const FileOptions(contentType: 'image/png'));
+    return _client.storage.from('post-photos').getPublicUrl(path);
+  }
+
   Future<String> uploadPhoto({required String userId, required Uint8List bytes, String folder = 'posts'}) async {
     final path = '$userId/$folder/${DateTime.now().microsecondsSinceEpoch}.jpg';
     await _client.storage.from('post-photos').uploadBinary(path, bytes, fileOptions: const FileOptions(contentType: 'image/jpeg'));
@@ -271,6 +285,7 @@ class SocialRepository {
   Future<void> createStory({
     required String me,
     required String photoUrl,
+    String? videoUrl,
     String? caption,
     double? lat,
     double? lng,
@@ -280,6 +295,7 @@ class SocialRepository {
       _client.from('stories').insert({
         'author_id': me,
         'photo_url': photoUrl,
+        'video_url': ?videoUrl,
         'caption': ?caption?.trim(),
         'lat': ?lat,
         'lng': ?lng,

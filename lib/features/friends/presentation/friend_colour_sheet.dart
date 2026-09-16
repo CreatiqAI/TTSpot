@@ -23,7 +23,7 @@ Future<void> showFriendColourSheet(BuildContext context, WidgetRef ref, {require
           children: [
             Text('$name on the map', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
             const SizedBox(height: 4),
-            const Text('Their car and dot show in this colour, only for you.', style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
+            Text('Their car and dot show in this colour, only for you.', style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
             const SizedBox(height: 14),
             Wrap(
               spacing: 12,
@@ -45,7 +45,7 @@ Future<void> showFriendColourSheet(BuildContext context, WidgetRef ref, {require
                     width: 44,
                     height: 44,
                     decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: AppColors.border, width: 2)),
-                    child: const Icon(AppIcons.x, size: 18, color: AppColors.textSecondary),
+                    child: Icon(AppIcons.x, size: 18, color: AppColors.textSecondary),
                   ),
                 ),
               ],

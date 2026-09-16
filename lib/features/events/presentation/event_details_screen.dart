@@ -229,13 +229,13 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                               child: _InfoRow(
                                 icon: AppIcons.mapPin,
                                 text: '${d.event.venueName} · ${formatDistance(distanceKm(ref.watch(mapOriginProvider), d.event.latLng))}',
-                                trailing: d.event.placeId == null ? null : const Icon(AppIcons.caretRight, size: 20, color: AppColors.textMuted),
+                                trailing: d.event.placeId == null ? null : Icon(AppIcons.caretRight, size: 20, color: AppColors.textMuted),
                               ),
                             ),
                             if (d.event.address != null)
                               Padding(
                                 padding: const EdgeInsets.fromLTRB(30, 2, 0, 0),
-                                child: Text(d.event.address!, style: const TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.35)),
+                                child: Text(d.event.address!, style: TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.35)),
                               ),
                             const SizedBox(height: 10),
                             _QuickActions(event: d.event),
@@ -247,7 +247,7 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                               const SizedBox(height: 8),
                               InkWell(
                                 onTap: d.event.vendorId == null ? null : () => context.push(Routes.partner(d.event.vendorId!)),
-                                child: _InfoRow(icon: AppIcons.storefront, text: 'Hosted by ${d.event.vendorName}', trailing: const Icon(AppIcons.caretRight, size: 20, color: AppColors.textMuted)),
+                                child: _InfoRow(icon: AppIcons.storefront, text: 'Hosted by ${d.event.vendorName}', trailing: Icon(AppIcons.caretRight, size: 20, color: AppColors.textMuted)),
                               ),
                             ],
                             const SizedBox(height: 16),
@@ -328,7 +328,7 @@ class _Cover extends StatelessWidget {
               event.coverUrl!,
               fit: BoxFit.cover,
               loadingBuilder: (_, child, progress) =>
-                  progress == null ? child : const ColoredBox(color: AppColors.surfaceGray),
+                  progress == null ? child : ColoredBox(color: AppColors.surfaceGray),
               errorBuilder: (_, _, _) => ColoredBox(
                 color: AppColors.surfaceGray,
                 child: Center(child: ArtIcon(event.type.art, size: 110)),
@@ -344,14 +344,14 @@ class _Badges extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Widget pill(String text, {Color bg = AppColors.surfaceGray, Color fg = AppColors.textPrimary, String? art}) => Container(
+    Widget pill(String text, {Color? bg, Color? fg, String? art}) => Container(
           padding: EdgeInsets.fromLTRB(art == null ? 10 : 6, 4, 10, 4),
-          decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(999)),
+          decoration: BoxDecoration(color: bg ?? AppColors.surfaceGray, borderRadius: BorderRadius.circular(999)),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               if (art != null) ...[ArtIcon(art, size: 18), const SizedBox(width: 5)],
-              Text(text, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: fg)),
+              Text(text, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: fg ?? AppColors.textPrimary)),
             ],
           ),
         );
@@ -400,7 +400,7 @@ class _ClubRow extends ConsumerWidget {
     if (club == null) return const SizedBox.shrink();
     return InkWell(
       onTap: () => context.push(Routes.club(clubId)),
-      child: _InfoRow(icon: AppIcons.shield, text: '${club.name} · @${club.handle}', trailing: const Icon(AppIcons.caretRight, size: 20, color: AppColors.textMuted)),
+      child: _InfoRow(icon: AppIcons.shield, text: '${club.name} · @${club.handle}', trailing: Icon(AppIcons.caretRight, size: 20, color: AppColors.textMuted)),
     );
   }
 }
@@ -434,7 +434,7 @@ class _PhotoWall extends ConsumerWidget {
             padding: const EdgeInsets.only(bottom: 4),
             child: Text(
               canPost ? 'Nothing here yet. Post your shots from the meet.' : 'Photos from people who joined will show up here.',
-              style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
             ),
           )
         else
@@ -468,19 +468,19 @@ class _OrganizerTile extends StatelessWidget {
                 children: [
                   RichText(
                     text: TextSpan(
-                      style: const TextStyle(fontSize: 14, color: AppColors.textSecondary),
+                      style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
                       children: [
                         const TextSpan(text: 'Organised by '),
-                        TextSpan(text: name, style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+                        TextSpan(text: name, style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
                       ],
                     ),
                   ),
                   if (username != null)
-                    Text('@$username', style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+                    Text('@$username', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
                 ],
               ),
             ),
-            const Icon(AppIcons.caretRight, color: AppColors.textMuted),
+            Icon(AppIcons.caretRight, color: AppColors.textMuted),
           ],
         ),
       ),
@@ -521,7 +521,7 @@ class _Attendees extends StatelessWidget {
             ),
           ),
         ),
-        if (e.attendeeCount > 0) const Icon(AppIcons.caretRight, size: 18, color: AppColors.textMuted),
+        if (e.attendeeCount > 0) Icon(AppIcons.caretRight, size: 18, color: AppColors.textMuted),
       ],
     ),
     );
@@ -673,9 +673,9 @@ class _Comments extends ConsumerWidget {
             padding: EdgeInsets.symmetric(vertical: 16),
             child: Center(child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))),
           ),
-          error: (e, _) => Text(friendlyError(e), style: const TextStyle(color: AppColors.textSecondary)),
+          error: (e, _) => Text(friendlyError(e), style: TextStyle(color: AppColors.textSecondary)),
           data: (list) => list.isEmpty
-              ? const Padding(
+              ? Padding(
                   padding: EdgeInsets.symmetric(vertical: 8),
                   child: Text('No comments yet. Ask about parking, timing, anything.',
                       style: TextStyle(color: AppColors.textSecondary, fontSize: 14)),
@@ -759,7 +759,7 @@ class _CommentTile extends ConsumerWidget {
                 children: [
                   RichText(
                     text: TextSpan(
-                      style: const TextStyle(fontSize: 14, color: AppColors.textPrimary, height: 1.4),
+                      style: TextStyle(fontSize: 14, color: AppColors.textPrimary, height: 1.4),
                       children: [
                         TextSpan(text: '$name  ', style: const TextStyle(fontWeight: FontWeight.w600)),
                         TextSpan(text: comment.body),
@@ -767,7 +767,7 @@ class _CommentTile extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(height: 3),
-                  Text(_ago(comment.createdAt), style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                  Text(_ago(comment.createdAt), style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                 ],
               ),
             ),
@@ -797,7 +797,7 @@ class _CommentComposer extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final me = ref.watch(currentProfileProvider).value;
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.bg,
         border: Border(top: BorderSide(color: AppColors.border, width: 0.5)),
       ),
@@ -854,7 +854,7 @@ class _ErrorView extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(message, textAlign: TextAlign.center, style: const TextStyle(color: AppColors.textSecondary)),
+            Text(message, textAlign: TextAlign.center, style: TextStyle(color: AppColors.textSecondary)),
             if (onRetry != null) TextButton(onPressed: onRetry, child: const Text('Retry')),
           ],
         ),
@@ -907,7 +907,7 @@ class _CheckInCard extends ConsumerWidget {
             children: [
               Expanded(
                 child: checkedIn
-                    ? ElevatedButton.icon(onPressed: null, icon: const Icon(AppIcons.checkCircleFill, size: 18, color: AppColors.success), label: const Text('You\'re here', style: TextStyle(color: AppColors.textPrimary)))
+                    ? ElevatedButton.icon(onPressed: null, icon: const Icon(AppIcons.checkCircleFill, size: 18, color: AppColors.success), label: Text('You\'re here', style: TextStyle(color: AppColors.textPrimary)))
                     : PrimaryButton(label: 'I\'m here · check in', loading: busy, onPressed: busy ? null : onCheckIn),
               ),
               if (!checkedIn) ...[
@@ -933,7 +933,7 @@ class _CheckInCard extends ConsumerWidget {
             ],
           ),
           if (!checkedIn)
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(top: 8),
               child: Text('Be at the meet with location on, then scan the organiser\'s QR (works within 300 m). Earns points.', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
             ),
@@ -973,7 +973,7 @@ class _Moments extends ConsumerWidget {
             padding: const EdgeInsets.only(bottom: 4),
             child: Text(
               canPost ? 'Snap the scene. Moments stay in this meet\'s album.' : 'Moments from people who were here show up here.',
-              style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
             ),
           )
         else
@@ -998,7 +998,7 @@ class _Moments extends ConsumerWidget {
                       child: Stack(
                         fit: StackFit.expand,
                         children: [
-                          Image.network(m.photoUrl, fit: BoxFit.cover, errorBuilder: (_, _, _) => const ColoredBox(color: AppColors.surfaceGray)),
+                          Image.network(m.photoUrl, fit: BoxFit.cover, errorBuilder: (_, _, _) => ColoredBox(color: AppColors.surfaceGray)),
                           Positioned(left: 6, bottom: 6, child: UserAvatar(url: m.author?.avatarUrl, name: m.author?.username, size: 22, borderColor: Colors.white)),
                         ],
                       ),
@@ -1028,7 +1028,7 @@ class _RecapCard extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(v, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
-              Text(l, style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
+              Text(l, style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
             ],
           ),
         );
@@ -1053,7 +1053,7 @@ class _RecapCard extends ConsumerWidget {
               children: [
                 AvatarStack(urls: here.map((p) => p.avatarUrl).toList(), names: here.map((p) => p.username).toList(), size: 28, max: 6),
                 const SizedBox(width: 8),
-                Expanded(child: Text(here.take(3).map((p) => p.username ?? '').join(', ') + (here.length > 3 ? ' and ${here.length - 3} more' : ''), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, color: AppColors.textSecondary))),
+                Expanded(child: Text(here.take(3).map((p) => p.username ?? '').join(', ') + (here.length > 3 ? ' and ${here.length - 3} more' : ''), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, color: AppColors.textSecondary))),
               ],
             ),
           ],

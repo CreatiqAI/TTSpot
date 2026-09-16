@@ -87,13 +87,13 @@ class AccountTab extends ConsumerWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-                            Text(subtitle, style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
+                            Text(subtitle, style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
                           ],
                         ),
                       ),
-                      const Icon(AppIcons.arrowsClockwise, size: 18, color: AppColors.textMuted),
+                      Icon(AppIcons.arrowsClockwise, size: 18, color: AppColors.textMuted),
                       const SizedBox(width: 4),
-                      const Text('Switch', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppColors.textSecondary)),
+                      Text('Switch', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppColors.textSecondary)),
                     ],
                   ),
                 ),
@@ -105,21 +105,21 @@ class AccountTab extends ConsumerWidget {
             ListTile(
               leading: Icon(r.icon, color: AppColors.textPrimary),
               title: Text(r.title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14.5)),
-              subtitle: Text(r.subtitle, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-              trailing: const Icon(AppIcons.caretRight, size: 16, color: AppColors.textMuted),
+              subtitle: Text(r.subtitle, style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+              trailing: Icon(AppIcons.caretRight, size: 16, color: AppColors.textMuted),
               onTap: r.onTap,
             ),
           const _Head('GENERAL'),
           ListTile(
-            leading: const Icon(AppIcons.user, color: AppColors.textPrimary),
+            leading: Icon(AppIcons.user, color: AppColors.textPrimary),
             title: const Text('Back to my profile', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14.5)),
-            trailing: const Icon(AppIcons.caretRight, size: 16, color: AppColors.textMuted),
+            trailing: Icon(AppIcons.caretRight, size: 16, color: AppColors.textMuted),
             onTap: () => ref.read(activeAccountProvider.notifier).set(const PersonalAccount()),
           ),
           ListTile(
-            leading: const Icon(AppIcons.gear, color: AppColors.textPrimary),
+            leading: Icon(AppIcons.gear, color: AppColors.textPrimary),
             title: const Text('Settings', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14.5)),
-            trailing: const Icon(AppIcons.caretRight, size: 16, color: AppColors.textMuted),
+            trailing: Icon(AppIcons.caretRight, size: 16, color: AppColors.textMuted),
             onTap: () => context.push(Routes.settings),
           ),
           ListTile(
@@ -147,6 +147,6 @@ class _Head extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.fromLTRB(20, 18, 20, 6),
-        child: Text(text, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, letterSpacing: 1, color: AppColors.textSecondary)),
+        child: Text(text, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, letterSpacing: 1, color: AppColors.textSecondary)),
       );
 }

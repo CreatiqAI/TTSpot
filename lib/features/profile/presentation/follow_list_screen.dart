@@ -26,7 +26,7 @@ class FollowListScreen extends ConsumerWidget {
         loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
         error: (e, _) => Center(child: Text(friendlyError(e))),
         data: (people) => people.isEmpty
-            ? Center(child: Text(followers ? 'No followers yet.' : 'Not following anyone yet.', style: const TextStyle(color: AppColors.textSecondary)))
+            ? Center(child: Text(followers ? 'No followers yet.' : 'Not following anyone yet.', style: TextStyle(color: AppColors.textSecondary)))
             : ListView.builder(
                 itemCount: people.length,
                 itemBuilder: (_, i) {

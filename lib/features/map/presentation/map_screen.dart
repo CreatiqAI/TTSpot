@@ -79,14 +79,8 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
     WidgetsBinding.instance.addPostFrameCallback((_) => ref.read(locationPublisherProvider.notifier).start());
   }
 
-  /// Light map by day, dark after 7 pm.
-  bool get _isNight {
-    final pref = ref.read(settingsProvider).mapTheme;
-    if (pref == 'light') return false;
-    if (pref == 'dark') return true;
-    final h = DateTime.now().hour;
-    return h >= 19 || h < 7;
-  }
+  /// The map follows the app theme (Settings → Appearance).
+  bool get _isNight => AppColors.dark;
 
   /// Zoom tiers, Waze-style. 0 = far: everything is a small colour-coded dot
   /// (events and TT red, spots grey, top spots black), no people. 1 = mid:
@@ -530,11 +524,7 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
               ),
             ),
 
-            // The glass tab bar floats over the page: keep the sheet above it.
-            Padding(
-              padding: EdgeInsets.only(bottom: MediaQuery.paddingOf(context).bottom),
-              child: MapPalette(light: !_isNight, child: MapSheet(controller: _sheet, onFocus: _focus)),
-            ),
+            MapPalette(light: !_isNight, child: MapSheet(controller: _sheet, onFocus: _focus)),
           ],
         ),
       ),

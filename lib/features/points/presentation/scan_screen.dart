@@ -99,7 +99,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
             Text(o.title, textAlign: TextAlign.center, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
             if (o.subtitle != null) ...[
               const SizedBox(height: 6),
-              Text(o.subtitle!, textAlign: TextAlign.center, style: const TextStyle(color: AppColors.textSecondary, height: 1.4)),
+              Text(o.subtitle!, textAlign: TextAlign.center, style: TextStyle(color: AppColors.textSecondary, height: 1.4)),
             ],
             if (o.points > 0) ...[
               const SizedBox(height: 12),

@@ -45,7 +45,7 @@ class PickerField<T> extends FormField<T> {
                   floatingLabelBehavior: hint == null ? null : FloatingLabelBehavior.always,
                   errorText: state.errorText,
                   prefixIcon: icon == null ? null : Icon(icon),
-                  suffixIcon: const Icon(AppIcons.caretDown, color: AppColors.textSecondary, size: 18),
+                  suffixIcon: Icon(AppIcons.caretDown, color: AppColors.textSecondary, size: 18),
                   enabled: enabled,
                 ),
                 isEmpty: selected == null,

@@ -192,7 +192,7 @@ class _FriendStrip extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
           child: Row(
             children: [
-              const Text('FRIENDS', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textSecondary)),
+              Text('FRIENDS', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textSecondary)),
               if (liveCount > 0) ...[
                 const SizedBox(width: 8),
                 Container(width: 7, height: 7, decoration: const BoxDecoration(color: AppColors.success, shape: BoxShape.circle)),
@@ -321,15 +321,15 @@ class _ChatTile extends StatelessWidget {
                 width: 48,
                 height: 48,
                 child: c.eventCover == null
-                    ? const ColoredBox(color: AppColors.surfaceGray, child: Icon(AppIcons.usersThree, color: AppColors.textSecondary))
-                    : Image.network(c.eventCover!, fit: BoxFit.cover, errorBuilder: (_, _, _) => const ColoredBox(color: AppColors.surfaceGray)),
+                    ? ColoredBox(color: AppColors.surfaceGray, child: Icon(AppIcons.usersThree, color: AppColors.textSecondary))
+                    : Image.network(c.eventCover!, fit: BoxFit.cover, errorBuilder: (_, _, _) => ColoredBox(color: AppColors.surfaceGray)),
               ),
             )
           : UserAvatar(url: c.avatarUrl, name: c.title, size: 48),
       title: Row(
         children: [
           Flexible(child: Text(c.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontWeight: c.unread > 0 ? FontWeight.w700 : FontWeight.w600))),
-          if (c.pinned) ...[const SizedBox(width: 6), const Icon(AppIcons.pushPin, size: 14, color: AppColors.textMuted)],
+          if (c.pinned) ...[const SizedBox(width: 6), Icon(AppIcons.pushPin, size: 14, color: AppColors.textMuted)],
         ],
       ),
       subtitle: Text(
@@ -342,7 +342,7 @@ class _ChatTile extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          if (last != null) Text(timeAgo(last.createdAt), style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+          if (last != null) Text(timeAgo(last.createdAt), style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
           if (c.unread > 0) ...[
             const SizedBox(height: 4),
             Container(width: 10, height: 10, decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle)),
@@ -360,6 +360,6 @@ class _Section extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
-        child: Text(text, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textSecondary)),
+        child: Text(text, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textSecondary)),
       );
 }

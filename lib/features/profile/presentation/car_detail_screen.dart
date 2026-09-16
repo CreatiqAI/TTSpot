@@ -83,13 +83,13 @@ class _CarDetailScreenState extends ConsumerState<CarDetailScreen> {
               AspectRatio(
                 aspectRatio: 4 / 3,
                 child: c.photoUrls.isEmpty
-                    ? const ColoredBox(color: AppColors.surfaceGray, child: Center(child: ArtIcon(AppArt.car, size: 120)))
+                    ? ColoredBox(color: AppColors.surfaceGray, child: Center(child: ArtIcon(AppArt.car, size: 120)))
                     : Stack(
                         children: [
                           PageView.builder(
                             itemCount: c.photoUrls.length,
                             onPageChanged: (i) => setState(() => _page = i),
-                            itemBuilder: (_, i) => Image.network(c.photoUrls[i], fit: BoxFit.cover, errorBuilder: (_, _, _) => const ColoredBox(color: AppColors.surfaceGray)),
+                            itemBuilder: (_, i) => Image.network(c.photoUrls[i], fit: BoxFit.cover, errorBuilder: (_, _, _) => ColoredBox(color: AppColors.surfaceGray)),
                           ),
                           if (c.photoUrls.length > 1)
                             Positioned(
@@ -151,15 +151,15 @@ class _CarDetailScreenState extends ConsumerState<CarDetailScreen> {
                           Expanded(
                             child: RichText(
                               text: TextSpan(
-                                style: const TextStyle(fontSize: 14, color: AppColors.textSecondary),
+                                style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
                                 children: [
                                   const TextSpan(text: 'In the garage of '),
-                                  TextSpan(text: owner?.displayName ?? (owner?.username == null ? '…' : '@${owner!.username}'), style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+                                  TextSpan(text: owner?.displayName ?? (owner?.username == null ? '…' : '@${owner!.username}'), style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
                                 ],
                               ),
                             ),
                           ),
-                          const Icon(AppIcons.caretRight, color: AppColors.textMuted),
+                          Icon(AppIcons.caretRight, color: AppColors.textMuted),
                         ],
                       ),
                     ),
@@ -168,7 +168,7 @@ class _CarDetailScreenState extends ConsumerState<CarDetailScreen> {
                     // ---- build log
                     Row(
                       children: [
-                        const Expanded(child: Text('BUILD LOG', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textSecondary))),
+                        Expanded(child: Text('BUILD LOG', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textSecondary))),
                         if (showSpend && total > 0)
                           Text('RM ${_money(total)} spent', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                         if (mine)
@@ -182,7 +182,7 @@ class _CarDetailScreenState extends ConsumerState<CarDetailScreen> {
                     if (mods.isEmpty)
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 8),
-                        child: Text(mine ? 'Nothing logged yet. Start with what you did first.' : 'Stock, or the owner hasn\'t logged anything yet.', style: const TextStyle(color: AppColors.textSecondary, fontSize: 14)),
+                        child: Text(mine ? 'Nothing logged yet. Start with what you did first.' : 'Stock, or the owner hasn\'t logged anything yet.', style: TextStyle(color: AppColors.textSecondary, fontSize: 14)),
                       )
                     else
                       for (var i = 0; i < mods.length; i++) _ModRow(mod: mods[i], last: i == mods.length - 1, showCost: showSpend, mine: mine, carId: c.id),
@@ -190,7 +190,7 @@ class _CarDetailScreenState extends ConsumerState<CarDetailScreen> {
                 ),
               ),
               if (posts.isNotEmpty) ...[
-                const Padding(padding: EdgeInsets.fromLTRB(16, 20, 16, 4), child: Text('POSTS', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textSecondary))),
+                Padding(padding: EdgeInsets.fromLTRB(16, 20, 16, 4), child: Text('POSTS', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textSecondary))),
                 MasonryGrid(items: posts),
               ],
             ],
@@ -248,7 +248,7 @@ class _ModRow extends ConsumerWidget {
               width: 24,
               child: Column(
                 children: [
-                  Container(width: 10, height: 10, margin: const EdgeInsets.only(top: 6), decoration: const BoxDecoration(color: AppColors.textPrimary, shape: BoxShape.circle)),
+                  Container(width: 10, height: 10, margin: const EdgeInsets.only(top: 6), decoration: BoxDecoration(color: AppColors.textPrimary, shape: BoxShape.circle)),
                   if (!last) Expanded(child: Container(width: 1.5, color: AppColors.border)),
                 ],
               ),
@@ -263,10 +263,10 @@ class _ModRow extends ConsumerWidget {
                     Row(
                       children: [
                         Expanded(child: Text(mod.title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600))),
-                        if (showCost && mod.cost != null) Text('RM ${_CarDetailScreenState._money(mod.cost!)}', style: const TextStyle(fontSize: 13, color: AppColors.textSecondary, fontWeight: FontWeight.w600)),
+                        if (showCost && mod.cost != null) Text('RM ${_CarDetailScreenState._money(mod.cost!)}', style: TextStyle(fontSize: 13, color: AppColors.textSecondary, fontWeight: FontWeight.w600)),
                       ],
                     ),
-                    Text(formatDate(mod.doneOn), style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
+                    Text(formatDate(mod.doneOn), style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
                     if ((mod.description ?? '').trim().isNotEmpty) ...[const SizedBox(height: 4), Text(mod.description!.trim(), style: const TextStyle(fontSize: 14, height: 1.4))],
                     if (mod.photoUrls.isNotEmpty) ...[
                       const SizedBox(height: 8),

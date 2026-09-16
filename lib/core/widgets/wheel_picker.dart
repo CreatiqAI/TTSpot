@@ -34,7 +34,7 @@ Future<DateTime?> showWheelPicker(
           SizedBox(
             height: 216,
             child: CupertinoTheme(
-              data: const CupertinoThemeData(
+              data: CupertinoThemeData(
                 textTheme: CupertinoTextThemeData(
                   dateTimePickerTextStyle: TextStyle(fontSize: 22, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
                 ),

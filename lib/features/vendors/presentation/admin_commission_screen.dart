@@ -81,7 +81,7 @@ class _AdminCommissionScreenState extends ConsumerState<AdminCommissionScreen> {
                         ],
                       ),
                     ),
-                    if (list.isEmpty) const Padding(padding: EdgeInsets.all(16), child: Text('No partners yet.', style: TextStyle(color: AppColors.textSecondary))),
+                    if (list.isEmpty) Padding(padding: EdgeInsets.all(16), child: Text('No partners yet.', style: TextStyle(color: AppColors.textSecondary))),
                     for (final r in list) _Row(r: r),
                   ],
                 );
@@ -108,7 +108,7 @@ class _Row extends StatelessWidget {
           child: const Icon(AppIcons.storefront, size: 20),
         ),
         title: Text(r.vendorName, style: const TextStyle(fontWeight: FontWeight.w700)),
-        subtitle: Text('@${r.ownerUsername ?? ''} · ${r.redemptions} redemption${r.redemptions == 1 ? '' : 's'} · bills ${rm(r.billTotal)}', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+        subtitle: Text('@${r.ownerUsername ?? ''} · ${r.redemptions} redemption${r.redemptions == 1 ? '' : 's'} · bills ${rm(r.billTotal)}', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
         trailing: Text(rm(r.commissionTotal), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
       );
 }

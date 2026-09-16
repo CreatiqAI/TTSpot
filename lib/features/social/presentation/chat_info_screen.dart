@@ -82,7 +82,7 @@ class _DmInfo extends ConsumerWidget {
                 UserAvatar(url: p.avatarUrl, name: name, size: 96),
                 const SizedBox(height: 10),
                 Text(name, style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w800)),
-                Text('@${p.username ?? ''}${(p.homeState ?? '').isEmpty ? '' : ' · ${p.homeState}'}', style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+                Text('@${p.username ?? ''}${(p.homeState ?? '').isEmpty ? '' : ' · ${p.homeState}'}', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
                 if ((p.bio ?? '').trim().isNotEmpty)
                   Padding(padding: const EdgeInsets.fromLTRB(32, 8, 32, 0), child: Text(p.bio!.trim(), textAlign: TextAlign.center, style: const TextStyle(fontSize: 13.5, height: 1.4))),
               ],
@@ -122,8 +122,8 @@ class _DmInfo extends ConsumerWidget {
             ListTile(
               leading: UserAvatar(url: c.avatarUrl, name: c.name, size: 40),
               title: Text(c.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-              subtitle: Text('@${c.handle} · ${c.memberCount} members', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-              trailing: const Icon(AppIcons.caretRight, size: 16, color: AppColors.textMuted),
+              subtitle: Text('@${c.handle} · ${c.memberCount} members', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+              trailing: Icon(AppIcons.caretRight, size: 16, color: AppColors.textMuted),
               onTap: () => context.push(Routes.club(c.id)),
             ),
         ],
@@ -218,7 +218,7 @@ class _MeetInfo extends ConsumerWidget {
               m.id == event?.organizerId ? '@${m.username ?? ''} · HOST' : '@${m.username ?? ''}',
               style: TextStyle(fontSize: 12, color: m.id == event?.organizerId ? AppColors.brand : AppColors.textSecondary),
             ),
-            trailing: m.id == me ? null : const Icon(AppIcons.caretRight, size: 16, color: AppColors.textMuted),
+            trailing: m.id == me ? null : Icon(AppIcons.caretRight, size: 16, color: AppColors.textMuted),
             onTap: m.id == me ? null : () => context.push(Routes.profile(m.id)),
           ),
         const _Section('THIS CHAT'),
@@ -329,7 +329,7 @@ class _SharedThumb extends ConsumerWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            if (url != null) Image.network(url, fit: BoxFit.cover) else const Center(child: Icon(AppIcons.image, color: AppColors.textMuted)),
+            if (url != null) Image.network(url, fit: BoxFit.cover) else Center(child: Icon(AppIcons.image, color: AppColors.textMuted)),
             Positioned(left: 6, bottom: 6, child: Text(tag, style: const TextStyle(color: Colors.white, fontSize: 10.5, fontWeight: FontWeight.w800, shadows: [Shadow(blurRadius: 6, color: Colors.black)]))),
           ],
         ),
@@ -383,7 +383,7 @@ class _Section extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.fromLTRB(16, 18, 16, 4),
-        child: Text(text, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textSecondary)),
+        child: Text(text, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textSecondary)),
       );
 }
 

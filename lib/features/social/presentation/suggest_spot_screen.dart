@@ -96,7 +96,7 @@ class _SuggestSpotScreenState extends ConsumerState<SuggestSpotScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
           children: [
-            const Text(
+            Text(
               'Know a good mamak, carpark or driving road? Put it on the map for everyone.',
               style: TextStyle(fontSize: 13.5, color: AppColors.textSecondary, height: 1.4),
             ),
@@ -123,7 +123,7 @@ class _SuggestSpotScreenState extends ConsumerState<SuggestSpotScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(_place!.name, style: const TextStyle(fontWeight: FontWeight.w700)),
-                          Text(_place!.address, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                          Text(_place!.address, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                         ],
                       ),
                     ),
@@ -152,7 +152,7 @@ class _SuggestSpotScreenState extends ConsumerState<SuggestSpotScreen> {
                 decoration: BoxDecoration(color: AppColors.surfaceGray, borderRadius: BorderRadius.circular(AppRadius.md), border: Border.all(color: AppColors.border)),
                 clipBehavior: Clip.antiAlias,
                 child: _photo == null
-                    ? const Column(
+                    ? Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(AppIcons.cameraPlus, size: 28, color: AppColors.textSecondary),
@@ -175,7 +175,7 @@ class _SuggestSpotScreenState extends ConsumerState<SuggestSpotScreen> {
             const SizedBox(height: 22),
             PrimaryButton(label: 'Send suggestion', loading: _busy, onPressed: _busy ? null : _submit),
             const SizedBox(height: 10),
-            const Text(
+            Text(
               'TT Spot checks every suggestion. Public places only, no private homes.',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 12, color: AppColors.textSecondary, height: 1.4),
@@ -191,5 +191,5 @@ class _Label extends StatelessWidget {
   const _Label(this.text);
   final String text;
   @override
-  Widget build(BuildContext context) => Text(text, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, letterSpacing: 1, color: AppColors.textSecondary));
+  Widget build(BuildContext context) => Text(text, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, letterSpacing: 1, color: AppColors.textSecondary));
 }

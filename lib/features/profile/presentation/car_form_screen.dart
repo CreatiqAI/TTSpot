@@ -142,7 +142,7 @@ class _CarFormScreenState extends ConsumerState<CarFormScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
           children: [
-            const Text('PHOTOS', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textSecondary)),
+            Text('PHOTOS', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textSecondary)),
             const SizedBox(height: 8),
             SizedBox(
               height: 96,
@@ -164,7 +164,7 @@ class _CarFormScreenState extends ConsumerState<CarFormScreen> {
                           borderRadius: BorderRadius.circular(AppRadius.md),
                           border: Border.all(color: AppColors.border),
                         ),
-                        child: const Icon(AppIcons.cameraPlus, color: AppColors.textSecondary),
+                        child: Icon(AppIcons.cameraPlus, color: AppColors.textSecondary),
                       ),
                     ),
                 ],
@@ -173,7 +173,7 @@ class _CarFormScreenState extends ConsumerState<CarFormScreen> {
             const SizedBox(height: 6),
             Text(
               '${_kept.length + _new.length} of 5 · first photo is the cover',
-              style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+              style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
             ),
             const SizedBox(height: 20),
             TextField(
@@ -197,9 +197,9 @@ class _CarFormScreenState extends ConsumerState<CarFormScreen> {
               decoration: const InputDecoration(labelText: 'Year (optional)', hintText: 'e.g. 2019'),
             ),
             const SizedBox(height: 18),
-            const Text('COLOUR', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1, color: AppColors.textSecondary)),
+            Text('COLOUR', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1, color: AppColors.textSecondary)),
             const SizedBox(height: 4),
-            const Text('Shows as your car on the map.', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+            Text('Shows as your car on the map.', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
             const SizedBox(height: 10),
             Wrap(
               spacing: 10,

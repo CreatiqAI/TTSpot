@@ -86,7 +86,7 @@ class ProfileHeader extends StatelessWidget {
         const SizedBox(height: 10),
         Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w800, height: 1.1)),
         const SizedBox(height: 3),
-        Text('@${p.username}$where', style: const TextStyle(fontSize: 13, color: AppColors.textSecondary, fontWeight: FontWeight.w500)),
+        Text('@${p.username}$where', style: TextStyle(fontSize: 13, color: AppColors.textSecondary, fontWeight: FontWeight.w500)),
         // ----------------------------------------------------------- stats ---
         Padding(
           padding: const EdgeInsets.fromLTRB(24, 14, 24, 0),
@@ -153,7 +153,7 @@ class ProfileHeader extends StatelessWidget {
                   if (isMe && albums.isEmpty)
                     GestureDetector(
                       onTap: onAddAlbum,
-                      child: const SizedBox(
+                      child: SizedBox(
                         width: 220,
                         child: Padding(
                           padding: EdgeInsets.only(left: 4, top: 8),
@@ -198,10 +198,10 @@ class _AlbumCircle extends StatelessWidget {
                 decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: a == null ? AppColors.border : AppColors.ink, width: 1.5)),
                 child: ClipOval(
                   child: a == null
-                      ? const ColoredBox(color: AppColors.surfaceGray, child: Icon(AppIcons.plus, size: 22, color: AppColors.textSecondary))
+                      ? ColoredBox(color: AppColors.surfaceGray, child: Icon(AppIcons.plus, size: 22, color: AppColors.textSecondary))
                       : a.coverUrl == null
-                          ? const ColoredBox(color: AppColors.surfaceGray, child: Icon(AppIcons.images, size: 22, color: AppColors.textSecondary))
-                          : Image.network(a.coverUrl!, fit: BoxFit.cover, errorBuilder: (_, _, _) => const ColoredBox(color: AppColors.surfaceGray)),
+                          ? ColoredBox(color: AppColors.surfaceGray, child: Icon(AppIcons.images, size: 22, color: AppColors.textSecondary))
+                          : Image.network(a.coverUrl!, fit: BoxFit.cover, errorBuilder: (_, _, _) => ColoredBox(color: AppColors.surfaceGray)),
                 ),
               ),
               const SizedBox(height: 4),
@@ -235,7 +235,7 @@ class _Stat extends StatelessWidget {
                   style: TextStyle(fontFamily: AppFonts.display, fontSize: 24, fontWeight: FontWeight.w700, height: 1, color: accent ? AppColors.brand : AppColors.textPrimary),
                 ),
                 const SizedBox(height: 3),
-                Text(label, style: const TextStyle(fontSize: 11.5, color: AppColors.textSecondary, fontWeight: FontWeight.w500)),
+                Text(label, style: TextStyle(fontSize: 11.5, color: AppColors.textSecondary, fontWeight: FontWeight.w500)),
               ],
             ),
           ),
@@ -296,7 +296,7 @@ class ProfileTabBar extends SliverPersistentHeaderDelegate {
   Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
     return Container(
       height: height,
-      decoration: const BoxDecoration(color: AppColors.bg, border: Border(bottom: BorderSide(color: AppColors.border, width: 0.5))),
+      decoration: BoxDecoration(color: AppColors.bg, border: Border(bottom: BorderSide(color: AppColors.border, width: 0.5))),
       child: LayoutBuilder(
         builder: (_, c) {
           final w = c.maxWidth / tabs.length;

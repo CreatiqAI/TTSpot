@@ -10,6 +10,17 @@ class ReleaseNote {
 
 const kReleaseNotes = <ReleaseNote>[
   ReleaseNote(
+    version: '0.3.20',
+    date: '17 Sep 2026',
+    title: 'Dark mode for the whole app',
+    points: [
+      'Settings → Appearance: Auto (light 7 am to 7 pm, dark at night), Always light, Always dark. Every page follows, not only the map.',
+      'A clear Directions button on partner pages, with a Waze / Google Maps choice and a proper confirm sheet.',
+      'The map list no longer hides under the tab bar.',
+      'Admin overview rebuilt: right now, decisions, 7-day trends, community and rewards totals, top spots, newest members.',
+    ],
+  ),
+  ReleaseNote(
     version: '0.3.19',
     date: '17 Sep 2026',
     title: 'Glass, motion, and club requests',

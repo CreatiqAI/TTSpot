@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -10,6 +11,7 @@ import 'core/env.dart';
 import 'core/router/app_router.dart';
 import 'core/supabase/supabase_client.dart';
 import 'core/theme/app_theme.dart';
+import 'features/settings/application/settings_providers.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -56,12 +58,12 @@ class _NotConfiguredApp extends StatelessWidget {
               children: [
                 const Text('🏁', style: TextStyle(fontSize: 56)),
                 const SizedBox(height: 16),
-                const Text(
+                Text(
                   'Toolchain works!',
                   style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
                 ),
                 const SizedBox(height: 8),
-                const Text(
+                Text(
                   'Flutter and the emulator are running. Next: create env.json with your Supabase URL and key, then run with\n--dart-define-from-file=env.json',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: AppColors.textSecondary, height: 1.5),
@@ -75,17 +77,52 @@ class _NotConfiguredApp extends StatelessWidget {
   }
 }
 
-class TtSpotApp extends ConsumerWidget {
+class TtSpotApp extends ConsumerStatefulWidget {
   const TtSpotApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<TtSpotApp> createState() => _TtSpotAppState();
+}
+
+class _TtSpotAppState extends ConsumerState<TtSpotApp> {
+  Timer? _clock;
+
+  @override
+  void initState() {
+    super.initState();
+    // Auto theme flips at 7 am / 7 pm: check once a minute.
+    _clock = Timer.periodic(const Duration(minutes: 1), (_) { if (mounted) setState(() {}); });
+  }
+
+  @override
+  void dispose() {
+    _clock?.cancel();
+    super.dispose();
+  }
+
+  /// Dark when the setting says so, or in auto mode between 7 pm and 7 am.
+  bool get _dark {
+    final pref = ref.watch(settingsProvider).theme;
+    if (pref == 'dark') return true;
+    if (pref == 'light') return false;
+    final h = DateTime.now().hour;
+    return h >= 19 || h < 7;
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final router = ref.watch(appRouterProvider);
+    final dark = _dark;
+    if (AppColors.dark != dark) {
+      AppColors.dark = dark;
+      SystemChrome.setSystemUIOverlayStyle(AppTheme.systemOverlay);
+    }
     return MaterialApp.router(
+      // A new key rebuilds every widget with the other palette. GoRouter keeps the location.
+      key: ValueKey(dark),
       title: 'TT Spot',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.light,
-      themeMode: ThemeMode.light,
+      theme: AppTheme.current,
       routerConfig: router,
       // iPhone habit: tapping anywhere outside a text field closes the keyboard.
       builder: (context, child) => GestureDetector(

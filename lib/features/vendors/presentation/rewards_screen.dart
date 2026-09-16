@@ -95,7 +95,7 @@ class _PartnersTab extends ConsumerWidget {
           return ListView(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
             children: [
-              const Text('Workshops, parts shops and hangouts that welcome TT Spot members. Tap one to see their products, vouchers and hours.',
+              Text('Workshops, parts shops and hangouts that welcome TT Spot members. Tap one to see their products, vouchers and hours.',
                   style: TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.4)),
               const SizedBox(height: 8),
               for (final v in sorted) _PartnerCard(v: v, here: here),
@@ -134,7 +134,7 @@ class _PartnerCard extends StatelessWidget {
             width: 56,
             height: 56,
             child: v.logoUrl == null
-                ? const ColoredBox(color: AppColors.surfaceGray, child: Icon(AppIcons.storefront, color: AppColors.textSecondary))
+                ? ColoredBox(color: AppColors.surfaceGray, child: Icon(AppIcons.storefront, color: AppColors.textSecondary))
                 : Image.network(v.logoUrl!, fit: BoxFit.cover),
           ),
         ),
@@ -142,7 +142,7 @@ class _PartnerCard extends StatelessWidget {
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(businessTypeLabel(v.type), style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
+            Text(businessTypeLabel(v.type), style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
             const SizedBox(height: 3),
             Row(
               children: [
@@ -150,14 +150,14 @@ class _PartnerCard extends StatelessWidget {
                   Container(width: 7, height: 7, decoration: BoxDecoration(shape: BoxShape.circle, color: open ? AppColors.success : AppColors.textMuted)),
                   const SizedBox(width: 5),
                   Text(open ? 'Open' : 'Closed', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: open ? AppColors.success : AppColors.textSecondary)),
-                  if (facts.isNotEmpty) const Text(' · ', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                  if (facts.isNotEmpty) Text(' · ', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                 ],
-                Expanded(child: Text(facts.join(' · '), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary))),
+                Expanded(child: Text(facts.join(' · '), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: AppColors.textSecondary))),
               ],
             ),
           ],
         ),
-        trailing: const Icon(AppIcons.caretRight, size: 16, color: AppColors.textMuted),
+        trailing: Icon(AppIcons.caretRight, size: 16, color: AppColors.textMuted),
       ),
     );
   }
@@ -350,7 +350,7 @@ class _VoucherCardState extends ConsumerState<_VoucherCard> {
                 ClipRRect(
                   borderRadius: BorderRadius.circular(AppRadius.sm),
                   child: v.vendorLogo == null
-                      ? Container(width: 36, height: 36, color: AppColors.surfaceGray, child: const Icon(AppIcons.storefront, size: 18, color: AppColors.textSecondary))
+                      ? Container(width: 36, height: 36, color: AppColors.surfaceGray, child: Icon(AppIcons.storefront, size: 18, color: AppColors.textSecondary))
                       : Image.network(v.vendorLogo!, width: 36, height: 36, fit: BoxFit.cover),
                 ),
                 const SizedBox(width: 10),
@@ -362,7 +362,7 @@ class _VoucherCardState extends ConsumerState<_VoucherCard> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(v.vendorName ?? 'Partner', style: const TextStyle(fontWeight: FontWeight.w700)),
-                      if (v.vendorAddress != null) Text(v.vendorAddress!, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                      if (v.vendorAddress != null) Text(v.vendorAddress!, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                     ],
                   ),
                   ),
@@ -398,7 +398,7 @@ class _VoucherCardState extends ConsumerState<_VoucherCard> {
                           padding: const EdgeInsets.only(top: 2, bottom: 2),
                           child: Row(children: [const Icon(AppIcons.shoppingBag, size: 13, color: AppColors.brand), const SizedBox(width: 4), Expanded(child: Text('For ${v.productName}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppColors.brand)))]),
                         ),
-                      if (v.description != null) Text(v.description!, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+                      if (v.description != null) Text(v.description!, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
                       const SizedBox(height: 4),
                       Text(
                         [
@@ -409,7 +409,7 @@ class _VoucherCardState extends ConsumerState<_VoucherCard> {
                         ].join(' · '),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                        style: TextStyle(fontSize: 12, color: AppColors.textMuted),
                       ),
                     ],
                   ),

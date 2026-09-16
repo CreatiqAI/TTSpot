@@ -31,11 +31,11 @@ class AboutScreen extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
               decoration: BoxDecoration(color: AppColors.surfaceGray, borderRadius: BorderRadius.circular(999)),
-              child: Text('Version $kAppVersion  ·  build $kAppBuild', style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppColors.textSecondary)),
+              child: Text('Version $kAppVersion  ·  build $kAppBuild', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppColors.textSecondary)),
             ),
           ),
           const SizedBox(height: 28),
-          const Text('WHAT\'S NEW', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, letterSpacing: 1, color: AppColors.textSecondary)),
+          Text('WHAT\'S NEW', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, letterSpacing: 1, color: AppColors.textSecondary)),
           const SizedBox(height: 10),
           for (var i = 0; i < kReleaseNotes.length; i++) _Release(note: kReleaseNotes[i], current: i == 0),
           const SizedBox(height: 24),
@@ -48,10 +48,10 @@ class AboutScreen extends StatelessWidget {
           Center(
             child: TextButton(
               onPressed: () => showLicensePage(context: context, applicationName: 'TT Spot', applicationVersion: kAppVersion),
-              child: const Text('Open-source licences', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+              child: Text('Open-source licences', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
             ),
           ),
-          const Center(
+          Center(
             child: Text('Made in Malaysia', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
           ),
         ],

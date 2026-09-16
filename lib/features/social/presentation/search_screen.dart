@@ -75,7 +75,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       body: ListView(
         children: [
           if (_q.isEmpty)
-            const Padding(
+            Padding(
               padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
               child: Text('CLUBS', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textSecondary)),
             ),
@@ -106,7 +106,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 ),
               if (_q.isEmpty)
                 ListTile(
-                  leading: const CircleAvatar(backgroundColor: AppColors.surfaceGray, child: Icon(AppIcons.plus, color: AppColors.textPrimary)),
+                  leading: CircleAvatar(backgroundColor: AppColors.surfaceGray, child: Icon(AppIcons.plus, color: AppColors.textPrimary)),
                   title: const Text('Start a car club', style: TextStyle(fontWeight: FontWeight.w600)),
                   subtitle: const Text('Apply to run one. Owners invite members and share the map.'),
                   onTap: () => context.push(Routes.clubApply),
@@ -135,7 +135,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               (places.value?.isEmpty ?? true) &&
               !people.isLoading &&
               !clubs.isLoading)
-            const Padding(
+            Padding(
               padding: EdgeInsets.all(32),
               child: Center(child: Text('No results.', style: TextStyle(color: AppColors.textSecondary))),
             ),
@@ -151,6 +151,6 @@ class _Section extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-        child: Text(text, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textSecondary)),
+        child: Text(text, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textSecondary)),
       );
 }

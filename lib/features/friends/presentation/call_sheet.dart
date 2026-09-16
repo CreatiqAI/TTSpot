@@ -38,7 +38,7 @@ Future<void> showCallSheet(BuildContext context, WidgetRef ref, {required String
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-            child: Align(alignment: Alignment.centerLeft, child: Text(prettyPhone(tel), style: const TextStyle(fontSize: 13, color: AppColors.textSecondary))),
+            child: Align(alignment: Alignment.centerLeft, child: Text(prettyPhone(tel), style: TextStyle(fontSize: 13, color: AppColors.textSecondary))),
           ),
           ListTile(
             leading: const Icon(AppIcons.phoneCall),

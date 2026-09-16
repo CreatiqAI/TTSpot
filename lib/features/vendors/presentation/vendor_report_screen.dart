@@ -34,15 +34,15 @@ class VendorReportScreen extends ConsumerWidget {
         child: ListView(
           padding: const EdgeInsets.only(bottom: 32),
           children: [
-            const Padding(padding: EdgeInsets.fromLTRB(16, 16, 16, 6), child: Text('BY MONTH', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textSecondary))),
+            Padding(padding: EdgeInsets.fromLTRB(16, 16, 16, 6), child: Text('BY MONTH', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textSecondary))),
             months.when(
               loading: () => const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
               error: (e, _) => Padding(padding: const EdgeInsets.all(16), child: Text(friendlyError(e))),
               data: (rows) => rows.isEmpty
-                  ? const Padding(padding: EdgeInsets.fromLTRB(16, 0, 16, 8), child: Text('No redemptions yet.', style: TextStyle(color: AppColors.textSecondary)))
+                  ? Padding(padding: EdgeInsets.fromLTRB(16, 0, 16, 8), child: Text('No redemptions yet.', style: TextStyle(color: AppColors.textSecondary)))
                   : Column(children: [for (final m in rows) _MonthTile(m: m)]),
             ),
-            const Padding(padding: EdgeInsets.fromLTRB(16, 20, 16, 6), child: Text('ALL REDEMPTIONS', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textSecondary))),
+            Padding(padding: EdgeInsets.fromLTRB(16, 20, 16, 6), child: Text('ALL REDEMPTIONS', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textSecondary))),
             redemptions.when(
               loading: () => const SizedBox.shrink(),
               error: (e, _) => Padding(padding: const EdgeInsets.all(16), child: Text(friendlyError(e))),
@@ -53,13 +53,13 @@ class VendorReportScreen extends ConsumerWidget {
                       dense: true,
                       leading: UserAvatar(url: r.avatarUrl, name: r.username, size: 34),
                       title: Text('@${r.username ?? ''} · ${r.title}', maxLines: 1, overflow: TextOverflow.ellipsis),
-                      subtitle: Text('${formatEventDate(r.createdAt)}${r.note == null ? '' : ' · ${r.note}'}', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                      subtitle: Text('${formatEventDate(r.createdAt)}${r.note == null ? '' : ' · ${r.note}'}', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                       trailing: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           Text(rm(r.billAmount), style: const TextStyle(fontWeight: FontWeight.w700)),
-                          Text('fee ${rm(r.commissionAmount)}', style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                          Text('fee ${rm(r.commissionAmount)}', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
                         ],
                       ),
                       onTap: r.receiptUrl == null
@@ -95,7 +95,7 @@ class _MonthTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('${_months[m.month.month - 1]} ${m.month.year}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
-                  Text('${m.redemptions} redemption${m.redemptions == 1 ? '' : 's'} · bills ${rm(m.billTotal)}', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                  Text('${m.redemptions} redemption${m.redemptions == 1 ? '' : 's'} · bills ${rm(m.billTotal)}', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                 ],
               ),
             ),
@@ -103,7 +103,7 @@ class _MonthTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(rm(m.commissionTotal), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-                const Text('commission due', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                Text('commission due', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
               ],
             ),
           ],

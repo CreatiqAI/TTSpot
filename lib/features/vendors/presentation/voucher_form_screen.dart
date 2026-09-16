@@ -231,7 +231,7 @@ class _VoucherFormScreenState extends ConsumerState<VoucherFormScreen> {
             const SizedBox(height: 8),
             PrimaryButton(label: editing ? 'Save' : 'Publish voucher', loading: _busy, onPressed: _save),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'When a member redeems, you type the bill and the platform books 1% of it as commission.',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 12, color: AppColors.textMuted),

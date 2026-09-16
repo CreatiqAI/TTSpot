@@ -115,7 +115,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       ),
       body: profile.when(
         loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
-        error: (e, _) => Center(child: Text(friendlyError(e), style: const TextStyle(color: AppColors.textSecondary))),
+        error: (e, _) => Center(child: Text(friendlyError(e), style: TextStyle(color: AppColors.textSecondary))),
         data: (p) {
           if (p == null) return const Center(child: Text('This profile doesn\'t exist.'));
           return RefreshIndicator(

@@ -157,7 +157,7 @@ class _PartnerApplyScreenState extends ConsumerState<PartnerApplyScreen> {
                 ),
               ),
               const SizedBox(width: 14),
-              Expanded(child: Text(_club ? 'Club logo (optional)' : 'Logo or shopfront photo (optional)', style: const TextStyle(color: AppColors.textSecondary, fontSize: 13))),
+              Expanded(child: Text(_club ? 'Club logo (optional)' : 'Logo or shopfront photo (optional)', style: TextStyle(color: AppColors.textSecondary, fontSize: 13))),
             ],
           ),
           const SizedBox(height: 16),
@@ -227,7 +227,7 @@ class _PartnerApplyScreenState extends ConsumerState<PartnerApplyScreen> {
           const SizedBox(height: 20),
           PrimaryButton(label: 'Send application', loading: _busy, onPressed: _submit),
           const SizedBox(height: 10),
-          const Text(
+          Text(
             'We usually reply within a few days. You keep using TT Spot as normal in the meantime.',
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 12, color: AppColors.textMuted),
@@ -262,7 +262,7 @@ class _Status extends StatelessWidget {
               ? '${app.businessName} is waiting for review. Sent ${timeAgo(app.createdAt)}. We\'ll notify you here when it\'s decided.'
               : (app.reason == null || app.reason!.isEmpty ? 'No reason was given.' : app.reason!),
           textAlign: TextAlign.center,
-          style: const TextStyle(color: AppColors.textSecondary, height: 1.4),
+          style: TextStyle(color: AppColors.textSecondary, height: 1.4),
         ),
         const SizedBox(height: 24),
         Container(
@@ -272,7 +272,7 @@ class _Status extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(app.businessName, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
-              Text(businessTypeLabel(app.businessType), style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+              Text(businessTypeLabel(app.businessType), style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
               if (app.address != null) ...[const SizedBox(height: 6), Text(app.address!, style: const TextStyle(fontSize: 13))],
               if (app.phone != null) Text(app.phone!, style: const TextStyle(fontSize: 13)),
             ],
@@ -307,7 +307,7 @@ class _Approved extends StatelessWidget {
               ? 'Create your club page, invite members, and members will see each other on the map.'
               : 'Publish vouchers, scan them at the counter, and see your statement in the partner dashboard.',
           textAlign: TextAlign.center,
-          style: const TextStyle(color: AppColors.textSecondary, height: 1.4),
+          style: TextStyle(color: AppColors.textSecondary, height: 1.4),
         ),
         const SizedBox(height: 24),
         PrimaryButton(

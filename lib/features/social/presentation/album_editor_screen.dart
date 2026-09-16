@@ -191,7 +191,7 @@ class _AlbumEditorScreenState extends ConsumerState<AlbumEditorScreen> {
                       decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: AppColors.ink, width: 1.5)),
                       child: ClipOval(
                         child: _cover == null
-                            ? const ColoredBox(color: AppColors.surfaceGray, child: Icon(AppIcons.image, size: 28, color: AppColors.textSecondary))
+                            ? ColoredBox(color: AppColors.surfaceGray, child: Icon(AppIcons.image, size: 28, color: AppColors.textSecondary))
                             : Image.network(_cover!, fit: BoxFit.cover),
                       ),
                     ),
@@ -214,7 +214,7 @@ class _AlbumEditorScreenState extends ConsumerState<AlbumEditorScreen> {
               padding: const EdgeInsets.fromLTRB(16, 18, 16, 8),
               child: Row(
                 children: [
-                  const Text('PICK MOMENTS', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textSecondary)),
+                  Text('PICK MOMENTS', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textSecondary)),
                   const Spacer(),
                   Text('${_selected.length} selected', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.brand)),
                 ],
@@ -238,7 +238,7 @@ class _AlbumEditorScreenState extends ConsumerState<AlbumEditorScreen> {
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
-                        Image.network(s.photoUrl, fit: BoxFit.cover, errorBuilder: (_, _, _) => const ColoredBox(color: AppColors.surfaceGray)),
+                        Image.network(s.photoUrl, fit: BoxFit.cover, errorBuilder: (_, _, _) => ColoredBox(color: AppColors.surfaceGray)),
                         if (on) const DecoratedBox(decoration: BoxDecoration(color: Color(0x33000000))),
                         Positioned(
                           right: 6,

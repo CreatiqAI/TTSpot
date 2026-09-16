@@ -154,7 +154,7 @@ class _Round extends StatelessWidget {
   final VoidCallback onTap;
   @override
   Widget build(BuildContext context) => Material(
-        color: Colors.white,
+        color: AppColors.surface,
         shape: const CircleBorder(),
         elevation: 3,
         child: InkWell(

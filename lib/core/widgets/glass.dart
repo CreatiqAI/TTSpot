@@ -2,6 +2,8 @@ import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
 
+import '../theme/app_theme.dart';
+
 /// Frosted glass surface: blurs what is behind it, tints it white (or ink),
 /// adds a hairline edge and a soft top highlight. Use for floating chrome —
 /// the tab bar, map controls, sticky bars — never for whole pages.
@@ -10,7 +12,7 @@ class GlassPanel extends StatelessWidget {
     super.key,
     required this.child,
     this.radius = 22,
-    this.dark = false,
+    this.dark,
     this.padding,
     this.blur = 18,
     this.circle = false,
@@ -18,7 +20,8 @@ class GlassPanel extends StatelessWidget {
   });
   final Widget child;
   final double radius;
-  final bool dark;
+  /// null = follow the app theme.
+  final bool? dark;
   final EdgeInsetsGeometry? padding;
   final double blur;
   final bool circle;
@@ -26,6 +29,7 @@ class GlassPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final dark = this.dark ?? AppColors.dark;
     final shape = circle ? const CircleBorder() : RoundedRectangleBorder(borderRadius: BorderRadius.circular(radius));
     final fill = dark ? const Color(0xFF14171E).withValues(alpha: 0.62) : Colors.white.withValues(alpha: 0.70);
     final edge = dark ? Colors.white.withValues(alpha: 0.14) : Colors.white.withValues(alpha: 0.85);

@@ -79,7 +79,7 @@ class _Head extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
-        child: Text(text, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textSecondary)),
+        child: Text(text, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textSecondary)),
       );
 }
 
@@ -111,7 +111,7 @@ class VoucherRow extends ConsumerWidget {
           if (v.ended) 'ended' else if (v.endsAt != null) 'ends ${formatDate(v.endsAt!)}',
         ].join(' · '),
         maxLines: 2,
-        style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+        style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
       ),
       trailing: Switch.adaptive(
         value: v.active,

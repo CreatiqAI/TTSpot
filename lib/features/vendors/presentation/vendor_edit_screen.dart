@@ -106,7 +106,7 @@ class _VendorEditScreenState extends ConsumerState<VendorEditScreen> {
                                   ? DecorationImage(image: NetworkImage(vendor.logoUrl!), fit: BoxFit.cover)
                                   : null,
                         ),
-                        child: _logo == null && vendor.logoUrl == null ? const Icon(AppIcons.storefront, size: 28, color: AppColors.textSecondary) : null,
+                        child: _logo == null && vendor.logoUrl == null ? Icon(AppIcons.storefront, size: 28, color: AppColors.textSecondary) : null,
                       ),
                     ),
                     const SizedBox(width: 14),
@@ -115,8 +115,8 @@ class _VendorEditScreenState extends ConsumerState<VendorEditScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(vendor.name, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
-                          Text(businessTypeLabel(vendor.type), style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
-                          const Text('Tap the logo to change it', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                          Text(businessTypeLabel(vendor.type), style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+                          Text('Tap the logo to change it', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
                         ],
                       ),
                     ),
@@ -138,16 +138,16 @@ class _VendorEditScreenState extends ConsumerState<VendorEditScreen> {
                 const SizedBox(height: 6),
                 Text(
                   vendor.lat == null && _lat == null ? 'Pick the address from the list once, and your shop appears on the map.' : 'On the map. Pick a new address to move it.',
-                  style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                  style: TextStyle(fontSize: 12, color: AppColors.textMuted),
                 ),
                 const SizedBox(height: 12),
-                const Text('OPENING HOURS', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, letterSpacing: 1, color: AppColors.textSecondary)),
+                Text('OPENING HOURS', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, letterSpacing: 1, color: AppColors.textSecondary)),
                 const SizedBox(height: 6),
                 HoursEditor(value: _hours, onChanged: (v) => setState(() => _hours = v)),
                 const SizedBox(height: 12),
                 TextField(controller: _phone, keyboardType: TextInputType.phone, inputFormatters: [MyPhoneFormatter()], decoration: const InputDecoration(labelText: 'Phone / WhatsApp', hintText: '+60 12-345 6789')),
                 const SizedBox(height: 16),
-                const Text('PHOTOS', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, letterSpacing: 1, color: AppColors.textSecondary)),
+                Text('PHOTOS', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, letterSpacing: 1, color: AppColors.textSecondary)),
                 const SizedBox(height: 8),
                 SizedBox(
                   height: 96,
@@ -166,7 +166,7 @@ class _VendorEditScreenState extends ConsumerState<VendorEditScreen> {
                             width: 96,
                             height: 96,
                             decoration: BoxDecoration(color: AppColors.surfaceGray, borderRadius: BorderRadius.circular(AppRadius.md), border: Border.all(color: AppColors.border)),
-                            child: const Column(
+                            child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Icon(AppIcons.cameraPlus, size: 24, color: AppColors.textSecondary),
@@ -180,7 +180,7 @@ class _VendorEditScreenState extends ConsumerState<VendorEditScreen> {
                   ),
                 ),
                 const SizedBox(height: 4),
-                const Text('Shopfront, workshop bay, cars you worked on. Up to 6.', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                Text('Shopfront, workshop bay, cars you worked on. Up to 6.', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
                 const SizedBox(height: 12),
                 TextField(controller: _desc, maxLines: 3, maxLength: 300, textCapitalization: TextCapitalization.sentences, decoration: const InputDecoration(labelText: 'About the place')),
                 const SizedBox(height: 16),

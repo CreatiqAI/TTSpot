@@ -90,7 +90,7 @@ class _SpotVerifyScreenState extends ConsumerState<SpotVerifyScreen> {
             const SizedBox(height: 12),
             Text(title, textAlign: TextAlign.center, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
             const SizedBox(height: 6),
-            Text(body, textAlign: TextAlign.center, style: const TextStyle(color: AppColors.textSecondary, height: 1.4)),
+            Text(body, textAlign: TextAlign.center, style: TextStyle(color: AppColors.textSecondary, height: 1.4)),
             if (r.points > 0) ...[
               const SizedBox(height: 12),
               Container(
@@ -129,7 +129,7 @@ class _SpotVerifyScreenState extends ConsumerState<SpotVerifyScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(place?.name ?? 'Spot', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-                    Text('Sticker scanned · +$pts points when approved', style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+                    Text('Sticker scanned · +$pts points when approved', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
                   ],
                 ),
               ),
@@ -145,7 +145,7 @@ class _SpotVerifyScreenState extends ConsumerState<SpotVerifyScreen> {
                 child: _photo == null
                     ? Container(
                         color: AppColors.surfaceGray,
-                        child: const Column(
+                        child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Icon(AppIcons.cameraPlus, size: 40, color: AppColors.textSecondary),
@@ -159,7 +159,7 @@ class _SpotVerifyScreenState extends ConsumerState<SpotVerifyScreen> {
             ),
           ),
           const SizedBox(height: 10),
-          const Text(
+          Text(
             'Any angle, your car in frame, taken right here. We check it automatically. Screenshots and photos of photos don\'t count.',
             style: TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.4),
           ),

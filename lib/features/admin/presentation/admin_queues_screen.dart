@@ -54,7 +54,7 @@ class _AdminQueuesScreenState extends ConsumerState<AdminQueuesScreen> {
             padding: const EdgeInsets.fromLTRB(20, 22, 20, 6),
             child: Row(
               children: [
-                const Text('REPORTS', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, letterSpacing: 1, color: AppColors.textSecondary)),
+                Text('REPORTS', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, letterSpacing: 1, color: AppColors.textSecondary)),
                 const Spacer(),
                 for (final f in const [('open', 'Open'), ('resolved', 'Resolved'), ('all', 'All')])
                   Padding(
@@ -76,7 +76,7 @@ class _AdminQueuesScreenState extends ConsumerState<AdminQueuesScreen> {
             data: (all) {
               final list = all.where((r) => switch (_filter) { 'open' => r.resolvedAt == null, 'resolved' => r.resolvedAt != null, _ => true }).toList();
               if (list.isEmpty) {
-                return const Padding(padding: EdgeInsets.fromLTRB(20, 12, 20, 12), child: Text('Nothing here. Nice.', style: TextStyle(color: AppColors.textSecondary)));
+                return Padding(padding: EdgeInsets.fromLTRB(20, 12, 20, 12), child: Text('Nothing here. Nice.', style: TextStyle(color: AppColors.textSecondary)));
               }
               return Column(children: [for (final r in list) _ReportCard(r: r)]);
             },
@@ -134,13 +134,13 @@ class _ReportCard extends ConsumerWidget {
                 Icon(done ? AppIcons.checkCircle : AppIcons.flag, size: 18, color: done ? AppColors.success : AppColors.brand),
                 const SizedBox(width: 8),
                 Expanded(child: Text('${r.targetType}: ${r.targetLabel ?? r.targetId.substring(0, 8)}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700))),
-                Text(timeAgo(r.createdAt), style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                Text(timeAgo(r.createdAt), style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
               ],
             ),
             const SizedBox(height: 6),
             Text(r.reason, style: const TextStyle(fontSize: 13.5, height: 1.35)),
             const SizedBox(height: 4),
-            Text('Reported by @${r.reporterUsername}', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+            Text('Reported by @${r.reporterUsername}', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
             const SizedBox(height: 8),
             Row(
               children: [
@@ -168,7 +168,7 @@ class _Queue extends StatelessWidget {
   Widget build(BuildContext context) => ListTile(
         leading: Icon(icon, color: AppColors.textPrimary),
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14.5)),
-        subtitle: Text(subtitle, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+        subtitle: Text(subtitle, style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
         trailing: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           decoration: BoxDecoration(color: (count ?? 0) > 0 ? AppColors.brand : AppColors.surfaceGray, borderRadius: BorderRadius.circular(999)),
@@ -184,6 +184,6 @@ class _Head extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.fromLTRB(20, 14, 20, 4),
-        child: Text(text, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, letterSpacing: 1, color: AppColors.textSecondary)),
+        child: Text(text, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, letterSpacing: 1, color: AppColors.textSecondary)),
       );
 }

@@ -14,7 +14,7 @@ const kReleaseNotes = <ReleaseNote>[
     date: '18 Sep 2026',
     title: 'Tidier map toolbar',
     points: [
-      'The map toolbar is one clear line: red action on the left (TT now, Plan, Suggest), what is on the map in the middle, an open button on the right with today's moments count.',
+      'The map toolbar is one clear line: red action on the left (TT now, Plan, Suggest), what is on the map in the middle, an open button on the right with the count of moments today.',
       'Tap the map to close the list.',
     ],
   ),

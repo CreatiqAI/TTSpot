@@ -56,7 +56,16 @@ jobs:
         run: flutter pub get
 
       - name: Build iOS (release, no signing)
-        run: flutter build ios --release --no-codesign --dart-define-from-file=env.json
+        # Verbose log goes to a file; on failure print the real Xcode/Dart errors
+        # (the flutter tool otherwise hides them behind a generic signing hint).
+        run: |
+          set -o pipefail
+          if ! flutter build ios --release --no-codesign --dart-define-from-file=env.json -v > build.log 2>&1; then
+            echo "::group::errors"; grep -n -iE "error:|Error \(Xcode\)|failed|fatal" build.log | grep -v "available)" | head -120; echo "::endgroup::"
+            echo "::group::tail"; tail -150 build.log; echo "::endgroup::"
+            exit 1
+          fi
+          tail -5 build.log
 
       - name: Package .ipa
         run: |

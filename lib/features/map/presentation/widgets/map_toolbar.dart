@@ -16,10 +16,10 @@ import '../../../social/domain/post.dart';
 import '../../application/map_providers.dart';
 import 'tt_now_sheet.dart';
 
-/// The one glass row above the tab bar when the map sheet is closed. Same
-/// shape on every layer: a red action on the left, a line of status in the
-/// middle, a round "open" button on the right. Tapping the middle or the
-/// button opens the sheet, which holds the lists.
+/// The one glass row above the tab bar when the map sheet is closed. Built
+/// like the tab bar (glass, 44-high buttons) and a touch smaller. The red
+/// TT button is the same on every layer; the middle line says what is on
+/// the map; the round button on the right opens the sheet with the lists.
 class MapToolbar extends ConsumerWidget {
   const MapToolbar({super.key, required this.mode, required this.light, required this.onOpen});
   final MapMode mode;
@@ -27,12 +27,13 @@ class MapToolbar extends ConsumerWidget {
   /// Open the sheet (true = all the way).
   final void Function({bool full}) onOpen;
 
-  static const double height = 58;
-  static const double _inner = 46;
+  static const double height = 60;
+  static const double _inner = 44;
+  static const double _pad = 8;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final (action, status) = switch (mode) {
+    final status = switch (mode) {
       MapMode.now => _now(context, ref),
       MapMode.upcoming => _upcoming(context, ref),
       MapMode.spots => _spots(context, ref),
@@ -40,12 +41,12 @@ class MapToolbar extends ConsumerWidget {
     return GlassPanel(
       dark: !light,
       radius: height / 2,
-      padding: const EdgeInsets.all(6),
+      padding: const EdgeInsets.all(_pad),
       child: SizedBox(
         height: _inner,
         child: Row(
           children: [
-            action,
+            _ttButton(context, ref),
             const SizedBox(width: 6),
             Expanded(child: status),
           ],
@@ -54,63 +55,61 @@ class MapToolbar extends ConsumerWidget {
     );
   }
 
-  (Widget, Widget) _now(BuildContext context, WidgetRef ref) {
+  /// Red to start a TT, black while mine is live, white when a friend's is on.
+  Widget _ttButton(BuildContext context, WidgetRef ref) {
     final me = ref.watch(currentUserIdProvider);
     final live = ref.watch(liveEventsProvider).value ?? const <Event>[];
     final pins = ref.watch(friendPinsProvider).value ?? const <FriendPin>[];
-    final moments = ref.watch(liveMomentsProvider).value ?? const <Story>[];
     final origin = ref.watch(mapOriginProvider);
     final friendIds = ref.watch(friendIdsProvider);
     final mine = live.where((e) => e.isInstant && e.organizerId == me).firstOrNull;
     final friendTt = (live.where((e) => e.isInstant && friendIds.contains(e.organizerId)).toList()
           ..sort((a, b) => distanceKm(origin, a.latLng).compareTo(distanceKm(origin, b.latLng))))
         .firstOrNull;
-    final fresh = pins.where((p) => p.isFresh).toList();
-
-    final Widget action;
     if (mine != null) {
-      action = _Action(style: _Style.live, icon: AppIcons.record, label: '${mine.checkinCount} here · ${_minsLeft(mine)} min', onTap: () => context.push(Routes.event(mine.id)));
-    } else if (friendTt != null) {
-      action = _Action(style: _Style.friend, icon: AppIcons.coffee, label: '${_firstName(friendTt.organizerId, pins)}\'s TT', onTap: () => context.push(Routes.event(friendTt.id)));
-    } else {
-      action = _Action(style: _Style.start, icon: AppIcons.coffee, label: 'TT now', onTap: () => showTtNowSheet(context));
+      return _Action(style: _Style.live, icon: AppIcons.record, label: '${mine.checkinCount} here · ${_minsLeft(mine)} min', onTap: () => context.push(Routes.event(mine.id)));
     }
+    if (friendTt != null) {
+      final who = _firstName(friendTt.organizerId, pins);
+      return _Action(style: _Style.friend, icon: AppIcons.coffee, label: "$who's TT", onTap: () => context.push(Routes.event(friendTt.id)));
+    }
+    return _Action(style: _Style.start, icon: AppIcons.coffee, label: 'TT now', onTap: () => showTtNowSheet(context));
+  }
 
-    final status = _Status(
+  Widget _now(BuildContext context, WidgetRef ref) {
+    final pins = ref.watch(friendPinsProvider).value ?? const <FriendPin>[];
+    final moments = ref.watch(liveMomentsProvider).value ?? const <Story>[];
+    final fresh = pins.where((p) => p.isFresh).toList();
+    return _Status(
       light: light,
-      leading: fresh.isEmpty ? Icon(AppIcons.usersThree, size: 18, color: _muted(light)) : _AvatarStack(pins: fresh.take(3).toList(), light: light),
+      leading: fresh.isEmpty ? Icon(AppIcons.usersThree, size: 19, color: _muted(light)) : _AvatarStack(pins: fresh.take(3).toList(), light: light),
       text: fresh.isEmpty ? 'Nobody on the map' : '${fresh.length} on the map',
       badge: moments.length,
       onTap: () => onOpen(full: false),
     );
-    return (action, status);
   }
 
-  (Widget, Widget) _upcoming(BuildContext context, WidgetRef ref) {
+  Widget _upcoming(BuildContext context, WidgetRef ref) {
     final count = ref.watch(visibleMapEventsProvider).value?.length ?? 0;
     final filters = ref.watch(mapFiltersProvider);
-    final action = _Action(style: _Style.start, icon: AppIcons.plus, label: 'Plan', onTap: () => context.push(Routes.createEvent));
-    final status = _Status(
+    return _Status(
       light: light,
-      leading: Icon(AppIcons.magnifyingGlass, size: 18, color: _muted(light)),
+      leading: Icon(AppIcons.magnifyingGlass, size: 19, color: _muted(light)),
       text: count == 0 ? 'No meets here yet' : '$count meet${count == 1 ? '' : 's'}${filters.isDefault ? '' : ' · ${filters.label}'}',
       muted: count == 0,
       onTap: () => onOpen(full: true),
     );
-    return (action, status);
   }
 
-  (Widget, Widget) _spots(BuildContext context, WidgetRef ref) {
+  Widget _spots(BuildContext context, WidgetRef ref) {
     final count = ref.watch(visibleSpotsProvider).value?.length ?? 0;
-    final action = _Action(style: _Style.start, icon: AppIcons.mapPinPlus, label: 'Suggest', onTap: () => context.push(Routes.suggestSpot));
-    final status = _Status(
+    return _Status(
       light: light,
-      leading: Icon(AppIcons.magnifyingGlass, size: 18, color: _muted(light)),
+      leading: Icon(AppIcons.magnifyingGlass, size: 19, color: _muted(light)),
       text: count == 0 ? 'No spots here yet' : '$count spot${count == 1 ? '' : 's'} to check in',
       muted: count == 0,
       onTap: () => onOpen(full: true),
     );
-    return (action, status);
   }
 }
 
@@ -127,7 +126,6 @@ String _firstName(String userId, List<FriendPin> pins) {
 
 enum _Style { start, live, friend }
 
-/// The left button: red to start, black while my TT is live, white for a friend's.
 class _Action extends StatelessWidget {
   const _Action({required this.style, required this.icon, required this.label, required this.onTap});
   final _Style style;
@@ -147,15 +145,15 @@ class _Action extends StatelessWidget {
           onTap: onTap,
           borderRadius: BorderRadius.circular(MapToolbar._inner / 2),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(14, 0, 16, 0),
+            padding: const EdgeInsets.fromLTRB(16, 0, 18, 0),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(icon, size: 18, color: style == _Style.live ? AppColors.brand : fg),
-                const SizedBox(width: 7),
+                Icon(icon, size: 19, color: style == _Style.live ? AppColors.brand : fg),
+                const SizedBox(width: 8),
                 ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 150),
-                  child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: fg, fontWeight: FontWeight.w800, fontSize: 14)),
+                  child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: fg, fontWeight: FontWeight.w800, fontSize: 15)),
                 ),
               ],
             ),
@@ -196,7 +194,7 @@ class _Status extends StatelessWidget {
                 text,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(color: muted ? _muted(light) : fg, fontWeight: FontWeight.w700, fontSize: 14),
+                style: TextStyle(color: muted ? _muted(light) : fg, fontWeight: FontWeight.w700, fontSize: 14.5),
               ),
             ),
             const SizedBox(width: 6),
@@ -204,10 +202,10 @@ class _Status extends StatelessWidget {
               clipBehavior: Clip.none,
               children: [
                 Container(
-                  width: MapToolbar._inner - 6,
-                  height: MapToolbar._inner - 6,
+                  width: MapToolbar._inner,
+                  height: MapToolbar._inner,
                   decoration: BoxDecoration(shape: BoxShape.circle, color: light ? Colors.black.withValues(alpha: 0.07) : Colors.white.withValues(alpha: 0.14)),
-                  child: Icon(AppIcons.caretUp, size: 16, color: fg),
+                  child: Icon(AppIcons.caretUp, size: 17, color: fg),
                 ),
                 if (badge > 0)
                   Positioned(
@@ -223,7 +221,6 @@ class _Status extends StatelessWidget {
                   ),
               ],
             ),
-            const SizedBox(width: 3),
           ],
         ),
       ),

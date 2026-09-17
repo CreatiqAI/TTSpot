@@ -10,6 +10,15 @@ class ReleaseNote {
 
 const kReleaseNotes = <ReleaseNote>[
   ReleaseNote(
+    version: '0.3.23',
+    date: '18 Sep 2026',
+    title: 'Tidier map toolbar',
+    points: [
+      'The map toolbar is one clear line: red action on the left (TT now, Plan, Suggest), what is on the map in the middle, an open button on the right with today's moments count.',
+      'Tap the map to close the list.',
+    ],
+  ),
+  ReleaseNote(
     version: '0.3.22',
     date: '18 Sep 2026',
     title: 'Cleaner map, truer location',

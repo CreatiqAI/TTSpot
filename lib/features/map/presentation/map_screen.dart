@@ -526,6 +526,10 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
               circles: _circles,
               onMapCreated: _onMapCreated,
               onCameraIdle: _onCameraIdle,
+              // Tap the map while the sheet is up: close it.
+              onTap: (_) {
+                if (_sheetOpen) _sheet.animateTo(MapSheet.closed, duration: const Duration(milliseconds: 240), curve: Curves.easeOut);
+              },
               myLocationEnabled: false,
               myLocationButtonEnabled: false,
               zoomControlsEnabled: false,

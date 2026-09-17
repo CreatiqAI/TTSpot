@@ -30,8 +30,8 @@ class MapToolbar extends ConsumerWidget {
   static const double height = 64;
   static const double _inner = 48;
   static const double _pad = 8;
-  /// Chunky block buttons, like the tab bar's active tab.
-  static const double _radius = 14;
+  /// Block buttons, like the tab bar's active tab: squarer corners, compact.
+  static const double _radius = 12;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -146,18 +146,19 @@ class _Action extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(MapToolbar._radius),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 18, 0),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(icon, size: 20, color: style == _Style.live ? AppColors.brand : fg),
-                const SizedBox(width: 8),
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 150),
-                  child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: fg, fontWeight: FontWeight.w800, fontSize: 15.5)),
-                ),
-              ],
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 72, maxWidth: 150),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, size: 20, color: style == _Style.live ? AppColors.brand : fg),
+                  const SizedBox(height: 2),
+                  Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: fg, fontWeight: FontWeight.w800, fontSize: 11.5, height: 1.1)),
+                ],
+              ),
             ),
           ),
         ),

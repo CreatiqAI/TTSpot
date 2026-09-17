@@ -7,6 +7,7 @@ import '../theme/app_theme.dart';
 /// "Choose from library / Take photo" sheet. Returns the chosen source or null.
 Future<ImageSource?> showPhotoSourceSheet(BuildContext context, {VoidCallback? onRemove}) {
   return showModalBottomSheet<ImageSource>(
+    useRootNavigator: true, // above the shell tab bar
     context: context,
     showDragHandle: true,
     builder: (ctx) => SafeArea(

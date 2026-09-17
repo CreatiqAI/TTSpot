@@ -9,6 +9,7 @@ import '../../application/map_providers.dart';
 /// Opens the filter sheet (date range + event types).
 Future<void> showMapFilterSheet(BuildContext context) {
   return showModalBottomSheet<void>(
+    useRootNavigator: true, // above the shell tab bar
     context: context,
     backgroundColor: MapPalette.of(context).surface,
     showDragHandle: true,

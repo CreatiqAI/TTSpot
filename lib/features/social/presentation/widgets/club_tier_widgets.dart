@@ -63,6 +63,7 @@ class _ClubTierCardState extends ConsumerState<ClubTierCard> {
 
   Future<void> _request() async {
     final ok = await showModalBottomSheet<bool>(
+      useRootNavigator: true, // above the shell tab bar
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
@@ -180,6 +181,7 @@ class ClubGarageSection extends ConsumerWidget {
     double? lat = club.garageLat, lng = club.garageLng;
     final here = ref.read(userLocationProvider).value;
     final ok = await showModalBottomSheet<bool>(
+      useRootNavigator: true, // above the shell tab bar
       context: context,
       showDragHandle: true,
       isScrollControlled: true,

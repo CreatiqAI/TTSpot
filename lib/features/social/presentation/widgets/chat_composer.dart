@@ -213,6 +213,7 @@ class _PulseState extends State<_Pulse> with SingleTickerProviderStateMixin {
 /// The "+" sheet: big tiles, one tap each.
 Future<ComposerAction?> showComposerSheet(BuildContext context) {
   return showModalBottomSheet<ComposerAction>(
+    useRootNavigator: true, // above the shell tab bar
     context: context,
     showDragHandle: true,
     builder: (ctx) => SafeArea(

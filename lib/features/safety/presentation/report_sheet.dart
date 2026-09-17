@@ -22,6 +22,7 @@ Future<void> showReportSheet(
   required String targetId,
 }) {
   return showModalBottomSheet<void>(
+    useRootNavigator: true, // above the shell tab bar
     context: context,
     isScrollControlled: true,
     showDragHandle: true,

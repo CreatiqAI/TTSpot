@@ -48,6 +48,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
   Future<void> _pickAvatar() async {
     final source = await showModalBottomSheet<ImageSource>(
+      useRootNavigator: true, // above the shell tab bar
       context: context,
       showDragHandle: true,
       builder: (ctx) => SafeArea(

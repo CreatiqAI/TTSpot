@@ -15,6 +15,7 @@ const kReleaseNotes = <ReleaseNote>[
     title: 'New map bar',
     points: [
       'The bar above the tabs is a solid panel: a red TT button with a car, a pill that says who and what is nearby (tap it for the lists), and a filter button.',
+      'Pop-up sheets (TT now, filters, directions and the rest) now sit above the tab bar, so their buttons are never hidden.',
     ],
   ),
   ReleaseNote(

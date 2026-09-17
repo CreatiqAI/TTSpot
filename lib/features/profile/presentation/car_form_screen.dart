@@ -67,6 +67,7 @@ class _CarFormScreenState extends ConsumerState<CarFormScreen> {
       return;
     }
     final source = await showModalBottomSheet<ImageSource>(
+      useRootNavigator: true, // above the shell tab bar
       context: context,
       showDragHandle: true,
       builder: (ctx) => SafeArea(

@@ -610,8 +610,8 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
 
             // Glass toolbar above the tab bar; fades away while the sheet is up.
             Positioned(
-              left: 10,
-              right: 10,
+              left: 14,
+              right: 14,
               bottom: toolbarBottom,
               child: IgnorePointer(
                 ignoring: _sheetOpen,

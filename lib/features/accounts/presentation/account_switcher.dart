@@ -39,6 +39,7 @@ Future<void> showAccountSwitcher(BuildContext context, WidgetRef ref) async {
   final ownsAClub = clubs.any((c) => c.ownerId == me);
 
   final picked = await showModalBottomSheet<ActiveAccount?>(
+    useRootNavigator: true, // above the shell tab bar
     context: context,
     showDragHandle: true,
     builder: (ctx) => SafeArea(

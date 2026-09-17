@@ -36,6 +36,7 @@ final ttPlaceProvider = NotifierProvider<TtPlaceNotifier, PlaceDetails?>(TtPlace
 /// friend's chat.
 Future<void> showTtNowSheet(BuildContext context) {
   return showModalBottomSheet<void>(
+    useRootNavigator: true, // above the shell tab bar
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
@@ -122,6 +123,7 @@ class _TtNowSheetState extends ConsumerState<_TtNowSheet> {
   Future<void> _customDuration() async {
     var d = Duration(minutes: _minutes);
     final ok = await showModalBottomSheet<bool>(
+      useRootNavigator: true, // above the shell tab bar
       context: context,
       showDragHandle: true,
       builder: (ctx) => SafeArea(

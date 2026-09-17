@@ -26,6 +26,7 @@ Future<void> showCallSheet(BuildContext context, WidgetRef ref, {required String
   final digits = phone.replaceAll(RegExp(r'[^0-9]'), '');
   final tel = phone;
   await showModalBottomSheet<void>(
+    useRootNavigator: true, // above the shell tab bar
     context: context,
     showDragHandle: true,
     builder: (ctx) => SafeArea(

@@ -169,6 +169,7 @@ class SettingsScreen extends ConsumerWidget {
   Future<void> _editPhone(BuildContext context, WidgetRef ref, String? current) async {
     final ctrl = TextEditingController(text: current == null ? '' : prettyPhone(current));
     final v = await showModalBottomSheet<String>(
+      useRootNavigator: true, // above the shell tab bar
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
@@ -209,6 +210,7 @@ class SettingsScreen extends ConsumerWidget {
     final b = ref.read(accountBasicsProvider).value ?? const AccountBasics();
     final email = ref.read(supabaseProvider).auth.currentUser?.email ?? '';
     final action = await showModalBottomSheet<String>(
+      useRootNavigator: true, // above the shell tab bar
       context: context,
       showDragHandle: true,
       builder: (ctx) => SafeArea(
@@ -259,6 +261,7 @@ class SettingsScreen extends ConsumerWidget {
   Future<void> _setPassword(BuildContext context, WidgetRef ref) async {
     final ctrl = TextEditingController();
     final v = await showModalBottomSheet<String>(
+      useRootNavigator: true, // above the shell tab bar
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
@@ -516,6 +519,7 @@ class _Choice extends StatelessWidget {
       trailing: Icon(AppIcons.caretRight, size: 16, color: AppColors.textMuted),
       onTap: () async {
         final picked = await showModalBottomSheet<String>(
+          useRootNavigator: true, // above the shell tab bar
           context: context,
           showDragHandle: true,
           builder: (ctx) => SafeArea(

@@ -28,6 +28,7 @@ class _JoinRequestButtonState extends ConsumerState<JoinRequestButton> {
   Future<void> _ask() async {
     final ctrl = TextEditingController();
     final send = await showModalBottomSheet<bool>(
+      useRootNavigator: true, // above the shell tab bar
       context: context,
       isScrollControlled: true,
       showDragHandle: true,

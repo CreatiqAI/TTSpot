@@ -156,6 +156,7 @@ class _CommentTile extends ConsumerWidget {
     return InkWell(
       onLongPress: () async {
         final action = await showModalBottomSheet<String>(
+          useRootNavigator: true, // above the shell tab bar
           context: context,
           showDragHandle: true,
           builder: (ctx) => SafeArea(

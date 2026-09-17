@@ -52,6 +52,7 @@ String whatsappUrl(String text) => 'https://wa.me/?text=${Uri.encodeComponent(te
 /// action (red) side by side. Returns true when confirmed.
 Future<bool> confirmSheet(BuildContext context, {required String title, String? body, String confirm = 'OK', String cancel = 'Cancel', IconData? icon}) async {
   final ok = await showModalBottomSheet<bool>(
+    useRootNavigator: true, // above the shell tab bar
     context: context,
     showDragHandle: true,
     builder: (ctx) => SafeArea(
@@ -95,6 +96,7 @@ Future<bool> confirmSheet(BuildContext context, {required String title, String? 
 /// "Directions" chooser: Waze or Google Maps, each confirmed by [openExternal].
 Future<void> showDirectionsSheet(BuildContext context, {required double lat, required double lng, String? label}) {
   return showModalBottomSheet<void>(
+    useRootNavigator: true, // above the shell tab bar
     context: context,
     showDragHandle: true,
     builder: (ctx) => SafeArea(

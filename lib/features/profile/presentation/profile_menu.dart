@@ -29,6 +29,7 @@ Future<void> showProfileMenu(BuildContext context, WidgetRef ref) async {
   final isVendor = ref.read(myVendorProvider).value != null;
 
   final action = await showModalBottomSheet<String>(
+    useRootNavigator: true, // above the shell tab bar
     context: context,
     showDragHandle: true,
     isScrollControlled: true,

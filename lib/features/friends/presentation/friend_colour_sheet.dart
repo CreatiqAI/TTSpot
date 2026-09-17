@@ -12,6 +12,7 @@ import '../application/friends_providers.dart';
 Future<void> showFriendColourSheet(BuildContext context, WidgetRef ref, {required String userId, required String name}) async {
   final current = ref.read(friendTagsProvider).value?[userId];
   final picked = await showModalBottomSheet<String>(
+    useRootNavigator: true, // above the shell tab bar
     context: context,
     showDragHandle: true,
     builder: (ctx) => SafeArea(

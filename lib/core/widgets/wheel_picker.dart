@@ -16,6 +16,7 @@ Future<DateTime?> showWheelPicker(
   var value = initial;
   final label = title ?? (mode == CupertinoDatePickerMode.date ? 'Pick a date' : 'Pick a time');
   return showModalBottomSheet<DateTime>(
+    useRootNavigator: true, // above the shell tab bar
     context: context,
     showDragHandle: true,
     builder: (ctx) => SafeArea(

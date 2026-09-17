@@ -148,6 +148,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   Future<void> _cameraMenu() async {
     final what = await showModalBottomSheet<String>(
+      useRootNavigator: true, // above the shell tab bar
       context: context,
       showDragHandle: true,
       builder: (ctx) => SafeArea(

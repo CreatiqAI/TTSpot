@@ -61,6 +61,7 @@ class _AlbumEditorScreenState extends ConsumerState<AlbumEditorScreen> {
       return;
     }
     final url = await showModalBottomSheet<String>(
+      useRootNavigator: true, // above the shell tab bar
       context: context,
       showDragHandle: true,
       builder: (ctx) => SafeArea(

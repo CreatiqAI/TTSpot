@@ -172,6 +172,7 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> with Sing
     final mine = _story.authorId == me;
     final albumId = _g.albumId;
     final action = await showModalBottomSheet<String>(
+      useRootNavigator: true, // above the shell tab bar
       context: context,
       showDragHandle: true,
       builder: (ctx) => SafeArea(

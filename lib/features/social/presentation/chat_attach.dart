@@ -37,6 +37,7 @@ const kStickers = <String, String>{
 /// Pick a sticker. Returns its key.
 Future<String?> showStickerSheet(BuildContext context) {
   return showModalBottomSheet<String>(
+    useRootNavigator: true, // above the shell tab bar
     context: context,
     showDragHandle: true,
     builder: (ctx) => SafeArea(
@@ -83,6 +84,7 @@ class ChatAttachment {
 
 Future<ChatAttachment?> showAttachSheet(BuildContext context, {int initialTab = 0}) {
   return showModalBottomSheet<ChatAttachment>(
+    useRootNavigator: true, // above the shell tab bar
     context: context,
     showDragHandle: true,
     isScrollControlled: true,

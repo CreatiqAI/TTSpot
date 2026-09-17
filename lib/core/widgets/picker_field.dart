@@ -24,6 +24,7 @@ class PickerField<T> extends FormField<T> {
             Future<void> open() async {
               FocusScope.of(state.context).unfocus();
               final picked = await showModalBottomSheet<T>(
+                useRootNavigator: true, // above the shell tab bar
                 context: state.context,
                 showDragHandle: true,
                 isScrollControlled: true,

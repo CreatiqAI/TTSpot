@@ -9,7 +9,7 @@ Files are simply `TTSpot-<version>.ipa` / `.apk`, kept in `build/ios-artifact/` 
 
 | Version | Date | Commit | What changed |
 |---|---|---|---|
-| 0.3.24 | _next build_ | — | Map bar redesigned to the user's mock: solid panel, red car TT button, status pill with chevron, round filter button. |
+| 0.3.24 | _next build_ | — | Map bar redesigned to the user's mock: solid panel, red car TT button, status pill with chevron, round filter button, sized like the tab bar; every modal sheet uses the root navigator so the tab bar never covers it. |
 | 0.3.23 | 2026-09-18 | be1de9f | Map toolbar rebuilt like the tab bar: TT now on every layer, status line, open button (moments count as a badge); tap the map to close the sheet. |
 | 0.3.22 | 2026-09-18 | cf9d193 | Map bottom is one glass toolbar (TT now, who's on the map, moments; search + count on Upcoming/Spots), sheet closed by default; live GPS position with accuracy ring, bad fixes dropped, fresh fix on locate; iPhone precise-location banner; map key folds after first look. |
 | 0.3.21 | 2026-09-18 | 0741ff6 | Official vs underground clubs (notifications, unlimited planning/members, gold map badge and 10 % president bonus for official; 7-day horizon, 100 members and a club garage for underground); President / VP / Secretary roles; most-active leaderboard; Go official request with admin approval (RM 69.90 / month); partner plan (RM 69 / month + 1 %), SSM + shop photo + JB/Penang/KL required, meets to sponsor and club insights on the partner overview, partner events notify everyone with their own map badge; bookmark a meet for a reminder. |

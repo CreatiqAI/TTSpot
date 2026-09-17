@@ -9,6 +9,7 @@ import '../../../friends/application/friends_providers.dart';
 /// "Who can see my car": friends · friends + nearby (radius slider) · nobody.
 Future<void> showVisibilitySheet(BuildContext context) {
   return showModalBottomSheet<void>(
+    useRootNavigator: true, // above the shell tab bar
     context: context,
     showDragHandle: true,
     isScrollControlled: true,

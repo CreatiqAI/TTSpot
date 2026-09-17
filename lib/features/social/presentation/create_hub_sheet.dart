@@ -20,6 +20,7 @@ Future<void> showCreateHub(BuildContext context, WidgetRef ref) {
   final asClub = clubId != null || vendor != null;
   final organiser = asClub; // clubs and partners host events; everyone else plans TT sessions
   return showModalBottomSheet<void>(
+    useRootNavigator: true, // above the shell tab bar
     context: context,
     showDragHandle: true,
     isScrollControlled: true,

@@ -75,6 +75,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
     FocusScope.of(context).unfocus();
     final ctrl = TextEditingController(text: _email.text.trim());
     final id = await showModalBottomSheet<String>(
+      useRootNavigator: true, // above the shell tab bar
       context: context,
       showDragHandle: true,
       isScrollControlled: true,

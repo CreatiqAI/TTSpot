@@ -15,6 +15,7 @@ import '../domain/album.dart';
 /// Who looked at my moment.
 Future<void> showMomentViewers(BuildContext context, String storyId) {
   return showModalBottomSheet<void>(
+    useRootNavigator: true, // above the shell tab bar
     context: context,
     showDragHandle: true,
     builder: (_) => Consumer(
@@ -64,6 +65,7 @@ Future<void> showMomentViewers(BuildContext context, String storyId) {
 /// Tick the albums this moment should be in. "New album" opens the editor.
 Future<void> showAddToAlbum(BuildContext context, String storyId) {
   return showModalBottomSheet<void>(
+    useRootNavigator: true, // above the shell tab bar
     context: context,
     showDragHandle: true,
     builder: (_) => _AddToAlbum(storyId: storyId),

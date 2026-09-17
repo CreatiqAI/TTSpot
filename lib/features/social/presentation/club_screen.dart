@@ -197,6 +197,7 @@ class ClubScreen extends ConsumerWidget {
   Future<void> _manageMember(BuildContext context, WidgetRef ref, Club c, Profile m, String role, {required bool isOwner}) async {
     final name = m.displayName ?? '@${m.username}';
     final action = await showModalBottomSheet<String>(
+      useRootNavigator: true, // above the shell tab bar
       context: context,
       showDragHandle: true,
       builder: (ctx) => SafeArea(
@@ -289,6 +290,7 @@ class ClubScreen extends ConsumerWidget {
   Future<void> _invite(BuildContext context, WidgetRef ref, Club c) async {
     final memberIds = (ref.read(clubMembersProvider(clubId)).value ?? const <Profile>[]).map((m) => m.id).toSet();
     await showModalBottomSheet<void>(
+      useRootNavigator: true, // above the shell tab bar
       context: context,
       showDragHandle: true,
       isScrollControlled: true,

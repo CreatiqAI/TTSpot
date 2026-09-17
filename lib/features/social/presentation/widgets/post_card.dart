@@ -100,6 +100,7 @@ class _PostCardState extends ConsumerState<PostCard> {
     final me = ref.read(currentUserIdProvider);
     final mine = f.post.authorId == me;
     final action = await showModalBottomSheet<String>(
+      useRootNavigator: true, // above the shell tab bar
       context: context,
       showDragHandle: true,
       builder: (ctx) => SafeArea(
@@ -308,6 +309,7 @@ class _PostCardState extends ConsumerState<PostCard> {
 
   void _showLikers(BuildContext context, String postId) {
     showModalBottomSheet<void>(
+      useRootNavigator: true, // above the shell tab bar
       context: context,
       showDragHandle: true,
       builder: (_) => Consumer(

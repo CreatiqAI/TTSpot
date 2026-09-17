@@ -127,6 +127,7 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
     final me = ref.read(currentUserIdProvider);
     final isOrganizer = me == d.event.organizerId;
     final action = await showModalBottomSheet<String>(
+      useRootNavigator: true, // above the shell tab bar
       context: context,
       showDragHandle: true,
       builder: (ctx) => SafeArea(
@@ -561,6 +562,7 @@ class _Attendees extends StatelessWidget {
 
   Future<void> _showGoing(BuildContext context, Event e) {
     return showModalBottomSheet<void>(
+      useRootNavigator: true, // above the shell tab bar
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
@@ -735,6 +737,7 @@ class _CommentTile extends ConsumerWidget {
     return InkWell(
       onLongPress: () async {
         final action = await showModalBottomSheet<String>(
+          useRootNavigator: true, // above the shell tab bar
           context: context,
           showDragHandle: true,
           builder: (ctx) => SafeArea(

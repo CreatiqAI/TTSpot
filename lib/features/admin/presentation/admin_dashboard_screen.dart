@@ -197,6 +197,7 @@ class AdminDashboardScreen extends ConsumerWidget {
 /// dashboard and the Queues tab).
 Future<void> showSuggestionsSheet(BuildContext context) {
   return showModalBottomSheet<void>(
+    useRootNavigator: true, // above the shell tab bar
     context: context,
     showDragHandle: true,
     isScrollControlled: true,
@@ -225,6 +226,7 @@ Future<void> showSuggestionsSheet(BuildContext context) {
 
 Future<void> showReportsSheet(BuildContext context) {
   return showModalBottomSheet<void>(
+    useRootNavigator: true, // above the shell tab bar
     context: context,
     showDragHandle: true,
     isScrollControlled: true,

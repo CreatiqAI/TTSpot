@@ -71,6 +71,7 @@ class ProductCard extends StatelessWidget {
 /// [preview] the partner sees exactly this but nothing is tappable.
 Future<void> showProductSheet(BuildContext context, {required Product product, required PublicVendor vendor, bool preview = false}) {
   return showModalBottomSheet<void>(
+    useRootNavigator: true, // above the shell tab bar
     context: context,
     isScrollControlled: true,
     showDragHandle: true,

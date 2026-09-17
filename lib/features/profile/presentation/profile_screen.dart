@@ -307,6 +307,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final live = moments.where((m) => m.isLive).toList();
     if (!isMe && !hasPhoto && live.isEmpty) return;
     final action = await showModalBottomSheet<String>(
+      useRootNavigator: true, // above the shell tab bar
       context: context,
       showDragHandle: true,
       builder: (ctx) => SafeArea(
@@ -413,6 +414,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   Future<void> _otherMenu(BuildContext context, Profile p, bool blocked) async {
     final action = await showModalBottomSheet<String>(
+      useRootNavigator: true, // above the shell tab bar
       context: context,
       showDragHandle: true,
       builder: (ctx) => SafeArea(

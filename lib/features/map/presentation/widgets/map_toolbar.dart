@@ -27,10 +27,11 @@ class MapToolbar extends ConsumerWidget {
   /// Open the sheet (true = all the way).
   final void Function({bool full}) onOpen;
 
-  static const double height = 78;
-  static const double _pad = 10;
-  static const double _button = 58;
-  static const double _pill = 48;
+  /// Same height as the tab bar (64): no taller than the chrome under it.
+  static const double height = 62;
+  static const double _pad = 7;
+  static const double _button = 48;
+  static const double _pill = 40;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -41,16 +42,16 @@ class MapToolbar extends ConsumerWidget {
       padding: const EdgeInsets.all(_pad),
       decoration: BoxDecoration(
         color: surface,
-        borderRadius: BorderRadius.circular(30),
+        borderRadius: BorderRadius.circular(height / 2),
         border: Border.all(color: edge),
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: light ? 0.12 : 0.45), blurRadius: 22, offset: const Offset(0, 8))],
       ),
       child: Row(
         children: [
           _ttButton(context, ref),
-          const SizedBox(width: 10),
+          const SizedBox(width: 8),
           Expanded(child: _statusPill(context, ref)),
-          const SizedBox(width: 10),
+          const SizedBox(width: 8),
           _filterButton(context, ref),
         ],
       ),
@@ -84,18 +85,21 @@ class MapToolbar extends ConsumerWidget {
         final pins = ref.watch(friendPinsProvider).value ?? const <FriendPin>[];
         final moments = ref.watch(liveMomentsProvider).value ?? const <Story>[];
         final fresh = pins.where((p) => p.isFresh).toList();
-        final extra = moments.isEmpty ? '' : ' · ${moments.length} moment${moments.length == 1 ? '' : 's'}';
+        final m = moments.length;
+        final text = fresh.isEmpty
+            ? (m == 0 ? 'Nobody nearby' : '$m moment${m == 1 ? '' : 's'} nearby')
+            : '${fresh.length} nearby${m == 0 ? '' : ' · $m moment${m == 1 ? '' : 's'}'}';
         return _Pill(
           light: light,
-          leading: fresh.isEmpty ? Icon(AppIcons.usersThree, size: 20, color: _muted(light)) : _AvatarStack(pins: fresh.take(3).toList(), light: light),
-          text: (fresh.isEmpty ? 'Nobody nearby' : '${fresh.length} nearby') + extra,
+          leading: fresh.isEmpty ? Icon(AppIcons.usersThree, size: 18, color: _muted(light)) : _AvatarStack(pins: fresh.take(3).toList(), light: light),
+          text: text,
           onTap: () => onOpen(full: false),
         );
       case MapMode.upcoming:
         final count = ref.watch(visibleMapEventsProvider).value?.length ?? 0;
         return _Pill(
           light: light,
-          leading: Icon(AppIcons.magnifyingGlass, size: 20, color: _muted(light)),
+          leading: Icon(AppIcons.magnifyingGlass, size: 18, color: _muted(light)),
           text: count == 0 ? 'No meets here yet' : '$count meet${count == 1 ? '' : 's'}',
           onTap: () => onOpen(full: true),
         );
@@ -103,7 +107,7 @@ class MapToolbar extends ConsumerWidget {
         final count = ref.watch(visibleSpotsProvider).value?.length ?? 0;
         return _Pill(
           light: light,
-          leading: Icon(AppIcons.magnifyingGlass, size: 20, color: _muted(light)),
+          leading: Icon(AppIcons.magnifyingGlass, size: 18, color: _muted(light)),
           text: count == 0 ? 'No spots here yet' : '$count spot${count == 1 ? '' : 's'}',
           onTap: () => onOpen(full: true),
         );
@@ -126,11 +130,11 @@ class MapToolbar extends ConsumerWidget {
             child: Stack(
               alignment: Alignment.center,
               children: [
-                Icon(AppIcons.slidersHorizontal, size: 22, color: fg),
+                Icon(AppIcons.slidersHorizontal, size: 20, color: fg),
                 if (active)
                   Positioned(
-                    right: 14,
-                    top: 14,
+                    right: 11,
+                    top: 11,
                     child: Container(width: 8, height: 8, decoration: const BoxDecoration(color: AppColors.brand, shape: BoxShape.circle)),
                   ),
               ],
@@ -169,19 +173,19 @@ class _TtButton extends StatelessWidget {
     return PressScale(
       child: Material(
         color: bg,
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(18),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(22),
+          borderRadius: BorderRadius.circular(18),
           child: SizedBox(
-            width: 104,
+            width: 92,
             height: MapToolbar._button,
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(AppIcons.car, size: 22, color: fg),
-                const SizedBox(height: 2),
-                Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: fg, fontWeight: FontWeight.w800, fontSize: 12, height: 1.1)),
+                Icon(AppIcons.car, size: 20, color: fg),
+                const SizedBox(height: 1),
+                Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: fg, fontWeight: FontWeight.w800, fontSize: 11, height: 1.1)),
               ],
             ),
           ),
@@ -211,12 +215,12 @@ class _Pill extends StatelessWidget {
         child: SizedBox(
           height: MapToolbar._pill,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(14, 0, 10, 0),
+            padding: const EdgeInsets.fromLTRB(12, 0, 8, 0),
             child: Row(
               children: [
                 leading,
                 const SizedBox(width: 10),
-                Expanded(child: Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: fg, fontWeight: FontWeight.w700, fontSize: 14.5))),
+                Expanded(child: Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: fg, fontWeight: FontWeight.w700, fontSize: 13.5))),
                 const SizedBox(width: 6),
                 Icon(AppIcons.caretRight, size: 16, color: _muted(light)),
               ],
@@ -235,8 +239,8 @@ class _AvatarStack extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const size = 24.0;
-    const overlap = 8.0;
+    const size = 22.0;
+    const overlap = 7.0;
     return SizedBox(
       width: size + (pins.length - 1) * (size - overlap),
       height: size,

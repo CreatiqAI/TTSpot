@@ -373,6 +373,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
     LatLng? pin;
     final start = _stops.isNotEmpty ? _stops.last.latLng : (ref.read(userLocationProvider).value ?? kualaLumpur);
     final ok = await showModalBottomSheet<bool>(
+      useRootNavigator: true, // above the shell tab bar
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
@@ -555,6 +556,7 @@ class _TagRow extends ConsumerWidget {
 
   Future<void> _pickFrom<T>(BuildContext context, String title, List<T> items, String Function(T) label, void Function(T?) onPick) async {
     final choice = await showModalBottomSheet<Object>(
+      useRootNavigator: true, // above the shell tab bar
       context: context,
       showDragHandle: true,
       builder: (ctx) => SafeArea(
@@ -576,6 +578,7 @@ class _TagRow extends ConsumerWidget {
   Future<void> _pickPlace(BuildContext context, WidgetRef ref) async {
     final query = TextEditingController();
     final picked = await showModalBottomSheet<Object>(
+      useRootNavigator: true, // above the shell tab bar
       context: context,
       isScrollControlled: true,
       showDragHandle: true,

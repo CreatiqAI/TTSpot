@@ -392,6 +392,8 @@ Migration `20260916000013_accounts_simplify.sql` (the 16 in the name is only the
 - **Map key** starts folded once `settings.map_key_seen` is true (set on first toggle or after 8 s open).
 - **Toolbar layout (0.3.24, user's mock).** `MapToolbar` is a solid panel (white by day, `AppColors.mapSurface` at night, radius 30, 78 high) holding `_TtButton` (104 x 58, red, car icon over label; black while my TT is live, white for a friend's), `_Pill` (stadium, icon + one line + caret; opens the sheet) and a round filter button (`showMapFilterSheet`, red dot when filters are set). GoogleMap `onTap` closes the sheet when it is open.
 - **Modal sheets and the tab bar.** The shell extends the body under the glass tab bar, so a `showModalBottomSheet` on the branch navigator is drawn *under* the bar. Every call site passes `useRootNavigator: true` (52 of them, added in 0.3.24). Keep doing that for new sheets.
+- **Map key** takes `present: Set<LegendGlyph>` from `_rebuild()` (events by kind, moments, partners, spots, people by relation, me) and lists only those rows; empty set = no key.
+- **Dark-mode rule.** `AppColors.ink` is the fixed logo black: use it only for things that must be black in both themes (logo, cover fallbacks, dark chrome). A selected chip / filled button / selection border / icon on a grey tile uses `AppColors.textPrimary` (black by day, white at night) with `AppColors.onInk` for text on it. Never `Colors.white` text on a theme surface.
 
 ### Club tiers, club roles, partner plans, bookmarks (2026-09-17, migrations 0040–0041)
 

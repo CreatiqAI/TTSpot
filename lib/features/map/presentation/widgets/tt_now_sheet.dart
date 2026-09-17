@@ -410,8 +410,8 @@ class _Chip extends StatelessWidget {
         onTap: onTap,
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 9),
-          decoration: BoxDecoration(color: on ? AppColors.ink : AppColors.surfaceGray, borderRadius: BorderRadius.circular(999)),
-          child: Text(label, textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: on ? Colors.white : AppColors.textPrimary)),
+          decoration: BoxDecoration(color: on ? AppColors.textPrimary : AppColors.surfaceGray, borderRadius: BorderRadius.circular(999)),
+          child: Text(label, textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: on ? AppColors.onInk : AppColors.textPrimary)),
         ),
       );
 }

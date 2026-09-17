@@ -36,7 +36,7 @@ Future<void> showFriendColourSheet(BuildContext context, WidgetRef ref, {require
                     child: Container(
                       width: 44,
                       height: 44,
-                      decoration: BoxDecoration(color: e.value, shape: BoxShape.circle, border: Border.all(color: current == e.key ? AppColors.ink : Colors.transparent, width: 3)),
+                      decoration: BoxDecoration(color: e.value, shape: BoxShape.circle, border: Border.all(color: current == e.key ? AppColors.textPrimary : Colors.transparent, width: 3)),
                       child: current == e.key ? const Icon(AppIcons.check, color: Colors.white, size: 20) : null,
                     ),
                   ),

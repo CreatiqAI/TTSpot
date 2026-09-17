@@ -16,6 +16,8 @@ const kReleaseNotes = <ReleaseNote>[
     points: [
       'The bar above the tabs is a solid panel: a red TT button with a car, a pill that says who and what is nearby (tap it for the lists), and a filter button.',
       'Pop-up sheets (TT now, filters, directions and the rest) now sit above the tab bar, so their buttons are never hidden.',
+      'The map key lists only what is on the map right now.',
+      'Dark mode: Maps and Copy link on a meet page, selected chips, and other black-on-dark spots are readable again.',
     ],
   ),
   ReleaseNote(

@@ -104,8 +104,8 @@ class _VisibilitySheetState extends ConsumerState<_VisibilitySheet> {
                                   onTap: _busy ? null : () => _apply('nearby', km: k),
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(vertical: 7),
-                                    decoration: BoxDecoration(color: _km == k ? AppColors.ink : AppColors.surfaceGray, borderRadius: BorderRadius.circular(999)),
-                                    child: Text('${k.toInt()} km', textAlign: TextAlign.center, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: _km == k ? Colors.white : AppColors.textPrimary)),
+                                    decoration: BoxDecoration(color: _km == k ? AppColors.textPrimary : AppColors.surfaceGray, borderRadius: BorderRadius.circular(999)),
+                                    child: Text('${k.toInt()} km', textAlign: TextAlign.center, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: _km == k ? AppColors.onInk : AppColors.textPrimary)),
                                   ),
                                 ),
                               ),
@@ -155,7 +155,7 @@ class _Option extends StatelessWidget {
           duration: const Duration(milliseconds: 160),
           margin: const EdgeInsets.only(bottom: 8),
           padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-          decoration: BoxDecoration(borderRadius: BorderRadius.circular(14), border: Border.all(color: on ? AppColors.ink : AppColors.border, width: on ? 1.5 : 1)),
+          decoration: BoxDecoration(borderRadius: BorderRadius.circular(14), border: Border.all(color: on ? AppColors.textPrimary : AppColors.border, width: on ? 1.5 : 1)),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

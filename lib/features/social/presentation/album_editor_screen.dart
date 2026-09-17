@@ -189,7 +189,7 @@ class _AlbumEditorScreenState extends ConsumerState<AlbumEditorScreen> {
                       width: 92,
                       height: 92,
                       padding: const EdgeInsets.all(3),
-                      decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: AppColors.ink, width: 1.5)),
+                      decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: AppColors.textPrimary, width: 1.5)),
                       child: ClipOval(
                         child: _cover == null
                             ? ColoredBox(color: AppColors.surfaceGray, child: Icon(AppIcons.image, size: 28, color: AppColors.textSecondary))

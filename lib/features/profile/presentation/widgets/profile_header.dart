@@ -195,7 +195,7 @@ class _AlbumCircle extends StatelessWidget {
                 width: 60,
                 height: 60,
                 padding: const EdgeInsets.all(2),
-                decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: a == null ? AppColors.border : AppColors.ink, width: 1.5)),
+                decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: a == null ? AppColors.border : AppColors.textPrimary, width: 1.5)),
                 child: ClipOval(
                   child: a == null
                       ? ColoredBox(color: AppColors.surfaceGray, child: Icon(AppIcons.plus, size: 22, color: AppColors.textSecondary))
@@ -253,9 +253,9 @@ class _Action extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fg = dark ? Colors.white : AppColors.textPrimary;
+    final fg = dark ? AppColors.onInk : AppColors.textPrimary;
     final child = Material(
-      color: dark ? AppColors.ink : AppColors.surfaceGray,
+      color: dark ? AppColors.textPrimary : AppColors.surfaceGray,
       borderRadius: BorderRadius.circular(AppRadius.md),
       child: InkWell(
         onTap: onTap,

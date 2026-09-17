@@ -218,7 +218,7 @@ class _CarFormScreenState extends ConsumerState<CarFormScreen> {
                           decoration: BoxDecoration(
                             color: e.value,
                             shape: BoxShape.circle,
-                            border: Border.all(color: _color == e.key ? AppColors.ink : AppColors.border, width: _color == e.key ? 3 : 1),
+                            border: Border.all(color: _color == e.key ? AppColors.textPrimary : AppColors.border, width: _color == e.key ? 3 : 1),
                           ),
                           child: _color == e.key ? Icon(AppIcons.check, size: 18, color: e.value.computeLuminance() > 0.5 ? AppColors.ink : Colors.white) : null,
                         ),

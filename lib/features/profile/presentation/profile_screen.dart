@@ -480,15 +480,15 @@ class _Pill extends StatelessWidget {
           duration: const Duration(milliseconds: 160),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
           decoration: BoxDecoration(
-            color: on ? AppColors.ink : AppColors.surfaceGray,
+            color: on ? AppColors.textPrimary : AppColors.surfaceGray,
             borderRadius: BorderRadius.circular(999),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 14, color: on ? Colors.white : AppColors.textPrimary),
+              Icon(icon, size: 14, color: on ? AppColors.onInk : AppColors.textPrimary),
               const SizedBox(width: 6),
-              Text(label, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: on ? Colors.white : AppColors.textPrimary)),
+              Text(label, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: on ? AppColors.onInk : AppColors.textPrimary)),
             ],
           ),
         ),

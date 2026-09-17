@@ -67,12 +67,12 @@ class _ChatComposerState extends State<ChatComposer> {
   Widget _round(IconData icon, VoidCallback? onTap, {bool filled = false, String? tooltip}) => Tooltip(
         message: tooltip ?? '',
         child: Material(
-          color: filled ? AppColors.ink : AppColors.surfaceGray,
+          color: filled ? AppColors.textPrimary : AppColors.surfaceGray,
           shape: const CircleBorder(),
           child: InkWell(
             customBorder: const CircleBorder(),
             onTap: onTap,
-            child: SizedBox(width: 42, height: 42, child: Icon(icon, size: 20, color: filled ? Colors.white : AppColors.ink)),
+            child: SizedBox(width: 42, height: 42, child: Icon(icon, size: 20, color: filled ? AppColors.onInk : AppColors.textPrimary)),
           ),
         ),
       );
@@ -157,20 +157,20 @@ class _ChatComposerState extends State<ChatComposer> {
               duration: const Duration(milliseconds: 150),
               height: 46,
               decoration: BoxDecoration(
-                color: rec ? (cancel ? AppColors.textSecondary : AppColors.brand) : AppColors.ink,
+                color: rec ? (cancel ? AppColors.textSecondary : AppColors.brand) : AppColors.textPrimary,
                 borderRadius: BorderRadius.circular(23),
               ),
               child: Row(
                 children: [
                   const SizedBox(width: 14),
-                  Icon(cancel ? AppIcons.trash : AppIcons.microphone, color: Colors.white, size: 20),
+                  Icon(cancel ? AppIcons.trash : AppIcons.microphone, color: rec ? Colors.white : AppColors.onInk, size: 20),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       rec ? (cancel ? 'Release to cancel' : '${fmtMs(widget.elapsed.inMilliseconds)}  ·  slide left to cancel') : 'Hold to speak',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14),
+                      style: TextStyle(color: rec ? Colors.white : AppColors.onInk, fontWeight: FontWeight.w700, fontSize: 14),
                     ),
                   ),
                   if (rec && !cancel)
@@ -178,7 +178,7 @@ class _ChatComposerState extends State<ChatComposer> {
                       padding: EdgeInsets.only(right: 14),
                       child: _Pulse(),
                     ),
-                  if (!rec) const Padding(padding: EdgeInsets.only(right: 14), child: Text('2 min max', style: TextStyle(color: Colors.white54, fontSize: 11.5))),
+                  if (!rec) Padding(padding: const EdgeInsets.only(right: 14), child: Text('2 min max', style: TextStyle(color: AppColors.onInk.withValues(alpha: 0.6), fontSize: 11.5))),
                 ],
               ),
             ),
@@ -242,7 +242,7 @@ Future<ComposerAction?> showComposerSheet(BuildContext context) {
                       child: InkWell(
                         borderRadius: BorderRadius.circular(16),
                         onTap: () => Navigator.pop(ctx, t.$1),
-                        child: SizedBox(width: double.infinity, height: 68, child: Icon(t.$2, size: 26, color: AppColors.ink)),
+                        child: SizedBox(width: double.infinity, height: 68, child: Icon(t.$2, size: 26, color: AppColors.textPrimary)),
                       ),
                     ),
                     const SizedBox(height: 6),

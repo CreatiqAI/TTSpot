@@ -189,7 +189,7 @@ class _RequestRowState extends ConsumerState<_RequestRow> {
               Expanded(
                 child: SizedBox(
                   height: 40,
-                  child: FilledButton(onPressed: _busy ? null : () => _decide(true), style: FilledButton.styleFrom(minimumSize: const Size(0, 40), backgroundColor: AppColors.ink), child: const Text('Approve')),
+                  child: FilledButton(onPressed: _busy ? null : () => _decide(true), style: FilledButton.styleFrom(minimumSize: const Size(0, 40), backgroundColor: AppColors.textPrimary, foregroundColor: AppColors.onInk), child: const Text('Approve')),
                 ),
               ),
             ],

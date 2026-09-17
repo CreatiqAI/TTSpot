@@ -54,6 +54,8 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
   MapPinFactory? _pins;
   CarMarkerFactory? _cars;
   Set<Marker> _markerSet = const {};
+  /// What kinds of pin are on the map right now; feeds the key.
+  Set<LegendGlyph> _present = const {};
   Set<Circle> _circles = const {};
   // Radar: one pulse every 5 s on live meets (and a static ring for nearby mode).
   late final AnimationController _radar = AnimationController(vsync: this, duration: const Duration(milliseconds: 1400))..addListener(_paintCircles);
@@ -278,14 +280,23 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
     final generation = ++_generation;
     final mode = ref.read(mapModeProvider);
     final built = <Marker>{};
+    final present = <LegendGlyph>{};
 
     Future<bool> stale() async => generation != _generation || !mounted;
+    void noteEvent(Event e) => present.add(e.type == EventType.tt || e.isInstant
+        ? LegendGlyph.flag
+        : e.isOfficialClubEvent
+            ? LegendGlyph.officialEvent
+            : e.vendorId != null
+                ? LegendGlyph.partnerEvent
+                : LegendGlyph.balloon);
 
     switch (mode) {
       case MapMode.now:
         for (final e in ref.read(liveEventsProvider).value ?? const <Event>[]) {
           final bmp = await _eventPin(e, sub: e.checkinCount > 0 ? 'LIVE · ${e.checkinCount} here' : 'LIVE');
           if (await stale()) return;
+          noteEvent(e);
           built.add(Marker(
             markerId: MarkerId('event:${e.id}'),
             position: e.latLng,
@@ -301,6 +312,7 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
           if (at == null) continue;
           final pin = await _pinFactory.moment(key: m.id, imageUrl: m.photoUrl, scale: _glyphScale);
           if (await stale()) return;
+          present.add(LegendGlyph.moment);
           built.add(Marker(
             markerId: MarkerId('moment:${m.id}'),
             position: at,
@@ -311,13 +323,14 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
             onTap: () => _openAt(at, () => _openMoment(m)),
           ));
         }
-        await _addPartners(built, stale);
-        await _addPeople(built, stale);
+        await _addPartners(built, stale, present);
+        await _addPeople(built, stale, present);
       case MapMode.upcoming:
         final now = DateTime.now();
         for (final e in ref.read(mapEventsProvider).value ?? const <Event>[]) {
           final bmp = await _eventPin(e, sub: relativeShort(e.startsAt, now: now));
           if (await stale()) return;
+          noteEvent(e);
           built.add(Marker(
             markerId: MarkerId('event:${e.id}'),
             position: e.latLng,
@@ -327,7 +340,7 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
             onTap: () => _openAt(e.latLng, () => context.push(Routes.event(e.id))),
           ));
         }
-        await _addPartners(built, stale);
+        await _addPartners(built, stale, present);
       case MapMode.spots:
         for (final p in ref.read(spotsProvider).value ?? const <Place>[]) {
           final pin = _far
@@ -342,6 +355,7 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
                       scale: _glyphScale,
                     );
           if (await stale()) return;
+          present.add(p.isPartner ? LegendGlyph.partner : (p.recommended ? LegendGlyph.topSpot : LegendGlyph.spot));
           built.add(Marker(
             markerId: MarkerId('place:${p.id}'),
             position: p.latLng,
@@ -353,13 +367,19 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
           ));
         }
     }
-    if (mode != MapMode.now) await _addPeople(built, stale, onlyMe: true);
-    if (mounted) setState(() => _markerSet = built);
+    if (mode != MapMode.now) await _addPeople(built, stale, present, onlyMe: true);
+    if (mounted) {
+      setState(() {
+        _markerSet = built;
+        _present = present;
+      });
+    }
   }
 
   /// Partner shops show on every layer: logo pin when zoomed in, red dot far out.
-  Future<void> _addPartners(Set<Marker> built, Future<bool> Function() stale) async {
+  Future<void> _addPartners(Set<Marker> built, Future<bool> Function() stale, Set<LegendGlyph> present) async {
     for (final p in (ref.read(spotsProvider).value ?? const <Place>[]).where((p) => p.isPartner)) {
+      present.add(LegendGlyph.partner);
       final pin = _far ? await _pinFactory.partnerMini(key: p.id, scale: _glyphScale) : await _pinFactory.partner(key: p.id, logoUrl: p.vendorLogo, scale: _glyphScale);
       if (await stale()) return;
       built.add(Marker(
@@ -376,7 +396,7 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
 
   /// Friends, clubmates, nearby strangers and me. Cars when zoomed in, dots
   /// when zoomed out. Colour = relationship, or the colour I gave a friend.
-  Future<void> _addPeople(Set<Marker> built, Future<bool> Function() stale, {bool onlyMe = false}) async {
+  Future<void> _addPeople(Set<Marker> built, Future<bool> Function() stale, Set<LegendGlyph> present, {bool onlyMe = false}) async {
     final tags = ref.read(friendTagsProvider).value ?? const <String, String>{};
     final showColor = ref.read(settingsProvider).showCarColor;
     if (!onlyMe && !_far && _showPeople) {
@@ -399,6 +419,7 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
                 relation: relation,
               );
         if (await stale()) return;
+        present.add(stranger ? LegendGlyph.nearby : (f.viaClub ? LegendGlyph.club : LegendGlyph.friend));
         built.add(Marker(
           markerId: MarkerId('friend:${f.user.id}'),
           position: f.latLng,
@@ -419,6 +440,7 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
           ? await _carFactory.dot(key: 'me', color: kRelationMe, me: true, scale: _glyphScale)
           : await _carFactory.car(key: 'me', colorKey: showColor ? (myCar?.color ?? 'red') : 'red', name: 'Me', status: 'now', showFace: false, me: true);
       if (await stale()) return;
+      present.add(LegendGlyph.me);
       built.add(Marker(markerId: const MarkerId('me'), position: here, icon: pin.descriptor, anchor: pin.anchor, zIndexInt: 6));
     }
   }
@@ -575,7 +597,7 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
                   duration: const Duration(milliseconds: 200),
                   // Below the mode switch, and below the "you're at a meet" banner when it shows.
                   padding: EdgeInsets.only(top: 66 + (nearby == null ? 0 : 60) + (reduced ? 54 : 0), left: 12),
-                  child: MapLegend(mode: mode, light: !_isNight),
+                  child: MapLegend(mode: mode, light: !_isNight, present: _present),
                 ),
               ),
             ),
@@ -776,11 +798,11 @@ class _RoundButton extends StatelessWidget {
         message: tooltip,
         child: PressScale(
           child: Material(
-            color: AppColors.ink,
+            color: AppColors.brand,
             shape: const CircleBorder(),
             elevation: 6,
             shadowColor: Colors.black54,
-            child: InkWell(onTap: onTap, customBorder: const CircleBorder(), child: const SizedBox(width: size, height: size, child: Icon(null))),
+            child: InkWell(onTap: onTap, customBorder: const CircleBorder(), child: SizedBox(width: size, height: size, child: Icon(icon, color: Colors.white, size: 22))),
           ),
         ),
       );

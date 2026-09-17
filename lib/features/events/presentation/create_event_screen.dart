@@ -384,18 +384,18 @@ class _Audience extends StatelessWidget {
             duration: const Duration(milliseconds: 160),
             padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
             decoration: BoxDecoration(
-              color: on ? AppColors.ink : AppColors.surfaceRaised,
+              color: on ? AppColors.textPrimary : AppColors.surfaceRaised,
               borderRadius: BorderRadius.circular(AppRadius.md),
-              border: Border.all(color: on ? AppColors.ink : AppColors.border),
+              border: Border.all(color: on ? AppColors.textPrimary : AppColors.border),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(icon, size: 20, color: on ? Colors.white : AppColors.textPrimary),
+                Icon(icon, size: 20, color: on ? AppColors.onInk : AppColors.textPrimary),
                 const SizedBox(height: 8),
-                Text(title, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: on ? Colors.white : AppColors.textPrimary)),
+                Text(title, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: on ? AppColors.onInk : AppColors.textPrimary)),
                 const SizedBox(height: 2),
-                Text(subtitle, style: TextStyle(fontSize: 11.5, height: 1.3, color: on ? Colors.white70 : AppColors.textSecondary)),
+                Text(subtitle, style: TextStyle(fontSize: 11.5, height: 1.3, color: on ? AppColors.onInk.withValues(alpha: 0.7) : AppColors.textSecondary)),
               ],
             ),
           ),

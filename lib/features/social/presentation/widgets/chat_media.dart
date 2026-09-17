@@ -109,7 +109,7 @@ class _VoiceBubbleState extends State<VoiceBubble> {
                 height: 36,
                 child: _loading
                     ? const Padding(padding: EdgeInsets.all(10), child: CircularProgressIndicator(strokeWidth: 2))
-                    : Icon(_playing ? AppIcons.pause : AppIcons.play, size: 18, color: AppColors.ink),
+                    : Icon(_playing ? AppIcons.pause : AppIcons.play, size: 18, color: AppColors.textPrimary),
               ),
             ),
           ),

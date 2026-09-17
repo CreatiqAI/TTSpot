@@ -9,13 +9,15 @@ import '../../application/map_providers.dart';
 import 'car_marker.dart';
 import 'map_glyphs.dart';
 
-/// Small key on the left of the map: which shape means what on this layer.
-/// Open the first time you see the map; folded to a "Key" pill after that.
-/// Tap the header to toggle.
+/// Small key on the left of the map: which shape means what on this layer,
+/// listing only the kinds that are drawn right now (`present`). Open the
+/// first time you see the map; folded to a "Key" pill after that.
 class MapLegend extends ConsumerStatefulWidget {
-  const MapLegend({super.key, required this.mode, required this.light});
+  const MapLegend({super.key, required this.mode, required this.light, required this.present});
   final MapMode mode;
   final bool light;
+  /// Glyph kinds currently on the map. Empty = nothing to explain, key hidden.
+  final Set<LegendGlyph> present;
 
   @override
   ConsumerState<MapLegend> createState() => _MapLegendState();
@@ -49,34 +51,36 @@ class _MapLegendState extends ConsumerState<MapLegend> {
   Widget build(BuildContext context) {
     final open = _open ?? true;
     final p = MapPalette(light: widget.light, child: const SizedBox.shrink());
-    final rows = switch (widget.mode) {
+    final all = switch (widget.mode) {
       MapMode.now => const [
-          _Item(_Glyph.flag, 'TT session'),
-          _Item(_Glyph.balloon, 'Event'),
-          _Item(_Glyph.officialEvent, 'Official club'),
-          _Item(_Glyph.partnerEvent, 'Partner event'),
-          _Item(_Glyph.moment, 'Moment'),
-          _Item(_Glyph.partner, 'Partner shop'),
-          _Item(_Glyph.me, 'You'),
-          _Item(_Glyph.friend, 'Friend'),
-          _Item(_Glyph.club, 'Club'),
-          _Item(_Glyph.nearby, 'Nearby'),
+          _Item(LegendGlyph.flag, 'TT session'),
+          _Item(LegendGlyph.balloon, 'Event'),
+          _Item(LegendGlyph.officialEvent, 'Official club'),
+          _Item(LegendGlyph.partnerEvent, 'Partner event'),
+          _Item(LegendGlyph.moment, 'Moment'),
+          _Item(LegendGlyph.partner, 'Partner shop'),
+          _Item(LegendGlyph.me, 'You'),
+          _Item(LegendGlyph.friend, 'Friend'),
+          _Item(LegendGlyph.club, 'Club'),
+          _Item(LegendGlyph.nearby, 'Nearby'),
         ],
       MapMode.upcoming => const [
-          _Item(_Glyph.balloon, 'Event'),
-          _Item(_Glyph.officialEvent, 'Official club'),
-          _Item(_Glyph.partnerEvent, 'Partner event'),
-          _Item(_Glyph.flag, 'TT session'),
-          _Item(_Glyph.partner, 'Partner shop'),
-          _Item(_Glyph.me, 'You'),
+          _Item(LegendGlyph.balloon, 'Event'),
+          _Item(LegendGlyph.officialEvent, 'Official club'),
+          _Item(LegendGlyph.partnerEvent, 'Partner event'),
+          _Item(LegendGlyph.flag, 'TT session'),
+          _Item(LegendGlyph.partner, 'Partner shop'),
+          _Item(LegendGlyph.me, 'You'),
         ],
       MapMode.spots => const [
-          _Item(_Glyph.topSpot, 'Top spot'),
-          _Item(_Glyph.spot, 'Spot'),
-          _Item(_Glyph.partner, 'Partner shop'),
-          _Item(_Glyph.me, 'You'),
+          _Item(LegendGlyph.topSpot, 'Top spot'),
+          _Item(LegendGlyph.spot, 'Spot'),
+          _Item(LegendGlyph.partner, 'Partner shop'),
+          _Item(LegendGlyph.me, 'You'),
         ],
     };
+    final rows = all.where((r) => widget.present.contains(r.glyph)).toList();
+    if (rows.isEmpty) return const SizedBox.shrink();
 
     return GlassPanel(
       dark: !widget.light,
@@ -112,7 +116,7 @@ class _MapLegendState extends ConsumerState<MapLegend> {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          SizedBox(width: 22, height: 22, child: CustomPaint(painter: _GlyphPainter(r.glyph))),
+                          SizedBox(width: 22, height: 22, child: CustomPaint(painter: LegendGlyphPainter(r.glyph))),
                           const SizedBox(width: 6),
                           Text(r.label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: p.text)),
                         ],
@@ -128,42 +132,42 @@ class _MapLegendState extends ConsumerState<MapLegend> {
   }
 }
 
-enum _Glyph { balloon, officialEvent, partnerEvent, flag, spot, topSpot, partner, moment, me, friend, club, nearby }
+enum LegendGlyph { balloon, officialEvent, partnerEvent, flag, spot, topSpot, partner, moment, me, friend, club, nearby }
 
 class _Item {
   const _Item(this.glyph, this.label);
-  final _Glyph glyph;
+  final LegendGlyph glyph;
   final String label;
 }
 
-class _GlyphPainter extends CustomPainter {
-  const _GlyphPainter(this.glyph);
-  final _Glyph glyph;
+class LegendGlyphPainter extends CustomPainter {
+  const LegendGlyphPainter(this.glyph);
+  final LegendGlyph glyph;
 
   @override
   void paint(Canvas c, Size s) {
     final centre = Offset(s.width / 2, s.height / 2);
     switch (glyph) {
-      case _Glyph.balloon:
+      case LegendGlyph.balloon:
         paintBalloon(c, Offset(centre.dx - 13 * 0.6, 1), scale: 0.6);
-      case _Glyph.officialEvent:
+      case LegendGlyph.officialEvent:
         paintBalloon(c, Offset(centre.dx - 13 * 0.6, 1), scale: 0.6, color: kGold, glyph: AppIcons.crown);
-      case _Glyph.partnerEvent:
+      case LegendGlyph.partnerEvent:
         paintBalloon(c, Offset(centre.dx - 13 * 0.6, 1), scale: 0.6, color: kInk, glyph: AppIcons.storefront);
-      case _Glyph.flag:
+      case LegendGlyph.flag:
         paintFlag(c, Offset(centre.dx - 12 * 0.6, 0), scale: 0.6);
-      case _Glyph.spot:
+      case LegendGlyph.spot:
         paintSpotBadge(c, Offset(centre.dx - 11 * 0.75, centre.dy - 11 * 0.75), scale: 0.75);
-      case _Glyph.topSpot:
+      case LegendGlyph.topSpot:
         paintSpotBadge(c, Offset(centre.dx - 11 * 0.75, centre.dy - 11 * 0.75), scale: 0.75, recommended: true);
-      case _Glyph.partner:
+      case LegendGlyph.partner:
         final box = Rect.fromCenter(center: centre.translate(0, -1), width: 15, height: 15);
         c.drawRRect(RRect.fromRectAndRadius(box.inflate(1.5), const Radius.circular(5)), Paint()..color = Colors.white);
         c.drawRRect(RRect.fromRectAndRadius(box, const Radius.circular(4)), Paint()..color = const Color(0xFF101010));
         c.drawPath(Path()..moveTo(centre.dx - 3, box.bottom + 1)..lineTo(centre.dx + 3, box.bottom + 1)..lineTo(centre.dx, box.bottom + 4.5)..close(), Paint()..color = Colors.white);
         c.drawCircle(Offset(box.right - 2, box.bottom - 2), 4, Paint()..color = Colors.white);
         c.drawCircle(Offset(box.right - 2, box.bottom - 2), 3, Paint()..color = const Color(0xFFE00008));
-      case _Glyph.moment:
+      case LegendGlyph.moment:
         c.save();
         c.translate(centre.dx, centre.dy);
         c.rotate(-0.14);
@@ -172,17 +176,17 @@ class _GlyphPainter extends CustomPainter {
         c.drawRRect(RRect.fromRectAndRadius(frame, const Radius.circular(2)), Paint()..style = PaintingStyle.stroke..strokeWidth = 0.8..color = const Color(0xFFCFD3DA));
         c.drawRect(const Rect.fromLTWH(-6, -6.5, 12, 12), Paint()..color = const Color(0xFF9AA0A6));
         c.restore();
-      case _Glyph.me:
+      case LegendGlyph.me:
         paintDot(c, centre, r: 4.5, color: kRelationMe);
-      case _Glyph.friend:
+      case LegendGlyph.friend:
         paintDot(c, centre, r: 4.5, color: kRelationFriend);
-      case _Glyph.club:
+      case LegendGlyph.club:
         paintDot(c, centre, r: 4.5, color: kRelationClub);
-      case _Glyph.nearby:
+      case LegendGlyph.nearby:
         paintDot(c, centre, r: 4.5, color: kRelationStranger);
     }
   }
 
   @override
-  bool shouldRepaint(_GlyphPainter old) => old.glyph != glyph;
+  bool shouldRepaint(LegendGlyphPainter old) => old.glyph != glyph;
 }

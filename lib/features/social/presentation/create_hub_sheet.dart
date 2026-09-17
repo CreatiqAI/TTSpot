@@ -93,9 +93,9 @@ class _Big extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final off = onTap == null;
-    final fg = dark ? Colors.white : AppColors.textPrimary;
+    final fg = dark ? AppColors.onInk : AppColors.textPrimary;
     return Material(
-      color: dark ? AppColors.ink : AppColors.surfaceGray,
+      color: dark ? AppColors.textPrimary : AppColors.surfaceGray,
       borderRadius: BorderRadius.circular(AppRadius.lg),
       child: InkWell(
         onTap: onTap,

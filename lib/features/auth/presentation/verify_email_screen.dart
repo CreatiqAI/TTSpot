@@ -136,7 +136,7 @@ class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
                                 color: AppColors.surfaceGray,
                                 borderRadius: BorderRadius.circular(14),
                                 border: Border.all(
-                                  color: _code.text.length == i && _focus.hasFocus ? AppColors.ink : Colors.transparent,
+                                  color: _code.text.length == i && _focus.hasFocus ? AppColors.textPrimary : Colors.transparent,
                                   width: 2,
                                 ),
                               ),

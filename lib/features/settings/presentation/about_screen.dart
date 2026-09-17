@@ -71,7 +71,7 @@ class _Release extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
       decoration: BoxDecoration(
-        color: current ? AppColors.ink : Colors.white,
+        color: current ? AppColors.textPrimary : AppColors.surface,
         borderRadius: BorderRadius.circular(16),
         border: current ? null : Border.all(color: AppColors.border),
       ),
@@ -80,7 +80,7 @@ class _Release extends StatelessWidget {
         children: [
           Row(
             children: [
-              Text(note.version, style: TextStyle(fontFamily: AppFonts.display, fontSize: 22, fontWeight: FontWeight.w700, height: 1, color: current ? Colors.white : AppColors.textPrimary)),
+              Text(note.version, style: TextStyle(fontFamily: AppFonts.display, fontSize: 22, fontWeight: FontWeight.w700, height: 1, color: current ? AppColors.onInk : AppColors.textPrimary)),
               const SizedBox(width: 8),
               if (current)
                 Container(
@@ -93,7 +93,7 @@ class _Release extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 4),
-          Text(note.title, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: current ? Colors.white : AppColors.textPrimary)),
+          Text(note.title, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: current ? AppColors.onInk : AppColors.textPrimary)),
           const SizedBox(height: 8),
           for (final p in note.points)
             Padding(

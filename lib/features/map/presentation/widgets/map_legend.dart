@@ -28,6 +28,8 @@ class _MapLegendState extends State<MapLegend> {
       MapMode.now => const [
           _Item(_Glyph.flag, 'TT session'),
           _Item(_Glyph.balloon, 'Event'),
+          _Item(_Glyph.officialEvent, 'Official club'),
+          _Item(_Glyph.partnerEvent, 'Partner event'),
           _Item(_Glyph.moment, 'Moment'),
           _Item(_Glyph.partner, 'Partner shop'),
           _Item(_Glyph.me, 'You'),
@@ -37,6 +39,8 @@ class _MapLegendState extends State<MapLegend> {
         ],
       MapMode.upcoming => const [
           _Item(_Glyph.balloon, 'Event'),
+          _Item(_Glyph.officialEvent, 'Official club'),
+          _Item(_Glyph.partnerEvent, 'Partner event'),
           _Item(_Glyph.flag, 'TT session'),
           _Item(_Glyph.partner, 'Partner shop'),
           _Item(_Glyph.me, 'You'),
@@ -99,7 +103,7 @@ class _MapLegendState extends State<MapLegend> {
   }
 }
 
-enum _Glyph { balloon, flag, spot, topSpot, partner, moment, me, friend, club, nearby }
+enum _Glyph { balloon, officialEvent, partnerEvent, flag, spot, topSpot, partner, moment, me, friend, club, nearby }
 
 class _Item {
   const _Item(this.glyph, this.label);
@@ -117,6 +121,10 @@ class _GlyphPainter extends CustomPainter {
     switch (glyph) {
       case _Glyph.balloon:
         paintBalloon(c, Offset(centre.dx - 13 * 0.6, 1), scale: 0.6);
+      case _Glyph.officialEvent:
+        paintBalloon(c, Offset(centre.dx - 13 * 0.6, 1), scale: 0.6, color: kGold, glyph: AppIcons.crown);
+      case _Glyph.partnerEvent:
+        paintBalloon(c, Offset(centre.dx - 13 * 0.6, 1), scale: 0.6, color: kInk, glyph: AppIcons.storefront);
       case _Glyph.flag:
         paintFlag(c, Offset(centre.dx - 12 * 0.6, 0), scale: 0.6);
       case _Glyph.spot:

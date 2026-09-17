@@ -8,12 +8,15 @@ class EventDetail {
     required this.organizer,
     required this.attendeesPreview,
     required this.isAttending,
+    this.isBookmarked = false,
   });
 
   final Event event;
   final Profile? organizer;
   final List<Profile> attendeesPreview;
   final bool isAttending;
+  /// Saved to get a reminder before it starts.
+  final bool isBookmarked;
 }
 
 class EventComment {

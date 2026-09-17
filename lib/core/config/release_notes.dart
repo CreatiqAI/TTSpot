@@ -10,6 +10,17 @@ class ReleaseNote {
 
 const kReleaseNotes = <ReleaseNote>[
   ReleaseNote(
+    version: '0.3.21',
+    date: '17 Sep 2026',
+    title: 'Official and underground clubs',
+    points: [
+      'Clubs are Official (RM 69.90 / month: meet notifications, plan any distance ahead, gold map badge, no member limit, 10 % bonus points for the president) or Underground (7 days ahead, 100 members, a club garage that pings the crew).',
+      'Club roles: President, Vice President, Secretary. Every club has a most-active leaderboard.',
+      'Partners: RM 69 / month plan, SSM and shop photo required, shops in Johor, Penang or KL. Partners see every upcoming meet to sponsor and every car club with what its members drive. Partner events tell everyone and get their own map badge.',
+      'Save any meet with the bookmark and get a reminder before it starts.',
+    ],
+  ),
+  ReleaseNote(
     version: '0.3.20',
     date: '17 Sep 2026',
     title: 'Dark mode for the whole app',

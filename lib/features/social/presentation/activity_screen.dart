@@ -115,7 +115,7 @@ class _Row extends ConsumerWidget {
       NotificationType.spottedClaim => ('claimed the car you spotted.', n.postId == null ? null : Routes.post(n.postId!)),
       NotificationType.badge => ('You earned the ${badge?.name ?? 'a new'} badge ${badge?.emoji ?? '🏅'}', me == null ? null : Routes.badges(me!)),
       NotificationType.carOfWeek => (n.body ?? 'Your build is Car of the Week!', n.postId == null ? null : Routes.post(n.postId!)),
-      NotificationType.clubJoin => (n.body == 'admin' ? 'now helps run ${n.clubName ?? 'your club'}.' : 'joined ${n.clubName ?? 'your club'}.', n.clubId == null ? null : Routes.club(n.clubId!)),
+      NotificationType.clubJoin => (n.body == null ? 'joined ${n.clubName ?? 'your club'}.' : 'is now ${n.body == 'vp' ? 'Vice President' : n.body == 'secretary' ? 'Secretary' : 'an officer'} of ${n.clubName ?? 'your club'}.', n.clubId == null ? null : Routes.club(n.clubId!)),
       NotificationType.friendRequest => ('wants to be friends.', Routes.friends),
       NotificationType.friendAccepted => ('accepted your friend request. You\'ll see each other on the map.', Routes.profile(n.actor?.id ?? '')),
       NotificationType.ttNow => ('started TT now${n.body == null ? '' : ' @ ${n.body}'}. Otw?', n.eventId == null ? null : Routes.event(n.eventId!)),
@@ -125,8 +125,8 @@ class _Row extends ConsumerWidget {
       NotificationType.partner => _partnerText(n),
       NotificationType.voucher => ((n.body ?? '').startsWith('redeemed:') ? 'Voucher used: ${n.body!.substring(9)}' : (n.body ?? 'Voucher update.'), Routes.myVouchers),
       NotificationType.clubInvite => (
-          (n.body ?? '').startsWith('admin:')
-              ? 'wants you to help run ${n.clubName ?? n.body!.substring(6)} as an admin. Open the club to accept.'
+          (n.body ?? '').startsWith('vp:') || (n.body ?? '').startsWith('secretary:') || (n.body ?? '').startsWith('admin:')
+              ? 'wants you as ${n.body!.startsWith('secretary:') ? 'Secretary' : 'Vice President'} of ${n.clubName ?? n.body!.substring(n.body!.indexOf(':') + 1)}. Open the club to accept.'
               : 'invited you to join ${n.clubName ?? n.body ?? 'their club'}. Open the club to accept.',
           n.clubId == null ? null : Routes.club(n.clubId!)
         ),
@@ -138,6 +138,19 @@ class _Row extends ConsumerWidget {
           },
           n.clubId == null ? null : Routes.club(n.clubId!)
         ),
+      NotificationType.clubEvent => ('scheduled ${n.eventTitle ?? 'a meet'} for ${n.body ?? n.clubName ?? 'your club'}.', n.eventId == null ? null : Routes.event(n.eventId!)),
+      NotificationType.partnerEvent => ('${n.body ?? 'A partner'} is hosting ${n.eventTitle ?? 'an event'}. Have a look.', n.eventId == null ? null : Routes.event(n.eventId!)),
+      NotificationType.garage => ('just pulled up at ${n.body ?? 'the garage'}${n.clubName == null ? '' : ' (${n.clubName})'}.', n.clubId == null ? null : Routes.club(n.clubId!)),
+      NotificationType.clubOfficial => (
+          switch ((n.body ?? '').split(':').first) {
+            'requested' => 'wants ${n.body!.substring(10)} to go official (RM 69.90 / month).',
+            'approved' => '${n.clubName ?? n.body!.substring(9)} is now an official club. Notifications, gold badge, no limits.',
+            'expired' => '${n.clubName ?? n.body!.substring(8)} is back to underground. Renew to stay official.',
+            'ended' => '${n.clubName ?? n.body!.substring(6)} is back to underground.',
+            _ => n.body ?? 'Club status changed.',
+          },
+          n.clubId == null ? null : Routes.club(n.clubId!)
+        ),
       NotificationType.unknown => ('did something.', null),
     };
     final systemMessage = n.type == NotificationType.badge ||
@@ -145,6 +158,7 @@ class _Row extends ConsumerWidget {
         n.type == NotificationType.eventReminder ||
         (n.type == NotificationType.partner && n.actor == null) ||
         (n.type == NotificationType.points && n.actor == null) ||
+        (n.type == NotificationType.clubOfficial && n.actor == null) ||
         n.type == NotificationType.voucher;
 
     return InkWell(

@@ -57,6 +57,8 @@ class PartnerApplication {
     this.userId,
     this.username,
     this.avatarUrl,
+    this.state,
+    this.shopPhotoUrl,
   });
 
   final String id;
@@ -78,6 +80,8 @@ class PartnerApplication {
   final String? userId;
   final String? username;
   final String? avatarUrl;
+  final String? state;
+  final String? shopPhotoUrl;
 
   factory PartnerApplication.fromMap(Map<String, dynamic> m) => PartnerApplication(
         id: m['id'] as String,
@@ -98,6 +102,8 @@ class PartnerApplication {
         userId: m['user_id'] as String?,
         username: m['username'] as String?,
         avatarUrl: m['avatar_url'] as String?,
+        state: m['state'] as String?,
+        shopPhotoUrl: m['shop_photo_url'] as String?,
       );
 }
 
@@ -169,6 +175,66 @@ class Product {
       );
 }
 
+/// A car club as a partner sees it: size and what the members drive.
+class VendorClubInsight {
+  const VendorClubInsight({required this.id, required this.name, required this.handle, required this.tier, required this.members, this.avatarUrl, this.homeState, this.topMakes = const []});
+  final String id, name, handle, tier;
+  final int members;
+  final String? avatarUrl, homeState;
+  final List<(String, int)> topMakes;
+  factory VendorClubInsight.fromMap(Map<String, dynamic> m) => VendorClubInsight(
+        id: m['id'] as String,
+        name: m['name'] as String,
+        handle: m['handle'] as String? ?? '',
+        tier: m['tier'] as String? ?? 'underground',
+        members: (m['members'] as num?)?.toInt() ?? 0,
+        avatarUrl: m['avatar_url'] as String?,
+        homeState: m['home_state'] as String?,
+        topMakes: [for (final x in (m['top_makes'] as List?) ?? const []) ((x as Map)['make'] as String, (x['n'] as num).toInt())],
+      );
+}
+
+/// A partner in the admin list: plan status + activity.
+class AdminPartner {
+  const AdminPartner({required this.id, required this.name, required this.type, this.logoUrl, this.state, this.planUntil, this.ownerUsername, this.liveVouchers = 0, this.redemptions30d = 0});
+  final String id, name, type;
+  final String? logoUrl, state, ownerUsername;
+  final DateTime? planUntil;
+  final int liveVouchers, redemptions30d;
+  bool get planActive => planUntil != null && planUntil!.isAfter(DateTime.now());
+  factory AdminPartner.fromMap(Map<String, dynamic> m) => AdminPartner(
+        id: m['id'] as String,
+        name: m['name'] as String,
+        type: m['type'] as String? ?? 'other',
+        logoUrl: m['logo_url'] as String?,
+        state: m['state'] as String?,
+        planUntil: _date(m['plan_until']),
+        ownerUsername: m['owner_username'] as String?,
+        liveVouchers: (m['live_vouchers'] as num?)?.toInt() ?? 0,
+        redemptions30d: (m['redemptions_30d'] as num?)?.toInt() ?? 0,
+      );
+}
+
+/// A club that asked to go official (or already is), for the admin queue.
+class OfficialClubRequest {
+  const OfficialClubRequest({required this.id, required this.name, required this.handle, required this.members, required this.tier, this.avatarUrl, this.ownerUsername, this.requestedAt, this.officialUntil});
+  final String id, name, handle, tier;
+  final int members;
+  final String? avatarUrl, ownerUsername;
+  final DateTime? requestedAt, officialUntil;
+  factory OfficialClubRequest.fromMap(Map<String, dynamic> m) => OfficialClubRequest(
+        id: m['id'] as String,
+        name: m['name'] as String,
+        handle: m['handle'] as String? ?? '',
+        members: (m['members'] as num?)?.toInt() ?? 0,
+        tier: m['tier'] as String? ?? 'underground',
+        avatarUrl: m['avatar_url'] as String?,
+        ownerUsername: m['owner_username'] as String?,
+        requestedAt: _date(m['requested_at']),
+        officialUntil: _date(m['official_until']),
+      );
+}
+
 /// My shop, with the 30-day headline numbers.
 class Vendor {
   const Vendor({
@@ -191,6 +257,8 @@ class Vendor {
     this.views30d = 0,
     this.checkins30d = 0,
     this.claims30d = 0,
+    this.state,
+    this.planUntil,
     this.liveVouchers = 0,
     this.redemptions30d = 0,
     this.bill30d = 0,
@@ -216,6 +284,9 @@ class Vendor {
   final int views30d;
   final int checkins30d;
   final int claims30d;
+  final String? state;
+  /// Partner plan (RM 69 / month) paid through this date. Admin extends it.
+  final DateTime? planUntil;
   final int liveVouchers;
   final int redemptions30d;
   final double bill30d;
@@ -241,6 +312,8 @@ class Vendor {
         views30d: (m['views_30d'] as num?)?.toInt() ?? 0,
         checkins30d: (m['checkins_30d'] as num?)?.toInt() ?? 0,
         claims30d: (m['claims_30d'] as num?)?.toInt() ?? 0,
+        state: m['state'] as String?,
+        planUntil: _date(m['plan_until']),
         liveVouchers: _int(m['live_vouchers']),
         redemptions30d: _int(m['redemptions_30d']),
         bill30d: _num(m['bill_30d']),

@@ -35,8 +35,12 @@ class VendorsRepository {
     String? ssmNo,
     double? lat,
     double? lng,
+    String? state,
+    String? shopPhotoUrl,
   }) async {
     final v = await _client.rpc('apply_partner', params: {
+      'p_state': state,
+      'p_shop_photo_url': shopPhotoUrl,
       'p_kind': kind.db,
       'p_lat': ?lat,
       'p_lng': ?lng,
@@ -114,6 +118,19 @@ class VendorsRepository {
     final rows = await _client.from('vendors_public').select().order('name');
     return (rows as List).map((r) => PublicVendor.fromMap((r as Map).cast<String, dynamic>())).toList();
   }
+
+  // ---------------------------------------------------- reach + admin ---
+  Future<List<VendorClubInsight>> clubInsights() async =>
+      _rows(await _client.rpc('vendor_club_insights')).map(VendorClubInsight.fromMap).toList();
+
+  Future<List<AdminPartner>> adminPartners() async => _rows(await _client.rpc('admin_partners_list')).map(AdminPartner.fromMap).toList();
+
+  Future<void> adminSetVendorPlan(String vendorId, int days) => _client.rpc('admin_set_vendor_plan', params: {'p_vendor': vendorId, 'p_days': days});
+
+  Future<List<OfficialClubRequest>> adminOfficialQueue() async => _rows(await _client.rpc('admin_official_queue')).map(OfficialClubRequest.fromMap).toList();
+
+  Future<void> adminSetClubTier(String clubId, String tier, {int days = 30}) =>
+      _client.rpc('admin_set_club_tier', params: {'p_club': clubId, 'p_tier': tier, 'p_days': days});
 
   Future<void> recordView(String vendorId) => _client.rpc('view_partner', params: {'p_vendor': vendorId});
 

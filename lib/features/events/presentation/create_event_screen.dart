@@ -137,7 +137,8 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
       initial: _startsAt.isBefore(now) ? now : _startsAt,
       mode: CupertinoDatePickerMode.date,
       min: DateTime(now.year, now.month, now.day),
-      max: now.add(const Duration(days: 365)),
+      // Underground clubs plan up to a week out; official clubs and everyone else, a year.
+      max: now.add(Duration(days: widget.clubId != null && (ref.read(clubProvider(widget.clubId!)).value?.isOfficial == false) ? 7 : 365)),
       title: 'Which day?',
     );
     if (d == null) return;

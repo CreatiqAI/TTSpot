@@ -69,7 +69,7 @@ class CommunityRepository {
   Future<void> inviteToClub(String clubId, String userId, {String role = 'member'}) =>
       _client.rpc('invite_to_club', params: {'p_club': clubId, 'p_user': userId, 'p_role': role});
 
-  /// Role of my pending invite on this club ('member' | 'admin'), or null.
+  /// Role of my pending invite on this club ('member' | 'vp' | 'secretary'), or null.
   Future<String?> myClubInviteRole(String clubId) async => await _client.rpc('my_club_invite_role', params: {'p_club': clubId}) as String?;
 
   /// user id -> role for everyone in the club.
@@ -78,7 +78,7 @@ class CommunityRepository {
     return {for (final r in rows) r['user_id'] as String: r['role'] as String};
   }
 
-  /// club id -> my role ('owner' | 'admin' | 'member').
+  /// club id -> my role ('owner' | 'vp' | 'secretary' | 'member').
   Future<Map<String, String>> myClubRoles() async {
     final rows = await _client.rpc('my_club_roles') as List;
     return {for (final r in rows) r['club_id'] as String: r['role'] as String};
@@ -92,6 +92,18 @@ class CommunityRepository {
 
   Future<void> respondClubInvite(String clubId, {required bool accept}) =>
       _client.rpc('respond_club_invite', params: {'p_club': clubId, 'p_accept': accept});
+
+  // ------------------------------------------------------------ tiers ---
+
+  Future<List<ClubLeader>> clubLeaderboard(String clubId) async {
+    final rows = await _client.rpc('club_leaderboard', params: {'p_club': clubId, 'p_limit': 10}) as List;
+    return rows.map((r) => ClubLeader.fromMap((r as Map).cast<String, dynamic>())).toList();
+  }
+
+  Future<void> requestOfficialClub(String clubId) => _client.rpc('request_official_club', params: {'p_club': clubId});
+
+  Future<void> setClubGarage(String clubId, String name, double lat, double lng) =>
+      _client.rpc('set_club_garage', params: {'p_club': clubId, 'p_name': name, 'p_lat': lat, 'p_lng': lng});
 
   // ------------------------------------------------------- join requests ---
 

@@ -53,6 +53,11 @@ final myClubShareProvider = FutureProvider.family<bool, String>((ref, clubId) {
   return ref.watch(communityRepositoryProvider).myClubShare(clubId);
 });
 
+final clubLeaderboardProvider = FutureProvider.family<List<ClubLeader>, String>((ref, clubId) {
+  if (ref.watch(currentUserIdProvider) == null) return Future.value(const []);
+  return ref.watch(communityRepositoryProvider).clubLeaderboard(clubId);
+});
+
 /// My join request on a club: 'pending' | 'declined' | null.
 final myClubRequestProvider = FutureProvider.family<String?, String>((ref, clubId) {
   if (ref.watch(currentUserIdProvider) == null) return Future.value(null);
@@ -114,6 +119,16 @@ class CommunityActions {
   }
 
   Future<void> inviteToClub(String clubId, String userId, {String role = 'member'}) => _repo.inviteToClub(clubId, userId, role: role);
+
+  Future<void> requestOfficialClub(String clubId) async {
+    await _repo.requestOfficialClub(clubId);
+    _ref.invalidate(clubProvider(clubId));
+  }
+
+  Future<void> setClubGarage(String clubId, String name, double lat, double lng) async {
+    await _repo.setClubGarage(clubId, name, lat, lng);
+    _ref.invalidate(clubProvider(clubId));
+  }
 
   Future<void> requestClubJoin(String clubId, String? message) async {
     await _repo.requestClubJoin(clubId, message);

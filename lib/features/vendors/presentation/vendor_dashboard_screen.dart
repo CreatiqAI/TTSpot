@@ -16,6 +16,7 @@ import '../../social/domain/post.dart';
 import '../application/vendors_providers.dart';
 import '../domain/vendor.dart';
 import 'widgets/hours_editor.dart';
+import 'widgets/partner_reach.dart';
 
 /// The partner's overview: who you are, what to finish setting up, the last
 /// 30 days in numbers, the four things you do most, and recent redemptions.
@@ -82,6 +83,8 @@ class _Body extends ConsumerWidget {
         ref.invalidate(vendorVouchersProvider);
         ref.invalidate(vendorRedemptionsProvider);
         ref.invalidate(vendorProductsProvider);
+        ref.invalidate(sponsorEventsProvider);
+        ref.invalidate(vendorClubInsightsProvider);
         await ref.read(myVendorProvider.future);
       },
       child: ListView(
@@ -140,6 +143,8 @@ class _Body extends ConsumerWidget {
               ],
             ),
           ),
+
+          PartnerPlanCard(vendor: vendor),
 
           // ---- finish setting up (hides itself when everything is done)
           if (done < steps.length)
@@ -211,6 +216,10 @@ class _Body extends ConsumerWidget {
               style: TextStyle(fontSize: 12, color: AppColors.textMuted, height: 1.4),
             ),
           ),
+
+          // ---- reach: who to sponsor, who is out there
+          const SponsorEventsSection(),
+          const ClubInsightsSection(),
 
           // ---- recent redemptions
           const Padding(padding: EdgeInsets.fromLTRB(16, 22, 16, 6), child: _SectionTitle('RECENT REDEMPTIONS')),

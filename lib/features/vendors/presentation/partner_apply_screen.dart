@@ -44,6 +44,7 @@ class _PartnerApplyScreenState extends ConsumerState<PartnerApplyScreen> {
   String _type = 'accessories';
   String? _state;
   XFile? _logo;
+  XFile? _shopPhoto;
   bool _busy = false;
   bool _reapply = false;
 
@@ -63,6 +64,14 @@ class _PartnerApplyScreenState extends ConsumerState<PartnerApplyScreen> {
     if (!_form.currentState!.validate()) return;
     setState(() => _busy = true);
     try {
+      if (!_club && _shopPhoto == null) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Add a photo of your shop so we can verify it.')));
+        return;
+      }
+      if (!_club && _state == null) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pick the state your shop is in.')));
+        return;
+      }
       if (!_club && _address.text.trim().length < 5) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Search and pick your shop address so members can find you.')));
         return;
@@ -78,6 +87,8 @@ class _PartnerApplyScreenState extends ConsumerState<PartnerApplyScreen> {
             logo: _logo,
             lat: _club ? null : _lat,
             lng: _club ? null : _lng,
+            state: _club ? null : _state,
+            shopPhoto: _club ? null : _shopPhoto,
           );
       if (mounted) setState(() => _reapply = false);
     } catch (e) {
@@ -210,7 +221,47 @@ class _PartnerApplyScreenState extends ConsumerState<PartnerApplyScreen> {
           ),
           if (!_club) ...[
             const SizedBox(height: 12),
-            TextFormField(controller: _ssm, decoration: const InputDecoration(labelText: 'SSM registration no. (optional)')),
+            PickerField<String>(
+              label: 'State',
+              hint: 'Johor, Penang or Kuala Lumpur',
+              icon: AppIcons.mapPin,
+              value: _state,
+              options: const [('Johor', 'Johor'), ('Penang', 'Penang'), ('Kuala Lumpur', 'Kuala Lumpur')],
+              onChanged: (v) => setState(() => _state = v),
+            ),
+            const SizedBox(height: 4),
+            Text('Partners need a shop in Johor, Penang or Kuala Lumpur for now.', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _ssm,
+              decoration: const InputDecoration(labelText: 'SSM registration no.'),
+              validator: (v) => (v ?? '').trim().length < 6 ? 'Enter your SSM number' : null,
+            ),
+            const SizedBox(height: 12),
+            Text('SHOP PHOTO', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, letterSpacing: 1, color: AppColors.textSecondary)),
+            const SizedBox(height: 6),
+            GestureDetector(
+              onTap: () async {
+                final files = await pickPhotos(context, max: 1, multi: false);
+                if (files.isNotEmpty) setState(() => _shopPhoto = files.first);
+              },
+              child: Container(
+                height: 150,
+                clipBehavior: Clip.antiAlias,
+                decoration: BoxDecoration(color: AppColors.surfaceGray, borderRadius: BorderRadius.circular(AppRadius.md), border: Border.all(color: AppColors.border)),
+                child: _shopPhoto == null
+                    ? Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(AppIcons.storefront, size: 30, color: AppColors.textSecondary),
+                          const SizedBox(height: 6),
+                          Text('Photo of the shopfront', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textSecondary)),
+                          Text('So we can verify it is real', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                        ],
+                      )
+                    : Image.file(File(_shopPhoto!.path), fit: BoxFit.cover, width: double.infinity),
+              ),
+            ),
           ],
           const SizedBox(height: 12),
           TextFormField(

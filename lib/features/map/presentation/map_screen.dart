@@ -206,11 +206,16 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
   /// Balloon for events, feather flag for TT sessions. Dots when far out,
   /// label only when close.
   Future<MapPin> _eventPin(Event e, {String? sub}) {
-    if (_far) return _glyphFactory.dot(key: e.id, color: kEventRed, r: 4.5 * _glyphScale);
+    // Official clubs get the gold badge; partner events the ink badge. Both keep their colour when far out.
+    final official = e.isOfficialClubEvent;
+    final partner = e.vendorId != null;
+    final color = official ? kGold : (partner ? kInk : kEventRed);
+    if (_far) return _glyphFactory.dot(key: e.id, color: color, r: 4.5 * _glyphScale);
     final label = _close ? (e.isInstant ? e.venueName : e.title) : null;
-    return e.type == EventType.tt || e.isInstant
-        ? _glyphFactory.flag(key: e.id, label: label, sub: _close ? sub : null, scale: _glyphScale)
-        : _glyphFactory.balloon(key: e.id, label: label, sub: _close ? sub : null, scale: _glyphScale);
+    if (e.type == EventType.tt || e.isInstant) {
+      return _glyphFactory.flag(key: e.id, label: label, sub: _close ? sub : null, scale: _glyphScale, color: color);
+    }
+    return _glyphFactory.balloon(key: e.id, label: label, sub: _close ? sub : null, scale: _glyphScale, color: color, glyph: official ? AppIcons.crown : (partner ? AppIcons.storefront : null));
   }
   CarMarkerFactory get _carFactory => _cars ??= CarMarkerFactory(devicePixelRatio: MediaQuery.devicePixelRatioOf(context), pins: _pinFactory);
 

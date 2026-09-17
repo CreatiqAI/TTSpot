@@ -19,7 +19,10 @@ const kSpotGrey = Color(0xFF4B4F58);
 
 /// Balloon: 26 × 34 logical px, tip at (13, 33).
 const balloonSize = Size(26, 34);
-void paintBalloon(Canvas c, Offset o, {double scale = 1, Color color = kEventRed}) {
+const kGold = Color(0xFFD4A017);
+
+/// [glyph] replaces the white dot in the head (crown for official clubs, storefront for partner events).
+void paintBalloon(Canvas c, Offset o, {double scale = 1, Color color = kEventRed, IconData? glyph}) {
   c.save();
   c.translate(o.dx, o.dy);
   c.scale(scale);
@@ -32,7 +35,15 @@ void paintBalloon(Canvas c, Offset o, {double scale = 1, Color color = kEventRed
   c.drawPath(body.shift(const Offset(0, 1.5)), Paint()..color = Colors.black.withValues(alpha: 0.22)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2));
   c.drawPath(body, Paint()..color = Colors.white..style = PaintingStyle.stroke..strokeWidth = 3.2..strokeJoin = StrokeJoin.round);
   c.drawPath(body, Paint()..color = color);
-  c.drawCircle(head, 3.2, Paint()..color = Colors.white);
+  if (glyph == null) {
+    c.drawCircle(head, 3.2, Paint()..color = Colors.white);
+  } else {
+    final tp = TextPainter(
+      text: TextSpan(text: String.fromCharCode(glyph.codePoint), style: TextStyle(fontFamily: glyph.fontFamily, fontSize: 11, color: Colors.white, height: 1)),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    tp.paint(c, head - Offset(tp.width / 2, tp.height / 2));
+  }
   c.restore();
 }
 
@@ -89,8 +100,8 @@ class GlyphMarkerFactory {
 
   /// [scale] shrinks the shape when the map is zoomed out (Waze-style: full
   /// size up close, smaller mid-way, plain dots far out).
-  Future<MapPin> balloon({required String key, Color color = kEventRed, String? label, String? sub, double scale = 1}) =>
-      _build('b|$key|${color.toARGB32()}|$label|$sub|$scale', balloonSize * scale, Offset(13, 33) * scale, (c) => paintBalloon(c, Offset.zero, color: color, scale: scale), label, sub);
+  Future<MapPin> balloon({required String key, Color color = kEventRed, String? label, String? sub, double scale = 1, IconData? glyph}) =>
+      _build('b|$key|${color.toARGB32()}|$label|$sub|$scale|${glyph?.codePoint}', balloonSize * scale, Offset(13, 33) * scale, (c) => paintBalloon(c, Offset.zero, color: color, scale: scale, glyph: glyph), label, sub);
 
   Future<MapPin> flag({required String key, Color color = kEventRed, String? label, String? sub, double scale = 1}) =>
       _build('f|$key|${color.toARGB32()}|$label|$sub|$scale', flagSize * scale, Offset(8, 35) * scale, (c) => paintFlag(c, Offset.zero, color: color, scale: scale), label, sub);

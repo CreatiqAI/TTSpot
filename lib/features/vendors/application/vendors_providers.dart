@@ -5,6 +5,8 @@ import '../../../core/supabase/supabase_client.dart';
 import '../../admin/application/admin_providers.dart';
 import '../../points/application/points_providers.dart';
 import '../../social/application/notification_providers.dart';
+import '../../../core/utils/geo.dart';
+import '../../events/data/events_repository.dart';
 import '../../events/domain/event.dart';
 import '../../map/application/map_providers.dart';
 import '../data/vendors_repository.dart';
@@ -50,6 +52,28 @@ final partnerProductsProvider = FutureProvider.autoDispose.family<List<Product>,
 final partnersDirectoryProvider = FutureProvider<List<PublicVendor>>((ref) {
   if (ref.watch(currentUserIdProvider) == null) return Future.value(const []);
   return ref.watch(vendorsRepositoryProvider).allPartners();
+});
+
+/// Partner reach: clubs and upcoming meets.
+final vendorClubInsightsProvider = FutureProvider<List<VendorClubInsight>>((ref) {
+  if (ref.watch(currentUserIdProvider) == null) return Future.value(const []);
+  return ref.watch(vendorsRepositoryProvider).clubInsights();
+});
+
+final sponsorEventsProvider = FutureProvider<List<Event>>((ref) {
+  if (ref.watch(currentUserIdProvider) == null) return Future.value(const []);
+  final now = DateTime.now();
+  return ref.watch(eventsRepositoryProvider).fetchUpcomingInBounds(bounds: klangValleyBounds, from: now, to: now.add(const Duration(days: 30)), limit: 40);
+});
+
+/// Admin: partners with plan status, and official-club requests.
+final adminPartnersListProvider = FutureProvider<List<AdminPartner>>((ref) {
+  ref.watch(currentUserIdProvider);
+  return ref.watch(vendorsRepositoryProvider).adminPartners();
+});
+final adminOfficialQueueProvider = FutureProvider<List<OfficialClubRequest>>((ref) {
+  ref.watch(currentUserIdProvider);
+  return ref.watch(vendorsRepositoryProvider).adminOfficialQueue();
 });
 
 /// Count a page view (once per member per day; owners never count).
@@ -114,10 +138,24 @@ class VendorActions {
     XFile? logo,
     double? lat,
     double? lng,
+    String? state,
+    XFile? shopPhoto,
   }) async {
     final logoUrl = await _upload(logo);
-    await _repo.applyPartner(kind: kind, name: name, type: type, address: address, placeId: placeId, phone: phone, description: description, logoUrl: logoUrl, ssmNo: ssmNo, lat: lat, lng: lng);
+    final shopPhotoUrl = await _upload(shopPhoto);
+    await _repo.applyPartner(kind: kind, name: name, type: type, address: address, placeId: placeId, phone: phone, description: description, logoUrl: logoUrl, ssmNo: ssmNo, lat: lat, lng: lng, state: state, shopPhotoUrl: shopPhotoUrl);
     _ref.invalidate(myPartnerApplicationProvider(kind));
+  }
+
+  Future<void> setVendorPlan(String vendorId, int days) async {
+    await _repo.adminSetVendorPlan(vendorId, days);
+    _ref.invalidate(adminPartnersListProvider);
+  }
+
+  Future<void> setClubTier(String clubId, String tier, {int days = 30}) async {
+    await _repo.adminSetClubTier(clubId, tier, days: days);
+    _ref.invalidate(adminOfficialQueueProvider);
+    _ref.invalidate(adminStatsProvider);
   }
 
   Future<void> reviewApplication(String id, {required bool approve, String? note}) async {

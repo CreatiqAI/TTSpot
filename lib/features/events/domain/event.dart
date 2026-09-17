@@ -58,7 +58,12 @@ class Event {
     this.vendorId,
     this.vendorName,
     this.vendorLogoUrl,
+    this.clubName,
+    this.clubTier,
   });
+
+  /// Hosted by an official (paid) club: gold badge on the map.
+  bool get isOfficialClubEvent => clubTier == 'official';
 
   final String id;
   final String organizerId;
@@ -83,6 +88,8 @@ class Event {
   final String? vendorId;
   final String? vendorName;
   final String? vendorLogoUrl;
+  final String? clubName;
+  final String? clubTier;
   /// `visibility = 'friends'`: only the organiser's friends, club members and attendees see it.
   final bool friendsOnly;
   /// Street address from Google, when the venue was picked by search.
@@ -130,5 +137,7 @@ class Event {
         vendorId: m['vendor_id'] as String?,
         vendorName: m['vendor_name'] as String?,
         vendorLogoUrl: m['vendor_logo_url'] as String?,
+        clubName: m['club_name'] as String?,
+        clubTier: m['club_tier'] as String?,
       );
 }

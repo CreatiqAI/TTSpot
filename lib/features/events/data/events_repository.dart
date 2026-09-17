@@ -139,7 +139,12 @@ class EventsRepository {
         _client.from('event_attendees').select('user_id').eq('event_id', id).eq('user_id', viewerId).maybeSingle()
       else
         Future.value(null),
+      if (viewerId != null)
+        _client.from('event_bookmarks').select('user_id').eq('event_id', id).eq('user_id', viewerId).maybeSingle()
+      else
+        Future.value(null),
     ]);
+    final bookmarkRow = results[3] as Map<String, dynamic>?;
 
     final organizerRow = results[0] as Map<String, dynamic>?;
     final attendeeRows = results[1] as List<dynamic>;
@@ -154,6 +159,7 @@ class EventsRepository {
           .map(Profile.fromMap)
           .toList(),
       isAttending: myRow != null,
+      isBookmarked: bookmarkRow != null,
     );
   }
 
@@ -170,6 +176,9 @@ class EventsRepository {
 
   Future<void> leave({required String eventId, required String userId}) =>
       _client.from('event_attendees').delete().eq('event_id', eventId).eq('user_id', userId);
+
+  /// Returns the new state.
+  Future<bool> toggleBookmark(String eventId) async => await _client.rpc('toggle_event_bookmark', params: {'p_event': eventId}) as bool;
 
   Future<void> cancel(String eventId) => _client.from('events').update({'status': 'cancelled'}).eq('id', eventId);
 

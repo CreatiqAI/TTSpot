@@ -48,7 +48,7 @@ final managedClubsProvider = FutureProvider<List<Club>>((ref) async {
   if (me == null) return const [];
   final clubs = await ref.watch(myClubsProvider.future);
   final roles = await ref.watch(myClubRolesProvider.future);
-  return clubs.where((c) => c.ownerId == me || roles[c.id] == 'owner' || roles[c.id] == 'admin').toList();
+  return clubs.where((c) => c.ownerId == me || const {'owner', 'vp', 'secretary'}.contains(roles[c.id])).toList();
 });
 
 /// The club new posts and meets belong to right now (null = just me).

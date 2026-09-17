@@ -23,6 +23,7 @@ import '../domain/post.dart';
 import '../../profile/presentation/profile_menu.dart';
 import 'create_hub_sheet.dart';
 import 'widgets/club_requests.dart';
+import 'widgets/club_tier_widgets.dart';
 import 'widgets/masonry_grid.dart';
 
 /// A car club's page. Owners invite members and admins; members see each
@@ -46,7 +47,7 @@ class ClubScreen extends ConsumerWidget {
     final inviteRole = ref.watch(myClubInviteRoleProvider(clubId)).value;
     final sharing = ref.watch(myClubShareProvider(clubId)).value ?? true;
     final isOwner = club.value?.ownerId == me;
-    final isManager = isOwner || roles[me] == 'admin' || roles[me] == 'owner';
+    final isManager = isOwner || roles[me] == 'vp' || roles[me] == 'secretary' || roles[me] == 'owner';
 
     return Scaffold(
       appBar: AppBar(
@@ -87,7 +88,8 @@ class ClubScreen extends ConsumerWidget {
               padding: const EdgeInsets.only(bottom: 32),
               children: [
                 _Header(club: c, meets: events.length, posts: posts.length),
-                if (invite != null && (!isMember || inviteRole == 'admin')) _InviteBanner(clubId: clubId, clubName: c.name, admin: inviteRole == 'admin'),
+                if (invite != null && (!isMember || inviteRole == 'vp' || inviteRole == 'secretary')) _InviteBanner(clubId: clubId, clubName: c.name, role: inviteRole ?? 'member'),
+                ClubTierCard(club: c, isOwner: isOwner),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
                   child: Row(
@@ -123,6 +125,7 @@ class ClubScreen extends ConsumerWidget {
                     child: SecondaryButton(label: 'Message club', icon: AppIcons.chatCircle, onPressed: () => _messageClub(context, ref)),
                   ),
                 if (isManager) ClubRequestsSection(clubId: clubId),
+                if (!c.isOfficial && (isMember || isManager)) ClubGarageSection(club: c, isManager: isManager),
                 if (isMember || isManager)
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
@@ -169,9 +172,10 @@ class ClubScreen extends ConsumerWidget {
                   if (isOwner)
                     Padding(
                       padding: EdgeInsets.fromLTRB(16, 0, 16, 0),
-                      child: Text('Tap a member to make them an admin. Admins can post and schedule meets as the club.', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                      child: Text('Tap a member to appoint a Vice President or Secretary. Officers can post, invite and schedule meets as the club.', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                     ),
                 ],
+                if (isMember || isManager) ClubLeaderboard(clubId: clubId),
                 const _Section('MEETS'),
                 if (events.isEmpty)
                   Padding(padding: EdgeInsets.fromLTRB(16, 0, 16, 8), child: Text('No meets tagged to this club yet.', style: TextStyle(color: AppColors.textSecondary)))
@@ -202,19 +206,26 @@ class ClubScreen extends ConsumerWidget {
             ListTile(
               leading: UserAvatar(url: m.avatarUrl, name: name, size: 40),
               title: Text(name, style: const TextStyle(fontWeight: FontWeight.w700)),
-              subtitle: Text(role == 'admin' ? 'Admin · helps run ${c.name}' : 'Member', style: const TextStyle(fontSize: 12)),
+              subtitle: Text(role == 'member' ? 'Member' : '${clubRoleLabel(role)} · helps run ${c.name}', style: const TextStyle(fontSize: 12)),
               onTap: () => Navigator.pop(ctx, 'profile'),
             ),
             const Divider(height: 8),
-            if (isOwner && role != 'admin')
+            if (isOwner && role != 'vp')
               ListTile(
                 leading: const Icon(AppIcons.shieldCheck),
-                title: const Text('Make admin'),
-                subtitle: const Text('They accept from Activity, then they can post and schedule meets as the club.', style: TextStyle(fontSize: 12)),
-                onTap: () => Navigator.pop(ctx, 'admin'),
+                title: const Text('Make Vice President'),
+                subtitle: const Text('They accept from Activity, then they can post, invite and schedule meets as the club.', style: TextStyle(fontSize: 12)),
+                onTap: () => Navigator.pop(ctx, 'vp'),
               ),
-            if (isOwner && role == 'admin')
-              ListTile(leading: const Icon(AppIcons.shield), title: const Text('Remove as admin'), onTap: () => Navigator.pop(ctx, 'member')),
+            if (isOwner && role != 'secretary')
+              ListTile(
+                leading: const Icon(AppIcons.notePencil),
+                title: const Text('Make Secretary'),
+                subtitle: const Text('Same powers as the VP: posts, invites, meets, join requests.', style: TextStyle(fontSize: 12)),
+                onTap: () => Navigator.pop(ctx, 'secretary'),
+              ),
+            if (isOwner && role != 'member')
+              ListTile(leading: const Icon(AppIcons.shield), title: const Text('Back to member'), onTap: () => Navigator.pop(ctx, 'member')),
             ListTile(
               leading: const Icon(AppIcons.userMinus, color: AppColors.danger),
               title: const Text('Remove from club', style: TextStyle(color: AppColors.danger)),
@@ -231,9 +242,10 @@ class ClubScreen extends ConsumerWidget {
       switch (action) {
         case 'profile':
           context.push(Routes.profile(m.id));
-        case 'admin':
-          await actions.inviteToClub(clubId, m.id, role: 'admin');
-          if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Invite sent. $name becomes an admin once they accept.')));
+        case 'vp':
+        case 'secretary':
+          await actions.inviteToClub(clubId, m.id, role: action);
+          if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Invite sent. $name becomes ${clubRoleLabel(action)} once they accept.')));
         case 'member':
           await actions.setClubRole(clubId, m.id, 'member');
         case 'remove':
@@ -307,7 +319,7 @@ class _MemberTile extends StatelessWidget {
                 UserAvatar(url: m.avatarUrl, name: m.displayName ?? m.username, size: 54),
                 if (role == 'owner')
                   const Positioned(right: -2, top: -4, child: Icon(AppIcons.crown, size: 18, color: AppColors.warnColor))
-                else if (role == 'admin')
+                else if (role == 'vp' || role == 'secretary')
                   Positioned(
                     right: -2,
                     bottom: -2,
@@ -322,7 +334,7 @@ class _MemberTile extends StatelessWidget {
             const SizedBox(height: 4),
             SizedBox(width: 62, child: Text(m.username ?? '', maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center, style: const TextStyle(fontSize: 11))),
             if (role != 'member')
-              Text(role == 'owner' ? 'Owner' : 'Admin', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, color: AppColors.textSecondary)),
+              Text(clubRoleShort(role), style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, color: AppColors.textSecondary)),
           ],
         ),
       ),
@@ -363,7 +375,7 @@ class _Header extends StatelessWidget {
                       spacing: 6,
                       runSpacing: 4,
                       children: [
-                        _Chip(icon: AppIcons.sealCheck, text: 'Verified club', color: AppColors.warnColor),
+                        _Chip(icon: club.isOfficial ? AppIcons.sealCheck : AppIcons.usersThree, text: club.isOfficial ? 'Official club' : 'Underground', color: club.isOfficial ? const Color(0xFFE6B422) : Colors.white70),
                         if ((club.homeState ?? '').isNotEmpty) _Chip(icon: AppIcons.mapPin, text: club.homeState!),
                       ],
                     ),
@@ -427,10 +439,11 @@ class _Stat extends StatelessWidget {
 }
 
 class _InviteBanner extends ConsumerStatefulWidget {
-  const _InviteBanner({required this.clubId, required this.clubName, this.admin = false});
+  const _InviteBanner({required this.clubId, required this.clubName, this.role = 'member'});
   final String clubId;
   final String clubName;
-  final bool admin;
+  final String role;
+  bool get admin => role != 'member';
   @override
   ConsumerState<_InviteBanner> createState() => _InviteBannerState();
 }
@@ -461,11 +474,11 @@ class _InviteBannerState extends ConsumerState<_InviteBanner> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(widget.admin ? 'Help run ${widget.clubName}?' : 'You\'re invited', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: Colors.white)),
+            Text(widget.admin ? 'Be ${clubRoleLabel(widget.role)} of ${widget.clubName}?' : 'You\'re invited', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: Colors.white)),
             const SizedBox(height: 4),
             Text(
               widget.admin
-                  ? 'The owner wants you as an admin. You\'ll be able to post and schedule meets as the club.'
+                  ? 'The president wants you as ${clubRoleLabel(widget.role)}. You\'ll be able to post, invite and schedule meets as the club.'
                   : 'Join ${widget.clubName} to see your clubmates on the map and get their meets first.',
               style: const TextStyle(fontSize: 13, height: 1.35, color: Colors.white70),
             ),

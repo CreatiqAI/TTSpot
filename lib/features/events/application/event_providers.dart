@@ -69,6 +69,12 @@ class EventActions {
     _refresh(eventId);
   }
 
+  Future<bool> toggleBookmark(String eventId) async {
+    final on = await _repo.toggleBookmark(eventId);
+    _refresh(eventId);
+    return on;
+  }
+
   Future<void> cancel(String eventId) async {
     await _repo.cancel(eventId);
     _refresh(eventId);

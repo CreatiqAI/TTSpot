@@ -8,7 +8,9 @@ import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/user_avatar.dart';
 import '../../auth/data/auth_repository.dart';
+import '../../social/application/community_providers.dart';
 import '../../social/domain/club.dart';
+import '../../social/presentation/widgets/club_tier_widgets.dart';
 import '../../vendors/application/vendors_providers.dart';
 import '../application/active_account.dart';
 
@@ -30,6 +32,7 @@ Future<void> showAccountSwitcher(BuildContext context, WidgetRef ref) async {
   final me = ref.read(currentUserIdProvider);
   final profile = ref.read(currentProfileProvider).value;
   final clubs = ref.read(managedClubsProvider).value ?? const <Club>[];
+  final roles = ref.read(myClubRolesProvider).value ?? const <String, String>{};
   final vendor = ref.read(myVendorProvider).value;
   final active = ref.read(activeAccountProvider);
   final canRunClubs = profile?.canRunClubs ?? false;
@@ -58,7 +61,7 @@ Future<void> showAccountSwitcher(BuildContext context, WidgetRef ref) async {
             _Row(
               avatar: UserAvatar(url: c.avatarUrl, name: c.name, size: 44),
               title: c.name,
-              subtitle: c.ownerId == me ? 'Car club · owner' : 'Car club · admin',
+              subtitle: 'Car club · ${clubRoleLabel(c.ownerId == me ? 'owner' : (roles[c.id] ?? 'member'))}',
               selected: active is ClubAccount && active.club.id == c.id,
               onTap: () => Navigator.pop(ctx, ClubAccount(c)),
             ),

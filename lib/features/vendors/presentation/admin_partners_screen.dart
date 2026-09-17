@@ -3,23 +3,24 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/router/app_router.dart';
-import '../../../core/theme/app_art.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/dates.dart';
 import '../../../core/utils/friendly_error.dart';
-import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/user_avatar.dart';
 import '../application/vendors_providers.dart';
 import '../domain/vendor.dart';
 
-/// Admins only: pending partner applications.
+/// Admins only: partner applications, official-club requests, and every
+/// active partner's plan (RM 69 / month, extended by hand after payment).
 class AdminPartnersScreen extends ConsumerWidget {
   const AdminPartnersScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final queue = ref.watch(adminPartnerQueueProvider);
+    final official = ref.watch(adminOfficialQueueProvider).value ?? const <OfficialClubRequest>[];
+    final partners = ref.watch(adminPartnersListProvider).value ?? const <AdminPartner>[];
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(icon: const Icon(AppIcons.arrowLeft), onPressed: () => context.pop()),
@@ -31,28 +32,114 @@ class AdminPartnersScreen extends ConsumerWidget {
       body: RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(adminPartnerQueueProvider);
+          ref.invalidate(adminOfficialQueueProvider);
+          ref.invalidate(adminPartnersListProvider);
           await ref.read(adminPartnerQueueProvider.future);
         },
         child: queue.when(
           loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
           error: (e, _) => Center(child: Text(friendlyError(e))),
-          data: (list) => list.isEmpty
-              ? LayoutBuilder(
-                  builder: (_, c) => SingleChildScrollView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    child: SizedBox(height: c.maxHeight, child: const EmptyState(art: AppArt.check, title: 'No applications waiting', subtitle: 'New ones show up here.')),
-                  ),
-                )
-              : ListView.separated(
-                  padding: const EdgeInsets.only(bottom: 32),
-                  itemCount: list.length,
-                  separatorBuilder: (_, _) => const Divider(height: 24),
-                  itemBuilder: (_, i) => _Card(app: list[i]),
-                ),
+          data: (list) => ListView(
+            padding: const EdgeInsets.only(bottom: 40),
+            children: [
+              _Head('APPLICATIONS · ${list.length}'),
+              if (list.isEmpty)
+                const Padding(padding: EdgeInsets.fromLTRB(16, 0, 16, 8), child: Text('No applications waiting.'))
+              else
+                for (var i = 0; i < list.length; i++) ...[
+                  if (i > 0) const Divider(height: 24),
+                  _Card(app: list[i]),
+                ],
+              _Head('OFFICIAL CLUBS · ${official.where((c) => c.tier == 'official').length} · ${official.where((c) => c.tier != 'official').length} WAITING'),
+              if (official.isEmpty)
+                const Padding(padding: EdgeInsets.fromLTRB(16, 0, 16, 8), child: Text('No clubs asking, none official yet.'))
+              else
+                for (final c in official) _OfficialRow(c: c),
+              _Head('PARTNERS · ${partners.length}'),
+              for (final p in partners) _PartnerRow(p: p),
+            ],
+          ),
         ),
       ),
     );
   }
+}
+
+class _Head extends StatelessWidget {
+  const _Head(this.text);
+  final String text;
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 18, 16, 8),
+        child: Text(text, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, letterSpacing: 1, color: AppColors.textSecondary)),
+      );
+}
+
+/// A club asking to go official (approve after RM 69.90 is paid), or one that already is.
+class _OfficialRow extends ConsumerWidget {
+  const _OfficialRow({required this.c});
+  final OfficialClubRequest c;
+
+  Future<void> _set(BuildContext context, WidgetRef ref, String tier) async {
+    try {
+      await ref.read(vendorActionsProvider).setClubTier(c.id, tier);
+    } catch (e) {
+      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isOfficial = c.tier == 'official';
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+      leading: UserAvatar(url: c.avatarUrl, name: c.name, size: 40),
+      title: Text(c.name, style: const TextStyle(fontWeight: FontWeight.w700)),
+      subtitle: Text(
+        isOfficial
+            ? 'Official until ${c.officialUntil == null ? '—' : formatDate(c.officialUntil!)} · ${c.members} members · @${c.ownerUsername ?? ''}'
+            : 'Asked ${c.requestedAt == null ? '' : timeAgo(c.requestedAt!)} · ${c.members} members · @${c.ownerUsername ?? ''} · RM 69.90 / month',
+        style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+      ),
+      trailing: isOfficial
+          ? TextButton(style: TextButton.styleFrom(visualDensity: VisualDensity.compact), onPressed: () => _set(context, ref, 'official'), child: const Text('+30 days'))
+          : FilledButton(style: FilledButton.styleFrom(visualDensity: VisualDensity.compact, minimumSize: const Size(0, 36)), onPressed: () => _set(context, ref, 'official'), child: const Text('Approve 30 d')),
+      onTap: () => context.push(Routes.club(c.id)),
+      onLongPress: isOfficial ? () => _set(context, ref, 'underground') : null,
+    );
+  }
+}
+
+/// An active partner: plan status, extend after payment.
+class _PartnerRow extends ConsumerWidget {
+  const _PartnerRow({required this.p});
+  final AdminPartner p;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) => ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+        leading: ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: SizedBox(width: 40, height: 40, child: p.logoUrl == null ? ColoredBox(color: AppColors.surfaceGray, child: Icon(AppIcons.storefront, size: 18, color: AppColors.textSecondary)) : Image.network(p.logoUrl!, fit: BoxFit.cover)),
+        ),
+        title: Text(p.name, style: const TextStyle(fontWeight: FontWeight.w700)),
+        subtitle: Text(
+          '${p.planActive ? 'Plan until ${formatDate(p.planUntil!)}' : 'Plan NOT active'} · ${p.state ?? '—'} · ${p.liveVouchers} live · ${p.redemptions30d} redeemed / 30 d',
+          style: TextStyle(fontSize: 12, color: p.planActive ? AppColors.textSecondary : AppColors.brand),
+        ),
+        trailing: TextButton(
+          style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+          onPressed: () async {
+            try {
+              await ref.read(vendorActionsProvider).setVendorPlan(p.id, 30);
+            } catch (e) {
+              if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
+            }
+          },
+          child: const Text('+30 days'),
+        ),
+        onTap: () => context.push(Routes.partner(p.id)),
+      );
 }
 
 class _Card extends ConsumerStatefulWidget {
@@ -150,7 +237,7 @@ class _CardState extends ConsumerState<_Card> {
                     Text(businessTypeLabel(a.businessType), style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
                     if (a.address != null) Text(a.address!, style: const TextStyle(fontSize: 13)),
                     if (a.phone != null) Text(a.phone!, style: const TextStyle(fontSize: 13)),
-                    if (a.ssmNo != null) Text('SSM ${a.ssmNo}', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+                    if (a.ssmNo != null) Text('SSM ${a.ssmNo}${a.state == null ? '' : ' · ${a.state}'}', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
                   ],
                 ),
               ),
@@ -159,6 +246,10 @@ class _CardState extends ConsumerState<_Card> {
           if (a.description != null) ...[
             const SizedBox(height: 8),
             Text(a.description!, style: const TextStyle(fontSize: 13, height: 1.35)),
+          ],
+          if (a.shopPhotoUrl != null) ...[
+            const SizedBox(height: 10),
+            ClipRRect(borderRadius: BorderRadius.circular(AppRadius.md), child: Image.network(a.shopPhotoUrl!, height: 150, width: double.infinity, fit: BoxFit.cover)),
           ],
           const SizedBox(height: 12),
           Row(

@@ -24,6 +24,25 @@ class ClubJoinRequest {
       );
 }
 
+/// One row of a club's activity leaderboard.
+class ClubLeader {
+  const ClubLeader({required this.userId, required this.score, required this.checkins, required this.joins, required this.posts, required this.moments, this.username, this.displayName, this.avatarUrl});
+  final String userId;
+  final int score, checkins, joins, posts, moments;
+  final String? username, displayName, avatarUrl;
+  factory ClubLeader.fromMap(Map<String, dynamic> m) => ClubLeader(
+        userId: m['user_id'] as String,
+        score: (m['score'] as num?)?.toInt() ?? 0,
+        checkins: (m['checkins'] as num?)?.toInt() ?? 0,
+        joins: (m['joins'] as num?)?.toInt() ?? 0,
+        posts: (m['posts'] as num?)?.toInt() ?? 0,
+        moments: (m['moments'] as num?)?.toInt() ?? 0,
+        username: m['username'] as String?,
+        displayName: m['display_name'] as String?,
+        avatarUrl: m['avatar_url'] as String?,
+      );
+}
+
 class Club {
   const Club({
     required this.id,
@@ -35,6 +54,12 @@ class Club {
     required this.ownerId,
     required this.createdAt,
     required this.memberCount,
+    this.tier = 'underground',
+    this.officialUntil,
+    this.officialRequestedAt,
+    this.garageName,
+    this.garageLat,
+    this.garageLng,
   });
 
   final String id;
@@ -46,6 +71,14 @@ class Club {
   final String ownerId;
   final DateTime createdAt;
   final int memberCount;
+  /// 'official' (paid, notifications, gold badge, no limits) or 'underground'.
+  final String tier;
+  final DateTime? officialUntil;
+  final DateTime? officialRequestedAt;
+  final String? garageName;
+  final double? garageLat;
+  final double? garageLng;
+  bool get isOfficial => tier == 'official';
 
   factory Club.fromMap(Map<String, dynamic> m) {
     final members = m['members'];
@@ -63,6 +96,12 @@ class Club {
       ownerId: m['owner_id'] as String,
       createdAt: DateTime.parse(m['created_at'] as String).toLocal(),
       memberCount: count,
+      tier: m['tier'] as String? ?? 'underground',
+      officialUntil: m['official_until'] == null ? null : DateTime.parse(m['official_until'] as String).toLocal(),
+      officialRequestedAt: m['official_requested_at'] == null ? null : DateTime.parse(m['official_requested_at'] as String).toLocal(),
+      garageName: m['garage_name'] as String?,
+      garageLat: (m['garage_lat'] as num?)?.toDouble(),
+      garageLng: (m['garage_lng'] as num?)?.toDouble(),
     );
   }
 }

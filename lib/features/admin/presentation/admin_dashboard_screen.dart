@@ -51,7 +51,7 @@ class AdminDashboardScreen extends ConsumerWidget {
         loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
         error: (e, _) => Center(child: Text(friendlyError(e))),
         data: (s) {
-          final pending = s['pending_verifications'] + s['pending_partners'] + s['pending_suggestions'] + s['open_reports'];
+          final pending = s['pending_verifications'] + s['pending_partners'] + s['pending_official'] + s['pending_suggestions'] + s['open_reports'];
           final topPlaces = s.rows('top_places');
           return RefreshIndicator(
             onRefresh: refresh,
@@ -93,6 +93,7 @@ class AdminDashboardScreen extends ConsumerWidget {
                 // ---- decisions
                 AdminHead(pending == 0 ? 'NEEDS A DECISION · ALL CLEAR' : 'NEEDS A DECISION · $pending', action: 'Queues', onAction: () => context.go(Routes.inbox)),
                 AdminQueueTile(icon: AppIcons.handshake, title: 'Partner & club applications', hint: 'Approve a shop or a club owner', count: s['pending_partners'], onTap: () => context.push(Routes.adminPartners)),
+                AdminQueueTile(icon: AppIcons.sealCheck, title: 'Official club requests', hint: 'RM 69.90 / month · approve after payment', count: s['pending_official'], onTap: () => context.push(Routes.adminPartners)),
                 AdminQueueTile(icon: AppIcons.sealCheck, title: 'Spot photo reviews', hint: 'Sticker check-ins the AI was unsure about', count: s['pending_verifications'], onTap: () => context.push(Routes.adminReview)),
                 AdminQueueTile(icon: AppIcons.mapPinPlus, title: 'Spot suggestions', hint: 'Places members want on the map', count: s['pending_suggestions'], onTap: () => showSuggestionsSheet(context)),
                 AdminQueueTile(icon: AppIcons.flag, title: 'Open reports', hint: 'Profiles, posts and meets flagged by members', count: s['open_reports'], onTap: () => showReportsSheet(context)),
@@ -111,7 +112,7 @@ class AdminDashboardScreen extends ConsumerWidget {
                 // ---- community + money
                 const AdminHead('COMMUNITY'),
                 AdminCard(children: [
-                  AdminFactRow('Clubs', '${s['clubs']} · ${s['club_members']} memberships'),
+                  AdminFactRow('Clubs', '${s['clubs']} · ${s['clubs_official']} official · ${s['club_members']} memberships'),
                   AdminFactRow('Partners', '${s['vendors']} active', onTap: () => context.push(Routes.adminPartners)),
                   AdminFactRow('Spots on the map', '${s['places']}'),
                   AdminFactRow('Live vouchers', '${s['vouchers_live']}'),

@@ -40,6 +40,7 @@ class ChatRepository {
   Future<void> setMute(String conversationId, bool muted) => _client.rpc('set_conversation_mute', params: {'p_conversation': conversationId, 'p_muted': muted});
 
   Future<String> openClubDm(String clubId) async => await _client.rpc('get_or_create_club_dm', params: {'p_club': clubId}) as String;
+  Future<String> openVendorDmWith(String userId) async => await _client.rpc('get_or_create_vendor_dm_with', params: {'p_user': userId}) as String;
   Future<String> openVendorDm(String vendorId) async => await _client.rpc('get_or_create_vendor_dm', params: {'p_vendor': vendorId}) as String;
 
   Future<void> markRead(String conversationId) => _client.rpc('mark_conversation_read', params: {'p_conversation': conversationId});

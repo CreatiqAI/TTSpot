@@ -41,6 +41,7 @@ class EventDetailsScreen extends ConsumerStatefulWidget {
 
 class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
   bool _rsvpBusy = false;
+  bool _bookmarkBusy = false;
   bool _postBusy = false;
   final _comment = TextEditingController();
 
@@ -54,6 +55,18 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  Future<void> _toggleBookmark(EventDetail d) async {
+    setState(() => _bookmarkBusy = true);
+    try {
+      final on = await ref.read(eventActionsProvider).toggleBookmark(d.event.id);
+      _snack(on ? 'Saved. We\'ll remind you within 24 hours of the start.' : 'Removed from your saved meets.');
+    } catch (e) {
+      _snack(friendlyError(e));
+    } finally {
+      if (mounted) setState(() => _bookmarkBusy = false);
+    }
   }
 
   Future<void> _toggleRsvp(EventDetail d) async {
@@ -259,7 +272,26 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                               _CheckInCard(detail: d, busy: _checkInBusy, onCheckIn: () => _checkIn(d)),
                               const SizedBox(height: 8),
                             ],
-                            _RsvpButton(detail: d, busy: _rsvpBusy, onPressed: () => _toggleRsvp(d)),
+                            Row(
+                              children: [
+                                Expanded(child: _RsvpButton(detail: d, busy: _rsvpBusy, onPressed: () => _toggleRsvp(d))),
+                                if (!d.event.isPast && !d.event.isCancelled) ...[
+                                  const SizedBox(width: 8),
+                                  Tooltip(
+                                    message: d.isBookmarked ? 'Saved · reminder on' : 'Save · remind me before it starts',
+                                    child: Material(
+                                      color: d.isBookmarked ? AppColors.textPrimary : AppColors.surfaceGray,
+                                      borderRadius: BorderRadius.circular(AppRadius.md),
+                                      child: InkWell(
+                                        borderRadius: BorderRadius.circular(AppRadius.md),
+                                        onTap: _bookmarkBusy ? null : () => _toggleBookmark(d),
+                                        child: SizedBox(width: 50, height: 46, child: Icon(d.isBookmarked ? AppIcons.bookmarkSimpleFill : AppIcons.bookmarkSimple, size: 22, color: d.isBookmarked ? AppColors.onInk : AppColors.textPrimary)),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
                             if (d.isAttending || d.event.organizerId == ref.watch(currentUserIdProvider)) ...[
                               const SizedBox(height: 8),
                               Row(
@@ -400,7 +432,7 @@ class _ClubRow extends ConsumerWidget {
     if (club == null) return const SizedBox.shrink();
     return InkWell(
       onTap: () => context.push(Routes.club(clubId)),
-      child: _InfoRow(icon: AppIcons.shield, text: '${club.name} · @${club.handle}', trailing: Icon(AppIcons.caretRight, size: 20, color: AppColors.textMuted)),
+      child: _InfoRow(icon: club.isOfficial ? AppIcons.sealCheck : AppIcons.shield, text: '${club.name}${club.isOfficial ? ' · Official club' : ''} · @${club.handle}', trailing: Icon(AppIcons.caretRight, size: 20, color: AppColors.textMuted)),
     );
   }
 }

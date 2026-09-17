@@ -100,6 +100,13 @@ class ChatActions {
     return id;
   }
 
+  /// The partner reaching out to a member (sponsorship, ads).
+  Future<String> openVendorDmWith(String userId) async {
+    final id = await _ref.read(chatRepositoryProvider).openVendorDmWith(userId);
+    _ref.invalidate(inboxProvider);
+    return id;
+  }
+
   Future<String> openVendorDm(String vendorId) async {
     final id = await _ref.read(chatRepositoryProvider).openVendorDm(vendorId);
     _ref.invalidate(inboxProvider);

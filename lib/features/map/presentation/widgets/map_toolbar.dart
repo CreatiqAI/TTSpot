@@ -14,12 +14,12 @@ import '../../../friends/application/friends_providers.dart';
 import '../../../friends/domain/friend.dart';
 import '../../../social/domain/post.dart';
 import '../../application/map_providers.dart';
+import 'map_filter_sheet.dart';
 import 'tt_now_sheet.dart';
 
-/// The one glass row above the tab bar when the map sheet is closed. Built
-/// like the tab bar (glass, 44-high buttons) and a touch smaller. The red
-/// TT button is the same on every layer; the middle line says what is on
-/// the map; the round button on the right opens the sheet with the lists.
+/// Solid panel above the tab bar while the map sheet is closed: the red TT
+/// button (car over "TT now"), a search-style status pill that opens the
+/// lists, and a round filter button. Dark panel on the night map, white by day.
 class MapToolbar extends ConsumerWidget {
   const MapToolbar({super.key, required this.mode, required this.light, required this.onOpen});
   final MapMode mode;
@@ -27,32 +27,32 @@ class MapToolbar extends ConsumerWidget {
   /// Open the sheet (true = all the way).
   final void Function({bool full}) onOpen;
 
-  static const double height = 64;
-  static const double _inner = 48;
-  static const double _pad = 8;
-  /// Block buttons, like the tab bar's active tab: squarer corners, compact.
-  static const double _radius = 12;
+  static const double height = 78;
+  static const double _pad = 10;
+  static const double _button = 58;
+  static const double _pill = 48;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final status = switch (mode) {
-      MapMode.now => _now(context, ref),
-      MapMode.upcoming => _upcoming(context, ref),
-      MapMode.spots => _spots(context, ref),
-    };
-    return GlassPanel(
-      dark: !light,
-      radius: height / 2,
+    final surface = light ? Colors.white : AppColors.mapSurface;
+    final edge = light ? Colors.black.withValues(alpha: 0.06) : Colors.white.withValues(alpha: 0.08);
+    return Container(
+      height: height,
       padding: const EdgeInsets.all(_pad),
-      child: SizedBox(
-        height: _inner,
-        child: Row(
-          children: [
-            _ttButton(context, ref),
-            const SizedBox(width: 6),
-            Expanded(child: status),
-          ],
-        ),
+      decoration: BoxDecoration(
+        color: surface,
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(color: edge),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: light ? 0.12 : 0.45), blurRadius: 22, offset: const Offset(0, 8))],
+      ),
+      child: Row(
+        children: [
+          _ttButton(context, ref),
+          const SizedBox(width: 10),
+          Expanded(child: _statusPill(context, ref)),
+          const SizedBox(width: 10),
+          _filterButton(context, ref),
+        ],
       ),
     );
   }
@@ -69,48 +69,75 @@ class MapToolbar extends ConsumerWidget {
           ..sort((a, b) => distanceKm(origin, a.latLng).compareTo(distanceKm(origin, b.latLng))))
         .firstOrNull;
     if (mine != null) {
-      return _Action(style: _Style.live, icon: AppIcons.record, label: '${mine.checkinCount} here · ${_minsLeft(mine)} min', onTap: () => context.push(Routes.event(mine.id)));
+      return _TtButton(style: _Style.live, label: '${_minsLeft(mine)} min', onTap: () => context.push(Routes.event(mine.id)));
     }
     if (friendTt != null) {
       final who = _firstName(friendTt.organizerId, pins);
-      return _Action(style: _Style.friend, icon: AppIcons.coffee, label: "$who's TT", onTap: () => context.push(Routes.event(friendTt.id)));
+      return _TtButton(style: _Style.friend, label: "$who's TT", onTap: () => context.push(Routes.event(friendTt.id)));
     }
-    return _Action(style: _Style.start, icon: AppIcons.coffee, label: 'TT now', onTap: () => showTtNowSheet(context));
+    return _TtButton(style: _Style.start, label: 'TT now', onTap: () => showTtNowSheet(context));
   }
 
-  Widget _now(BuildContext context, WidgetRef ref) {
-    final pins = ref.watch(friendPinsProvider).value ?? const <FriendPin>[];
-    final moments = ref.watch(liveMomentsProvider).value ?? const <Story>[];
-    final fresh = pins.where((p) => p.isFresh).toList();
-    return _Status(
-      light: light,
-      leading: fresh.isEmpty ? Icon(AppIcons.usersThree, size: 19, color: _muted(light)) : _AvatarStack(pins: fresh.take(3).toList(), light: light),
-      text: fresh.isEmpty ? 'Nobody on the map' : '${fresh.length} on the map',
-      badge: moments.length,
-      onTap: () => onOpen(full: false),
-    );
+  Widget _statusPill(BuildContext context, WidgetRef ref) {
+    switch (mode) {
+      case MapMode.now:
+        final pins = ref.watch(friendPinsProvider).value ?? const <FriendPin>[];
+        final moments = ref.watch(liveMomentsProvider).value ?? const <Story>[];
+        final fresh = pins.where((p) => p.isFresh).toList();
+        final extra = moments.isEmpty ? '' : ' · ${moments.length} moment${moments.length == 1 ? '' : 's'}';
+        return _Pill(
+          light: light,
+          leading: fresh.isEmpty ? Icon(AppIcons.usersThree, size: 20, color: _muted(light)) : _AvatarStack(pins: fresh.take(3).toList(), light: light),
+          text: (fresh.isEmpty ? 'Nobody nearby' : '${fresh.length} nearby') + extra,
+          onTap: () => onOpen(full: false),
+        );
+      case MapMode.upcoming:
+        final count = ref.watch(visibleMapEventsProvider).value?.length ?? 0;
+        return _Pill(
+          light: light,
+          leading: Icon(AppIcons.magnifyingGlass, size: 20, color: _muted(light)),
+          text: count == 0 ? 'No meets here yet' : '$count meet${count == 1 ? '' : 's'}',
+          onTap: () => onOpen(full: true),
+        );
+      case MapMode.spots:
+        final count = ref.watch(visibleSpotsProvider).value?.length ?? 0;
+        return _Pill(
+          light: light,
+          leading: Icon(AppIcons.magnifyingGlass, size: 20, color: _muted(light)),
+          text: count == 0 ? 'No spots here yet' : '$count spot${count == 1 ? '' : 's'}',
+          onTap: () => onOpen(full: true),
+        );
+    }
   }
 
-  Widget _upcoming(BuildContext context, WidgetRef ref) {
-    final count = ref.watch(visibleMapEventsProvider).value?.length ?? 0;
-    final filters = ref.watch(mapFiltersProvider);
-    return _Status(
-      light: light,
-      leading: Icon(AppIcons.magnifyingGlass, size: 19, color: _muted(light)),
-      text: count == 0 ? 'No meets here yet' : '$count meet${count == 1 ? '' : 's'}${filters.isDefault ? '' : ' · ${filters.label}'}',
-      muted: count == 0,
-      onTap: () => onOpen(full: true),
-    );
-  }
-
-  Widget _spots(BuildContext context, WidgetRef ref) {
-    final count = ref.watch(visibleSpotsProvider).value?.length ?? 0;
-    return _Status(
-      light: light,
-      leading: Icon(AppIcons.magnifyingGlass, size: 19, color: _muted(light)),
-      text: count == 0 ? 'No spots here yet' : '$count spot${count == 1 ? '' : 's'} to check in',
-      muted: count == 0,
-      onTap: () => onOpen(full: true),
+  Widget _filterButton(BuildContext context, WidgetRef ref) {
+    final active = !ref.watch(mapFiltersProvider).isDefault;
+    final fg = _fg(light);
+    return PressScale(
+      child: Material(
+        color: light ? Colors.black.withValues(alpha: 0.05) : Colors.white.withValues(alpha: 0.08),
+        shape: CircleBorder(side: BorderSide(color: light ? Colors.black.withValues(alpha: 0.06) : Colors.white.withValues(alpha: 0.10))),
+        child: InkWell(
+          onTap: () => showMapFilterSheet(context),
+          customBorder: const CircleBorder(),
+          child: SizedBox(
+            width: _button,
+            height: _button,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Icon(AppIcons.slidersHorizontal, size: 22, color: fg),
+                if (active)
+                  Positioned(
+                    right: 14,
+                    top: 14,
+                    child: Container(width: 8, height: 8, decoration: const BoxDecoration(color: AppColors.brand, shape: BoxShape.circle)),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -128,10 +155,10 @@ String _firstName(String userId, List<FriendPin> pins) {
 
 enum _Style { start, live, friend }
 
-class _Action extends StatelessWidget {
-  const _Action({required this.style, required this.icon, required this.label, required this.onTap});
+/// Car over a short label. One colour on one colour: no gradients, no extras.
+class _TtButton extends StatelessWidget {
+  const _TtButton({required this.style, required this.label, required this.onTap});
   final _Style style;
-  final IconData icon;
   final String label;
   final VoidCallback onTap;
 
@@ -142,23 +169,20 @@ class _Action extends StatelessWidget {
     return PressScale(
       child: Material(
         color: bg,
-        borderRadius: BorderRadius.circular(MapToolbar._radius),
+        borderRadius: BorderRadius.circular(22),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(MapToolbar._radius),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minWidth: 72, maxWidth: 150),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(icon, size: 20, color: style == _Style.live ? AppColors.brand : fg),
-                  const SizedBox(height: 2),
-                  Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: fg, fontWeight: FontWeight.w800, fontSize: 11.5, height: 1.1)),
-                ],
-              ),
+          borderRadius: BorderRadius.circular(22),
+          child: SizedBox(
+            width: 104,
+            height: MapToolbar._button,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(AppIcons.car, size: 22, color: fg),
+                const SizedBox(height: 2),
+                Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: fg, fontWeight: FontWeight.w800, fontSize: 12, height: 1.1)),
+              ],
             ),
           ),
         ),
@@ -167,64 +191,37 @@ class _Action extends StatelessWidget {
   }
 }
 
-/// Middle text plus the round open button. One tap target.
-class _Status extends StatelessWidget {
-  const _Status({required this.light, required this.leading, required this.text, required this.onTap, this.badge = 0, this.muted = false});
+/// Search-style pill: icon, one line, chevron. Opens the lists.
+class _Pill extends StatelessWidget {
+  const _Pill({required this.light, required this.leading, required this.text, required this.onTap});
   final bool light;
   final Widget leading;
   final String text;
   final VoidCallback onTap;
-  /// Moments today, shown as a small count on the open button.
-  final int badge;
-  final bool muted;
 
   @override
   Widget build(BuildContext context) {
     final fg = _fg(light);
     return Material(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(MapToolbar._radius),
+      color: light ? Colors.black.withValues(alpha: 0.05) : Colors.white.withValues(alpha: 0.08),
+      shape: StadiumBorder(side: BorderSide(color: light ? Colors.black.withValues(alpha: 0.06) : Colors.white.withValues(alpha: 0.10))),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(MapToolbar._radius),
-        child: Row(
-          children: [
-            const SizedBox(width: 10),
-            leading,
-            const SizedBox(width: 9),
-            Expanded(
-              child: Text(
-                text,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(color: muted ? _muted(light) : fg, fontWeight: FontWeight.w700, fontSize: 14.5),
-              ),
-            ),
-            const SizedBox(width: 6),
-            Stack(
-              clipBehavior: Clip.none,
+        customBorder: const StadiumBorder(),
+        child: SizedBox(
+          height: MapToolbar._pill,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 0, 10, 0),
+            child: Row(
               children: [
-                Container(
-                  width: 56,
-                  height: MapToolbar._inner,
-                  decoration: BoxDecoration(borderRadius: BorderRadius.circular(MapToolbar._radius), color: light ? Colors.black.withValues(alpha: 0.07) : Colors.white.withValues(alpha: 0.14)),
-                  child: Icon(AppIcons.caretUp, size: 18, color: fg),
-                ),
-                if (badge > 0)
-                  Positioned(
-                    right: -3,
-                    top: -3,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 5),
-                      height: 18,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(color: AppColors.brand, borderRadius: BorderRadius.circular(9), border: Border.all(color: light ? Colors.white : AppColors.mapSurface, width: 1.5)),
-                      child: Text('$badge', style: const TextStyle(color: Colors.white, fontSize: 10.5, fontWeight: FontWeight.w800, height: 1)),
-                    ),
-                  ),
+                leading,
+                const SizedBox(width: 10),
+                Expanded(child: Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: fg, fontWeight: FontWeight.w700, fontSize: 14.5))),
+                const SizedBox(width: 6),
+                Icon(AppIcons.caretRight, size: 16, color: _muted(light)),
               ],
             ),
-          ],
+          ),
         ),
       ),
     );

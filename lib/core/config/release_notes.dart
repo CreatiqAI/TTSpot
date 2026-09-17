@@ -10,6 +10,14 @@ class ReleaseNote {
 
 const kReleaseNotes = <ReleaseNote>[
   ReleaseNote(
+    version: '0.3.24',
+    date: '18 Sep 2026',
+    title: 'New map bar',
+    points: [
+      'The bar above the tabs is a solid panel: a red TT button with a car, a pill that says who and what is nearby (tap it for the lists), and a filter button.',
+    ],
+  ),
+  ReleaseNote(
     version: '0.3.23',
     date: '18 Sep 2026',
     title: 'Tidier map toolbar',

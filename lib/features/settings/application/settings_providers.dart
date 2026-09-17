@@ -26,6 +26,8 @@ class AppSettings {
   /// Who can fetch my phone number to call me: 'nobody' | 'friends'
   String get callsFrom => (_m['calls_from'] as String?) ?? 'nobody';
   bool get introSeen => _b('intro_seen', false);
+  /// The map key has been open once; from then on it starts folded.
+  bool get mapKeySeen => _b('map_key_seen', false);
 
   /// Show my car colour to friends on the map (else the default silver).
   bool get showCarColor => _b('show_car_color', true);

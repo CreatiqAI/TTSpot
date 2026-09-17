@@ -1,28 +1,53 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_icons.dart';
 import '../../../../core/widgets/glass.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../settings/application/settings_providers.dart';
 import '../../application/map_providers.dart';
 import 'car_marker.dart';
 import 'map_glyphs.dart';
 
 /// Small key on the left of the map: which shape means what on this layer.
-/// Tap the header to fold it down to a single "Key" pill.
-class MapLegend extends StatefulWidget {
+/// Open the first time you see the map; folded to a "Key" pill after that.
+/// Tap the header to toggle.
+class MapLegend extends ConsumerStatefulWidget {
   const MapLegend({super.key, required this.mode, required this.light});
   final MapMode mode;
   final bool light;
 
   @override
-  State<MapLegend> createState() => _MapLegendState();
+  ConsumerState<MapLegend> createState() => _MapLegendState();
 }
 
-class _MapLegendState extends State<MapLegend> {
-  static bool _open = true; // remembered for the session
+class _MapLegendState extends ConsumerState<MapLegend> {
+  static bool? _open; // remembered for the session
+
+  void _markSeen() {
+    if (!ref.read(settingsProvider).mapKeySeen) ref.read(settingsActionsProvider).patch({'map_key_seen': true}).ignore();
+  }
+
+  void _toggle() {
+    setState(() => _open = !(_open ?? true));
+    _markSeen();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _open ??= !ref.read(settingsProvider).mapKeySeen;
+    // Seen it open once: next launch starts folded.
+    if (_open!) {
+      Future.delayed(const Duration(seconds: 8), () {
+        if (mounted) _markSeen();
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final open = _open ?? true;
     final p = MapPalette(light: widget.light, child: const SizedBox.shrink());
     final rows = switch (widget.mode) {
       MapMode.now => const [
@@ -59,7 +84,7 @@ class _MapLegendState extends State<MapLegend> {
       blur: 14,
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
-        onTap: () => setState(() => _open = !_open),
+        onTap: _toggle,
         child: AnimatedSize(
           duration: const Duration(milliseconds: 180),
           curve: Curves.easeOut,
@@ -73,12 +98,12 @@ class _MapLegendState extends State<MapLegend> {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(_open ? AppIcons.caretDown : AppIcons.caretRight, size: 11, color: p.text2),
+                    Icon(open ? AppIcons.caretDown : AppIcons.caretRight, size: 11, color: p.text2),
                     const SizedBox(width: 4),
                     Text('KEY', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1, color: p.text2)),
                   ],
                 ),
-                if (_open) ...[
+                if (open) ...[
                   const SizedBox(height: 4),
                   Text('Zoom in for shapes', style: TextStyle(fontSize: 9.5, color: p.text2)),
                   for (final r in rows)

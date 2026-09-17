@@ -74,6 +74,11 @@
 	<string>Take a photo or video for your avatar, your cars, a meet cover or a chat.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>TT Spot runs on location: see friends and your club on the map, check in at meets and spots, and scan a meet's QR when you're there. Only while the app is open.</string>
+	<key>NSLocationTemporaryUsageDescriptionDictionary</key>
+	<dict>
+		<key>TTSpotMap</key>
+		<string>Precise location puts you at the right street on the map and lets check-ins work. Approximate location is rounded to a few kilometres.</string>
+	</dict>
 	<key>MapsApiKey</key>
 	<string>$(MAPS_API_KEY)</string>
 	<key>GIDClientID</key>

@@ -4,12 +4,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:geolocator/geolocator.dart' show LocationAccuracyStatus;
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/location/live_position.dart';
 import '../../../core/widgets/glass.dart';
+import '../../../core/widgets/glass_tab_bar.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../../core/utils/geo.dart';
 import '../../events/application/event_providers.dart';
@@ -28,6 +31,7 @@ import 'widgets/map_glyphs.dart';
 import 'widgets/map_legend.dart';
 import 'widgets/map_pins.dart';
 import 'widgets/map_sheet.dart';
+import 'widgets/map_toolbar.dart';
 import 'widgets/car_marker.dart';
 import 'widgets/visibility_sheet.dart';
 import '../../settings/application/settings_providers.dart';
@@ -58,6 +62,8 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
   int _generation = 0;
   bool _movedToUser = false;
   final _sheet = DraggableScrollableController();
+  /// The glass toolbar hides while the sheet is up.
+  bool _sheetOpen = false;
 
   static const _mapOverlay = SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
@@ -76,7 +82,16 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
     _radarTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       if (mounted && ref.read(mapModeProvider) == MapMode.now) _radar.forward(from: 0);
     });
-    WidgetsBinding.instance.addPostFrameCallback((_) => ref.read(locationPublisherProvider.notifier).start());
+    _sheet.addListener(_onSheetMoved);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(livePositionProvider.notifier).start();
+      ref.read(locationPublisherProvider.notifier).start();
+    });
+  }
+
+  void _onSheetMoved() {
+    final open = _sheet.isAttached && _sheet.size > 0.02;
+    if (open != _sheetOpen && mounted) setState(() => _sheetOpen = open);
   }
 
   /// The map follows the app theme (Settings → Appearance).
@@ -118,6 +133,19 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
       }
       final my = ref.read(myLocationProvider).value;
       final here = ref.read(userLocationProvider).value;
+      final live = ref.read(livePositionProvider);
+      // How sure the phone is: a soft ring, only when it is worth showing.
+      if (live != null && live.accuracyM > 20 && live.accuracyM < 3000) {
+        circles.add(Circle(
+          circleId: const CircleId('me-accuracy'),
+          center: live.latLng,
+          radius: live.accuracyM,
+          strokeWidth: 1,
+          strokeColor: kRelationMe.withValues(alpha: 0.35),
+          fillColor: kRelationMe.withValues(alpha: 0.08),
+          zIndex: 1,
+        ));
+      }
       if (my != null && my.shareMode == 'nearby' && here != null) {
         circles.add(Circle(
           circleId: const CircleId('nearby-ring'),
@@ -177,19 +205,34 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
   }
 
   Future<void> _locateMe() async {
-    ref.invalidate(userLocationProvider);
-    final loc = await ref.read(userLocationProvider.future);
+    // Glide to what we have now, then again if a fresh fix moves us.
+    final known = ref.read(livePositionProvider)?.latLng ?? ref.read(userLocationProvider).value;
+    if (known != null) _map?.animateCamera(CameraUpdate.newLatLngZoom(known, 15));
+    var loc = await ref.read(livePositionProvider.notifier).refresh();
+    if (loc == null) {
+      ref.invalidate(userLocationProvider);
+      loc = await ref.read(userLocationProvider.future);
+    }
     if (!mounted) return;
     if (loc == null) {
       _snack('Location is off. Showing Kuala Lumpur instead.');
       return;
     }
-    _map?.animateCamera(CameraUpdate.newLatLngZoom(loc, 13));
+    if (known == null || distanceKm(known, loc) > 0.01) _map?.animateCamera(CameraUpdate.newLatLngZoom(loc, 15));
   }
+
+  Future<void> _turnOnPrecise() async {
+    final ok = await requestPreciseLocation();
+    ref.invalidate(locationPrecisionProvider);
+    if (ok) await ref.read(livePositionProvider.notifier).refresh();
+  }
+
+  void _openSheet({bool full = false}) =>
+      _sheet.animateTo(full ? MapSheet.full : MapSheet.half, duration: const Duration(milliseconds: 280), curve: Curves.easeOutCubic);
 
   void _focus(LatLng target, {double zoom = 15}) {
     _map?.animateCamera(CameraUpdate.newLatLngZoom(target, zoom));
-    _sheet.animateTo(MapSheet.peek, duration: const Duration(milliseconds: 260), curve: Curves.easeOut);
+    _sheet.animateTo(MapSheet.closed, duration: const Duration(milliseconds: 260), curve: Curves.easeOut);
   }
 
   void _snack(String msg) {
@@ -380,6 +423,21 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
     }
   }
 
+  /// Only my own pin moved: swap that one marker instead of rebuilding all.
+  void _updateMe() {
+    final here = ref.read(userLocationProvider).value ?? _lastHere;
+    final me = ref.read(currentUserIdProvider);
+    if (here == null || me == null || _markerSet.isEmpty) return;
+    _lastHere = here;
+    final old = _markerSet.where((m) => m.markerId.value == 'me').firstOrNull;
+    if (old == null) {
+      _rebuild();
+      return;
+    }
+    if (!mounted) return;
+    setState(() => _markerSet = {..._markerSet.where((m) => m.markerId.value != 'me'), old.copyWith(positionParam: here)});
+  }
+
   void _openMoment(Story m) {
     final author = m.author;
     if (author == null) return;
@@ -418,10 +476,17 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
     ref.listen(liveMomentsProvider, (_, _) => _rebuild());
     ref.listen(friendPinsProvider, (_, _) => _rebuild());
     ref.listen(spotsProvider, (_, _) => _rebuild());
-    ref.listen(userLocationProvider, (_, _) {
+    ref.listen(userLocationProvider, (prev, next) {
       _moveToUserIfKnown();
-      _rebuild();
+      // First fix (or lost/regained): everything re-sorts. Afterwards just move my pin.
+      if (prev?.value == null || next.value == null) {
+        _rebuild();
+      } else {
+        _updateMe();
+      }
+      _paintCircles();
     });
+    ref.listen(livePositionProvider, (_, _) => _paintCircles());
     ref.listen(myLocationProvider, (_, _) => _paintCircles());
     ref.listen(friendTagsProvider, (_, _) => _rebuild());
     MapPalette.defaultLight = !_isNight;
@@ -436,7 +501,13 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
       MapMode.upcoming => ref.watch(mapEventsProvider).isLoading,
       MapMode.spots => ref.watch(spotsProvider).isLoading,
     };
-    final sheetPeek = MediaQuery.sizeOf(context).height * MapSheet.peek;
+    // The shell extends the body under the tab bar, so this inset already
+    // includes the bar; guard for the rare case it doesn't.
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
+    final barSpace = GlassTabBar.height + GlassTabBar.margin.bottom;
+    final toolbarBottom = (bottomInset >= barSpace ? bottomInset : bottomInset + barSpace) + 8;
+    final mapPadding = toolbarBottom + MapToolbar.height + 6;
+    final reduced = ref.watch(locationPrecisionProvider).value == LocationAccuracyStatus.reduced;
 
     if (listView) {
       return MyEventsScreen(embedded: true, onShowMap: () => ref.read(mapListViewProvider.notifier).set(false));
@@ -461,7 +532,7 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
               compassEnabled: false,
               mapToolbarEnabled: false,
               buildingsEnabled: false,
-              padding: EdgeInsets.only(bottom: sheetPeek),
+              padding: EdgeInsets.only(bottom: mapPadding),
             ),
 
             // Mode switch + nearby banner
@@ -474,6 +545,10 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       _ModeSwitch(mode: mode, loading: loading, onChanged: (m) => ref.read(mapModeProvider.notifier).set(m)),
+                      if (reduced) ...[
+                        const SizedBox(height: 10),
+                        _PreciseBanner(onTurnOn: _turnOnPrecise),
+                      ],
                       if (nearby != null) ...[
                         const SizedBox(height: 10),
                         _NearbyBanner(
@@ -495,7 +570,7 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
                 child: AnimatedPadding(
                   duration: const Duration(milliseconds: 200),
                   // Below the mode switch, and below the "you're at a meet" banner when it shows.
-                  padding: EdgeInsets.only(top: nearby == null ? 66 : 126, left: 12),
+                  padding: EdgeInsets.only(top: 66 + (nearby == null ? 0 : 60) + (reduced ? 54 : 0), left: 12),
                   child: MapLegend(mode: mode, light: !_isNight),
                 ),
               ),
@@ -524,6 +599,31 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
                         onTap: _locateMe,
                       ),
                     ],
+                  ),
+                ),
+              ),
+            ),
+
+            // Glass toolbar above the tab bar; fades away while the sheet is up.
+            Positioned(
+              left: 14,
+              right: 14,
+              bottom: toolbarBottom,
+              child: IgnorePointer(
+                ignoring: _sheetOpen,
+                child: AnimatedOpacity(
+                  opacity: _sheetOpen ? 0 : 1,
+                  duration: const Duration(milliseconds: 160),
+                  child: AnimatedSlide(
+                    offset: _sheetOpen ? const Offset(0, 0.3) : Offset.zero,
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeOut,
+                    child: GestureDetector(
+                      onVerticalDragEnd: (d) {
+                        if ((d.primaryVelocity ?? 0) < -200) _openSheet();
+                      },
+                      child: MapToolbar(mode: mode, light: !_isNight, onOpen: _openSheet),
+                    ),
                   ),
                 ),
               ),
@@ -629,6 +729,31 @@ class _NearbyBanner extends StatelessWidget {
   }
 }
 
+
+/// iPhone "approximate location": every pin is rounded to a few km.
+class _PreciseBanner extends StatelessWidget {
+  const _PreciseBanner({required this.onTurnOn});
+  final VoidCallback onTurnOn;
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassPanel(
+      dark: true,
+      radius: 16,
+      padding: const EdgeInsets.fromLTRB(12, 8, 6, 8),
+      child: Row(
+        children: [
+          const Icon(AppIcons.warning, color: AppColors.warnColor, size: 18),
+          const SizedBox(width: 8),
+          const Expanded(
+            child: Text('Location is approximate', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700)),
+          ),
+          TextButton(onPressed: onTurnOn, style: TextButton.styleFrom(visualDensity: VisualDensity.compact), child: const Text('Turn on precise')),
+        ],
+      ),
+    );
+  }
+}
 
 class _RoundButton extends StatelessWidget {
   const _RoundButton({required this.icon, required this.tooltip, required this.onTap, this.active = false, this.light = false});

@@ -8,7 +8,6 @@ import '../../../../core/theme/app_art.dart';
 import '../../../../core/places/places_service.dart';
 import '../../../../core/theme/app_icons.dart';
 import '../../../../core/theme/app_theme.dart';
-import '../../../../core/widgets/glass_tab_bar.dart';
 import '../../../../core/utils/dates.dart';
 import '../../../../core/utils/geo.dart';
 import '../../../../core/widgets/user_avatar.dart';
@@ -21,20 +20,19 @@ import '../../../social/domain/post.dart';
 import '../../../social/presentation/story_viewer_screen.dart';
 import '../../application/map_providers.dart';
 import 'map_event_sheet.dart' show EventRow;
-import 'tt_now_sheet.dart';
 import 'car_marker.dart';
 import '../../../friends/presentation/friend_colour_sheet.dart';
-import '../../../../core/supabase/supabase_client.dart';
 import 'map_filter_sheet.dart';
 
-/// Draggable dark sheet over the map. Content follows the map mode:
+/// Draggable dark sheet over the map. Closed by default (the glass toolbar
+/// stands in for it); a chip or a pull opens it. Content follows the map mode:
 /// Now → friends, live meets, moments · Upcoming → meets · Spots → places to check in.
 class MapSheet extends ConsumerWidget {
   const MapSheet({super.key, required this.controller, required this.onFocus});
   final DraggableScrollableController controller;
   final void Function(LatLng target) onFocus;
 
-  static const peek = 0.24;
+  static const closed = 0.0;
   static const half = 0.5;
   static const full = 0.92;
 
@@ -43,11 +41,11 @@ class MapSheet extends ConsumerWidget {
     final mode = ref.watch(mapModeProvider);
     return DraggableScrollableSheet(
       controller: controller,
-      initialChildSize: peek,
-      minChildSize: peek,
+      initialChildSize: closed,
+      minChildSize: closed,
       maxChildSize: full,
       snap: true,
-      snapSizes: const [peek, half, full],
+      snapSizes: const [half, full],
       builder: (context, scroll) {
         return Container(
           decoration: BoxDecoration(
@@ -65,7 +63,7 @@ class MapSheet extends ConsumerWidget {
                 MapMode.spots => _SpotsContent(expand: () => _expand(controller), onFocus: onFocus),
               },
               // The glass tab bar floats over the sheet: leave room under the last row.
-              SliverToBoxAdapter(child: SizedBox(height: GlassTabBar.height + GlassTabBar.margin.bottom + MediaQuery.paddingOf(context).bottom + 8)),
+              SliverToBoxAdapter(child: SizedBox(height: MediaQuery.paddingOf(context).bottom + 8)),
             ],
           ),
         );
@@ -107,47 +105,8 @@ class _NowContent extends ConsumerWidget {
         return distanceKm(origin, a.latLng).compareTo(distanceKm(origin, b.latLng));
       });
 
-    final me = ref.watch(currentUserIdProvider);
-    final myLoc = ref.watch(myLocationProvider).value;
-    final here = ref.watch(userLocationProvider).value;
-    final chosen = ref.watch(ttPlaceProvider);
-    final nearestPlace = chosen != null && here != null && distanceKm(here, LatLng(chosen.lat, chosen.lng)) < 1.0
-        ? chosen
-        : (here == null ? null : (ref.watch(nearbyPlacesProvider(placeKey(here.latitude, here.longitude))).value ?? const []).firstOrNull);
-    final friendIds = ref.watch(friendIdsProvider);
-    final mine = live.where((e) => e.isInstant && e.organizerId == me).firstOrNull;
-    final friendsTt = live.where((e) => e.isInstant && friendIds.contains(e.organizerId)).toList()
-      ..sort((a, b) => distanceKm(origin, a.latLng).compareTo(distanceKm(origin, b.latLng)));
-    final friendTt = friendsTt.firstOrNull;
-
     return SliverList(
       delegate: SliverChildListDelegate([
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 6),
-          child: mine != null
-              ? _TtPill(
-                  dark: true,
-                  icon: AppIcons.record,
-                  text: 'Live · ${mine.checkinCount} here · ${_minsLeft(mine)} min',
-                  trailing: 'End',
-                  onTap: () => context.push(Routes.event(mine.id)),
-                )
-              : friendTt != null
-                  ? _TtPill(
-                      light: true,
-                      icon: AppIcons.coffee,
-                      text: '${_firstName(friendTt.organizerId, pins.value)}\'s TT · ${friendTt.venueName} · ${distanceKm(origin, friendTt.latLng).toStringAsFixed(1)} km',
-                      trailing: 'Otw!',
-                      onTap: () => context.push(Routes.event(friendTt.id)),
-                    )
-                  : _TtPill(
-                      icon: AppIcons.coffee,
-                      text: here != null ? 'TT now here' : 'TT now',
-                      trailing: here == null ? null : (nearestPlace?.name ?? myLoc?.placeName),
-                      subtitle: nearestPlace == null ? null : shortAddress(nearestPlace.address),
-                      onTap: () => showTtNowSheet(context),
-                    ),
-        ),
         _SectionHeader(
           title: 'On the map',
           count: list.length,
@@ -173,65 +132,6 @@ class _NowContent extends ConsumerWidget {
         ],
         const SizedBox(height: 24),
       ]),
-    );
-  }
-}
-
-int _minsLeft(Event e) => e.closesAt.difference(DateTime.now()).inMinutes.clamp(0, 9999);
-
-String _firstName(String userId, List<FriendPin>? pins) {
-  final p = pins?.where((x) => x.user.id == userId).firstOrNull?.user;
-  final n = p?.displayName ?? p?.username ?? 'Friend';
-  return n.split(' ').first;
-}
-
-/// The one TT control: red to start, black while yours is live, white when a
-/// friend's is live near you.
-class _TtPill extends StatelessWidget {
-  const _TtPill({required this.icon, required this.text, required this.onTap, this.trailing, this.subtitle, this.dark = false, this.light = false});
-  final IconData icon;
-  final String text;
-  final String? trailing;
-  /// Second line under the trailing text (the street address).
-  final String? subtitle;
-  final VoidCallback onTap;
-  final bool dark;
-  final bool light;
-
-  @override
-  Widget build(BuildContext context) {
-    final bg = dark ? Colors.black : (light ? Colors.white : AppColors.brand);
-    final fg = light ? AppColors.ink : Colors.white;
-    return Material(
-      color: bg,
-      borderRadius: BorderRadius.circular(999),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(999),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 11, 14, 11),
-          child: Row(
-            children: [
-              Icon(icon, size: 18, color: dark ? AppColors.brand : fg),
-              const SizedBox(width: 8),
-              Expanded(child: Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: fg, fontWeight: FontWeight.w800, fontSize: 14))),
-              if (trailing != null) ...[
-                const SizedBox(width: 8),
-                Flexible(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(trailing!, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: light ? AppColors.brand : fg.withValues(alpha: 0.9), fontWeight: FontWeight.w800, fontSize: 12.5)),
-                      if (subtitle != null) Text(subtitle!, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: fg.withValues(alpha: 0.7), fontWeight: FontWeight.w600, fontSize: 10.5)),
-                    ],
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

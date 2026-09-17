@@ -10,6 +10,17 @@ class ReleaseNote {
 
 const kReleaseNotes = <ReleaseNote>[
   ReleaseNote(
+    version: '0.3.22',
+    date: '18 Sep 2026',
+    title: 'Cleaner map, truer location',
+    points: [
+      'The bottom of the map is one slim glass row: TT now, who is on the map, today\'s moments. Pull up or tap a chip for the lists.',
+      'Your pin follows live GPS and shows a ring for how sure the phone is. Bad fixes are ignored; the locate button gets a fresh one.',
+      'iPhone: if location is approximate, a banner offers to switch on Precise Location.',
+      'The map key folds away after the first look.',
+    ],
+  ),
+  ReleaseNote(
     version: '0.3.21',
     date: '17 Sep 2026',
     title: 'Official and underground clubs',

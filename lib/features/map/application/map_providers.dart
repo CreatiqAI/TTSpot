@@ -1,5 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'dart:async';
+
 import 'package:geolocator/geolocator.dart';
+
+import '../../../core/location/live_position.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../../../core/utils/geo.dart';
@@ -95,6 +99,9 @@ final mapViewportProvider = NotifierProvider<MapViewportNotifier, LatLngBounds?>
 /// The user's position, or null when denied / unavailable. Resolves once;
 /// call `ref.invalidate(userLocationProvider)` to retry.
 final userLocationProvider = FutureProvider<LatLng?>((ref) async {
+  // Live GPS wins: this re-resolves every time the stream moves me (>= 5 m).
+  final live = ref.watch(livePositionProvider);
+  if (live != null) return live.latLng;
   try {
     if (!await Geolocator.isLocationServiceEnabled()) return null;
     var permission = await Geolocator.checkPermission();
@@ -104,10 +111,14 @@ final userLocationProvider = FutureProvider<LatLng?>((ref) async {
     if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
       return null;
     }
+    // Permission is there but the stream isn't running yet (first launch): start it.
+    unawaited(ref.read(livePositionProvider.notifier).start());
     final last = await Geolocator.getLastKnownPosition();
-    if (last != null) return LatLng(last.latitude, last.longitude);
+    if (last != null && DateTime.now().difference(last.timestamp) < LivePositionNotifier.cachedMaxAge) {
+      return LatLng(last.latitude, last.longitude);
+    }
     final pos = await Geolocator.getCurrentPosition(
-      locationSettings: const LocationSettings(accuracy: LocationAccuracy.medium, timeLimit: Duration(seconds: 8)),
+      locationSettings: const LocationSettings(accuracy: LocationAccuracy.best, timeLimit: Duration(seconds: 8)),
     );
     return LatLng(pos.latitude, pos.longitude);
   } catch (_) {

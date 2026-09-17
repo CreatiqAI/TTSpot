@@ -1,9 +1,8 @@
 import 'dart:async';
 
-import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:geolocator/geolocator.dart';
 
+import '../../../core/location/live_position.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../auth/domain/profile.dart';
@@ -170,55 +169,43 @@ final nearbyMeetProvider = NotifierProvider<NearbyMeetNotifier, ({String id, Str
 
 /// Publishes my position while the app is in the foreground (Snapchat model:
 /// no background tracking). Start it once from the shell.
-class LocationPublisher extends Notifier<bool> with WidgetsBindingObserver {
-  StreamSubscription<Position>? _sub;
+class LocationPublisher extends Notifier<bool> {
   DateTime? _lastSent;
   String? _lastCheckedIn;
   String? _lastNearbyOffered;
 
   @override
   bool build() {
-    ref.onDispose(stop);
+    // Every good fix from the one live stream (core/location/live_position.dart).
+    ref.listen<LivePosition?>(livePositionProvider, (_, p) {
+      if (p != null && state) _onPosition(p, force: _lastSent == null);
+    });
     return false; // publishing?
   }
 
   Future<void> start() async {
     if (state) return;
     if (ref.read(currentUserIdProvider) == null) return;
-    try {
-      if (!await Geolocator.isLocationServiceEnabled()) return;
-      // Never prompt from here: the location gate screen asks with context.
-      final perm = await Geolocator.checkPermission();
-      if (perm == LocationPermission.denied || perm == LocationPermission.deniedForever) return;
-    } catch (_) {
-      return;
-    }
-    WidgetsBinding.instance.addObserver(this);
-    _listen();
+    final live = ref.read(livePositionProvider.notifier);
+    await live.start();
+    if (!live.running) return; // no permission yet; the gate calls start() again
     state = true;
+    final p = ref.read(livePositionProvider);
+    if (p != null) _onPosition(p, force: true);
   }
 
-  void _listen() {
-    _sub?.cancel();
-    _sub = Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(accuracy: LocationAccuracy.high, distanceFilter: 15),
-    ).listen(_onPosition, onError: (_) {});
-    // First fix straight away; the stream only fires on movement.
-    Geolocator.getLastKnownPosition().then((p) {
-      if (p != null) _onPosition(p, force: true);
-    });
-  }
-
-  Future<void> _onPosition(Position p, {bool force = false}) async {
+  Future<void> _onPosition(LivePosition p, {bool force = false}) async {
     final now = DateTime.now();
     if (!force && _lastSent != null && now.difference(_lastSent!) < const Duration(seconds: 12)) return;
+    // Don't tell friends I'm somewhere I'm probably not.
+    if (!force && p.accuracyM > 250) return;
     _lastSent = now;
     try {
       final ping = await ref.read(friendsRepositoryProvider).updateMyLocation(
-            lat: p.latitude,
-            lng: p.longitude,
-            heading: p.heading.isNaN ? null : p.heading,
-            accuracy: p.accuracy.isNaN ? null : p.accuracy,
+            lat: p.latLng.latitude,
+            lng: p.latLng.longitude,
+            heading: p.heading,
+            accuracy: p.accuracyM,
           );
       ref.invalidate(myLocationProvider);
       if (ping.checkedInEventId != null && ping.checkedInEventId != _lastCheckedIn) {
@@ -239,22 +226,7 @@ class LocationPublisher extends Notifier<bool> with WidgetsBindingObserver {
     }
   }
 
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      if (_sub == null) _listen();
-    } else if (state == AppLifecycleState.paused || state == AppLifecycleState.hidden) {
-      _sub?.cancel();
-      _sub = null;
-    }
-  }
-
-  void stop() {
-    _sub?.cancel();
-    _sub = null;
-    WidgetsBinding.instance.removeObserver(this);
-    state = false;
-  }
+  void stop() => state = false;
 
   Future<void> setShare(String mode, {int? radiusM}) async {
     try {

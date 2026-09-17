@@ -27,11 +27,11 @@ class MapToolbar extends ConsumerWidget {
   /// Open the sheet (true = all the way).
   final void Function({bool full}) onOpen;
 
-  static const double height = 60;
-  static const double _inner = 44;
+  static const double height = 64;
+  static const double _inner = 48;
   static const double _pad = 8;
-  /// Same block shape as the tab bar's active tab (52 x 44, radius 16).
-  static const double _radius = 16;
+  /// Chunky block buttons, like the tab bar's active tab.
+  static const double _radius = 14;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -147,15 +147,15 @@ class _Action extends StatelessWidget {
           onTap: onTap,
           borderRadius: BorderRadius.circular(MapToolbar._radius),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(14, 0, 16, 0),
+            padding: const EdgeInsets.fromLTRB(16, 0, 18, 0),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(icon, size: 19, color: style == _Style.live ? AppColors.brand : fg),
+                Icon(icon, size: 20, color: style == _Style.live ? AppColors.brand : fg),
                 const SizedBox(width: 8),
                 ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 150),
-                  child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: fg, fontWeight: FontWeight.w800, fontSize: 15)),
+                  child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: fg, fontWeight: FontWeight.w800, fontSize: 15.5)),
                 ),
               ],
             ),
@@ -204,10 +204,10 @@ class _Status extends StatelessWidget {
               clipBehavior: Clip.none,
               children: [
                 Container(
-                  width: 52,
+                  width: 56,
                   height: MapToolbar._inner,
                   decoration: BoxDecoration(borderRadius: BorderRadius.circular(MapToolbar._radius), color: light ? Colors.black.withValues(alpha: 0.07) : Colors.white.withValues(alpha: 0.14)),
-                  child: Icon(AppIcons.caretUp, size: 17, color: fg),
+                  child: Icon(AppIcons.caretUp, size: 18, color: fg),
                 ),
                 if (badge > 0)
                   Positioned(

@@ -30,6 +30,8 @@ class MapToolbar extends ConsumerWidget {
   static const double height = 60;
   static const double _inner = 44;
   static const double _pad = 8;
+  /// Same block shape as the tab bar's active tab (52 x 44, radius 16).
+  static const double _radius = 16;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -140,12 +142,12 @@ class _Action extends StatelessWidget {
     return PressScale(
       child: Material(
         color: bg,
-        borderRadius: BorderRadius.circular(MapToolbar._inner / 2),
+        borderRadius: BorderRadius.circular(MapToolbar._radius),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(MapToolbar._inner / 2),
+          borderRadius: BorderRadius.circular(MapToolbar._radius),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 18, 0),
+            padding: const EdgeInsets.fromLTRB(14, 0, 16, 0),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -180,10 +182,10 @@ class _Status extends StatelessWidget {
     final fg = _fg(light);
     return Material(
       color: Colors.transparent,
-      borderRadius: BorderRadius.circular(MapToolbar._inner / 2),
+      borderRadius: BorderRadius.circular(MapToolbar._radius),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(MapToolbar._inner / 2),
+        borderRadius: BorderRadius.circular(MapToolbar._radius),
         child: Row(
           children: [
             const SizedBox(width: 10),
@@ -202,9 +204,9 @@ class _Status extends StatelessWidget {
               clipBehavior: Clip.none,
               children: [
                 Container(
-                  width: MapToolbar._inner,
+                  width: 52,
                   height: MapToolbar._inner,
-                  decoration: BoxDecoration(shape: BoxShape.circle, color: light ? Colors.black.withValues(alpha: 0.07) : Colors.white.withValues(alpha: 0.14)),
+                  decoration: BoxDecoration(borderRadius: BorderRadius.circular(MapToolbar._radius), color: light ? Colors.black.withValues(alpha: 0.07) : Colors.white.withValues(alpha: 0.14)),
                   child: Icon(AppIcons.caretUp, size: 17, color: fg),
                 ),
                 if (badge > 0)

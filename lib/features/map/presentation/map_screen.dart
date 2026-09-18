@@ -28,6 +28,7 @@ import '../../social/presentation/story_viewer_screen.dart';
 import '../application/map_providers.dart';
 import '../../../core/utils/dates.dart';
 import 'widgets/map_glyphs.dart';
+import 'widgets/location_check_sheet.dart';
 import 'widgets/map_legend.dart';
 import 'widgets/map_pins.dart';
 import 'widgets/map_sheet.dart';
@@ -620,9 +621,10 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
                       const SizedBox(height: 10),
                       _RoundButton(
                         icon: hasLocation ? AppIcons.gpsFix : AppIcons.crosshair,
-                        tooltip: 'My location',
+                        tooltip: 'My location · hold to check',
                         light: !_isNight,
                         onTap: _locateMe,
+                        onLongPress: () => showLocationCheckSheet(context),
                       ),
                     ],
                   ),
@@ -782,10 +784,11 @@ class _PreciseBanner extends StatelessWidget {
 }
 
 class _RoundButton extends StatelessWidget {
-  const _RoundButton({required this.icon, required this.tooltip, required this.onTap, this.active = false, this.light = false});
+  const _RoundButton({required this.icon, required this.tooltip, required this.onTap, this.onLongPress, this.active = false, this.light = false});
   final IconData icon;
   final String tooltip;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
   final bool active;
   static const double size = 46;
   /// White button on the day map.
@@ -802,7 +805,7 @@ class _RoundButton extends StatelessWidget {
             shape: const CircleBorder(),
             elevation: 6,
             shadowColor: Colors.black54,
-            child: InkWell(onTap: onTap, customBorder: const CircleBorder(), child: SizedBox(width: size, height: size, child: Icon(icon, color: Colors.white, size: 22))),
+            child: InkWell(onTap: onTap, onLongPress: onLongPress, customBorder: const CircleBorder(), child: SizedBox(width: size, height: size, child: Icon(icon, color: Colors.white, size: 22))),
           ),
         ),
       );
@@ -818,6 +821,7 @@ class _RoundButton extends StatelessWidget {
             shape: const CircleBorder(),
             child: InkWell(
               onTap: onTap,
+              onLongPress: onLongPress,
               customBorder: const CircleBorder(),
               child: SizedBox(width: size, height: size, child: Icon(icon, color: light ? AppColors.ink : Colors.white, size: 22)),
             ),

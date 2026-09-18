@@ -1,3 +1,3 @@
 /// Bumped together with pubspec.yaml's `version:` (see CHANGELOG.md).
-const kAppVersion = '0.3.25';
-const kAppBuild = 34;
+const kAppVersion = '0.3.26';
+const kAppBuild = 35;

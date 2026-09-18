@@ -9,6 +9,7 @@ Files are simply `TTSpot-<version>.ipa` / `.apk`, kept in `build/ios-artifact/` 
 
 | Version | Date | Commit | What changed |
 |---|---|---|---|
+| 0.3.26 | _next build_ | — | Location check sheet (long-press locate: fix age, accuracy, permission, precise on/off, open coords in Google/Apple Maps, fresh fix); places function drops two unsupported Google types and retries untyped on rejection. |
 | 0.3.25 | 2026-09-18 | f161fa4 | Nearby lookup: building-type search within 80 m + venues within 300 m, distances returned, TT now prefills only a place that is right here (chips show distance); map styles show POI names and building footprints, 3D buildings on; iOS AppleSettings (bestForNavigation, automotive) and Android 2 s interval for the live stream; placeKey to 4 decimals. |
 | 0.3.24 | 2026-09-18 | c1cd55c | Map bar redesigned to the user's mock: solid panel, red car TT button, status pill with chevron, round filter button, sized like the tab bar; every modal sheet uses the root navigator so the tab bar never covers it; map key lists only the pin kinds drawn (`LegendGlyph` + `present`); dark-mode contrast sweep (ink fills/borders/icons → textPrimary/onInk; event page Maps/Copy link; active map round button icon fixed). |
 | 0.3.23 | 2026-09-18 | be1de9f | Map toolbar rebuilt like the tab bar: TT now on every layer, status line, open button (moments count as a badge); tap the map to close the sheet. |

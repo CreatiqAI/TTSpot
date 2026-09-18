@@ -10,6 +10,15 @@ class ReleaseNote {
 
 const kReleaseNotes = <ReleaseNote>[
   ReleaseNote(
+    version: '0.3.26',
+    date: '18 Sep 2026',
+    title: 'Location check',
+    points: [
+      'Hold the locate button on the map to see what your phone is reporting: fix age, accuracy in metres, precise location on or off, and buttons to open the same coordinates in Google Maps or Apple Maps.',
+      'Use my location works again (a Google place type had changed).',
+    ],
+  ),
+  ReleaseNote(
     version: '0.3.25',
     date: '18 Sep 2026',
     title: 'Where you really are',

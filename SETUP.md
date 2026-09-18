@@ -390,6 +390,7 @@ Migration `20260916000013_accounts_simplify.sql` (the 16 in the name is only the
 - **TT now** prefills the venue only with an `isHere` place; otherwise the field stays empty and the "Also near you" chips show `name · distance`. "Use my location" pins "My spot" at the exact coordinates when nothing named is within 80 m.
 - **Map styles** (`assets/map_style_*.json`) show POI names (text only, muted) and `landscape.man_made` footprints; `buildingsEnabled: true`. `placeKey` rounds to 4 decimals (~10 m) so the cache never shifts the lookup centre off the building.
 - **GPS stream** uses `AppleSettings(bestForNavigation, automotiveNavigation, no auto-pause)` on iOS and `AndroidSettings(best, 2 s interval)` on Android.
+- **Location check** (`widgets/location_check_sheet.dart`): long-press the locate button. Shows the live fix (age, ±m, coords), permission, precise-location status, and opens the same coordinates in Google Maps / Apple Maps so a member can tell a wrong fix from a missing map label. `HERE_TYPES` in the places function must only contain Places API (New) Table A types (`place_of_worship` and `townhouse_complex` are not); the function retries untyped if Google rejects the list.
 
 ### Map toolbar and live position (2026-09-18, no migration)
 

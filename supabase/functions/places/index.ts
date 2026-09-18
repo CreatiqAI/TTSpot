@@ -86,7 +86,11 @@ Deno.serve(async (req) => {
         }),
       });
       const d = await r.json();
-      if (!r.ok) throw new Error(d?.error?.message ?? "nearby failed");
+      if (!r.ok) {
+        // A type Google stopped supporting must never break the lookup: retry untyped.
+        if (includedTypes && /Unsupported types/i.test(d?.error?.message ?? "")) return search(radius, max);
+        throw new Error(d?.error?.message ?? "nearby failed");
+      }
       return (d.places ?? []) as any[];
     };
     try {
@@ -95,9 +99,9 @@ Deno.serve(async (req) => {
       // 2) TT venues around: cafes, restaurants, car parks, petrol stations, shops.
       // Real buildings only: listings, agents and lodging ads are noise here.
       const HERE_TYPES = [
-        "apartment_building", "apartment_complex", "condominium_complex", "housing_complex", "townhouse_complex",
+        "apartment_building", "apartment_complex", "condominium_complex", "housing_complex",
         "shopping_mall", "corporate_office", "coworking_space", "government_office", "community_center",
-        "university", "school", "hospital", "hotel", "stadium", "sports_complex", "place_of_worship",
+        "university", "school", "hospital", "hotel", "stadium", "sports_complex", "mosque", "church", "hindu_temple",
         "car_repair", "car_wash", "car_dealer", "gas_station", "parking",
         "restaurant", "cafe", "coffee_shop", "bar", "food_court", "convenience_store", "supermarket", "park", "tourist_attraction",
       ];

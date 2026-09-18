@@ -272,7 +272,7 @@ class _GuideMap extends StatelessWidget {
               padding: const EdgeInsets.symmetric(vertical: 4),
               child: Row(
                 children: [
-                  CircleAvatar(radius: 11, backgroundColor: AppColors.textPrimary, child: Text('${i + 1}', style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700))),
+                  CircleAvatar(radius: 11, backgroundColor: AppColors.textPrimary, child: Text('${i + 1}', style: TextStyle(color: AppColors.onInk, fontSize: 11, fontWeight: FontWeight.w700))),
                   const SizedBox(width: 10),
                   Expanded(child: Text(stops[i].name, style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w500))),
                 ],

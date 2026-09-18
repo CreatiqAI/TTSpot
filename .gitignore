@@ -54,3 +54,7 @@ android/local.properties
 # Supabase CLI link state
 supabase/.temp/
 ios/Flutter/Secrets.xcconfig
+
+# Deep-research working files (reports are shared separately)
+research_notes/
+reports/

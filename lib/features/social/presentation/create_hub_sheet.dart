@@ -116,7 +116,7 @@ class _Big extends StatelessWidget {
                 const SizedBox(height: 14),
                 Text(title, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: fg)),
                 const SizedBox(height: 2),
-                Text(subtitle, style: TextStyle(fontSize: 12, color: dark ? Colors.white70 : AppColors.textSecondary)),
+                Text(subtitle, style: TextStyle(fontSize: 12, color: dark ? AppColors.onInk.withValues(alpha: 0.7) : AppColors.textSecondary)),
               ],
             ),
           ),

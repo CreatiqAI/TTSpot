@@ -10,6 +10,15 @@ class ReleaseNote {
 
 const kReleaseNotes = <ReleaseNote>[
   ReleaseNote(
+    version: '0.3.27',
+    date: '18 Sep 2026',
+    title: 'Dark mode fixes',
+    points: [
+      'Dark mode: the TT session card in Create, the current release card in About, selected product options, poll numbers and active chips in the post composer are all readable again.',
+      'The ring around your profile photo matches the page in dark mode instead of showing white.',
+    ],
+  ),
+  ReleaseNote(
     version: '0.3.26',
     date: '18 Sep 2026',
     title: 'Location check',

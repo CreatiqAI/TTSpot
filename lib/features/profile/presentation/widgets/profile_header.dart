@@ -78,7 +78,7 @@ class ProfileHeader extends StatelessWidget {
             decoration: BoxDecoration(shape: BoxShape.circle, color: live ? AppColors.brand : AppColors.border),
             child: Container(
               padding: const EdgeInsets.all(3),
-              decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.white),
+              decoration: BoxDecoration(shape: BoxShape.circle, color: AppColors.bg),
               child: UserAvatar(url: p.avatarUrl, name: name, size: 84),
             ),
           ),

@@ -326,7 +326,7 @@ class _OptionChip extends StatelessWidget {
         child: Container(
           padding: EdgeInsets.fromLTRB(option.photoUrl == null ? 12 : 4, 4, 12, 4),
           decoration: BoxDecoration(
-            color: selected ? AppColors.textPrimary : Colors.white,
+            color: selected ? AppColors.textPrimary : AppColors.surface,
             borderRadius: BorderRadius.circular(999),
             border: Border.all(color: selected ? AppColors.textPrimary : AppColors.border),
           ),
@@ -337,10 +337,10 @@ class _OptionChip extends StatelessWidget {
                 ClipOval(child: Image(image: imageFor(option.photoUrl!), width: 28, height: 28, fit: BoxFit.cover)),
                 const SizedBox(width: 8),
               ],
-              Text(option.label, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: selected ? Colors.white : AppColors.textPrimary)),
+              Text(option.label, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: selected ? AppColors.onInk : AppColors.textPrimary)),
               if (option.price != null) ...[
                 const SizedBox(width: 6),
-                Text(rm(option.price!), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: selected ? Colors.white70 : AppColors.textSecondary)),
+                Text(rm(option.price!), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: selected ? AppColors.onInk.withValues(alpha: 0.7) : AppColors.textSecondary)),
               ],
             ],
           ),

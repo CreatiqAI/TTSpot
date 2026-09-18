@@ -337,7 +337,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                 ListTile(
                   dense: true,
                   contentPadding: EdgeInsets.zero,
-                  leading: CircleAvatar(radius: 12, backgroundColor: AppColors.textPrimary, child: Text('${i + 1}', style: const TextStyle(color: Colors.white, fontSize: 12))),
+                  leading: CircleAvatar(radius: 12, backgroundColor: AppColors.textPrimary, child: Text('${i + 1}', style: TextStyle(color: AppColors.onInk, fontSize: 12))),
                   title: Text(_stops[i].name),
                   trailing: IconButton(icon: const Icon(AppIcons.x, size: 20), onPressed: () => setState(() => _stops.removeAt(i))),
                 ),
@@ -653,11 +653,11 @@ class _TagChip extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 16, color: active ? Colors.white : AppColors.textPrimary),
+            Icon(icon, size: 16, color: active ? AppColors.onInk : AppColors.textPrimary),
             const SizedBox(width: 6),
             ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 160),
-              child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: active ? Colors.white : AppColors.textPrimary)),
+              child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: active ? AppColors.onInk : AppColors.textPrimary)),
             ),
           ],
         ),

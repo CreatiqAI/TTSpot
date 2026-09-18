@@ -557,7 +557,7 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
               zoomControlsEnabled: false,
               compassEnabled: false,
               mapToolbarEnabled: false,
-              buildingsEnabled: false,
+              buildingsEnabled: true,
               padding: EdgeInsets.only(bottom: mapPadding),
             ),
 

@@ -12,12 +12,18 @@ class PlaceSuggestion {
 }
 
 class PlaceDetails {
-  const PlaceDetails({required this.placeId, required this.name, required this.address, required this.lat, required this.lng});
+  const PlaceDetails({required this.placeId, required this.name, required this.address, required this.lat, required this.lng, this.distanceM});
   final String placeId;
   final String name;
   final String address;
   final double lat;
   final double lng;
+  /// Metres from where the lookup was made (nearby results only).
+  final int? distanceM;
+
+  /// Close enough to say "I am at the place" rather than "near it".
+  static const atRadiusM = 80;
+  bool get isHere => distanceM != null && distanceM! <= atRadiusM;
 }
 
 class PlacesService {
@@ -45,7 +51,14 @@ class PlacesService {
     if (data == null || data['error'] != null) throw Exception(data?['error'] ?? 'Nearby failed');
     return (data['places'] as List)
         .where((p) => p['lat'] != null)
-        .map((p) => PlaceDetails(placeId: p['placeId'] as String? ?? '', name: p['name'] as String? ?? '', address: p['address'] as String? ?? '', lat: (p['lat'] as num).toDouble(), lng: (p['lng'] as num).toDouble()))
+        .map((p) => PlaceDetails(
+              placeId: p['placeId'] as String? ?? '',
+              name: p['name'] as String? ?? '',
+              address: p['address'] as String? ?? '',
+              lat: (p['lat'] as num).toDouble(),
+              lng: (p['lng'] as num).toDouble(),
+              distanceM: (p['distanceM'] as num?)?.toInt(),
+            ))
         .toList();
   }
 
@@ -80,7 +93,9 @@ final nearbyPlacesProvider = FutureProvider.family<List<PlaceDetails>, String>((
   return ref.read(placesServiceProvider).nearby(double.parse(parts[0]), double.parse(parts[1]));
 });
 
-String placeKey(double lat, double lng) => '${lat.toStringAsFixed(3)},${lng.toStringAsFixed(3)}';
+/// Cache key for nearby lookups: 4 decimals is about 10 m, so the lookup
+/// centre is never rounded off the building you are standing in.
+String placeKey(double lat, double lng) => '${lat.toStringAsFixed(4)},${lng.toStringAsFixed(4)}';
 
 /// "Jalan PJS 11/7, Bandar Sunway" from a full Google address.
 String shortAddress(String address) {

@@ -384,6 +384,13 @@ Migration `20260916000013_accounts_simplify.sql` (the 16 in the name is only the
 - Map: partner places render as `MapPinFactory.partner` (round logo, white ring, red tag; dot at far zoom is red); tap → partner page. Legend row "Partner shop". `places_with_counts` carries `vendor_id/vendor_logo/vendor_name` and `is_spot` is true for partner places. Place kinds now include the business types (`Place.kindLabel/kindArt`).
 - Entry points: Rewards shop voucher card (tap the partner name), event page "Hosted by", place page "Partner page" button, Partner account tab "My partner page".
 
+### Where you really are (2026-09-18, edge function `places` redeployed)
+
+- **Nearby lookup** (`places` edge function, action `nearby`) now runs two Places API (New) searches in parallel and merges them with a server-side distance: buildings of real types within 80 m (`HERE_TYPES`: condos, malls, offices, workshops, venues; listings and lodging ads are excluded on purpose) and TT venues within 300 m. Each result carries `distanceM`; `PlaceDetails.isHere` is ≤ 80 m. Deploy with `supabase functions deploy places --use-api`.
+- **TT now** prefills the venue only with an `isHere` place; otherwise the field stays empty and the "Also near you" chips show `name · distance`. "Use my location" pins "My spot" at the exact coordinates when nothing named is within 80 m.
+- **Map styles** (`assets/map_style_*.json`) show POI names (text only, muted) and `landscape.man_made` footprints; `buildingsEnabled: true`. `placeKey` rounds to 4 decimals (~10 m) so the cache never shifts the lookup centre off the building.
+- **GPS stream** uses `AppleSettings(bestForNavigation, automotiveNavigation, no auto-pause)` on iOS and `AndroidSettings(best, 2 s interval)` on Android.
+
 ### Map toolbar and live position (2026-09-18, no migration)
 
 - **Live position.** `core/location/live_position.dart`: `livePositionProvider` (Notifier) is the one GPS stream for the app: `LocationAccuracy.best`, 5 m distance filter, paused in the background, seeded from the cache only if under 2 minutes old, and a fix worse than 100 m never replaces a good one that is under 45 s old. `refresh()` = one fresh fix (the locate button). `userLocationProvider` now resolves from it first (so every distance re-sorts as you move) and only falls back to the old one-shot path when the stream isn't running; `LocationPublisher` (friends_providers) listens to the same stream instead of running its own, and skips uploads worse than 250 m.

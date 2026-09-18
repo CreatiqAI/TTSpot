@@ -10,6 +10,16 @@ class ReleaseNote {
 
 const kReleaseNotes = <ReleaseNote>[
   ReleaseNote(
+    version: '0.3.25',
+    date: '18 Sep 2026',
+    title: 'Where you really are',
+    points: [
+      'TT now only fills in a place when you are actually at it (within 80 m): your condo, a mall, a workshop. A restaurant down the road is offered as a chip with its distance, never assumed.',
+      'The map shows building names and footprints when you zoom in, so a pin lands on a building instead of blank ground.',
+      'GPS on iPhone runs in the driving profile with navigation-grade accuracy.',
+    ],
+  ),
+  ReleaseNote(
     version: '0.3.24',
     date: '18 Sep 2026',
     title: 'New map bar',

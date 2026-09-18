@@ -82,20 +82,21 @@ class _TtNowSheetState extends ConsumerState<_TtNowSheet> {
       if (lat == null || lng == null) throw const AppException('Turn on location first.');
       final list = await ref.read(placesServiceProvider).nearby(lat, lng);
       if (!mounted) return;
-      if (list.isEmpty) {
-        // nothing named here: pin the raw spot
+      final at = list.where((p) => p.isHere).firstOrNull;
+      if (at == null) {
+        // Nothing named within 80 m: pin the exact spot, and offer what's around as chips.
         setState(() {
-          _picked = PlaceDetails(placeId: '', name: 'My spot', address: '', lat: lat, lng: lng);
+          _picked = PlaceDetails(placeId: '', name: 'My spot', address: '', lat: lat, lng: lng, distanceM: 0);
           _venue.text = 'My spot';
           _changing = false;
-          _around = const [];
+          _around = list;
         });
         ref.read(ttPlaceProvider.notifier).set(_picked);
       } else {
         setState(() {
           _around = list;
-          _picked = list.first;
-          _venue.text = list.first.name;
+          _picked = at;
+          _venue.text = at.name;
           _changing = false;
         });
         ref.read(ttPlaceProvider.notifier).set(_picked);
@@ -206,10 +207,15 @@ class _TtNowSheetState extends ConsumerState<_TtNowSheet> {
       _venue.text = remembered.name;
       _around = nearby ?? const [];
       _prefilled = true;
-    } else if (!_prefilled && nearby != null && nearby.isNotEmpty) {
+    } else if (!_prefilled && nearby != null) {
+      // Only claim a place when it is right here (within 80 m). A restaurant
+      // 200 m down the road is offered as a chip, never assumed.
       _around = nearby;
-      _picked = nearby.first;
-      _venue.text = nearby.first.name;
+      final at = nearby.where((p) => p.isHere).firstOrNull;
+      if (at != null) {
+        _picked = at;
+        _venue.text = at.name;
+      }
       _prefilled = true;
     } else if (!_prefilled && my?.placeName != null && here == null) {
       _venue.text = my!.placeName!;
@@ -293,7 +299,7 @@ class _TtNowSheetState extends ConsumerState<_TtNowSheet> {
                 ],
               ),
             ],
-            if (_around.length > 1) ...[
+            if (_around.isNotEmpty) ...[
               const SizedBox(height: 10),
               Row(
                 children: [
@@ -317,7 +323,7 @@ class _TtNowSheetState extends ConsumerState<_TtNowSheet> {
                       Padding(
                         padding: const EdgeInsets.only(right: 6),
                         child: ChoiceChip(
-                          label: Text(p.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                          label: Text(p.distanceM == null ? p.name : '${p.name} · ${formatDistance(p.distanceM! / 1000)}', maxLines: 1, overflow: TextOverflow.ellipsis),
                           selected: _picked?.placeId == p.placeId,
                           showCheckmark: false,
                           visualDensity: VisualDensity.compact,

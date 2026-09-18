@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
@@ -61,11 +62,26 @@ class LivePositionNotifier extends Notifier<LivePosition?> with WidgetsBindingOb
     unawaited(refresh());
   }
 
+  /// Platform-tuned: iPhone in the driving profile with navigation-grade
+  /// accuracy and no automatic pausing; Android on a 2 s tick with GPS.
+  static LocationSettings get _settings => switch (defaultTargetPlatform) {
+        TargetPlatform.iOS => AppleSettings(
+            accuracy: LocationAccuracy.bestForNavigation,
+            activityType: ActivityType.automotiveNavigation,
+            distanceFilter: 5,
+            pauseLocationUpdatesAutomatically: false,
+          ),
+        TargetPlatform.android => AndroidSettings(
+            accuracy: LocationAccuracy.best,
+            distanceFilter: 5,
+            intervalDuration: const Duration(seconds: 2),
+          ),
+        _ => const LocationSettings(accuracy: LocationAccuracy.best, distanceFilter: 5),
+      };
+
   void _listen() {
     _sub?.cancel();
-    _sub = Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(accuracy: LocationAccuracy.best, distanceFilter: 5),
-    ).listen(_accept, onError: (_) {});
+    _sub = Geolocator.getPositionStream(locationSettings: _settings).listen(_accept, onError: (_) {});
   }
 
   /// Ask for one fresh fix now (the locate button). Returns the newest

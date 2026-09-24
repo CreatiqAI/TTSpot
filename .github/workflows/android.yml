@@ -59,11 +59,12 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         run: |
           printf '%s' "$KEYSTORE_B64" | base64 -d > android/app/upload-keystore.jks
-          printf 'storeFile=upload-keystore.jks
-storePassword=%s
-keyPassword=%s
-keyAlias=upload
-' "$KEYSTORE_PASSWORD" "$KEYSTORE_PASSWORD" > android/key.properties
+          {
+            echo 'storeFile=upload-keystore.jks'
+            echo "storePassword=$KEYSTORE_PASSWORD"
+            echo "keyPassword=$KEYSTORE_PASSWORD"
+            echo 'keyAlias=upload'
+          } > android/key.properties
 
       - name: Pub get
         run: flutter pub get

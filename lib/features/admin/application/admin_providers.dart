@@ -12,7 +12,7 @@ class AdminStats {
 }
 
 class AdminReport {
-  const AdminReport({required this.id, required this.reporterUsername, required this.targetType, required this.targetId, required this.reason, required this.createdAt, this.resolvedAt, this.targetLabel});
+  const AdminReport({required this.id, required this.reporterUsername, required this.targetType, required this.targetId, required this.reason, required this.createdAt, this.resolvedAt, this.targetLabel, this.ownerId, this.ownerUsername, this.ownerSuspended = false, this.parentId, this.note});
   final String id;
   final String reporterUsername;
   final String targetType;
@@ -21,6 +21,13 @@ class AdminReport {
   final DateTime createdAt;
   final DateTime? resolvedAt;
   final String? targetLabel;
+  /// Who posted the reported thing (the profile itself for profile reports).
+  final String? ownerId;
+  final String? ownerUsername;
+  final bool ownerSuspended;
+  /// Post of a post comment, meet of a meet comment, conversation of a message.
+  final String? parentId;
+  final String? note;
 }
 
 class AdminUser {
@@ -60,6 +67,11 @@ final adminReportsProvider = FutureProvider<List<AdminReport>>((ref) async {
       createdAt: DateTime.parse(m['created_at'] as String).toLocal(),
       resolvedAt: m['resolved_at'] == null ? null : DateTime.parse(m['resolved_at'] as String).toLocal(),
       targetLabel: m['target_label'] as String?,
+      ownerId: m['target_owner'] as String?,
+      ownerUsername: m['target_owner_username'] as String?,
+      ownerSuspended: m['target_owner_suspended'] as bool? ?? false,
+      parentId: m['target_parent'] as String?,
+      note: m['note'] as String?,
     );
   }).toList();
 });
@@ -133,6 +145,20 @@ class AdminActions {
     await _ref.read(supabaseProvider).rpc('admin_resolve_report', params: {'p_id': id, 'p_note': ?note});
     _ref.invalidate(adminReportsProvider);
     _ref.invalidate(adminStatsProvider);
+  }
+
+  /// Deletes the reported post / comment / message / moment / meet / club and
+  /// resolves every open report on it.
+  Future<void> removeReported(String reportId) async {
+    await _ref.read(supabaseProvider).rpc('admin_remove_reported', params: {'p_report': reportId});
+    _ref.invalidate(adminReportsProvider);
+    _ref.invalidate(adminStatsProvider);
+  }
+
+  /// Suspending also bans the login, so the member is signed out within the hour.
+  Future<void> setSuspended(String userId, {required bool suspended}) async {
+    await _ref.read(supabaseProvider).rpc('admin_set_suspended', params: {'p_user': userId, 'p_suspended': suspended});
+    _ref.invalidate(adminReportsProvider);
   }
 
   Future<void> setRole(String userId, {bool? admin, bool? clubOwner}) async {

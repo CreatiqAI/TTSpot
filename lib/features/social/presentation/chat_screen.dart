@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -29,6 +30,8 @@ import 'story_viewer_screen.dart';
 import '../domain/post.dart';
 import '../application/social_providers.dart';
 import '../domain/chat.dart';
+import '../../safety/data/safety_repository.dart';
+import '../../safety/presentation/report_sheet.dart';
 
 /// One conversation. Bubbles like Instagram DMs; meet chats show sender names.
 class ChatScreen extends ConsumerStatefulWidget {
@@ -205,9 +208,37 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
   }
 
+  /// Long-press on someone else's message: report it or block the sender.
+  Future<void> _messageMenu(Message m, String? username) async {
+    final name = username ?? 'user';
+    final action = await showModalBottomSheet<String>(
+      useRootNavigator: true, // above the shell tab bar
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(leading: const Icon(AppIcons.flag), title: const Text('Report message'), onTap: () => Navigator.pop(ctx, 'report')),
+            ListTile(leading: const Icon(AppIcons.prohibit, color: AppColors.danger), title: Text('Block @$name', style: TextStyle(color: AppColors.danger)), onTap: () => Navigator.pop(ctx, 'block')),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (!mounted) return;
+    switch (action) {
+      case 'report':
+        await showReportSheet(context, target: ReportTarget.message, targetId: m.id);
+      case 'block':
+        await confirmBlockUser(context, ref, userId: m.senderId, displayName: '@$name');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final me = ref.watch(currentUserIdProvider);
+    final blocked = ref.watch(blockedUserIdsProvider).value ?? const <String>{};
     final conv = ref.watch(conversationProvider(widget.conversationId)).value;
     final messages = ref.watch(messagesProvider(widget.conversationId));
     ref.listen(messagesProvider(widget.conversationId), (_, next) {
@@ -268,7 +299,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             child: messages.when(
               loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
               error: (e, _) => Center(child: Text(friendlyError(e))),
-              data: (list) {
+              data: (all) {
+                final list = all.where((m) => !blocked.contains(m.senderId)).toList();
                 if (list.isEmpty) {
                   final other = conv?.other;
                   final first = (other?.displayName ?? other?.username ?? '').split(' ').first;
@@ -321,14 +353,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     final sender = m.sender ?? membersById[m.senderId];
                     final host = m.senderId == hostId;
                     final showEntity = m.asName != null;
-                    return _Bubble(
-                      message: m,
-                      mine: mine,
-                      showName: (showName || showEntity) && !mine,
-                      senderName: showEntity ? m.asName : sender?.username,
-                      avatarUrl: showEntity ? m.asLogo : sender?.avatarUrl,
-                      showAvatar: !mine && ((conv?.isMeet ?? false) || showEntity),
-                      host: host && !showEntity,
+                    return GestureDetector(
+                      onLongPress: mine ? null : () => _messageMenu(m, sender?.username),
+                      child: _Bubble(
+                        message: m,
+                        mine: mine,
+                        showName: (showName || showEntity) && !mine,
+                        senderName: showEntity ? m.asName : sender?.username,
+                        avatarUrl: showEntity ? m.asLogo : sender?.avatarUrl,
+                        showAvatar: !mine && ((conv?.isMeet ?? false) || showEntity),
+                        host: host && !showEntity,
+                      ),
                     );
                   },
                 );
@@ -521,7 +556,7 @@ class _SharedPost extends ConsumerWidget {
             : Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (post.cover != null) AspectRatio(aspectRatio: 4 / 3, child: Image.network(post.cover!, fit: BoxFit.cover)),
+                  if (post.cover != null) AspectRatio(aspectRatio: 4 / 3, child: Image(image: CachedNetworkImageProvider(post.cover!), fit: BoxFit.cover)),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
                     child: Column(
@@ -564,7 +599,7 @@ class _SharedMoment extends ConsumerWidget {
             : Stack(
                 fit: StackFit.expand,
                 children: [
-                  Image.network(story.photoUrl, fit: BoxFit.cover),
+                  Image(image: CachedNetworkImageProvider(story.photoUrl), fit: BoxFit.cover),
                   Positioned(
                     left: 8,
                     bottom: 8,
@@ -588,14 +623,14 @@ class _Photo extends StatelessWidget {
         onTap: () => showDialog<void>(
           context: context,
           barrierColor: Colors.black,
-          builder: (ctx) => GestureDetector(onTap: () => Navigator.pop(ctx), child: InteractiveViewer(child: Center(child: Image.network(url)))),
+          builder: (ctx) => GestureDetector(onTap: () => Navigator.pop(ctx), child: InteractiveViewer(child: Center(child: Image(image: CachedNetworkImageProvider(url))))),
         ),
         child: Container(
           margin: const EdgeInsets.only(bottom: 4),
           constraints: const BoxConstraints(maxWidth: 240, maxHeight: 320),
           clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(color: AppColors.surfaceGray, borderRadius: BorderRadius.circular(14)),
-          child: Image.network(url, fit: BoxFit.cover),
+          child: Image(image: CachedNetworkImageProvider(url), fit: BoxFit.cover),
         ),
       );
 }
@@ -623,7 +658,7 @@ class _Card extends StatelessWidget {
               SizedBox(
                 width: 72,
                 height: 72,
-                child: image == null ? ColoredBox(color: AppColors.surfaceGray, child: Center(child: ArtIcon(fallback, size: 34))) : Image.network(image!, fit: BoxFit.cover),
+                child: image == null ? ColoredBox(color: AppColors.surfaceGray, child: Center(child: ArtIcon(fallback, size: 34))) : Image(image: CachedNetworkImageProvider(image!), fit: BoxFit.cover),
               ),
               Expanded(
                 child: Padding(

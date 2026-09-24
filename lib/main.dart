@@ -12,6 +12,8 @@ import 'core/router/app_router.dart';
 import 'core/supabase/supabase_client.dart';
 import 'core/theme/app_theme.dart';
 import 'features/settings/application/settings_providers.dart';
+import 'core/push/firebase_setup.dart';
+import 'core/push/push_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,6 +26,7 @@ Future<void> main() async {
     return;
   }
   await initSupabase();
+  await initFirebase();
   runApp(const ProviderScope(child: TtSpotApp()));
 }
 
@@ -124,6 +127,7 @@ class _TtSpotAppState extends ConsumerState<TtSpotApp> {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.current,
       routerConfig: router,
+      scaffoldMessengerKey: rootMessengerKey,
       // iPhone habit: tapping anywhere outside a text field closes the keyboard.
       builder: (context, child) => GestureDetector(
         behavior: HitTestBehavior.translucent,

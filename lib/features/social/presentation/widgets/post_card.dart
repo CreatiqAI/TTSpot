@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -16,6 +17,7 @@ import '../../application/social_providers.dart';
 import '../../domain/post.dart';
 import '../share_sheet.dart';
 import 'poll_widget.dart';
+import '../../../../core/utils/share_links.dart';
 
 /// Instagram feed card. [expanded] shows the full caption (post detail).
 class PostCard extends ConsumerStatefulWidget {
@@ -114,6 +116,7 @@ class _PostCardState extends ConsumerState<PostCard> {
               title: Text(f.savedByMe ? 'Unsave' : 'Save'),
               onTap: () => Navigator.pop(ctx, 'save'),
             ),
+            ListTile(leading: const Icon(AppIcons.shareFat), title: const Text('Share link'), onTap: () => Navigator.pop(ctx, 'share')),
             if (mine)
               ListTile(
                 leading: const Icon(AppIcons.trash, color: AppColors.danger),
@@ -140,6 +143,8 @@ class _PostCardState extends ConsumerState<PostCard> {
         await _guard(() => actions.claimSpotted(f));
       case 'save':
         await _guard(() => actions.toggleSave(f));
+      case 'share':
+        await shareThing(type: 'post', id: f.post.id, text: 'Post by @${f.post.author?.username ?? 'someone'} on TT Spot');
       case 'delete':
         final ok = await showDialog<bool>(
           context: context,
@@ -153,7 +158,7 @@ class _PostCardState extends ConsumerState<PostCard> {
         );
         if (ok == true) await _guard(() => actions.deletePost(f));
       case 'report':
-        await showReportSheet(context, target: ReportTarget.comment, targetId: f.post.id);
+        await showReportSheet(context, target: ReportTarget.post, targetId: f.post.id);
       case 'block':
         await confirmBlockUser(context, ref, userId: f.post.authorId, displayName: '@${f.post.author?.username ?? 'user'}');
     }
@@ -405,8 +410,7 @@ class _Media extends StatelessWidget {
             PageView.builder(
               itemCount: post.photoUrls.length,
               onPageChanged: onPage,
-              itemBuilder: (_, i) => Image.network(
-                post.photoUrls[i],
+              itemBuilder: (_, i) => Image(image: CachedNetworkImageProvider(post.photoUrls[i]),
                 fit: BoxFit.cover,
                 loadingBuilder: (_, child, prog) => prog == null ? child : ColoredBox(color: AppColors.surfaceGray),
                 errorBuilder: (_, _, _) => ColoredBox(color: AppColors.surfaceGray, child: Icon(AppIcons.imageBroken, color: AppColors.textMuted)),

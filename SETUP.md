@@ -431,7 +431,7 @@ Migration `20260916000013_accounts_simplify.sql` (the 16 in the name is only the
 - **Map.** Tapping a pin below zoom 14.5 first animates to zoom 16 on it, then opens (`_openAt`). I am always drawn; others only from zoom 11.
 - **Feed.** Car of the week card removed (`weekLeaderProvider` still exists for the badge/notification). Moments are `_MomentCard`s in `stories_row.dart`: 98×140 photo cards, avatar top-left, time / count chip, red border when unseen, "Add a moment" card first.
 - **Clubs.** `club_join_requests (club_id, user_id, message ≤200, status pending|approved|declined|cancelled, decided_at, decided_by)`; RPCs `request_club_join(club, message)` (notifies owner + admins, type `club_request`, body `new:<message>`), `cancel_club_request`, `my_club_request` ('pending' | 'declined' for 7 days | null), `club_join_requests_for(club)` (managers only), `review_club_request(id, approve)` (`is_club_admin`; approve inserts the member; applicant notified with body `approved` / `declined`). Dart: `ClubJoinRequest`, `myClubRequestProvider`, `clubJoinRequestsProvider`, `JoinRequestButton` + `ClubRequestsSection` in `widgets/club_requests.dart`; club page shows Request to join for outsiders (Message club drops to its own row) and a WANT TO JOIN queue for owner/admins. Activity renders `clubRequest`.
-- **Links.** Router redirect maps `ttspot://<segment>/<rest>` to `/<segment>/<rest>`, so `ttspot://club/<id>` opens the club (Android emulator: `adb shell am start -a android.intent.action.VIEW -d "ttspot://club/<id>" my.carmeet.car_meet`).
+- **Links.** Router redirect maps `ttspot://<segment>/<rest>` to `/<segment>/<rest>`, so `ttspot://club/<id>` opens the club (Android emulator: `adb shell am start -a android.intent.action.VIEW -d "ttspot://club/<id>" my.ttspot.app`).
 
 ### Map pins scale with zoom (2026-09-17, no migration)
 
@@ -482,7 +482,7 @@ needs two OAuth clients in Google Cloud and the provider enabled in Supabase.
    | Type | Fields | Result |
    |---|---|---|
    | **Web application** | Name: `Supabase`. Authorised redirect URI: `https://gsoaoabefjavdaiqhahu.supabase.co/auth/v1/callback` | Copy **Client ID** *and* **Client secret** |
-   | **Android** | Package name: `my.carmeet.car_meet`. SHA-1: `E7:9F:7B:7A:A4:6B:05:63:B3:CB:65:9F:62:B4:03:F8:C2:79:DA:7C` | Nothing to copy |
+   | **Android** | Package name: `my.ttspot.app`. SHA-1: `E7:9F:7B:7A:A4:6B:05:63:B3:CB:65:9F:62:B4:03:F8:C2:79:DA:7C` | Nothing to copy |
 
    That SHA-1 is this PC's debug signing key (`%USERPROFILE%\.android\debug.keystore`). A release
    build or another PC needs its own Android client with its own SHA-1.
@@ -546,7 +546,7 @@ VS Code: add to `.vscode/launch.json` so F5 works:
 to a rolling GitHub Release. Share this one link with testers:
 **https://github.com/CreatiqAI/TTSpot/releases/download/latest/TTSpot.apk** — open it on the phone, tap the file,
 allow "install from this source". Locally: `flutter build apk --release --dart-define-from-file=env.json` →
-`build/app/outputs/flutter-apk/app-release.apk`. Release builds are signed with the debug key, which is fine for sideloading. With USB debugging on:
+`build/app/outputs/flutter-apk/app-release.apk`. Release builds are signed with the upload key when `android/key.properties` exists (see TestFlight section below), otherwise the debug key. With USB debugging on:
 `flutter install` or `adb install -r <apk>`. Release builds need the **full email** to log in (`testing@ttspot.my`);
 only debug builds expand a bare username.
 
@@ -570,6 +570,37 @@ Build-time config comes from repo secrets `ENV_JSON` (= env.json), `MAPS_API_KEY
    (USD 99/yr) gives 1-year sideloads and, better, **TestFlight**: add signing certs to the workflow and upload with
    `xcrun altool`; testers then install from the TestFlight app with no cable. Sideloadly is per-phone (PC + cable +
    the tester's own Apple ID), so for iPhone friends TestFlight is the only practical route.
+
+**Launch steps that need the owner's accounts are in `LAUNCH_CHECKLIST.md`.**
+
+**Push**: `push_tokens` + `push_hook` trigger (migration 0045) → Edge Function `push` (deployed `--no-verify-jwt`, guarded by the `PUSH_HOOK_SECRET` secret = Vault `push_hook_secret`; Vault `push_hook_url` points at the function). Sends via FCM v1 once the `FCM_SERVICE_ACCOUNT` secret is set; the app starts Firebase only when the `FIREBASE_*` keys are in env.json.
+
+**TestFlight** (paid Apple Developer account, individual, enrolled 2026-09-23). Bundle ID `my.ttspot.app`, iPhone only.
+`.github/workflows/testflight.yml` (manual: Actions → "iOS → TestFlight" → Run workflow) signs through the App Store
+Connect API with Codemagic CLI tools and uploads to TestFlight; build number = the workflow run number. One-time setup:
+
+1. developer.apple.com → Certificates, Identifiers & Profiles → Identifiers → + → App IDs → App →
+   Explicit bundle ID `my.ttspot.app`, description "TT Spot", and tick **Sign In with Apple** under Capabilities
+   (the app ships the entitlement in `ios/Runner/Runner.entitlements`; without the tick signing fails).
+2. appstoreconnect.apple.com → My Apps → + → New App: iOS, name "TT Spot", bundle ID `my.ttspot.app`, SKU `ttspot001`.
+3. App Store Connect → Users and Access → Integrations → App Store Connect API → Team Keys → + with role **Admin**
+   (needed to create certificates/profiles). Download the `.p8` (only once), then
+   `gh secret set ASC_KEY_ID`, `gh secret set ASC_ISSUER_ID`, `gh secret set ASC_KEY_P8 < AuthKey_XXXX.p8`.
+4. `IOS_CERT_PRIVATE_KEY` is already set; the backup is `%USERPROFILE%\.ttspot\ios_distribution_private_key`.
+   The distribution certificate the first run creates is tied to it, so if it is lost, revoke that certificate and set a new key.
+
+**Sign in with Apple** (iPhone only; App Store guideline 4.8 requires it because Google sign-in exists). Done via the Management API on 2026-09-24: Supabase
+dashboard → Authentication → Providers → Apple → Enable, **Client IDs** = `my.ttspot.app`, leave the secret empty
+(native sign-in only sends an ID token). The app stores the name Apple shares on first sign-in so onboarding never
+asks for it again.
+
+**Android release signing**: upload keystore `%USERPROFILE%\.ttspot\upload-keystore.jks` (alias `upload`, password in
+`%USERPROFILE%\.ttspot\key.properties`, also copied to `android/key.properties`, gitignored). **Back up that folder**
+(password manager or USB stick): losing the upload key means asking Google to reset it. CI gets it from secrets
+`ANDROID_KEYSTORE_B64` + `ANDROID_KEYSTORE_PASSWORD`; `android.yml` builds the signed APK and the `.aab` for Play
+(artifact `TTSpot-android-aab`), versionCode = 1000 + run number. Upload-key SHA-1 for Google sign-in (Google Cloud →
+Credentials → Android OAuth client, package `my.ttspot.app`): `97:BA:42:10:58:0E:8D:26:BC:F2:99:15:E3:79:83:5A:CC:8D:AC:98`.
+After the first Play upload, also add the **app signing key** SHA-1 from Play Console → Test and release → App integrity.
 
 iOS reads the Maps key and Google client id from `ios/Flutter/Secrets.xcconfig` (gitignored; generated locally from
 env.json + local.properties, written by CI from the secrets). Google sign-in on iPhone needs an iOS client id in

@@ -25,6 +25,9 @@ import 'create_hub_sheet.dart';
 import 'widgets/club_requests.dart';
 import 'widgets/club_tier_widgets.dart';
 import 'widgets/masonry_grid.dart';
+import '../../safety/data/safety_repository.dart';
+import '../../safety/presentation/report_sheet.dart';
+import '../../../core/utils/share_links.dart';
 
 /// A car club's page. Owners invite members and admins; members see each
 /// other on the map and can switch that off per club. `embedded` = shown as
@@ -63,6 +66,10 @@ class ClubScreen extends ConsumerWidget {
             IconButton(tooltip: 'Create', icon: const Icon(AppIcons.plusCircle), onPressed: () => showCreateHub(context, ref)),
             IconButton(tooltip: 'Menu', icon: const Icon(AppIcons.list), onPressed: () => showProfileMenu(context, ref)),
           ],
+          if (club.value != null)
+            IconButton(tooltip: 'Share club', icon: const Icon(AppIcons.shareFat), onPressed: () => shareThing(type: 'club', id: clubId, text: '${club.value!.name} on TT Spot')),
+          if (!embedded && club.value != null && !isOwner)
+            IconButton(tooltip: 'Report club', icon: const Icon(AppIcons.flag), onPressed: () => showReportSheet(context, target: ReportTarget.club, targetId: clubId)),
         ],
       ),
       body: club.when(

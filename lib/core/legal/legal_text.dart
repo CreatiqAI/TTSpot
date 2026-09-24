@@ -79,6 +79,7 @@ By using TT Spot you agree to these terms. If you do not agree, do not use the a
 # Content
 - Post only what you have the right to post. Do not post other people's number plates, faces or private information without their consent.
 - No harassment, hate, scams, spam or adult content.
+- TT Spot has zero tolerance for objectionable content and abusive members. You can report any post, comment, moment, message, meet, club or profile and block any member. We review reports within 24 hours, remove content that breaks these rules, and suspend the accounts that posted it.
 - You keep ownership of your content. You give TT Spot a licence to show it inside the app and in TT Spot's own promotion, which ends when you delete it.
 
 # Points, rewards and vouchers

@@ -19,5 +19,14 @@ abstract final class Env {
   /// Ignored in release builds. Leave empty if you don't need it.
   static const devExtraCaPemB64 = String.fromEnvironment('DEV_EXTRA_CA_PEM_B64');
 
+  /// Firebase (push + crash reports). Project settings → General → Your apps.
+  /// All empty = Firebase stays off and the app runs without push.
+  static const firebaseApiKey = String.fromEnvironment('FIREBASE_API_KEY');
+  static const firebaseProjectId = String.fromEnvironment('FIREBASE_PROJECT_ID');
+  static const firebaseSenderId = String.fromEnvironment('FIREBASE_SENDER_ID');
+  static const firebaseAndroidAppId = String.fromEnvironment('FIREBASE_ANDROID_APP_ID');
+  static const firebaseIosAppId = String.fromEnvironment('FIREBASE_IOS_APP_ID');
+  static const firebaseIosApiKey = String.fromEnvironment('FIREBASE_IOS_API_KEY');
+
   static bool get isConfigured => supabaseUrl.isNotEmpty && supabasePublishableKey.isNotEmpty;
 }

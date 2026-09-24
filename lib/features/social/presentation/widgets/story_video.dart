@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
@@ -78,7 +79,7 @@ class _StoryVideoState extends State<StoryVideo> {
       return Stack(
         fit: StackFit.expand,
         children: [
-          if (widget.posterUrl != null) Image.network(widget.posterUrl!, fit: BoxFit.contain),
+          if (widget.posterUrl != null) Image(image: CachedNetworkImageProvider(widget.posterUrl!), fit: BoxFit.contain),
           const Center(child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
         ],
       );

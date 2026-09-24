@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -89,7 +90,7 @@ class _CarDetailScreenState extends ConsumerState<CarDetailScreen> {
                           PageView.builder(
                             itemCount: c.photoUrls.length,
                             onPageChanged: (i) => setState(() => _page = i),
-                            itemBuilder: (_, i) => Image.network(c.photoUrls[i], fit: BoxFit.cover, errorBuilder: (_, _, _) => ColoredBox(color: AppColors.surfaceGray)),
+                            itemBuilder: (_, i) => Image(image: CachedNetworkImageProvider(c.photoUrls[i]), fit: BoxFit.cover, errorBuilder: (_, _, _) => ColoredBox(color: AppColors.surfaceGray)),
                           ),
                           if (c.photoUrls.length > 1)
                             Positioned(
@@ -278,7 +279,7 @@ class _ModRow extends ConsumerWidget {
                             for (final u in mod.photoUrls)
                               Padding(
                                 padding: const EdgeInsets.only(right: 6),
-                                child: ClipRRect(borderRadius: BorderRadius.circular(8), child: Image.network(u, width: 72, height: 72, fit: BoxFit.cover, errorBuilder: (_, _, _) => const SizedBox(width: 72))),
+                                child: ClipRRect(borderRadius: BorderRadius.circular(8), child: Image(image: CachedNetworkImageProvider(u), width: 72, height: 72, fit: BoxFit.cover, errorBuilder: (_, _, _) => const SizedBox(width: 72))),
                               ),
                           ],
                         ),

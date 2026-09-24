@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -313,7 +314,7 @@ class _SuggestionTile extends ConsumerWidget {
               child: SizedBox(
                 width: 64,
                 height: 64,
-                child: g.photoUrl == null ? ColoredBox(color: Color(0xFFE6E6E6), child: Icon(AppIcons.mapPin, color: AppColors.textSecondary)) : Image.network(g.photoUrl!, fit: BoxFit.cover),
+                child: g.photoUrl == null ? ColoredBox(color: Color(0xFFE6E6E6), child: Icon(AppIcons.mapPin, color: AppColors.textSecondary)) : Image(image: CachedNetworkImageProvider(g.photoUrl!), fit: BoxFit.cover),
               ),
             ),
             const SizedBox(width: 12),

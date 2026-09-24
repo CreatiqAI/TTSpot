@@ -1,0 +1,100 @@
+name: iOS → TestFlight
+
+# Builds a signed App Store build on GitHub's macOS runners and uploads it to
+# TestFlight. The distribution certificate and provisioning profile are created
+# (first run) or fetched (later runs) through the App Store Connect API with
+# Codemagic's CLI tools, so no Mac is needed. Run it from Actions → "iOS →
+# TestFlight" → Run workflow; the build shows up in App Store Connect →
+# TestFlight ~15-30 min after the upload finishes.
+#
+# Needs the bundle ID `my.ttspot.app` registered and an app record for it in
+# App Store Connect. Secrets:
+#   ENV_JSON, MAPS_API_KEY, GOOGLE_IOS_CLIENT_ID  same as ios.yml
+#   ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8         App Store Connect API key (Admin role)
+#   IOS_CERT_PRIVATE_KEY                          RSA key the distribution certificate is tied to
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: testflight
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 60
+    env:
+      BUNDLE_ID: my.ttspot.app
+      APP_STORE_CONNECT_KEY_IDENTIFIER: ${{ secrets.ASC_KEY_ID }}
+      APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.ASC_KEY_P8 }}
+      CERTIFICATE_PRIVATE_KEY: ${{ secrets.IOS_CERT_PRIVATE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.2
+          cache: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Codemagic CLI tools
+        run: pip install codemagic-cli-tools
+
+      - name: Write build-time config (never committed)
+        env:
+          ENV_JSON: ${{ secrets.ENV_JSON }}
+          MAPS_API_KEY: ${{ secrets.MAPS_API_KEY }}
+          GOOGLE_IOS_CLIENT_ID: ${{ secrets.GOOGLE_IOS_CLIENT_ID }}
+        run: |
+          printf '%s' "$ENV_JSON" > env.json
+          REV=$(echo "${GOOGLE_IOS_CLIENT_ID:-ttspot}" | awk -F. '{ for (i=NF; i>0; i--) printf "%s%s", $i, (i>1 ? "." : "") }')
+          {
+            echo "MAPS_API_KEY=${MAPS_API_KEY}"
+            echo "GOOGLE_IOS_CLIENT_ID=${GOOGLE_IOS_CLIENT_ID}"
+            echo "GOOGLE_IOS_REVERSED_CLIENT_ID=${REV}"
+          } > ios/Flutter/Secrets.xcconfig
+          python3 -c "import json; json.load(open('env.json')); print('env.json ok')"
+
+      - name: Pub get
+        run: flutter pub get
+
+      - name: Signing (certificate + App Store profile via the API)
+        run: |
+          set -e
+          keychain initialize
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --certificate-key=@env:CERTIFICATE_PRIVATE_KEY \
+            --create
+          keychain add-certificates
+          xcode-project use-profiles   # writes ~/export_options.plist
+
+      - name: Build signed .ipa
+        # Build number = workflow run number, so every upload is higher than the
+        # last (App Store Connect rejects repeats). Version name stays pubspec's.
+        run: |
+          set -o pipefail
+          if ! flutter build ipa --release \
+                --dart-define-from-file=env.json \
+                --build-number=${{ github.run_number }} \
+                --export-options-plist="$HOME/export_options.plist" -v > build.log 2>&1; then
+            echo "::group::errors"; grep -n -iE "error:|Error \(Xcode\)|failed|fatal" build.log | grep -v "available)" | head -120; echo "::endgroup::"
+            echo "::group::tail"; tail -150 build.log; echo "::endgroup::"
+            exit 1
+          fi
+          ls -la build/ios/ipa
+
+      - name: Upload to TestFlight
+        run: app-store-connect publish --path "$(find build/ios/ipa -name '*.ipa' | head -1)"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TTSpot-ios-appstore
+          path: build/ios/ipa/*.ipa
+          retention-days: 14

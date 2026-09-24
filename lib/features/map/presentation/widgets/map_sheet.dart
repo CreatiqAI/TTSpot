@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -255,7 +256,7 @@ class _MomentsStrip extends StatelessWidget {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    Image.network(m.photoUrl, fit: BoxFit.cover, errorBuilder: (_, _, _) => Container(color: Colors.white10)),
+                    Image(image: CachedNetworkImageProvider(m.photoUrl), fit: BoxFit.cover, errorBuilder: (_, _, _) => Container(color: Colors.white10)),
                     Positioned(
                       left: 6,
                       right: 6,
@@ -487,8 +488,7 @@ class SpotRow extends StatelessWidget {
                   fit: StackFit.expand,
                   children: [
                     if (p.coverUrl != null)
-                      Image.network(
-                        p.coverUrl!,
+                      Image(image: CachedNetworkImageProvider(p.coverUrl!),
                         fit: BoxFit.cover,
                         frameBuilder: (_, child, frame, sync) => frame == null && !sync ? ColoredBox(color: tile, child: Center(child: ArtIcon(p.kindArt, size: 30))) : child,
                         errorBuilder: (_, _, _) => ColoredBox(color: tile, child: Center(child: ArtIcon(p.kindArt, size: 30))),

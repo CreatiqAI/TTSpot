@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -184,7 +185,7 @@ class _MeetInfo extends ConsumerWidget {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  if (conv.eventCover != null) Image.network(conv.eventCover!, fit: BoxFit.cover),
+                  if (conv.eventCover != null) Image(image: CachedNetworkImageProvider(conv.eventCover!), fit: BoxFit.cover),
                   const DecoratedBox(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.transparent, Color(0xCC000000)]))),
                   Positioned(
                     left: 16,
@@ -304,7 +305,7 @@ class _SharedThumb extends ConsumerWidget {
       open = () => showDialog<void>(
             context: context,
             barrierColor: Colors.black,
-            builder: (ctx) => GestureDetector(onTap: () => Navigator.pop(ctx), child: InteractiveViewer(child: Center(child: Image.network(message.imageUrl!)))),
+            builder: (ctx) => GestureDetector(onTap: () => Navigator.pop(ctx), child: InteractiveViewer(child: Center(child: Image(image: CachedNetworkImageProvider(message.imageUrl!))))),
           );
     } else if (message.postId != null) {
       final post = ref.watch(postProvider(message.postId!)).value?.post;
@@ -329,7 +330,7 @@ class _SharedThumb extends ConsumerWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            if (url != null) Image.network(url, fit: BoxFit.cover) else Center(child: Icon(AppIcons.image, color: AppColors.textMuted)),
+            if (url != null) Image(image: CachedNetworkImageProvider(url), fit: BoxFit.cover) else Center(child: Icon(AppIcons.image, color: AppColors.textMuted)),
             Positioned(left: 6, bottom: 6, child: Text(tag, style: const TextStyle(color: Colors.white, fontSize: 10.5, fontWeight: FontWeight.w800, shadows: [Shadow(blurRadius: 6, color: Colors.black)]))),
           ],
         ),

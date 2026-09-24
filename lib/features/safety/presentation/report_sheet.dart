@@ -78,8 +78,12 @@ class _ReportSheetState extends ConsumerState<_ReportSheet> {
   Widget build(BuildContext context) {
     final what = switch (widget.target) {
       ReportTarget.event => 'meet',
-      ReportTarget.comment => 'comment',
+      ReportTarget.comment || ReportTarget.postComment => 'comment',
       ReportTarget.profile => 'profile',
+      ReportTarget.post => 'post',
+      ReportTarget.message => 'message',
+      ReportTarget.story => 'moment',
+      ReportTarget.club => 'club',
     };
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),

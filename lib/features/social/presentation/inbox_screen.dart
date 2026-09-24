@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -322,7 +323,7 @@ class _ChatTile extends StatelessWidget {
                 height: 48,
                 child: c.eventCover == null
                     ? ColoredBox(color: AppColors.surfaceGray, child: Icon(AppIcons.usersThree, color: AppColors.textSecondary))
-                    : Image.network(c.eventCover!, fit: BoxFit.cover, errorBuilder: (_, _, _) => ColoredBox(color: AppColors.surfaceGray)),
+                    : Image(image: CachedNetworkImageProvider(c.eventCover!), fit: BoxFit.cover, errorBuilder: (_, _, _) => ColoredBox(color: AppColors.surfaceGray)),
               ),
             )
           : UserAvatar(url: c.avatarUrl, name: c.title, size: 48),

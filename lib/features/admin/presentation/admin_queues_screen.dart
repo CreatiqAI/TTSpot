@@ -7,6 +7,7 @@ import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/dates.dart';
 import '../../../core/utils/friendly_error.dart';
+import '../../../core/utils/open_external.dart' show confirmSheet;
 import '../application/admin_providers.dart';
 import 'admin_dashboard_screen.dart' show showSuggestionsSheet;
 
@@ -112,15 +113,57 @@ class _ReportCard extends ConsumerWidget {
     }
   }
 
+  Future<void> _run(BuildContext context, Future<void> Function() action, String done) async {
+    try {
+      await action();
+      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(done)));
+    } catch (e) {
+      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
+    }
+  }
+
+  Future<void> _remove(BuildContext context, WidgetRef ref) async {
+    final ok = await confirmSheet(context, title: 'Remove this ${_what(r.targetType)}?', body: 'It is deleted for everyone and the report is resolved.', confirm: 'Remove', icon: AppIcons.trash);
+    if (!ok || !context.mounted) return;
+    await _run(context, () => ref.read(adminActionsProvider).removeReported(r.id), 'Removed.');
+  }
+
+  Future<void> _suspend(BuildContext context, WidgetRef ref) async {
+    final suspend = !r.ownerSuspended;
+    final ok = await confirmSheet(
+      context,
+      title: suspend ? 'Suspend @${r.ownerUsername}?' : 'Restore @${r.ownerUsername}?',
+      body: suspend ? "They are signed out and can't log in again until you restore them." : 'They can log in again.',
+      confirm: suspend ? 'Suspend' : 'Restore',
+      icon: AppIcons.prohibit,
+    );
+    if (!ok || !context.mounted) return;
+    await _run(context, () => ref.read(adminActionsProvider).setSuspended(r.ownerId!, suspended: suspend), suspend ? 'Suspended.' : 'Restored.');
+  }
+
+  static String _what(String type) => switch (type) {
+        'event' => 'meet',
+        'comment' || 'post_comment' => 'comment',
+        'story' => 'moment',
+        _ => type,
+      };
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final done = r.resolvedAt != null;
-    final open = switch (r.targetType) {
-      'profile' => () => context.push(Routes.profile(r.targetId)),
-      'event' => () => context.push(Routes.event(r.targetId)),
-      'post' => () => context.push(Routes.post(r.targetId)),
-      _ => null,
-    };
+    final removed = r.targetLabel == '(removed)';
+    final parent = r.parentId;
+    final open = removed
+        ? null
+        : switch (r.targetType) {
+            'profile' => () => context.push(Routes.profile(r.targetId)),
+            'event' => () => context.push(Routes.event(r.targetId)),
+            'post' => () => context.push(Routes.post(r.targetId)),
+            'post_comment' when parent != null => () => context.push(Routes.post(parent)),
+            'comment' when parent != null => () => context.push(Routes.event(parent)),
+            'club' => () => context.push(Routes.club(r.targetId)),
+            _ => null,
+          };
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
       child: Container(
@@ -133,18 +176,33 @@ class _ReportCard extends ConsumerWidget {
               children: [
                 Icon(done ? AppIcons.checkCircle : AppIcons.flag, size: 18, color: done ? AppColors.success : AppColors.brand),
                 const SizedBox(width: 8),
-                Expanded(child: Text('${r.targetType}: ${r.targetLabel ?? r.targetId.substring(0, 8)}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700))),
+                Expanded(child: Text('${_what(r.targetType)}: ${r.targetLabel ?? r.targetId.substring(0, 8)}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700))),
                 Text(timeAgo(r.createdAt), style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
               ],
             ),
             const SizedBox(height: 6),
             Text(r.reason, style: const TextStyle(fontSize: 13.5, height: 1.35)),
             const SizedBox(height: 4),
-            Text('Reported by @${r.reporterUsername}', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+            Text(
+              [
+                if (r.ownerUsername != null) 'Posted by @${r.ownerUsername}${r.ownerSuspended ? ' (suspended)' : ''}',
+                'Reported by @${r.reporterUsername}',
+                if (r.note != null) 'Note: ${r.note}',
+              ].join(' · '),
+              style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+            ),
             const SizedBox(height: 8),
             Row(
               children: [
                 if (open != null) TextButton(style: TextButton.styleFrom(visualDensity: VisualDensity.compact), onPressed: open, child: const Text('Open')),
+                if (!removed && r.targetType != 'profile')
+                  TextButton(style: TextButton.styleFrom(visualDensity: VisualDensity.compact, foregroundColor: AppColors.danger), onPressed: () => _remove(context, ref), child: const Text('Remove')),
+                if (r.ownerId != null)
+                  TextButton(
+                    style: TextButton.styleFrom(visualDensity: VisualDensity.compact, foregroundColor: r.ownerSuspended ? null : AppColors.danger),
+                    onPressed: () => _suspend(context, ref),
+                    child: Text(r.ownerSuspended ? 'Restore' : 'Suspend'),
+                  ),
                 const Spacer(),
                 if (!done) FilledButton(style: FilledButton.styleFrom(visualDensity: VisualDensity.compact), onPressed: () => _resolve(context, ref), child: const Text('Resolve')),
                 if (done) Text('Resolved ${timeAgo(r.resolvedAt!)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.success)),

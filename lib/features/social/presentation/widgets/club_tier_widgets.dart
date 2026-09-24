@@ -14,6 +14,7 @@ import '../../../../core/widgets/user_avatar.dart';
 import '../../../map/application/map_providers.dart';
 import '../../application/community_providers.dart';
 import '../../domain/club.dart';
+import '../../../../core/config/store_rules.dart';
 
 /// Human labels for club roles.
 String clubRoleLabel(String role) => switch (role) {
@@ -137,7 +138,7 @@ class _ClubTierCardState extends ConsumerState<ClubTierCard> {
         ),
       );
     }
-    if (!widget.isOwner) return const SizedBox.shrink();
+    if (!widget.isOwner || !kShowPlanPricing) return const SizedBox.shrink();
     final pending = c.officialRequestedAt != null;
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),

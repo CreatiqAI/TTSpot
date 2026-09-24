@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
@@ -21,6 +22,7 @@ import '../application/vendors_providers.dart';
 import '../domain/vendor.dart';
 import 'widgets/hours_editor.dart';
 import 'widgets/product_sheet.dart';
+import '../../../core/utils/share_links.dart';
 
 /// A partner's page for members. Cover + logo on top, then sections you can
 /// jump to from the sticky chip bar: Info · Products · Vouchers · Posts ·
@@ -139,6 +141,12 @@ class _BodyState extends ConsumerState<_Body> {
             padding: const EdgeInsets.only(left: 8),
             child: _RoundButton(icon: AppIcons.arrowLeft, onTap: () => context.pop()),
           ),
+          actions: [
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: _RoundButton(icon: AppIcons.shareFat, onTap: () => shareThing(type: 'partner', id: v.id, text: '${v.name} on TT Spot')),
+            ),
+          ],
           flexibleSpace: FlexibleSpaceBar(
             collapseMode: CollapseMode.parallax,
             background: _Cover(v: v),
@@ -164,7 +172,7 @@ class _BodyState extends ConsumerState<_Body> {
                         borderRadius: BorderRadius.circular(17),
                         child: v.logoUrl == null
                             ? ColoredBox(color: AppColors.surfaceGray, child: Icon(AppIcons.storefront, size: 30, color: AppColors.textSecondary))
-                            : Image.network(v.logoUrl!, fit: BoxFit.cover),
+                            : Image(image: CachedNetworkImageProvider(v.logoUrl!), fit: BoxFit.cover),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -342,7 +350,7 @@ class _BodyState extends ConsumerState<_Body> {
                                             alignment: Alignment.bottomLeft,
                                             child: Text(f.post.title ?? f.post.caption ?? 'Post', maxLines: 3, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
                                           )
-                                        : Image.network(f.post.photoUrls.first, fit: BoxFit.cover),
+                                        : Image(image: CachedNetworkImageProvider(f.post.photoUrls.first), fit: BoxFit.cover),
                                   ),
                                 ),
                               );
@@ -364,7 +372,7 @@ class _BodyState extends ConsumerState<_Body> {
                               _Tile(
                                 leading: ClipRRect(
                                   borderRadius: BorderRadius.circular(12),
-                                  child: SizedBox(width: 44, height: 44, child: e.coverUrl == null ? ColoredBox(color: AppColors.surfaceGray, child: Center(child: ArtIcon(e.type.art, size: 24))) : Image.network(e.coverUrl!, fit: BoxFit.cover)),
+                                  child: SizedBox(width: 44, height: 44, child: e.coverUrl == null ? ColoredBox(color: AppColors.surfaceGray, child: Center(child: ArtIcon(e.type.art, size: 24))) : Image(image: CachedNetworkImageProvider(e.coverUrl!), fit: BoxFit.cover)),
                                 ),
                                 title: e.title,
                                 subtitle: '${formatEventDateFriendly(e.startsAt)} · ${e.venueName}',
@@ -395,7 +403,7 @@ class _Cover extends StatelessWidget {
       return Stack(
         fit: StackFit.expand,
         children: [
-          PageView(children: [for (final u in v.photoUrls) Image.network(u, fit: BoxFit.cover)]),
+          PageView(children: [for (final u in v.photoUrls) Image(image: CachedNetworkImageProvider(u), fit: BoxFit.cover)]),
           const IgnorePointer(
             child: DecoratedBox(
               decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0x55000000), Color(0x00000000), Color(0x22000000)])),
@@ -407,7 +415,7 @@ class _Cover extends StatelessWidget {
     return Stack(
       fit: StackFit.expand,
       children: [
-        if (v.logoUrl != null) ImageFiltered(imageFilter: ImageFilter.blur(sigmaX: 22, sigmaY: 22), child: Image.network(v.logoUrl!, fit: BoxFit.cover))
+        if (v.logoUrl != null) ImageFiltered(imageFilter: ImageFilter.blur(sigmaX: 22, sigmaY: 22), child: Image(image: CachedNetworkImageProvider(v.logoUrl!), fit: BoxFit.cover))
         else const ColoredBox(color: AppColors.ink),
         const DecoratedBox(decoration: BoxDecoration(color: Color(0x66000000))),
         Center(child: Icon(AppIcons.storefront, size: 44, color: Colors.white.withValues(alpha: 0.35))),

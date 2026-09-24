@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -22,6 +23,7 @@ import '../domain/club.dart';
 import '../domain/post.dart';
 import 'story_viewer_screen.dart';
 import 'widgets/masonry_grid.dart';
+import '../../../core/utils/share_links.dart';
 
 /// A spot: cover, what it is, check in (打卡), who has been, the album, meets
 /// held here and posts about it.
@@ -102,6 +104,16 @@ class _PlaceScreenState extends ConsumerState<PlaceScreen> {
                       padding: const EdgeInsets.all(6),
                       child: _Circle(
                         child: IconButton(
+                          tooltip: 'Share spot',
+                          icon: const Icon(AppIcons.shareFat, color: Colors.white),
+                          onPressed: () => shareThing(type: 'place', id: p.id, text: '${p.name} on TT Spot'),
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(6),
+                      child: _Circle(
+                        child: IconButton(
                           tooltip: 'Show on map',
                           icon: const Icon(AppIcons.mapTrifold, color: Colors.white),
                           onPressed: () {
@@ -118,7 +130,7 @@ class _PlaceScreenState extends ConsumerState<PlaceScreen> {
                       fit: StackFit.expand,
                       children: [
                         if (cover != null)
-                          Image.network(cover, fit: BoxFit.cover, errorBuilder: (_, _, _) => ColoredBox(color: AppColors.surfaceGray))
+                          Image(image: CachedNetworkImageProvider(cover), fit: BoxFit.cover, errorBuilder: (_, _, _) => ColoredBox(color: AppColors.surfaceGray))
                         else
                           ColoredBox(color: AppColors.surfaceGray, child: Center(child: ArtIcon(p.kindArt, size: 110))),
                         const DecoratedBox(
@@ -363,7 +375,7 @@ class _Album extends StatelessWidget {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              Image.network(m.photoUrl, fit: BoxFit.cover, errorBuilder: (_, _, _) => ColoredBox(color: AppColors.surfaceGray)),
+              Image(image: CachedNetworkImageProvider(m.photoUrl), fit: BoxFit.cover, errorBuilder: (_, _, _) => ColoredBox(color: AppColors.surfaceGray)),
               Positioned(left: 6, bottom: 6, child: UserAvatar(url: m.author?.avatarUrl, name: m.author?.username, size: 22, borderColor: Colors.white)),
             ],
           ),

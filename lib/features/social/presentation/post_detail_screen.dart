@@ -183,7 +183,7 @@ class _CommentTile extends ConsumerWidget {
               if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
             }
           case 'report':
-            await showReportSheet(context, target: ReportTarget.comment, targetId: comment.id);
+            await showReportSheet(context, target: ReportTarget.postComment, targetId: comment.id);
           case 'block':
             await confirmBlockUser(context, ref, userId: comment.userId, displayName: '@$name');
         }

@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -204,7 +205,7 @@ class _SpotsHeader extends StatelessWidget {
                       fit: StackFit.expand,
                       children: [
                         if (p.coverUrl != null)
-                          Image.network(p.coverUrl!, fit: BoxFit.cover, errorBuilder: (_, _, _) => ColoredBox(color: AppColors.surfaceGray))
+                          Image(image: CachedNetworkImageProvider(p.coverUrl!), fit: BoxFit.cover, errorBuilder: (_, _, _) => ColoredBox(color: AppColors.surfaceGray))
                         else
                           ColoredBox(color: AppColors.surfaceGray, child: Center(child: ArtIcon(p.kindArt, size: 64))),
                         const DecoratedBox(

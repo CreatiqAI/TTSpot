@@ -12,6 +12,7 @@ import '../../../events/domain/event.dart';
 import '../../../social/application/chat_providers.dart';
 import '../../application/vendors_providers.dart';
 import '../../domain/vendor.dart';
+import '../../../../core/config/store_rules.dart';
 
 /// Plan status for the partner overview: RM 69 / month + 1 % of every voucher bill.
 class PartnerPlanCard extends StatelessWidget {
@@ -41,8 +42,8 @@ class PartnerPlanCard extends StatelessWidget {
                 Text(active ? 'Partner plan active' : 'Partner plan not active', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5)),
                 Text(
                   active
-                      ? 'Until ${formatDate(until)}${daysLeft <= 7 ? ' · $daysLeft day${daysLeft == 1 ? '' : 's'} left' : ''}. RM 69 / month + 1 % of each voucher bill.'
-                      : 'RM 69 / month + 1 % of each voucher bill. Message TT Spot to renew.',
+                      ? 'Until ${formatDate(until)}${daysLeft <= 7 ? ' · $daysLeft day${daysLeft == 1 ? '' : 's'} left' : ''}.${kShowPlanPricing ? ' RM 69 / month + 1 % of each voucher bill.' : ''}'
+                      : kShowPlanPricing ? 'RM 69 / month + 1 % of each voucher bill. Message TT Spot to renew.' : 'Your TT Spot contact will sort out the next period with you.',
                   style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary, height: 1.35),
                 ),
               ],

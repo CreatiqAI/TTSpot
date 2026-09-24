@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../features/events/domain/event.dart';
@@ -39,8 +40,7 @@ class EventListTile extends StatelessWidget {
                         color: AppColors.surfaceGray,
                         child: Center(child: ArtIcon(e.type.art, size: 36)),
                       )
-                    : Image.network(
-                        e.coverUrl!,
+                    : Image(image: CachedNetworkImageProvider(e.coverUrl!),
                         fit: BoxFit.cover,
                         frameBuilder: (_, child, frame, sync) => frame == null && !sync
                             ? ColoredBox(color: AppColors.surfaceGray, child: Center(child: ArtIcon(e.type.art, size: 36)))

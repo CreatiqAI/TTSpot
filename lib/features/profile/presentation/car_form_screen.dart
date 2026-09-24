@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -151,7 +152,7 @@ class _CarFormScreenState extends ConsumerState<CarFormScreen> {
                 scrollDirection: Axis.horizontal,
                 children: [
                   for (var i = 0; i < _kept.length; i++)
-                    _Thumb(image: NetworkImage(_kept[i]), onRemove: busy ? null : () => setState(() => _kept.removeAt(i))),
+                    _Thumb(image: CachedNetworkImageProvider(_kept[i]), onRemove: busy ? null : () => setState(() => _kept.removeAt(i))),
                   for (var i = 0; i < _new.length; i++)
                     _Thumb(image: FileImage(File(_new[i].path)), onRemove: busy ? null : () => setState(() => _new.removeAt(i))),
                   if (_kept.length + _new.length < 5)

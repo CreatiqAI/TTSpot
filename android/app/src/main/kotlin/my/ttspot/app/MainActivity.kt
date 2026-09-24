@@ -1,4 +1,4 @@
-package my.carmeet.car_meet
+package my.ttspot.app
 
 import io.flutter.embedding.android.FlutterActivity
 

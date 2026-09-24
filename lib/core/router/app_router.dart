@@ -12,6 +12,7 @@ import '../../features/auth/presentation/sign_in_screen.dart';
 import '../../features/events/presentation/convoy_live_screen.dart';
 import '../../features/events/presentation/create_event_screen.dart';
 import '../../features/events/presentation/event_details_screen.dart';
+import '../../features/events/presentation/turnout_report_screen.dart';
 import '../../features/events/presentation/my_events_screen.dart';
 import '../../features/friends/presentation/friends_screen.dart';
 import '../../features/points/presentation/admin_review_screen.dart';
@@ -139,6 +140,7 @@ abstract final class Routes {
   static String event(String id) => '/event/$id';
   static String convoy(String eventId) => '/event/$eventId/live';
   static String eventQr(String eventId) => '/event/$eventId/qr';
+  static String eventReport(String eventId) => '/event/$eventId/report';
   static String profile(String userId) => '/profile/$userId';
   static String followers(String userId) => '/profile/$userId/followers';
   static String following(String userId) => '/profile/$userId/following';
@@ -257,6 +259,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         routes: [
           GoRoute(path: 'live', pageBuilder: (_, s) => page(s, ConvoyLiveScreen(eventId: s.pathParameters['id']!))),
           GoRoute(path: 'qr', pageBuilder: (_, s) => page(s, EventQrScreen(eventId: s.pathParameters['id']!))),
+          GoRoute(path: 'report', pageBuilder: (_, s) => page(s, TurnoutReportScreen(eventId: s.pathParameters['id']!))),
         ],
       ),
       GoRoute(

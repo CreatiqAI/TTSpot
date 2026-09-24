@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -88,8 +89,7 @@ class PostTile extends StatelessWidget {
                     : Stack(
                         fit: StackFit.expand,
                         children: [
-                          Image.network(
-                            p.cover!,
+                          Image(image: CachedNetworkImageProvider(p.cover!),
                             fit: BoxFit.cover,
                             loadingBuilder: (_, child, prog) => prog == null ? child : ColoredBox(color: AppColors.surfaceGray),
                             errorBuilder: (_, _, _) => ColoredBox(color: AppColors.surfaceGray),

@@ -1,6 +1,10 @@
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/env.dart';
@@ -122,6 +126,40 @@ class AuthRepository {
     final auth = await account.authorizationClient.authorizationForScopes(scopes) ??
         await account.authorizationClient.authorizeScopes(scopes);
     return (idToken, auth.accessToken);
+  }
+
+  // ---------------------------------------------------------------- apple ---
+
+  /// Native Sign in with Apple (iPhone only) → ID token → Supabase session.
+  /// Needs the Apple provider enabled in Supabase with `my.ttspot.app` as a
+  /// client ID, and the Sign in with Apple capability on the App ID.
+  Future<void> signInWithApple() async {
+    final rawNonce = _client.auth.generateRawNonce();
+    final AuthorizationCredentialAppleID cred;
+    try {
+      cred = await SignInWithApple.getAppleIDCredential(
+        scopes: [AppleIDAuthorizationScopes.email, AppleIDAuthorizationScopes.fullName],
+        nonce: sha256.convert(utf8.encode(rawNonce)).toString(),
+      );
+    } on SignInWithAppleAuthorizationException catch (e) {
+      if (e.code == AuthorizationErrorCode.canceled) {
+        throw const AppException('Apple sign-in cancelled.');
+      }
+      rethrow;
+    }
+    final idToken = cred.identityToken;
+    if (idToken == null) {
+      throw const AppException('Apple didn\'t return a sign-in token. Try again.');
+    }
+    final res = await _client.auth.signInWithIdToken(provider: OAuthProvider.apple, idToken: idToken, nonce: rawNonce);
+
+    // Apple shares the name only on the very first sign-in, and review rejects
+    // apps that ask for it again, so keep it for onboarding to pre-fill.
+    final name = [cred.givenName, cred.familyName].whereType<String>().join(' ').trim();
+    final uid = res.user?.id;
+    if (name.isNotEmpty && uid != null) {
+      await _client.from('profiles').update({'display_name': name}).eq('id', uid).isFilter('display_name', null);
+    }
   }
 
   Future<void> signOut() async {

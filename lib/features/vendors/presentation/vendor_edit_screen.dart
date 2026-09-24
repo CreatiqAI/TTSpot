@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -103,7 +104,7 @@ class _VendorEditScreenState extends ConsumerState<VendorEditScreen> {
                           image: _logo != null
                               ? DecorationImage(image: FileImage(File(_logo!.path)), fit: BoxFit.cover)
                               : vendor.logoUrl != null
-                                  ? DecorationImage(image: NetworkImage(vendor.logoUrl!), fit: BoxFit.cover)
+                                  ? DecorationImage(image: CachedNetworkImageProvider(vendor.logoUrl!), fit: BoxFit.cover)
                                   : null,
                         ),
                         child: _logo == null && vendor.logoUrl == null ? Icon(AppIcons.storefront, size: 28, color: AppColors.textSecondary) : null,
@@ -154,7 +155,7 @@ class _VendorEditScreenState extends ConsumerState<VendorEditScreen> {
                   child: ListView(
                     scrollDirection: Axis.horizontal,
                     children: [
-                      for (var i = 0; i < _kept.length; i++) _PhotoTile(image: NetworkImage(_kept[i]), onRemove: () => setState(() => _kept.removeAt(i))),
+                      for (var i = 0; i < _kept.length; i++) _PhotoTile(image: CachedNetworkImageProvider(_kept[i]), onRemove: () => setState(() => _kept.removeAt(i))),
                       for (var i = 0; i < _newPhotos.length; i++) _PhotoTile(image: FileImage(File(_newPhotos[i].path)), onRemove: () => setState(() => _newPhotos.removeAt(i))),
                       if (_kept.length + _newPhotos.length < 6)
                         GestureDetector(

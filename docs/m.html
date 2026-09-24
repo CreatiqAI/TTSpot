@@ -23,12 +23,18 @@
   <a class="alt" href="index.html">Don't have the app? Get TT Spot</a>
 </div>
 <script>
-  const id = new URLSearchParams(location.search).get('id');
-  const deep = id ? 'ttspot://event/' + encodeURIComponent(id) : 'ttspot://';
+  // ?t=event|club|profile|post|place|partner&id=… (old links: ?id= is a meet)
+  const q = new URLSearchParams(location.search);
+  const id = q.get('id');
+  const types = { event: 'meet', club: 'club', profile: 'profile', post: 'post', place: 'spot', partner: 'partner page' };
+  const t = types[q.get('t')] ? q.get('t') : 'event';
+  const deep = id ? 'ttspot://' + t + '/' + encodeURIComponent(id) : 'ttspot://';
+  document.title = 'TT Spot · ' + types[t].replace(/^./, c => c.toUpperCase());
+  document.querySelector('h1').textContent = 'Open this ' + types[t] + ' in TT Spot';
   document.getElementById('open').href = deep;
   if (id) { setTimeout(() => { location.href = deep; }, 300); }
-  else { document.getElementById('msg').textContent = 'This link is missing the meet.'; }
-  setTimeout(() => { document.getElementById('msg').textContent = 'If nothing happened, tap the button. On iPhone the app must be installed.'; }, 2500);
+  else { document.getElementById('msg').textContent = 'This link is missing what it points to.'; }
+  setTimeout(() => { document.getElementById('msg').textContent = 'If nothing happened, tap the button. The app must be installed.'; }, 2500);
 </script>
 </body>
 </html>

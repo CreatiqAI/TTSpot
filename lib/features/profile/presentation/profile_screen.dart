@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -34,6 +35,7 @@ import '../application/profile_providers.dart';
 import '../domain/car.dart';
 import 'profile_menu.dart';
 import 'widgets/profile_header.dart';
+import '../../../core/utils/share_links.dart';
 
 enum _Tab { posts, garage, saved }
 
@@ -339,7 +341,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 tag: 'avatar-${p.id}',
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(AppRadius.lg),
-                  child: InteractiveViewer(child: Image.network(p.avatarUrl!, fit: BoxFit.contain)),
+                  child: InteractiveViewer(child: Image(image: CachedNetworkImageProvider(p.avatarUrl!), fit: BoxFit.contain)),
                 ),
               ),
             ),
@@ -421,6 +423,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            ListTile(leading: const Icon(AppIcons.shareFat), title: const Text('Share profile'), onTap: () => Navigator.pop(ctx, 'share')),
             if (ref.read(friendIdsProvider).contains(p.id))
               ListTile(leading: const Icon(AppIcons.mapPin), title: const Text('Colour on the map'), subtitle: const Text('Pick a colour so you spot them fast', style: TextStyle(fontSize: 12)), onTap: () => Navigator.pop(ctx, 'colour')),
             ListTile(leading: const Icon(AppIcons.flag), title: const Text('Report profile'), onTap: () => Navigator.pop(ctx, 'report')),
@@ -437,6 +440,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     if (!context.mounted || action == null) return;
     final name = p.displayName ?? '@${p.username}';
     switch (action) {
+      case 'share':
+        await shareThing(type: 'profile', id: p.id, text: '@${p.username} on TT Spot');
       case 'colour':
         await _pickColour(context, p);
       case 'report':

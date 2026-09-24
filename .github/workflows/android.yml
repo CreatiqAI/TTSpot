@@ -3,7 +3,9 @@ name: Android build (release APK)
 # Builds the release APK on every push to main and publishes it to a rolling
 # GitHub Release tagged `latest`, so testers get one stable download link:
 #   https://github.com/CreatiqAI/TTSpot/releases/download/latest/TTSpot.apk
-# Secrets: ENV_JSON (contents of env.json), MAPS_API_KEY.
+# Also uploads the signed .aab for Google Play as an artifact.
+# Secrets: ENV_JSON (contents of env.json), MAPS_API_KEY, ANDROID_KEYSTORE_B64 +
+# ANDROID_KEYSTORE_PASSWORD (upload key; the original lives in %USERPROFILE%\.ttspot).
 
 on:
   workflow_dispatch:
@@ -51,11 +53,26 @@ jobs:
           echo "MAPS_API_KEY=${MAPS_API_KEY}" > android/local.properties
           python3 -c "import json; json.load(open('env.json')); print('env.json ok')"
 
+      - name: Upload key (release signing)
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          printf '%s' "$KEYSTORE_B64" | base64 -d > android/app/upload-keystore.jks
+          printf 'storeFile=upload-keystore.jks
+storePassword=%s
+keyPassword=%s
+keyAlias=upload
+' "$KEYSTORE_PASSWORD" "$KEYSTORE_PASSWORD" > android/key.properties
+
       - name: Pub get
         run: flutter pub get
 
-      - name: Build release APK
-        run: flutter build apk --release --dart-define-from-file=env.json
+      # versionCode = 1000 + run number, so every Play upload is higher than the last.
+      - name: Build release APK + App Bundle
+        run: |
+          flutter build apk --release --dart-define-from-file=env.json --build-number=$((1000 + ${{ github.run_number }}))
+          flutter build appbundle --release --dart-define-from-file=env.json --build-number=$((1000 + ${{ github.run_number }}))
 
       - name: Rename
         run: |
@@ -67,6 +84,12 @@ jobs:
         with:
           name: TTSpot-android
           path: TTSpot-*.apk
+          retention-days: 14
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TTSpot-android-aab
+          path: build/app/outputs/bundle/release/app-release.aab
           retention-days: 14
 
       - name: Publish to the rolling "latest" release

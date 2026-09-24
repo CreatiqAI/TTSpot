@@ -1,7 +1,7 @@
 name: car_meet
 description: "Malaysian car community app — discover meets, TT sessions and convoys on a map."
 publish_to: 'none'
-version: 0.3.27+36
+version: 0.3.28+37
 
 environment:
   sdk: ^3.13.2
@@ -27,6 +27,15 @@ dependencies:
   just_audio: ^0.10.4           # voice note playback
   video_player: ^2.9.5          # video messages
   path_provider: ^2.1.5         # temp file for a voice note while recording (already transitive)          # already pulled in by supabase_flutter; used to open Waze / Maps / WhatsApp
+
+  # --- approved for store release (2026-09-23) -----------------------------
+  sign_in_with_apple: ^8.2.0    # App Store guideline 4.8 (Google sign-in exists)
+  crypto: ^3.0.7                # sha256 of the Apple nonce (already transitive via supabase)
+  cached_network_image: ^4.0.1
+  share_plus: ^13.3.0
+  firebase_core: ^4.15.0
+  firebase_messaging: ^16.7.0
+  firebase_crashlytics: ^5.4.0
 
   # Not added: intl (dates formatted in lib/core/utils/dates.dart instead),
   # cached_network_image (plain NetworkImage is enough for MVP).

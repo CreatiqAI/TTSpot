@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_art.dart';
@@ -201,7 +202,7 @@ class _AlbumCircle extends StatelessWidget {
                       ? ColoredBox(color: AppColors.surfaceGray, child: Icon(AppIcons.plus, size: 22, color: AppColors.textSecondary))
                       : a.coverUrl == null
                           ? ColoredBox(color: AppColors.surfaceGray, child: Icon(AppIcons.images, size: 22, color: AppColors.textSecondary))
-                          : Image.network(a.coverUrl!, fit: BoxFit.cover, errorBuilder: (_, _, _) => ColoredBox(color: AppColors.surfaceGray)),
+                          : Image(image: CachedNetworkImageProvider(a.coverUrl!), fit: BoxFit.cover, errorBuilder: (_, _, _) => ColoredBox(color: AppColors.surfaceGray)),
                 ),
               ),
               const SizedBox(height: 4),
@@ -363,7 +364,7 @@ class ShowroomCard extends StatelessWidget {
               fit: StackFit.expand,
               children: [
                 if (car.cover != null)
-                  Image.network(car.cover!, fit: BoxFit.cover, errorBuilder: (_, _, _) => const ColoredBox(color: AppColors.ink))
+                  Image(image: CachedNetworkImageProvider(car.cover!), fit: BoxFit.cover, errorBuilder: (_, _, _) => const ColoredBox(color: AppColors.ink))
                 else
                   const DecoratedBox(
                     decoration: BoxDecoration(

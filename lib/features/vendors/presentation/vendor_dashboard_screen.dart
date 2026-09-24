@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -100,7 +101,7 @@ class _Body extends ConsumerWidget {
                   borderRadius: BorderRadius.circular(AppRadius.lg),
                   child: vendor.logoUrl == null
                       ? Container(width: 64, height: 64, color: AppColors.surfaceGray, child: Icon(AppIcons.storefront, color: AppColors.textSecondary, size: 28))
-                      : Image.network(vendor.logoUrl!, width: 64, height: 64, fit: BoxFit.cover),
+                      : Image(image: CachedNetworkImageProvider(vendor.logoUrl!), width: 64, height: 64, fit: BoxFit.cover),
                 ),
                 const SizedBox(width: 12),
                 Expanded(

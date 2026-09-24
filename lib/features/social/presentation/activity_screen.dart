@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -143,7 +144,7 @@ class _Row extends ConsumerWidget {
       NotificationType.garage => ('just pulled up at ${n.body ?? 'the garage'}${n.clubName == null ? '' : ' (${n.clubName})'}.', n.clubId == null ? null : Routes.club(n.clubId!)),
       NotificationType.clubOfficial => (
           switch ((n.body ?? '').split(':').first) {
-            'requested' => 'wants ${n.body!.substring(10)} to go official (RM 69.90 / month).',
+            'requested' => 'wants ${n.body!.substring(10)} to go official.',
             'approved' => '${n.clubName ?? n.body!.substring(9)} is now an official club. Notifications, gold badge, no limits.',
             'expired' => '${n.clubName ?? n.body!.substring(8)} is back to underground. Renew to stay official.',
             'ended' => '${n.clubName ?? n.body!.substring(6)} is back to underground.',
@@ -222,7 +223,7 @@ class _Row extends ConsumerWidget {
               const SizedBox(width: 12),
               ClipRRect(
                 borderRadius: BorderRadius.circular(4),
-                child: Image.network(n.postCover!, width: 44, height: 44, fit: BoxFit.cover, errorBuilder: (_, _, _) => const SizedBox(width: 44, height: 44)),
+                child: Image(image: CachedNetworkImageProvider(n.postCover!), width: 44, height: 44, fit: BoxFit.cover, errorBuilder: (_, _, _) => const SizedBox(width: 44, height: 44)),
               ),
             ],
           ],

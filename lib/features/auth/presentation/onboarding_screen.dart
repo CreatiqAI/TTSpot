@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'dart:io';
 
 import 'package:flutter/gestures.dart';
@@ -497,7 +498,7 @@ class _AvatarPicker extends StatelessWidget {
     if (file != null) {
       image = FileImage(File(file!.path));
     } else if (existingUrl != null && existingUrl!.isNotEmpty) {
-      image = NetworkImage(existingUrl!);
+      image = CachedNetworkImageProvider(existingUrl!);
     }
 
     return Column(

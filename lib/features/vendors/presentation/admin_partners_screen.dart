@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -120,7 +121,7 @@ class _PartnerRow extends ConsumerWidget {
         contentPadding: const EdgeInsets.symmetric(horizontal: 16),
         leading: ClipRRect(
           borderRadius: BorderRadius.circular(10),
-          child: SizedBox(width: 40, height: 40, child: p.logoUrl == null ? ColoredBox(color: AppColors.surfaceGray, child: Icon(AppIcons.storefront, size: 18, color: AppColors.textSecondary)) : Image.network(p.logoUrl!, fit: BoxFit.cover)),
+          child: SizedBox(width: 40, height: 40, child: p.logoUrl == null ? ColoredBox(color: AppColors.surfaceGray, child: Icon(AppIcons.storefront, size: 18, color: AppColors.textSecondary)) : Image(image: CachedNetworkImageProvider(p.logoUrl!), fit: BoxFit.cover)),
         ),
         title: Text(p.name, style: const TextStyle(fontWeight: FontWeight.w700)),
         subtitle: Text(
@@ -214,7 +215,7 @@ class _CardState extends ConsumerState<_Card> {
                 borderRadius: BorderRadius.circular(AppRadius.md),
                 child: a.logoUrl == null
                     ? Container(width: 64, height: 64, color: AppColors.surfaceGray, child: Icon(a.kind == ApplicationKind.club ? AppIcons.usersThree : AppIcons.storefront, color: AppColors.textSecondary))
-                    : Image.network(a.logoUrl!, width: 64, height: 64, fit: BoxFit.cover),
+                    : Image(image: CachedNetworkImageProvider(a.logoUrl!), width: 64, height: 64, fit: BoxFit.cover),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -249,7 +250,7 @@ class _CardState extends ConsumerState<_Card> {
           ],
           if (a.shopPhotoUrl != null) ...[
             const SizedBox(height: 10),
-            ClipRRect(borderRadius: BorderRadius.circular(AppRadius.md), child: Image.network(a.shopPhotoUrl!, height: 150, width: double.infinity, fit: BoxFit.cover)),
+            ClipRRect(borderRadius: BorderRadius.circular(AppRadius.md), child: Image(image: CachedNetworkImageProvider(a.shopPhotoUrl!), height: 150, width: double.infinity, fit: BoxFit.cover)),
           ],
           const SizedBox(height: 12),
           Row(

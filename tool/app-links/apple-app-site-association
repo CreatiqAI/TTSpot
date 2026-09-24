@@ -1,0 +1,13 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["CXZUA638KW.my.ttspot.app"],
+        "components": [
+          { "/": "/event/*" }, { "/": "/club/*" }, { "/": "/profile/*" },
+          { "/": "/post/*" }, { "/": "/place/*" }, { "/": "/partner/*" }
+        ]
+      }
+    ]
+  }
+}

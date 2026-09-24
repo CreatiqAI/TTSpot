@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -6,6 +7,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../../core/widgets/primary_button.dart';
 import 'package:go_router/go_router.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart' show SignInWithAppleButton, SignInWithAppleButtonStyle;
 import 'package:supabase_flutter/supabase_flutter.dart' show AuthException;
 
 import '../../../core/router/app_router.dart';
@@ -223,6 +225,20 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                           const SizedBox(height: 28),
                           const _OrDivider(),
                           const SizedBox(height: 20),
+
+                          // Apple asks for this whenever another social login is offered (iPhone only).
+                          if (defaultTargetPlatform == TargetPlatform.iOS) ...[
+                            SizedBox(
+                              height: 48,
+                              child: SignInWithAppleButton(
+                                text: _isSignUp ? 'Sign up with Apple' : 'Sign in with Apple',
+                                style: Theme.of(context).brightness == Brightness.dark ? SignInWithAppleButtonStyle.white : SignInWithAppleButtonStyle.black,
+                                borderRadius: const BorderRadius.all(Radius.circular(12)),
+                                onPressed: busy ? () {} : () => ref.read(authControllerProvider.notifier).signInWithApple(),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                          ],
 
                           TextButton.icon(
                             onPressed: busy

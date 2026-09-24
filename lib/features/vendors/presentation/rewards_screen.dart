@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -135,7 +136,7 @@ class _PartnerCard extends StatelessWidget {
             height: 56,
             child: v.logoUrl == null
                 ? ColoredBox(color: AppColors.surfaceGray, child: Icon(AppIcons.storefront, color: AppColors.textSecondary))
-                : Image.network(v.logoUrl!, fit: BoxFit.cover),
+                : Image(image: CachedNetworkImageProvider(v.logoUrl!), fit: BoxFit.cover),
           ),
         ),
         title: Text(v.name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
@@ -351,7 +352,7 @@ class _VoucherCardState extends ConsumerState<_VoucherCard> {
                   borderRadius: BorderRadius.circular(AppRadius.sm),
                   child: v.vendorLogo == null
                       ? Container(width: 36, height: 36, color: AppColors.surfaceGray, child: Icon(AppIcons.storefront, size: 18, color: AppColors.textSecondary))
-                      : Image.network(v.vendorLogo!, width: 36, height: 36, fit: BoxFit.cover),
+                      : Image(image: CachedNetworkImageProvider(v.vendorLogo!), width: 36, height: 36, fit: BoxFit.cover),
                 ),
                 const SizedBox(width: 10),
                 Expanded(

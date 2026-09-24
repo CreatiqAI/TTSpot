@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +10,8 @@ import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/dates.dart';
 import '../../../core/widgets/user_avatar.dart';
+import '../../safety/data/safety_repository.dart';
+import '../../safety/presentation/report_sheet.dart';
 import '../application/social_providers.dart';
 import '../domain/post.dart';
 import 'moment_sheets.dart';
@@ -80,7 +83,7 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> with Sing
     final next = at(_group, _index + 1) ?? at(_group + 1, 0);
     final prev = at(_group, _index - 1);
     for (final s in [next, prev]) {
-      if (s != null) precacheImage(NetworkImage(s.photoUrl), context);
+      if (s != null) precacheImage(CachedNetworkImageProvider(s.photoUrl), context);
     }
   }
 
@@ -184,6 +187,10 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> with Sing
               ListTile(leading: const Icon(AppIcons.trash, color: AppColors.danger), title: const Text('Delete album', style: TextStyle(color: AppColors.danger)), onTap: () => Navigator.pop(ctx, 'deleteAlbum')),
             if (mine)
               ListTile(leading: const Icon(AppIcons.trash, color: AppColors.danger), title: const Text('Delete this moment', style: TextStyle(color: AppColors.danger)), onTap: () => Navigator.pop(ctx, 'delete')),
+            if (!mine) ...[
+              ListTile(leading: const Icon(AppIcons.flag), title: const Text('Report'), onTap: () => Navigator.pop(ctx, 'report')),
+              ListTile(leading: const Icon(AppIcons.prohibit, color: AppColors.danger), title: Text('Block @${_g.author.username ?? 'user'}', style: const TextStyle(color: AppColors.danger)), onTap: () => Navigator.pop(ctx, 'block')),
+            ],
             const SizedBox(height: 8),
           ],
         ),
@@ -210,6 +217,13 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> with Sing
         } else {
           _ctrl.forward();
         }
+      case 'report':
+        await showReportSheet(context, target: ReportTarget.story, targetId: _story.id);
+        if (mounted) _ctrl.forward();
+      case 'block':
+        final blocked = await confirmBlockUser(context, ref, userId: _story.authorId, displayName: '@${_g.author.username ?? 'user'}');
+        if (!mounted) return;
+        blocked ? _close() : _ctrl.forward();
       default:
         _ctrl.forward();
     }
@@ -274,8 +288,7 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> with Sing
                   onEnded: () {},
                 )
               else
-                Image.network(
-                  s.photoUrl,
+                Image(image: CachedNetworkImageProvider(s.photoUrl),
                   fit: BoxFit.contain,
                   gaplessPlayback: true,
                   loadingBuilder: (_, child, prog) => prog == null ? child : const Center(child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
@@ -345,7 +358,7 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> with Sing
                               ],
                             ),
                           ),
-                          if (s.authorId == me) IconButton(icon: const Icon(AppIcons.dotsThree, color: Colors.white), onPressed: _menu),
+                          IconButton(icon: const Icon(AppIcons.dotsThree, color: Colors.white), onPressed: _menu),
                           IconButton(icon: const Icon(AppIcons.x, color: Colors.white), onPressed: _close),
                         ],
                       ),

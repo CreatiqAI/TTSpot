@@ -14,6 +14,7 @@ import '../../features/admin/application/admin_providers.dart';
 import '../../features/vendors/application/vendors_providers.dart';
 import '../../features/auth/data/auth_repository.dart';
 import '../../features/auth/application/account_basics.dart';
+import '../push/push_service.dart';
 
 /// Bottom tabs: Posts · Map · Chats · Me. Creating things happens from the
 /// "+" on the Posts page and the action row on the map.
@@ -30,7 +31,10 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    WidgetsBinding.instance.addPostFrameCallback((_) => ref.read(locationPublisherProvider.notifier).start());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(locationPublisherProvider.notifier).start();
+      ref.read(pushServiceProvider).start();
+    });
   }
 
   @override

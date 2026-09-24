@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -66,7 +67,7 @@ class VendorReportScreen extends ConsumerWidget {
                           ? null
                           : () => showDialog<void>(
                                 context: context,
-                                builder: (_) => Dialog(child: InteractiveViewer(child: Image.network(r.receiptUrl!))),
+                                builder: (_) => Dialog(child: InteractiveViewer(child: Image(image: CachedNetworkImageProvider(r.receiptUrl!)))),
                               ),
                     ),
                 ],

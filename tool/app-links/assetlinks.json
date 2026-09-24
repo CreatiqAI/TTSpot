@@ -1,0 +1,13 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "my.ttspot.app",
+      "sha256_cert_fingerprints": [
+        "F1:1B:31:B0:1C:01:58:D0:7B:8F:B8:B8:A8:C6:53:83:97:D0:93:04:4F:49:71:C9:29:FE:3D:D7:0F:15:5B:35",
+        "PLAY_APP_SIGNING_SHA256_FROM_PLAY_CONSOLE"
+      ]
+    }
+  }
+]

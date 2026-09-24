@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
@@ -22,7 +23,7 @@ class UserAvatar extends StatelessWidget {
         shape: BoxShape.circle,
         color: AppColors.surfaceGray,
         border: Border.all(color: borderColor ?? AppColors.border, width: borderColor == null ? 0.5 : 2),
-        image: hasUrl ? DecorationImage(image: NetworkImage(url!), fit: BoxFit.cover) : null,
+        image: hasUrl ? DecorationImage(image: CachedNetworkImageProvider(url!), fit: BoxFit.cover) : null,
       ),
       alignment: Alignment.center,
       child: hasUrl

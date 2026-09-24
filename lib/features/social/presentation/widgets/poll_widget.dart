@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -100,7 +101,7 @@ class _Option extends StatelessWidget {
                   if (option.photoUrl != null) ...[
                     ClipRRect(
                       borderRadius: BorderRadius.circular(6),
-                      child: Image.network(option.photoUrl!, width: 40, height: 40, fit: BoxFit.cover, errorBuilder: (_, _, _) => const SizedBox(width: 40, height: 40)),
+                      child: Image(image: CachedNetworkImageProvider(option.photoUrl!), width: 40, height: 40, fit: BoxFit.cover, errorBuilder: (_, _, _) => const SizedBox(width: 40, height: 40)),
                     ),
                     const SizedBox(width: 10),
                   ],

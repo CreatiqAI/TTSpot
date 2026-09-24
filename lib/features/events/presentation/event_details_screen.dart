@@ -1,5 +1,5 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import '../../../core/utils/open_external.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -30,6 +30,8 @@ import '../../social/presentation/widgets/masonry_grid.dart';
 import '../application/event_providers.dart';
 import '../domain/event.dart';
 import '../domain/event_detail.dart';
+import '../../../core/utils/share_links.dart';
+import 'package:share_plus/share_plus.dart';
 
 class EventDetailsScreen extends ConsumerStatefulWidget {
   const EventDetailsScreen({super.key, required this.eventId});
@@ -316,6 +318,21 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                               _RecapCard(event: d.event),
                               const SizedBox(height: 20),
                             ],
+                            if ((d.event.isLive || d.event.isPast) && d.event.organizerId == ref.watch(currentUserIdProvider)) ...[
+                              Material(
+                                color: AppColors.surfaceGray,
+                                borderRadius: BorderRadius.circular(AppRadius.lg),
+                                child: ListTile(
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
+                                  leading: const Icon(AppIcons.chartBar),
+                                  title: const Text('Turnout report', style: TextStyle(fontWeight: FontWeight.w700)),
+                                  subtitle: Text('Verified check-ins, cars by make, arrivals. Share it with sponsors.', style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
+                                  trailing: const Icon(AppIcons.caretRight),
+                                  onTap: () => context.push(Routes.eventReport(d.event.id)),
+                                ),
+                              ),
+                              const SizedBox(height: 20),
+                            ],
                             _Moments(detail: d),
                             if (kSocialFeed) ...[
                               const SizedBox(height: 20),
@@ -357,8 +374,7 @@ class _Cover extends StatelessWidget {
               color: AppColors.surfaceGray,
               child: Center(child: ArtIcon(event.type.art, size: 110)),
             )
-          : Image.network(
-              event.coverUrl!,
+          : Image(image: CachedNetworkImageProvider(event.coverUrl!),
               fit: BoxFit.cover,
               loadingBuilder: (_, child, progress) =>
                   progress == null ? child : ColoredBox(color: AppColors.surfaceGray),
@@ -1033,7 +1049,7 @@ class _Moments extends ConsumerWidget {
                       child: Stack(
                         fit: StackFit.expand,
                         children: [
-                          Image.network(m.photoUrl, fit: BoxFit.cover, errorBuilder: (_, _, _) => ColoredBox(color: AppColors.surfaceGray)),
+                          Image(image: CachedNetworkImageProvider(m.photoUrl), fit: BoxFit.cover, errorBuilder: (_, _, _) => ColoredBox(color: AppColors.surfaceGray)),
                           Positioned(left: 6, bottom: 6, child: UserAvatar(url: m.author?.avatarUrl, name: m.author?.username, size: 22, borderColor: Colors.white)),
                         ],
                       ),
@@ -1100,7 +1116,7 @@ class _RecapCard extends ConsumerWidget {
               children: [
                 for (final c in recap.cars.take(12))
                   ActionChip(
-                    avatar: c.photoUrl == null ? null : CircleAvatar(backgroundImage: NetworkImage(c.photoUrl!)),
+                    avatar: c.photoUrl == null ? null : CircleAvatar(backgroundImage: CachedNetworkImageProvider(c.photoUrl!)),
                     label: Text('${c.make} ${c.model}'),
                     onPressed: () => context.push(Routes.car(c.id)),
                   ),
@@ -1114,23 +1130,17 @@ class _RecapCard extends ConsumerWidget {
 }
 
 
-/// Waze · Google Maps · WhatsApp · Copy link. Until an app-launcher package is
-/// approved, each copies the right link/text and says where to paste it.
+/// Waze · Google Maps · WhatsApp · Share (native sheet with the meet link).
 class _QuickActions extends StatelessWidget {
   const _QuickActions({required this.event});
   final Event event;
 
-  String get _appLink => 'https://creatiqai.github.io/TTSpot/m.html?id=${event.id}';
+  String get _appLink => shareLink('event', event.id);
   String get _waze => wazeUrl(event.lat, event.lng);
   String get _gmaps => googleMapsUrl(event.lat, event.lng);
   String get _whatsapp {
     final when = event.isInstant ? 'now until ${formatTime(event.closesAt)}' : formatEventDateFriendly(event.startsAt);
     return '${event.title} · ${event.venueName} · $when\nWaze: $_waze\nJoin on TT Spot: $_appLink';
-  }
-
-  Future<void> _copy(BuildContext context, String text, String where) async {
-    await Clipboard.setData(ClipboardData(text: text));
-    if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(where)));
   }
 
   @override
@@ -1157,7 +1167,7 @@ class _QuickActions extends StatelessWidget {
         const SizedBox(width: 8),
         btn('WhatsApp', AppIcons.chatCircle, const Color(0xFF25D366), const Color(0xFF063D1D), () => openExternal(context, 'whatsapp://send?text=${Uri.encodeComponent(_whatsapp)}', fallbackUrl: whatsappUrl(_whatsapp), appName: 'WhatsApp')),
         const SizedBox(width: 8),
-        btn('Copy link', AppIcons.link, AppColors.surfaceGray, AppColors.textPrimary, () => _copy(context, _appLink, 'Link copied.')),
+        btn('Share', AppIcons.shareFat, AppColors.surfaceGray, AppColors.textPrimary, () => SharePlus.instance.share(ShareParams(text: _whatsapp))),
       ],
     );
   }

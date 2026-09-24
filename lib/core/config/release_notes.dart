@@ -10,6 +10,20 @@ class ReleaseNote {
 
 const kReleaseNotes = <ReleaseNote>[
   ReleaseNote(
+    version: '0.3.28',
+    date: '24 Sep 2026',
+    title: 'Getting ready for the App Store',
+    points: [
+      'Sign in with Apple on iPhone.',
+      'Report or block from anywhere: hold a chat message, or use the menu on a moment, post, comment, club or profile. Blocked members disappear from your chats too.',
+      'Push notifications for messages, meet reminders, invites and club news (switch each kind off in Settings).',
+      'Hosts get a turnout report after a meet: verified check-ins, show rate, first-timers, cars by make and model, arrival times. Share it with sponsors.',
+      'Share meets, clubs, profiles, posts, spots and partner pages to WhatsApp or anywhere from the share button.',
+      'Photos load faster and use less data: they are kept on your phone after the first view.',
+      'The app now has its own ID (my.ttspot.app). On Android, uninstall the old TT Spot once, then install this one and log in again.',
+    ],
+  ),
+  ReleaseNote(
     version: '0.3.27',
     date: '18 Sep 2026',
     title: 'Dark mode fixes',
@@ -73,9 +87,9 @@ const kReleaseNotes = <ReleaseNote>[
     date: '17 Sep 2026',
     title: 'Official and underground clubs',
     points: [
-      'Clubs are Official (RM 69.90 / month: meet notifications, plan any distance ahead, gold map badge, no member limit, 10 % bonus points for the president) or Underground (7 days ahead, 100 members, a club garage that pings the crew).',
+      'Clubs are Official (meet notifications, plan any distance ahead, gold map badge, no member limit, 10 % bonus points for the president) or Underground (7 days ahead, 100 members, a club garage that pings the crew).',
       'Club roles: President, Vice President, Secretary. Every club has a most-active leaderboard.',
-      'Partners: RM 69 / month plan, SSM and shop photo required, shops in Johor, Penang or KL. Partners see every upcoming meet to sponsor and every car club with what its members drive. Partner events tell everyone and get their own map badge.',
+      'Partners: SSM and shop photo required, shops in Johor, Penang or KL. Partners see every upcoming meet to sponsor and every car club with what its members drive. Partner events tell everyone and get their own map badge.',
       'Save any meet with the bookmark and get a reminder before it starts.',
     ],
   ),

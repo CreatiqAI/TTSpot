@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -85,7 +86,7 @@ class _AlbumEditorScreenState extends ConsumerState<AlbumEditorScreen> {
                           height: 84,
                           padding: const EdgeInsets.all(2),
                           decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: _cover == s.photoUrl ? AppColors.brand : AppColors.border, width: 2)),
-                          child: ClipOval(child: Image.network(s.photoUrl, fit: BoxFit.cover)),
+                          child: ClipOval(child: Image(image: CachedNetworkImageProvider(s.photoUrl), fit: BoxFit.cover)),
                         ),
                       ),
                     ),
@@ -193,7 +194,7 @@ class _AlbumEditorScreenState extends ConsumerState<AlbumEditorScreen> {
                       child: ClipOval(
                         child: _cover == null
                             ? ColoredBox(color: AppColors.surfaceGray, child: Icon(AppIcons.image, size: 28, color: AppColors.textSecondary))
-                            : Image.network(_cover!, fit: BoxFit.cover),
+                            : Image(image: CachedNetworkImageProvider(_cover!), fit: BoxFit.cover),
                       ),
                     ),
                     const SizedBox(height: 6),
@@ -239,7 +240,7 @@ class _AlbumEditorScreenState extends ConsumerState<AlbumEditorScreen> {
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
-                        Image.network(s.photoUrl, fit: BoxFit.cover, errorBuilder: (_, _, _) => ColoredBox(color: AppColors.surfaceGray)),
+                        Image(image: CachedNetworkImageProvider(s.photoUrl), fit: BoxFit.cover, errorBuilder: (_, _, _) => ColoredBox(color: AppColors.surfaceGray)),
                         if (on) const DecoratedBox(decoration: BoxDecoration(color: Color(0x33000000))),
                         Positioned(
                           right: 6,

@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -70,7 +71,7 @@ class _EventTile extends StatelessWidget {
           child: SizedBox(
             width: 52,
             height: 52,
-            child: e.coverUrl == null ? ColoredBox(color: AppColors.surfaceGray, child: Center(child: ArtIcon(e.type.art, size: 28))) : Image.network(e.coverUrl!, fit: BoxFit.cover),
+            child: e.coverUrl == null ? ColoredBox(color: AppColors.surfaceGray, child: Center(child: ArtIcon(e.type.art, size: 28))) : Image(image: CachedNetworkImageProvider(e.coverUrl!), fit: BoxFit.cover),
           ),
         ),
         title: Text(e.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontWeight: FontWeight.w700, color: past ? AppColors.textSecondary : AppColors.textPrimary)),

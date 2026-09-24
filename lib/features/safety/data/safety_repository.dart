@@ -3,7 +3,20 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/supabase/supabase_client.dart';
 
-enum ReportTarget { event, comment, profile }
+/// What a report points at. [db] is the `report_target` enum value.
+enum ReportTarget {
+  event('event'),
+  comment('comment'), // meet comment
+  profile('profile'),
+  post('post'),
+  postComment('post_comment'),
+  message('message'),
+  story('story'),
+  club('club');
+
+  const ReportTarget(this.db);
+  final String db;
+}
 
 /// Reports + blocks. Blocking hides the other user's content locally
 /// (every list filters against [blockedUserIdsProvider]).
@@ -30,7 +43,7 @@ class SafetyRepository {
   }) =>
       _client.from('reports').insert({
         'reporter_id': reporterId,
-        'target_type': target.name,
+        'target_type': target.db,
         'target_id': targetId,
         'reason': reason.trim(),
       });

@@ -46,6 +46,7 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed) return;
+    ref.read(pushServiceProvider).start(); // no-op once push is on
     // Back from the background: an admin may have approved a partner or club since.
     ref.invalidate(myVendorProvider);
     ref.invalidate(managedClubsProvider);

@@ -17,6 +17,7 @@ import '../../auth/application/account_basics.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../safety/data/safety_repository.dart';
 import '../application/settings_providers.dart';
+import '../../../core/push/push_service.dart';
 
 /// Settings: account, notifications, map, privacy, legal, support, danger.
 class SettingsScreen extends ConsumerWidget {
@@ -76,12 +77,21 @@ class SettingsScreen extends ConsumerWidget {
           ),
 
           const _Head('NOTIFICATIONS'),
+          ValueListenableBuilder<String>(
+            valueListenable: ref.read(pushServiceProvider).status,
+            builder: (_, st, _) => _Row(
+              icon: AppIcons.bell,
+              title: 'Push notifications',
+              subtitle: st == 'On' ? 'On for this phone' : '$st · tap to ${st.startsWith('Off in') ? 'open settings' : 'try again'}',
+              onTap: () => ref.read(pushServiceProvider).fix(),
+            ),
+          ),
           _Toggle(icon: AppIcons.coffee, title: 'TT now pings', subtitle: 'When a friend starts a TT near you', value: s.notifTt, onChanged: (v) => set({'notif_tt': v})),
           _Toggle(icon: AppIcons.flagCheckered, title: 'Meets', subtitle: 'Reminders, changes and who joined', value: s.notifMeets, onChanged: (v) => set({'notif_meets': v})),
           _Toggle(icon: AppIcons.chatCircle, title: 'Messages', subtitle: 'New chat messages', value: s.notifMessages, onChanged: (v) => set({'notif_messages': v})),
           _Toggle(icon: AppIcons.users, title: 'Friends', subtitle: 'Requests, accepts and club invites', value: s.notifFriends, onChanged: (v) => set({'notif_friends': v})),
           _Toggle(icon: AppIcons.gift, title: 'Rewards', subtitle: 'Points earned, vouchers, badges', value: s.notifRewards, onChanged: (v) => set({'notif_rewards': v})),
-          const _Note('Push notifications arrive once the app is published. These choices are saved now.'),
+          const _Note('Pick what reaches your lock screen. Everything still shows in Activity.'),
 
           const _Head('APPEARANCE'),
           _Choice(

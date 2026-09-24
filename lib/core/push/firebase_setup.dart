@@ -7,6 +7,9 @@ import '../env.dart';
 /// True once Firebase started (keys present in env.json for this platform).
 bool firebaseReady = false;
 
+/// Why Firebase didn't start, for the push status row in Settings.
+String? firebaseInitError;
+
 FirebaseOptions? _options() {
   if (Env.firebaseProjectId.isEmpty || Env.firebaseSenderId.isEmpty) return null;
   return switch (defaultTargetPlatform) {
@@ -32,11 +35,15 @@ FirebaseOptions? _options() {
 /// or if Firebase fails, the app just runs without push and crash reports.
 Future<void> initFirebase() async {
   final options = _options();
-  if (options == null) return;
+  if (options == null) {
+    firebaseInitError = 'no Firebase keys in this build';
+    return;
+  }
   try {
     await Firebase.initializeApp(options: options);
     firebaseReady = true;
   } catch (e) {
+    firebaseInitError = '$e';
     debugPrint('[firebase] init failed: $e');
     return;
   }

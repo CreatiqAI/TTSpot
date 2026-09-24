@@ -21,7 +21,7 @@ Never commit keys: the GitHub repo is public.
   - GitHub repo → Settings → Secrets → Actions: add `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8` (whole file content)
   - → Tell Claude "API key added" → Claude runs the TestFlight workflow
 - [ ] When the first build shows in TestFlight: install it yourself (TestFlight app), then
-  - TestFlight → External Testing → new group → beta description, feedback email `ttspotmy@gmail.com`, privacy URL `https://creatiqai.github.io/TTSpot/privacy.html`, demo login (username `testing`, password `12341234`)
+  - TestFlight → External Testing → new group → beta description, feedback email `ttspotmy@gmail.com`, privacy URL `https://www.ttspot.my/privacy.html`, demo login (username `testing`, password `12341234`)
   - Submit for beta review (≈1 day) → enable **Public Link** → share it
 
 ## 2. Google Play

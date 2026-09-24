@@ -573,6 +573,8 @@ Build-time config comes from repo secrets `ENV_JSON` (= env.json), `MAPS_API_KEY
 
 **Launch steps that need the owner's accounts are in `LAUNCH_CHECKLIST.md`.**
 
+**Legal pages**: the text lives in `lib/core/legal/legal_text.dart`, is rendered to `docs/privacy.html` + `docs/terms.html`, and those two files are copied to the website repo `CreatiqAI/ttspotwebsite` as `dist/privacy.html` / `dist/terms.html` (live at https://www.ttspot.my/privacy.html and /terms.html, the URLs used in the store listings). Change all three together.
+
 **Push**: `push_tokens` + `push_hook` trigger (migration 0045) → Edge Function `push` (deployed `--no-verify-jwt`, guarded by the `PUSH_HOOK_SECRET` secret = Vault `push_hook_secret`; Vault `push_hook_url` points at the function). Sends via FCM v1 once the `FCM_SERVICE_ACCOUNT` secret is set; the app starts Firebase only when the `FIREBASE_*` keys are in env.json.
 
 **TestFlight** (paid Apple Developer account, individual, enrolled 2026-09-23). Bundle ID `my.ttspot.app`, iPhone only.

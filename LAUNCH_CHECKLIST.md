@@ -59,8 +59,8 @@ Same Google Cloud project as the Maps key (console.cloud.google.com).
 
 ## 5. Email + domain
 
-- [ ] resend.com → Domains → add `ttspot.my` → add the DNS records it shows at your domain registrar / Vercel DNS → wait for **Verified**
-  - → Tell Claude → Claude switches the sender to `@ttspot.my` and turns email confirmation back on
+- [x] `ttspot.my` verified in Resend (2026-09-15); Supabase sends as `TT Spot <noreply@ttspot.my>`
+- [ ] Decide: turn the 6-digit email code at sign-up back on (currently off by your choice, so anyone can sign up without confirming their email)
 - [ ] Optional: `support@ttspot.my` forwarding to Gmail (ImprovMX or Cloudflare Email Routing)
 
 ## 6. Website (ttspot.my on Vercel)
@@ -114,5 +114,5 @@ So shared links open the app directly instead of the GitHub Pages landing page.
 | Firebase files | env.json + `ENV_JSON` secret + `FCM_SERVICE_ACCOUNT`, test push end to end |
 | iOS Google client ID | `GOOGLE_IOS_CLIENT_ID` secret, Google sign-in on iPhone |
 | Play app-signing SHA-1/256 | assetlinks.json, Google Cloud note |
-| Resend domain verified | Sender on ttspot.my, email confirmation on |
+| "Turn email codes on" | Re-enables the sign-up code (`tool/auth_config.py --verify`) |
 | Play account ready | Listing, Data safety, rating answers, screenshots |

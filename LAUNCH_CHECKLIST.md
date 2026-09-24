@@ -20,9 +20,10 @@ Never commit keys: the GitHub repo is public.
 - [x] App Store Connect → Users and Access → Integrations → App Store Connect API → Team Keys → + with role **Admin** → download the `.p8`
   - GitHub repo → Settings → Secrets → Actions: add `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8` (whole file content)
   - → Tell Claude "API key added" → Claude runs the TestFlight workflow
-- [ ] When the first build shows in TestFlight: install it yourself (TestFlight app), then
+- [x] When the first build shows in TestFlight: install it yourself (TestFlight app), then
   - TestFlight → External Testing → new group → beta description, feedback email `ttspotmy@gmail.com`, privacy URL `https://www.ttspot.my/privacy.html`, demo login (username `testing`, password `12341234`)
   - Submit for beta review (≈1 day) → enable **Public Link** → share it
+  - Done 2026-09-24 by Claude via API: group "Beta testers", build 3 in beta review, public link https://testflight.apple.com/join/gBszVjXv (works once Apple approves)
 
 ## 2. Google Play
 

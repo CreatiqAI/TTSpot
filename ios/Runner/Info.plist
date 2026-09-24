@@ -74,6 +74,8 @@
 	<string>Take a photo or video for your avatar, your cars, a meet cover or a chat.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>TT Spot runs on location: see friends and your club on the map, check in at meets and spots, and scan a meet's QR when you're there. Only while the app is open.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>TT Spot uses your location to show you to friends and your club on the map and to check you in at meets and spots. It only shares your location while the app is open, and you can turn sharing off any time in Settings.</string>
 	<key>NSLocationTemporaryUsageDescriptionDictionary</key>
 	<dict>
 		<key>TTSpotMap</key>

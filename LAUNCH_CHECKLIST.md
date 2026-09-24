@@ -39,14 +39,14 @@ Never commit keys: the GitHub repo is public.
 
 ## 3. Firebase (push notifications + crash reports)
 
-- [ ] console.firebase.google.com → Add project `TT Spot` (Google Analytics: off is fine), signed in as `ttspotmy@gmail.com`
-- [ ] Add app → **Android**, package `my.ttspot.app` → download `google-services.json`
-- [ ] Add app → **iOS**, bundle `my.ttspot.app` → download `GoogleService-Info.plist`
-- [ ] Project settings → **Cloud Messaging** → Apple app → upload the APNs `.p8` from section 1 (Key ID + Team ID)
-- [ ] Project settings → **Service accounts** → Generate new private key → JSON file
+- [x] console.firebase.google.com → Add project `TT Spot` (Google Analytics: off is fine), signed in as `ttspotmy@gmail.com`
+- [x] Add app → **Android**, package `my.ttspot.app` → download `google-services.json`
+- [x] Add app → **iOS**, bundle `my.ttspot.app` → download `GoogleService-Info.plist`
+- [x] Project settings → **Cloud Messaging** → Apple app → upload the APNs `.p8` from section 1 (Key ID + Team ID)
+- [x] Project settings → **Service accounts** → Generate new private key → JSON file
 - [ ] Crashlytics → Get started (just enable it)
-- [ ] Save the three files in `C:\Users\Admin\.ttspot\` → Tell Claude
-  - Claude puts the app keys into env.json + the `ENV_JSON` secret and the service account into Supabase. Push then works on the next build
+- [x] Save the three files in `C:\Users\Admin\.ttspot\` → Tell Claude
+  - Done 2026-09-24: keys in env.json + `ENV_JSON`, service account in Supabase `FCM_SERVICE_ACCOUNT`, server push verified
 
 ## 4. Google Cloud (Google sign-in + Maps)
 

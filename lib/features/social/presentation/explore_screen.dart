@@ -21,6 +21,7 @@ import 'create_hub_sheet.dart';
 import 'widgets/masonry_grid.dart';
 import 'widgets/post_card.dart';
 import 'widgets/stories_row.dart';
+import '../../../core/widgets/brand_logo.dart';
 
 /// Posts tab. "For you" is a RedNote-style grid of everything; "Following" is
 /// an Instagram-style card feed of people you follow; "Spots" ranks places
@@ -35,7 +36,7 @@ class ExploreScreen extends ConsumerWidget {
       child: Scaffold(
         appBar: AppBar(
           centerTitle: false,
-          title: Image.asset('assets/brand/logo.png', height: 56, filterQuality: FilterQuality.medium),
+          title: const BrandLogo(height: 56),
           actions: [
             IconButton(tooltip: 'Search', icon: const Icon(AppIcons.magnifyingGlass, size: 26), onPressed: () => context.push(Routes.search)),
             IconButton(tooltip: 'Create', icon: const Icon(AppIcons.plusCircle, size: 26), onPressed: () => showCreateHub(context, ref)),

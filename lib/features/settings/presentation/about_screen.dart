@@ -6,6 +6,7 @@ import '../../../core/config/release_notes.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../onboarding/presentation/intro_screen.dart';
+import '../../../core/widgets/brand_logo.dart';
 
 /// About TT Spot: version, what's new per update, licences tucked at the end.
 class AboutScreen extends StatelessWidget {
@@ -21,7 +22,7 @@ class AboutScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
         children: [
-          Center(child: Image.asset('assets/brand/logo.png', height: 96)),
+          Center(child: const BrandLogo(height: 96)),
           const SizedBox(height: 10),
           const Center(
             child: Text('TT Spot', style: TextStyle(fontFamily: AppFonts.display, fontSize: 30, fontWeight: FontWeight.w700, height: 1)),

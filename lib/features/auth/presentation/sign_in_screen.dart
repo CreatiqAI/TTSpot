@@ -13,6 +13,7 @@ import 'package:supabase_flutter/supabase_flutter.dart' show AuthException;
 import '../../../core/router/app_router.dart';
 import '../application/auth_controller.dart';
 import '../data/auth_repository.dart';
+import '../../../core/widgets/brand_logo.dart';
 
 enum _Mode { signIn, signUp }
 
@@ -146,7 +147,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           const SizedBox(height: 8),
-                          Center(child: Image.asset('assets/brand/logo.png', height: 150, filterQuality: FilterQuality.medium)),
+                          Center(child: const BrandLogo(height: 150)),
                           const SizedBox(height: 10),
                           Text(
                             "Malaysia's car meet spot",

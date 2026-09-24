@@ -20,6 +20,7 @@ const kReleaseNotes = <ReleaseNote>[
       'Hosts get a turnout report after a meet: verified check-ins, show rate, first-timers, cars by make and model, arrival times. Share it with sponsors.',
       'Share meets, clubs, profiles, posts, spots and partner pages to WhatsApp or anywhere from the share button.',
       'Photos load faster and use less data: they are kept on your phone after the first view.',
+      'The TT Spot logo is readable in dark mode (white instead of black).',
       'The app now has its own ID (my.ttspot.app). On Android, uninstall the old TT Spot once, then install this one and log in again.',
     ],
   ),

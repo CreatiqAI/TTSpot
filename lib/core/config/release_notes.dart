@@ -14,7 +14,7 @@ const kReleaseNotes = <ReleaseNote>[
     date: '28 Sep 2026',
     title: 'Meet TiTi',
     points: [
-      'The real card art is in: Series 01 to 06 starring TiTi the cone. Series 07, the legendary, is still under wraps.',
+      'The real card art is in: all seven cards starring TiTi the cone, including the secret Series 07 legendary with TypeOne.',
     ],
   ),
   ReleaseNote(

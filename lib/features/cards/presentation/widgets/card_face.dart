@@ -10,7 +10,7 @@ import '../../domain/cards.dart';
 const kCardAspect = 2 / 3;
 
 /// Art that ships inside the app, by card id. An `art_url` set by an admin
-/// wins over these. Series 07 (legendary) has no art yet.
+/// wins over these.
 const kCardAssets = <String, String>{
   'c1': 'assets/cards/c1.jpg',
   'c2': 'assets/cards/c2.jpg',
@@ -18,6 +18,7 @@ const kCardAssets = <String, String>{
   'c4': 'assets/cards/c4.jpg',
   'c5': 'assets/cards/c5.jpg',
   'c6': 'assets/cards/c6.jpg',
+  'c7': 'assets/cards/c7.jpg',
 };
 
 /// The image for a card, or null when only the placeholder exists.

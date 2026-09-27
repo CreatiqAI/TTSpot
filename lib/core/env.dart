@@ -7,6 +7,9 @@ abstract final class Env {
   /// legacy `anon` JWT — both work here.
   static const supabasePublishableKey = String.fromEnvironment('SUPABASE_PUBLISHABLE_KEY');
 
+  /// Mapbox public token (pk.…), account → Tokens. The map does not render without it.
+  static const mapboxPublicToken = String.fromEnvironment('MAPBOX_PUBLIC_TOKEN');
+
   /// DEBUG ONLY. Base64 of a PEM root certificate to additionally trust, for
   /// dev machines where antivirus / corporate proxies re-sign HTTPS (e.g. Avast).
   /// Ignored in release builds. Leave empty if you don't need it.

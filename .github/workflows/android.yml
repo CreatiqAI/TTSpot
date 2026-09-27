@@ -48,9 +48,11 @@ jobs:
         env:
           ENV_JSON: ${{ secrets.ENV_JSON }}
           MAPS_API_KEY: ${{ secrets.MAPS_API_KEY }}
+          MAPBOX_DOWNLOADS_TOKEN: ${{ secrets.MAPBOX_DOWNLOADS_TOKEN }}
         run: |
           printf '%s' "$ENV_JSON" > env.json
           echo "MAPS_API_KEY=${MAPS_API_KEY}" > android/local.properties
+          mkdir -p ~/.gradle && echo "SDK_REGISTRY_TOKEN=${MAPBOX_DOWNLOADS_TOKEN}" >> ~/.gradle/gradle.properties
           python3 -c "import json; json.load(open('env.json')); print('env.json ok')"
 
       - name: Upload key (release signing)

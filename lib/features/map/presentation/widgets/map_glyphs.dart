@@ -2,7 +2,6 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../../../../core/theme/app_icons.dart';
 import 'map_pins.dart';
@@ -147,10 +146,7 @@ class GlyphMarkerFactory {
     final img = await picture.toImage((w * devicePixelRatio).ceil(), (h * devicePixelRatio).ceil());
     final bytes = await img.toByteData(format: ui.ImageByteFormat.png);
     img.dispose();
-    final pin = MapPin(
-      BitmapDescriptor.bytes(bytes!.buffer.asUint8List(), imagePixelRatio: devicePixelRatio),
-      Offset((iconLeft + anchorPx.dx) / w, (pad + anchorPx.dy) / h),
-    );
+    final pin = MapPin(bytes!.buffer.asUint8List(), Offset((iconLeft + anchorPx.dx) / w, (pad + anchorPx.dy) / h), Size(w, h));
     return _cache[k] = pin;
   }
 

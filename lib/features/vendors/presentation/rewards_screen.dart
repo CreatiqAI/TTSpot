@@ -10,7 +10,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/dates.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../../core/widgets/empty_state.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart' show LatLng;
+import '../../../core/geo/latlng.dart';
 
 import '../../../core/utils/geo.dart';
 import '../../map/application/map_providers.dart';

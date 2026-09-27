@@ -5,15 +5,16 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../../../../core/theme/app_icons.dart';
 
-/// A rendered marker plus its anchor (fraction of the image).
+/// A rendered marker: PNG bytes at device resolution, its anchor (fraction of
+/// the image) and its logical size.
 class MapPin {
-  const MapPin(this.descriptor, this.anchor);
-  final BitmapDescriptor descriptor;
+  const MapPin(this.bytes, this.anchor, this.size);
+  final Uint8List bytes;
   final Offset anchor;
+  final Size size;
 }
 
 /// Renders the non-event pins on the map with Canvas so they look the same on
@@ -362,7 +363,7 @@ class MapPinFactory {
     final img = await picture.toImage((w * devicePixelRatio).ceil(), (h * devicePixelRatio).ceil());
     final bytes = await img.toByteData(format: ui.ImageByteFormat.png);
     img.dispose();
-    return MapPin(BitmapDescriptor.bytes(bytes!.buffer.asUint8List(), imagePixelRatio: devicePixelRatio), Offset(0.5, anchorY));
+    return MapPin(bytes!.buffer.asUint8List(), Offset(0.5, anchorY), Size(w, h));
   }
 
   final _assets = <String, ui.Image?>{};

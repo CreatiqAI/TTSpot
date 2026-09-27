@@ -1,5 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import '../../../core/geo/latlng.dart';
 
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/utils/friendly_error.dart';

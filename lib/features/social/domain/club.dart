@@ -1,4 +1,4 @@
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import '../../../core/geo/latlng.dart';
 
 import '../../../core/theme/app_art.dart';
 import '../../auth/domain/profile.dart';

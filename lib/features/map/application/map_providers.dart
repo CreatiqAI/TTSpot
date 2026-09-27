@@ -4,7 +4,7 @@ import 'dart:async';
 import 'package:geolocator/geolocator.dart';
 
 import '../../../core/location/live_position.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import '../../../core/geo/latlng.dart';
 
 import '../../../core/utils/geo.dart';
 import '../../events/data/events_repository.dart';

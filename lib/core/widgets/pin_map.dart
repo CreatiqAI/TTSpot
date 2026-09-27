@@ -1,9 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import '../geo/latlng.dart';
+import '../map/app_map.dart';
 import '../theme/app_icons.dart';
 import '../theme/app_theme.dart';
 
@@ -32,17 +32,13 @@ class PinMap extends StatefulWidget {
 }
 
 class PinMapState extends State<PinMap> {
-  GoogleMapController? _map;
-  String? _style;
+  final _map = AppMapController();
   LatLng? _target;
 
   @override
   void initState() {
     super.initState();
     _target = widget.start;
-    rootBundle.loadString('assets/map_style_dark.json').then((s) {
-      if (mounted) setState(() => _style = s);
-    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) widget.onChanged(widget.start);
     });
@@ -50,13 +46,11 @@ class PinMapState extends State<PinMap> {
 
   @override
   void dispose() {
-    _map?.dispose();
+    _map.dispose();
     super.dispose();
   }
 
-  void moveTo(LatLng target, {double? zoom}) {
-    _map?.animateCamera(zoom == null ? CameraUpdate.newLatLng(target) : CameraUpdate.newLatLngZoom(target, zoom));
-  }
+  void moveTo(LatLng target, {double? zoom}) => _map.animateTo(target, zoom: zoom);
 
   @override
   Widget build(BuildContext context) {
@@ -66,18 +60,15 @@ class PinMapState extends State<PinMap> {
         height: widget.height,
         child: Stack(
           children: [
-            GoogleMap(
-              initialCameraPosition: CameraPosition(target: widget.start, zoom: widget.zoom),
-              style: _style,
-              onMapCreated: (c) => _map = c,
-              onCameraMove: (pos) => _target = pos.target,
+            AppMap(
+              controller: _map,
+              initialTarget: widget.start,
+              initialZoom: widget.zoom,
+              night: AppColors.dark,
+              onCameraMove: (c) => _target = c,
               onCameraIdle: () {
                 if (_target != null) widget.onChanged(_target!);
               },
-              zoomControlsEnabled: false,
-              myLocationButtonEnabled: false,
-              mapToolbarEnabled: false,
-              compassEnabled: false,
               gestureRecognizers: {Factory<OneSequenceGestureRecognizer>(EagerGestureRecognizer.new)},
             ),
             const IgnorePointer(

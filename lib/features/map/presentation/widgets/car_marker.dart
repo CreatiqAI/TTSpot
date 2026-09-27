@@ -2,7 +2,8 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import '../../../../core/geo/latlng.dart';
+import '../../../../core/map/app_map.dart';
 
 import 'map_pins.dart';
 
@@ -216,15 +217,15 @@ String freshnessLabel(DateTime updatedAt) {
 }
 
 /// A circle with the radar look, used for live meets and the nearby ring.
-Circle radarCircle({required String id, required LatLng at, required double radiusM, required double t, Color color = const Color(0xFFE00008)}) {
+AppCircle radarCircle({required String id, required LatLng at, required double radiusM, required double t, Color color = const Color(0xFFE00008)}) {
   // t 0..1: ring grows and fades out.
-  return Circle(
-    circleId: CircleId(id),
+  return AppCircle(
+    id: id,
     center: at,
-    radius: radiusM * (0.15 + 0.85 * t),
+    radiusM: radiusM * (0.15 + 0.85 * t),
     strokeWidth: 2,
-    strokeColor: color.withValues(alpha: (1 - t) * 0.8),
-    fillColor: color.withValues(alpha: (1 - t) * 0.18),
+    stroke: color.withValues(alpha: (1 - t) * 0.8),
+    fill: color.withValues(alpha: (1 - t) * 0.18),
     zIndex: 1,
   );
 }

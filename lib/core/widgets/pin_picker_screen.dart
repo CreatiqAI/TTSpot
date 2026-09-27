@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import '../geo/latlng.dart';
+import '../map/app_map.dart';
 
 import '../places/places_service.dart';
 import '../theme/app_icons.dart';
@@ -33,22 +33,18 @@ class PinPickerScreen extends ConsumerStatefulWidget {
 }
 
 class _PinPickerScreenState extends ConsumerState<PinPickerScreen> {
-  GoogleMapController? _map;
-  String? _style;
+  final _map = AppMapController();
   late LatLng _target = widget.start;
   String? _name;
 
   @override
   void initState() {
     super.initState();
-    rootBundle.loadString('assets/map_style_dark.json').then((s) {
-      if (mounted) setState(() => _style = s);
-    });
   }
 
   @override
   void dispose() {
-    _map?.dispose();
+    _map.dispose();
     super.dispose();
   }
 
@@ -57,7 +53,7 @@ class _PinPickerScreenState extends ConsumerState<PinPickerScreen> {
       final p = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(accuracy: LocationAccuracy.high, timeLimit: Duration(seconds: 8)),
       );
-      _map?.animateCamera(CameraUpdate.newLatLngZoom(LatLng(p.latitude, p.longitude), 16));
+      _map.animateTo(LatLng(p.latitude, p.longitude), zoom: 16);
     } catch (_) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Location is off. Drag the map instead.')));
     }
@@ -65,7 +61,7 @@ class _PinPickerScreenState extends ConsumerState<PinPickerScreen> {
 
   void _onPicked(PlaceDetails d) {
     _name = d.name;
-    _map?.animateCamera(CameraUpdate.newLatLngZoom(LatLng(d.lat, d.lng), 17));
+    _map.animateTo(LatLng(d.lat, d.lng), zoom: 17);
   }
 
   @override
@@ -75,18 +71,13 @@ class _PinPickerScreenState extends ConsumerState<PinPickerScreen> {
       backgroundColor: AppColors.ink,
       body: Stack(
         children: [
-          GoogleMap(
-            initialCameraPosition: CameraPosition(target: widget.start, zoom: 15),
-            style: _style,
-            onMapCreated: (c) => _map = c,
-            onCameraMove: (pos) {
-              _target = pos.target;
-            },
+          AppMap(
+            controller: _map,
+            initialTarget: widget.start,
+            initialZoom: 15,
+            night: true,
+            onCameraMove: (c) => _target = c,
             onCameraMoveStarted: () => _name = null, // a manual drag is no longer "that place"
-            zoomControlsEnabled: false,
-            myLocationButtonEnabled: false,
-            mapToolbarEnabled: false,
-            compassEnabled: false,
             padding: EdgeInsets.only(top: pad.top + 72, bottom: 120),
           ),
           const IgnorePointer(

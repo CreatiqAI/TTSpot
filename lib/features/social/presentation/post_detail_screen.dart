@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import '../../map/presentation/widgets/static_pin_map.dart';
 
 import '../../../core/router/app_router.dart';
 import '../../../core/supabase/supabase_client.dart';
@@ -235,7 +235,6 @@ class _GuideMap extends StatelessWidget {
       if (p.longitude < west) west = p.longitude;
       if (p.longitude > east) east = p.longitude;
     }
-    final center = LatLng((south + north) / 2, (west + east) / 2);
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
       child: Column(
@@ -245,25 +244,7 @@ class _GuideMap extends StatelessWidget {
             borderRadius: BorderRadius.circular(AppRadius.md),
             child: SizedBox(
               height: 220,
-              child: GoogleMap(
-                initialCameraPosition: CameraPosition(target: center, zoom: 10.5),
-                onMapCreated: (c) {
-                  if (points.length > 1) {
-                    c.animateCamera(CameraUpdate.newLatLngBounds(LatLngBounds(southwest: LatLng(south, west), northeast: LatLng(north, east)), 48));
-                  }
-                },
-                markers: {
-                  for (var i = 0; i < stops.length; i++)
-                    Marker(markerId: MarkerId('stop$i'), position: stops[i].latLng, infoWindow: InfoWindow(title: '${i + 1}. ${stops[i].name}')),
-                },
-                polylines: {
-                  if (points.length > 1) Polyline(polylineId: const PolylineId('route'), points: points, color: AppColors.primary, width: 4),
-                },
-                zoomControlsEnabled: false,
-                myLocationButtonEnabled: false,
-                mapToolbarEnabled: false,
-                liteModeEnabled: false,
-              ),
+              child: StaticPinMap(points: points, labels: [for (var i = 0; i < stops.length; i++) '${i + 1}. ${stops[i].name}'], zoom: 10.5, route: true),
             ),
           ),
           const SizedBox(height: 10),
@@ -296,14 +277,7 @@ class _SpottedMap extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppRadius.md),
         child: SizedBox(
           height: 160,
-          child: GoogleMap(
-            initialCameraPosition: CameraPosition(target: post.latLng!, zoom: 14),
-            liteModeEnabled: true,
-            markers: {Marker(markerId: MarkerId(post.id), position: post.latLng!)},
-            zoomControlsEnabled: false,
-            myLocationButtonEnabled: false,
-            mapToolbarEnabled: false,
-          ),
+          child: StaticPinMap(points: [post.latLng!], zoom: 14),
         ),
       ),
     );

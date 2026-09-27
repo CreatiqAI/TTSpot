@@ -51,8 +51,10 @@ jobs:
           ENV_JSON: ${{ secrets.ENV_JSON }}
           MAPS_API_KEY: ${{ secrets.MAPS_API_KEY }}
           GOOGLE_IOS_CLIENT_ID: ${{ secrets.GOOGLE_IOS_CLIENT_ID }}
+          MAPBOX_DOWNLOADS_TOKEN: ${{ secrets.MAPBOX_DOWNLOADS_TOKEN }}
         run: |
           printf '%s' "$ENV_JSON" > env.json
+          printf 'machine api.mapbox.com\nlogin mapbox\npassword %s\n' "$MAPBOX_DOWNLOADS_TOKEN" > ~/.netrc && chmod 600 ~/.netrc
           REV=$(echo "${GOOGLE_IOS_CLIENT_ID:-ttspot}" | awk -F. '{ for (i=NF; i>0; i--) printf "%s%s", $i, (i>1 ? "." : "") }')
           {
             echo "MAPS_API_KEY=${MAPS_API_KEY}"

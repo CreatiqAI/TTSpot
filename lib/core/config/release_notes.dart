@@ -10,6 +10,16 @@ class ReleaseNote {
 
 const kReleaseNotes = <ReleaseNote>[
   ReleaseNote(
+    version: '0.3.32',
+    date: '28 Sep 2026',
+    title: 'A new map',
+    points: [
+      'The map now runs on Mapbox: richer colours, real building shapes, a proper night look after 7 pm and smoother zooming.',
+      'Every pin, car and moment is drawn the same way as before. Tell us if anything looks off.',
+      'In-app navigation is next.',
+    ],
+  ),
+  ReleaseNote(
     version: '0.3.31',
     date: '28 Sep 2026',
     title: 'Meet TiTi',

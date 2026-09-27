@@ -5,7 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:geolocator/geolocator.dart' show LocationAccuracyStatus;
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import '../../../core/geo/latlng.dart';
+import '../../../core/map/app_map.dart';
 
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_icons.dart';
@@ -47,17 +48,14 @@ class MapScreen extends ConsumerStatefulWidget {
 }
 
 class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProviderStateMixin {
-  GoogleMapController? _map;
-  String? _style;
-  String? _styleDark;
-  String? _styleLight;
+  final _map = AppMapController();
   GlyphMarkerFactory? _glyphs;
   MapPinFactory? _pins;
   CarMarkerFactory? _cars;
-  Set<Marker> _markerSet = const {};
+  List<AppMarker> _markerSet = const [];
   /// What kinds of pin are on the map right now; feeds the key.
   Set<LegendGlyph> _present = const {};
-  Set<Circle> _circles = const {};
+  List<AppCircle> _circles = const [];
   // Radar: one pulse every 5 s on live meets (and a static ring for nearby mode).
   late final AnimationController _radar = AnimationController(vsync: this, duration: const Duration(milliseconds: 1400))..addListener(_paintCircles);
   Timer? _radarTimer;
@@ -77,11 +75,6 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
   @override
   void initState() {
     super.initState();
-    Future.wait([rootBundle.loadString('assets/map_style_dark.json'), rootBundle.loadString('assets/map_style_light.json')]).then((s) {
-      _styleDark = s[0];
-      _styleLight = s[1];
-      if (mounted) setState(() => _style = _isNight ? _styleDark : _styleLight);
-    });
     _radarTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       if (mounted && ref.read(mapModeProvider) == MapMode.now) _radar.forward(from: 0);
     });
@@ -127,7 +120,7 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
   void _paintCircles() {
     if (!mounted) return;
     final t = _radar.value;
-    final circles = <Circle>{};
+    final circles = <AppCircle>[];
     if (ref.read(mapModeProvider) == MapMode.now) {
       if (_radar.isAnimating) {
         for (final e in ref.read(liveEventsProvider).value ?? const <Event>[]) {
@@ -139,24 +132,24 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
       final live = ref.read(livePositionProvider);
       // How sure the phone is: a soft ring, only when it is worth showing.
       if (live != null && live.accuracyM > 20 && live.accuracyM < 3000) {
-        circles.add(Circle(
-          circleId: const CircleId('me-accuracy'),
+        circles.add(AppCircle(
+          id: 'me-accuracy',
           center: live.latLng,
-          radius: live.accuracyM,
+          radiusM: live.accuracyM,
           strokeWidth: 1,
-          strokeColor: kRelationMe.withValues(alpha: 0.35),
-          fillColor: kRelationMe.withValues(alpha: 0.08),
+          stroke: kRelationMe.withValues(alpha: 0.35),
+          fill: kRelationMe.withValues(alpha: 0.08),
           zIndex: 1,
         ));
       }
       if (my != null && my.shareMode == 'nearby' && here != null) {
-        circles.add(Circle(
-          circleId: const CircleId('nearby-ring'),
+        circles.add(AppCircle(
+          id: 'nearby-ring',
           center: here,
-          radius: my.shareRadiusM.toDouble(),
+          radiusM: my.shareRadiusM.toDouble(),
           strokeWidth: 1,
-          strokeColor: AppColors.brand.withValues(alpha: 0.55),
-          fillColor: AppColors.brand.withValues(alpha: 0.05),
+          stroke: AppColors.brand.withValues(alpha: 0.55),
+          fill: AppColors.brand.withValues(alpha: 0.05),
         ));
       }
     }
@@ -171,33 +164,29 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
     _glyphs?.dispose();
     _pins?.dispose();
     _sheet.dispose();
-    _map?.dispose();
+    _map.dispose();
     super.dispose();
   }
 
   // -------------------------------------------------------------- camera ---
 
-  void _onMapCreated(GoogleMapController c) {
-    _map = c;
-    _moveToUserIfKnown();
-  }
+  void _onMapReady() => _moveToUserIfKnown();
 
   void _moveToUserIfKnown() {
     final loc = ref.read(userLocationProvider).value;
     if (loc != null && !_movedToUser) {
       _movedToUser = true;
-      _map?.animateCamera(CameraUpdate.newLatLngZoom(loc, 12));
+      _map.animateTo(loc, zoom: 12);
     }
   }
 
   void _onCameraIdle() {
     _idleDebounce?.cancel();
     _idleDebounce = Timer(const Duration(milliseconds: 350), () async {
-      final map = _map;
-      if (map == null || !mounted) return;
-      final bounds = await map.getVisibleRegion();
-      final zoom = await map.getZoomLevel();
-      if (!mounted) return;
+      if (!_map.isReady || !mounted) return;
+      final bounds = await _map.visibleRegion();
+      final zoom = await _map.zoom();
+      if (!mounted || bounds == null) return;
       ref.read(mapViewportProvider.notifier).set(bounds);
       final tier = zoom < _midZoom ? 0 : (zoom < _closeZoom ? 1 : 2);
       final before = (_tier, _glyphScale, _showPeople);
@@ -210,7 +199,7 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
   Future<void> _locateMe() async {
     // Glide to what we have now, then again if a fresh fix moves us.
     final known = ref.read(livePositionProvider)?.latLng ?? ref.read(userLocationProvider).value;
-    if (known != null) _map?.animateCamera(CameraUpdate.newLatLngZoom(known, 15));
+    if (known != null) _map.animateTo(known, zoom: 15);
     var loc = await ref.read(livePositionProvider.notifier).refresh();
     if (loc == null) {
       ref.invalidate(userLocationProvider);
@@ -221,7 +210,7 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
       _snack('Location is off. Showing Kuala Lumpur instead.');
       return;
     }
-    if (known == null || distanceKm(known, loc) > 0.01) _map?.animateCamera(CameraUpdate.newLatLngZoom(loc, 15));
+    if (known == null || distanceKm(known, loc) > 0.01) _map.animateTo(loc, zoom: 15);
   }
 
   Future<void> _turnOnPrecise() async {
@@ -234,7 +223,7 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
       _sheet.animateTo(full ? MapSheet.full : MapSheet.half, duration: const Duration(milliseconds: 280), curve: Curves.easeOutCubic);
 
   void _focus(LatLng target, {double zoom = 15}) {
-    _map?.animateCamera(CameraUpdate.newLatLngZoom(target, zoom));
+    _map.animateTo(target, zoom: zoom);
     _sheet.animateTo(MapSheet.closed, duration: const Duration(milliseconds: 260), curve: Curves.easeOut);
   }
 
@@ -268,9 +257,8 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
   /// From a zoomed-out view, glide in to the pin first, then open its page.
   /// Up close, open straight away.
   Future<void> _openAt(LatLng at, VoidCallback open) async {
-    final map = _map;
-    if (map != null && _zoom < 14.5) {
-      await map.animateCamera(CameraUpdate.newLatLngZoom(at, 16));
+    if (_map.isReady && _zoom < 14.5) {
+      await _map.animateTo(at, zoom: 16);
       await Future<void>.delayed(const Duration(milliseconds: 520));
       if (!mounted) return;
     }
@@ -280,7 +268,7 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
   Future<void> _rebuild() async {
     final generation = ++_generation;
     final mode = ref.read(mapModeProvider);
-    final built = <Marker>{};
+    final built = <AppMarker>[];
     final present = <LegendGlyph>{};
 
     Future<bool> stale() async => generation != _generation || !mounted;
@@ -298,13 +286,12 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
           final bmp = await _eventPin(e, sub: e.checkinCount > 0 ? 'LIVE · ${e.checkinCount} here' : 'LIVE');
           if (await stale()) return;
           noteEvent(e);
-          built.add(Marker(
-            markerId: MarkerId('event:${e.id}'),
+          built.add(AppMarker(
+            id: 'event:${e.id}',
             position: e.latLng,
-            icon: bmp.descriptor,
+            image: bmp.bytes, size: bmp.size,
             anchor: bmp.anchor,
-            zIndexInt: 3,
-            consumeTapEvents: true,
+            zIndex: 3,
             onTap: () => _openAt(e.latLng, () => context.push(Routes.event(e.id))),
           ));
         }
@@ -314,13 +301,12 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
           final pin = await _pinFactory.moment(key: m.id, imageUrl: m.photoUrl, scale: _glyphScale);
           if (await stale()) return;
           present.add(LegendGlyph.moment);
-          built.add(Marker(
-            markerId: MarkerId('moment:${m.id}'),
+          built.add(AppMarker(
+            id: 'moment:${m.id}',
             position: at,
-            icon: pin.descriptor,
+            image: pin.bytes, size: pin.size,
             anchor: pin.anchor,
-            zIndexInt: 1,
-            consumeTapEvents: true,
+            zIndex: 1,
             onTap: () => _openAt(at, () => _openMoment(m)),
           ));
         }
@@ -332,12 +318,11 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
           final bmp = await _eventPin(e, sub: relativeShort(e.startsAt, now: now));
           if (await stale()) return;
           noteEvent(e);
-          built.add(Marker(
-            markerId: MarkerId('event:${e.id}'),
+          built.add(AppMarker(
+            id: 'event:${e.id}',
             position: e.latLng,
-            icon: bmp.descriptor,
+            image: bmp.bytes, size: bmp.size,
             anchor: bmp.anchor,
-            consumeTapEvents: true,
             onTap: () => _openAt(e.latLng, () => context.push(Routes.event(e.id))),
           ));
         }
@@ -357,13 +342,12 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
                     );
           if (await stale()) return;
           present.add(p.isPartner ? LegendGlyph.partner : (p.recommended ? LegendGlyph.topSpot : LegendGlyph.spot));
-          built.add(Marker(
-            markerId: MarkerId('place:${p.id}'),
+          built.add(AppMarker(
+            id: 'place:${p.id}',
             position: p.latLng,
-            icon: pin.descriptor,
+            image: pin.bytes, size: pin.size,
             anchor: pin.anchor,
-            zIndexInt: p.isPartner ? 3 : (p.recommended ? 2 : 1),
-            consumeTapEvents: true,
+            zIndex: p.isPartner ? 3 : (p.recommended ? 2 : 1),
             onTap: () => _openAt(p.latLng, () => context.push(p.isPartner ? Routes.partner(p.vendorId!) : Routes.place(p.id))),
           ));
         }
@@ -378,18 +362,17 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
   }
 
   /// Partner shops show on every layer: logo pin when zoomed in, red dot far out.
-  Future<void> _addPartners(Set<Marker> built, Future<bool> Function() stale, Set<LegendGlyph> present) async {
+  Future<void> _addPartners(List<AppMarker> built, Future<bool> Function() stale, Set<LegendGlyph> present) async {
     for (final p in (ref.read(spotsProvider).value ?? const <Place>[]).where((p) => p.isPartner)) {
       present.add(LegendGlyph.partner);
       final pin = _far ? await _pinFactory.partnerMini(key: p.id, scale: _glyphScale) : await _pinFactory.partner(key: p.id, logoUrl: p.vendorLogo, scale: _glyphScale);
       if (await stale()) return;
-      built.add(Marker(
-        markerId: MarkerId('place:${p.id}'),
+      built.add(AppMarker(
+        id: 'place:${p.id}',
         position: p.latLng,
-        icon: pin.descriptor,
+        image: pin.bytes, size: pin.size,
         anchor: pin.anchor,
-        zIndexInt: 2,
-        consumeTapEvents: true,
+        zIndex: 2,
         onTap: () => _openAt(p.latLng, () => context.push(Routes.partner(p.vendorId!))),
       ));
     }
@@ -397,7 +380,7 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
 
   /// Friends, clubmates, nearby strangers and me. Cars when zoomed in, dots
   /// when zoomed out. Colour = relationship, or the colour I gave a friend.
-  Future<void> _addPeople(Set<Marker> built, Future<bool> Function() stale, Set<LegendGlyph> present, {bool onlyMe = false}) async {
+  Future<void> _addPeople(List<AppMarker> built, Future<bool> Function() stale, Set<LegendGlyph> present, {bool onlyMe = false}) async {
     final tags = ref.read(friendTagsProvider).value ?? const <String, String>{};
     final showColor = ref.read(settingsProvider).showCarColor;
     if (!onlyMe && !_far && _showPeople) {
@@ -421,13 +404,12 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
               );
         if (await stale()) return;
         present.add(stranger ? LegendGlyph.nearby : (f.viaClub ? LegendGlyph.club : LegendGlyph.friend));
-        built.add(Marker(
-          markerId: MarkerId('friend:${f.user.id}'),
+        built.add(AppMarker(
+          id: 'friend:${f.user.id}',
           position: f.latLng,
-          icon: pin.descriptor,
+          image: pin.bytes, size: pin.size,
           anchor: pin.anchor,
-          zIndexInt: stranger ? 2 : 4,
-          consumeTapEvents: true,
+          zIndex: stranger ? 2 : 4,
           onTap: () => _openAt(f.latLng, () => context.push(Routes.profile(f.user.id))),
         ));
       }
@@ -442,7 +424,7 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
           : await _carFactory.car(key: 'me', colorKey: showColor ? (myCar?.color ?? 'red') : 'red', name: 'Me', status: 'now', showFace: false, me: true);
       if (await stale()) return;
       present.add(LegendGlyph.me);
-      built.add(Marker(markerId: const MarkerId('me'), position: here, icon: pin.descriptor, anchor: pin.anchor, zIndexInt: 6));
+      built.add(AppMarker(id: 'me', position: here, image: pin.bytes, size: pin.size, anchor: pin.anchor, zIndex: 6));
     }
   }
 
@@ -452,13 +434,13 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
     final me = ref.read(currentUserIdProvider);
     if (here == null || me == null || _markerSet.isEmpty) return;
     _lastHere = here;
-    final old = _markerSet.where((m) => m.markerId.value == 'me').firstOrNull;
-    if (old == null) {
+    final idx = _markerSet.indexWhere((m) => m.id == 'me');
+    if (idx < 0) {
       _rebuild();
       return;
     }
     if (!mounted) return;
-    setState(() => _markerSet = {..._markerSet.where((m) => m.markerId.value != 'me'), old.copyWith(positionParam: here)});
+    setState(() => _markerSet = [..._markerSet]..[idx] = _markerSet[idx].copyWith(position: here));
   }
 
   void _openMoment(Story m) {
@@ -542,24 +524,20 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
         backgroundColor: AppColors.mapBg,
         body: Stack(
           children: [
-            GoogleMap(
-              initialCameraPosition: const CameraPosition(target: kualaLumpur, zoom: 11.3),
-              style: _style,
+            AppMap(
+              controller: _map,
+              initialTarget: kualaLumpur,
+              initialZoom: 11.3,
+              night: _isNight,
               markers: _markerSet,
               circles: _circles,
-              onMapCreated: _onMapCreated,
+              padding: EdgeInsets.only(bottom: mapPadding),
+              onReady: _onMapReady,
               onCameraIdle: _onCameraIdle,
               // Tap the map while the sheet is up: close it.
               onTap: (_) {
                 if (_sheetOpen) _sheet.animateTo(MapSheet.closed, duration: const Duration(milliseconds: 240), curve: Curves.easeOut);
               },
-              myLocationEnabled: false,
-              myLocationButtonEnabled: false,
-              zoomControlsEnabled: false,
-              compassEnabled: false,
-              mapToolbarEnabled: false,
-              buildingsEnabled: true,
-              padding: EdgeInsets.only(bottom: mapPadding),
             ),
 
             // Mode switch + nearby banner

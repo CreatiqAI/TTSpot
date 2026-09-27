@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/utils/open_external.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import '../../map/presentation/widgets/static_pin_map.dart';
 
 import '../../../core/config/features.dart';
 import '../../../core/router/app_router.dart';
@@ -678,14 +678,7 @@ class _MapPreview extends StatelessWidget {
         height: 160,
         child: Stack(
           children: [
-            GoogleMap(
-              initialCameraPosition: CameraPosition(target: event.latLng, zoom: 14.5),
-              liteModeEnabled: true,
-              zoomControlsEnabled: false,
-              mapToolbarEnabled: false,
-              myLocationButtonEnabled: false,
-              markers: {Marker(markerId: MarkerId(event.id), position: event.latLng)},
-            ),
+            StaticPinMap(points: [event.latLng], zoom: 14.5),
             Positioned(
               left: 12,
               bottom: 12,

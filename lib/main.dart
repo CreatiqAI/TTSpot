@@ -9,6 +9,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/env.dart';
 import 'core/router/app_router.dart';
+import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart' show MapboxOptions;
+
 import 'core/supabase/supabase_client.dart';
 import 'core/theme/app_theme.dart';
 import 'features/settings/application/settings_providers.dart';
@@ -25,6 +27,7 @@ Future<void> main() async {
     runApp(const _NotConfiguredApp());
     return;
   }
+  MapboxOptions.setAccessToken(Env.mapboxPublicToken);
   await initSupabase();
   await initFirebase();
   runApp(const ProviderScope(child: TtSpotApp()));

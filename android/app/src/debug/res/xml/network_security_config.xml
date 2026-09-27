@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  DEBUG BUILDS ONLY (this file lives in src/debug). Lets native HTTP clients
+  (Mapbox tiles, Firebase, OkHttp) trust the extra root in res/raw, which is
+  the antivirus HTTPS-scanning root on the dev PC, so the emulator can load
+  map tiles. Release builds never see this file: they trust system CAs only.
+-->
+<network-security-config>
+    <debug-overrides>
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="user" />
+            <certificates src="@raw/dev_extra_ca" />
+        </trust-anchors>
+    </debug-overrides>
+</network-security-config>

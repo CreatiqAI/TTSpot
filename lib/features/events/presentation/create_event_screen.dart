@@ -4,10 +4,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/cupertino.dart' show CupertinoDatePickerMode;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import '../../../core/geo/latlng.dart';
+import '../../../core/map/app_map.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/router/app_router.dart';
@@ -50,8 +50,7 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
   XFile? _cover;
   LatLng? _pin;
   String? _address;
-  GoogleMapController? _map;
-  String? _mapStyle;
+  final _map = AppMapController();
 
   @override
   void initState() {
@@ -69,9 +68,6 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
       final sat = DateTime(now.year, now.month, now.day).add(Duration(days: days));
       _startsAt = DateTime(sat.year, sat.month, sat.day, 20);
     }
-    rootBundle.loadString('assets/map_style_dark.json').then((s) {
-      if (mounted) setState(() => _mapStyle = s);
-    });
   }
 
   @override
@@ -79,7 +75,7 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
     _title.dispose();
     _venue.dispose();
     _description.dispose();
-    _map?.dispose();
+    _map.dispose();
     super.dispose();
   }
 
@@ -160,7 +156,7 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
       _snack('Location is off. Pan the map to the venue instead.');
       return;
     }
-    _map?.animateCamera(CameraUpdate.newLatLngZoom(loc, 15));
+    _map.animateTo(loc, zoom: 15);
   }
 
   Future<void> _expandMap() async {
@@ -171,7 +167,7 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
       if (r.name != null) _address = null; // picked by search inside the picker: name only
     });
     if (r.name != null && r.name!.isNotEmpty) _venue.text = r.name!;
-    _map?.animateCamera(CameraUpdate.newLatLngZoom(r.latLng, 16));
+    _map.animateTo(r.latLng, zoom: 16);
   }
 
   Future<void> _submit() async {
@@ -299,15 +295,14 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
                         _address = d.address;
                       });
                       _venue.text = d.name;
-                      _map?.animateCamera(CameraUpdate.newLatLngZoom(target, 16));
+                      _map.animateTo(target, zoom: 16);
                     },
                   ),
                   const SizedBox(height: 10),
                   _PinMap(
                     start: start,
-                    style: _mapStyle,
+                    controller: _map,
                     hasPin: _pin != null,
-                    onCreated: (c) => _map = c,
                     onIdle: (target) => setState(() {
                       if (_pin != null && (target.latitude - _pin!.latitude).abs() + (target.longitude - _pin!.longitude).abs() > 0.0005) _address = null;
                       _pin = target;
@@ -527,18 +522,16 @@ class _TapField extends StatelessWidget {
 class _PinMap extends StatelessWidget {
   const _PinMap({
     required this.start,
-    required this.style,
+    required this.controller,
     required this.hasPin,
-    required this.onCreated,
     required this.onIdle,
     required this.onMyLocation,
     required this.onExpand,
   });
 
   final LatLng start;
-  final String? style;
+  final AppMapController controller;
   final bool hasPin;
-  final void Function(GoogleMapController) onCreated;
   final void Function(LatLng) onIdle;
   final VoidCallback? onMyLocation;
   final VoidCallback? onExpand;
@@ -549,7 +542,7 @@ class _PinMap extends StatelessWidget {
       borderRadius: BorderRadius.circular(AppRadius.md),
       child: SizedBox(
         height: 220,
-        child: _PinMapBody(start: start, style: style, hasPin: hasPin, onCreated: onCreated, onIdle: onIdle, onMyLocation: onMyLocation, onExpand: onExpand),
+        child: _PinMapBody(start: start, controller: controller, hasPin: hasPin, onIdle: onIdle, onMyLocation: onMyLocation, onExpand: onExpand),
       ),
     );
   }
@@ -558,18 +551,16 @@ class _PinMap extends StatelessWidget {
 class _PinMapBody extends StatefulWidget {
   const _PinMapBody({
     required this.start,
-    required this.style,
+    required this.controller,
     required this.hasPin,
-    required this.onCreated,
     required this.onIdle,
     required this.onMyLocation,
     required this.onExpand,
   });
 
   final LatLng start;
-  final String? style;
+  final AppMapController controller;
   final bool hasPin;
-  final void Function(GoogleMapController) onCreated;
   final void Function(LatLng) onIdle;
   final VoidCallback? onMyLocation;
   final VoidCallback? onExpand;
@@ -595,18 +586,15 @@ class _PinMapBodyState extends State<_PinMapBody> {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        GoogleMap(
-          initialCameraPosition: CameraPosition(target: widget.start, zoom: 13.5),
-          style: widget.style,
-          onMapCreated: widget.onCreated,
-          onCameraMove: (pos) => _target = pos.target,
+        AppMap(
+          controller: widget.controller,
+          initialTarget: widget.start,
+          initialZoom: 13.5,
+          night: AppColors.dark,
+          onCameraMove: (c) => _target = c,
           onCameraIdle: () {
             if (_target != null) widget.onIdle(_target!);
           },
-          zoomControlsEnabled: false,
-          myLocationButtonEnabled: false,
-          mapToolbarEnabled: false,
-          compassEnabled: false,
           gestureRecognizers: {Factory<OneSequenceGestureRecognizer>(EagerGestureRecognizer.new)},
         ),
         // Fixed centre pin (tip sits on the map centre)

@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import '../geo/latlng.dart';
 
 /// Default map centre when location is denied: Kuala Lumpur city centre.
 const kualaLumpur = LatLng(3.1390, 101.6869);

@@ -5,7 +5,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import '../../../core/geo/latlng.dart';
+import '../../../core/map/app_map.dart';
+import '../../map/presentation/widgets/map_glyphs.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/supabase/supabase_client.dart';
@@ -38,8 +40,9 @@ class _Member {
 class _ConvoyLiveScreenState extends ConsumerState<ConvoyLiveScreen> {
   RealtimeChannel? _channel;
   StreamSubscription<Position>? _positions;
-  GoogleMapController? _map;
-  String? _style;
+  final _map = AppMapController();
+  GlyphMarkerFactory? _glyphs;
+  List<AppMarker> _markers = const [];
   Map<String, _Member> _members = {};
   LatLng? _me;
   bool _sharing = false;
@@ -49,9 +52,6 @@ class _ConvoyLiveScreenState extends ConsumerState<ConvoyLiveScreen> {
   @override
   void initState() {
     super.initState();
-    rootBundle.loadString('assets/map_style_dark.json').then((s) {
-      if (mounted) setState(() => _style = s);
-    });
     _start();
   }
 
@@ -60,7 +60,7 @@ class _ConvoyLiveScreenState extends ConsumerState<ConvoyLiveScreen> {
     _positions?.cancel();
     _channel?.untrack();
     _channel?.unsubscribe();
-    _map?.dispose();
+    _map.dispose();
     super.dispose();
   }
 
@@ -104,7 +104,7 @@ class _ConvoyLiveScreenState extends ConsumerState<ConvoyLiveScreen> {
             'heading': pos.heading,
             'at': DateTime.now().toUtc().toIso8601String(),
           });
-          if (_followMe) _map?.animateCamera(CameraUpdate.newLatLng(here));
+          if (_followMe) _map.animateTo(here);
         }, onError: (e) => setState(() => _error = friendlyError(e)));
       } else if (status == RealtimeSubscribeStatus.channelError || status == RealtimeSubscribeStatus.timedOut) {
         setState(() => _error = 'Couldn\'t connect to the convoy channel. Check your connection.');
@@ -133,6 +133,20 @@ class _ConvoyLiveScreenState extends ConsumerState<ConvoyLiveScreen> {
       }
     }
     if (mounted) setState(() => _members = next);
+    _buildMarkers();
+  }
+
+  /// Azure balloon for me, orange for everyone else, username underneath.
+  Future<void> _buildMarkers() async {
+    if (!mounted) return;
+    final me = ref.read(currentUserIdProvider);
+    final g = _glyphs ??= GlyphMarkerFactory(devicePixelRatio: MediaQuery.devicePixelRatioOf(context));
+    final built = <AppMarker>[];
+    for (final m in _members.values) {
+      final pin = await g.balloon(key: m.userId, color: m.userId == me ? const Color(0xFF2B7CFF) : const Color(0xFFFF7A1A), label: m.userId == me ? 'You' : m.username);
+      built.add(AppMarker(id: m.userId, position: m.position, image: pin.bytes, size: pin.size, anchor: pin.anchor, zIndex: m.userId == me ? 2 : 1));
+    }
+    if (mounted) setState(() => _markers = built);
   }
 
   @override
@@ -140,15 +154,6 @@ class _ConvoyLiveScreenState extends ConsumerState<ConvoyLiveScreen> {
     final detail = ref.watch(eventDetailProvider(widget.eventId)).value;
     final me = ref.watch(currentUserIdProvider);
     final others = _members.values.where((m) => m.userId != me).toList();
-    final markers = {
-      for (final m in _members.values)
-        Marker(
-          markerId: MarkerId(m.userId),
-          position: m.position,
-          infoWindow: InfoWindow(title: m.userId == me ? 'You' : m.username),
-          icon: m.userId == me ? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure) : BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
-        ),
-    };
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light,
@@ -156,17 +161,13 @@ class _ConvoyLiveScreenState extends ConsumerState<ConvoyLiveScreen> {
         backgroundColor: AppColors.mapBg,
         body: Stack(
           children: [
-            GoogleMap(
-              initialCameraPosition: CameraPosition(target: detail?.event.latLng ?? const LatLng(3.139, 101.6869), zoom: 12),
-              style: _style,
-              markers: markers,
-              onMapCreated: (c) => _map = c,
+            AppMap(
+              controller: _map,
+              initialTarget: detail?.event.latLng ?? const LatLng(3.139, 101.6869),
+              initialZoom: 12,
+              night: true,
+              markers: _markers,
               onCameraMoveStarted: () => _followMe = false,
-              myLocationEnabled: false,
-              myLocationButtonEnabled: false,
-              zoomControlsEnabled: false,
-              compassEnabled: false,
-              mapToolbarEnabled: false,
               padding: const EdgeInsets.only(bottom: 180),
             ),
             SafeArea(
@@ -202,7 +203,7 @@ class _ConvoyLiveScreenState extends ConsumerState<ConvoyLiveScreen> {
                       icon: AppIcons.gpsFix,
                       onTap: () {
                         _followMe = true;
-                        if (_me != null) _map?.animateCamera(CameraUpdate.newLatLngZoom(_me!, 14));
+                        if (_me != null) _map.animateTo(_me!, zoom: 14);
                       },
                     ),
                   ],
@@ -243,7 +244,7 @@ class _ConvoyLiveScreenState extends ConsumerState<ConvoyLiveScreen> {
                                     GestureDetector(
                                       onTap: () {
                                         _followMe = false;
-                                        _map?.animateCamera(CameraUpdate.newLatLngZoom(m.position, 14));
+                                        _map.animateTo(m.position, zoom: 14);
                                       },
                                       child: Padding(
                                         padding: const EdgeInsets.only(right: 12),

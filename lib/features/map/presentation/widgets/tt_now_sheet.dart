@@ -9,7 +9,7 @@ import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_icons.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/friendly_error.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart' show LatLng;
+import '../../../../core/geo/latlng.dart';
 
 import '../../../../core/utils/geo.dart';
 import '../../../../core/widgets/pin_picker_screen.dart';

@@ -38,6 +38,9 @@ final myBoxesProvider = FutureProvider<List<CardBox>>((ref) {
 /// Boxes waiting to be opened. Drives the "open your box" nudges.
 final sealedBoxesProvider = Provider<List<CardBox>>((ref) => (ref.watch(myBoxesProvider).value ?? const []).where((b) => b.sealed).toList());
 
+/// A member's held cards as counts, for their profile's Cards tab.
+final userCardCountsProvider = FutureProvider.autoDispose.family<Map<String, int>, String>((ref, userId) => ref.watch(cardsRepositoryProvider).publicCards(userId));
+
 final friendCardsProvider = FutureProvider.autoDispose.family<List<UserCard>, String>((ref, userId) => ref.watch(cardsRepositoryProvider).friendCards(userId));
 
 final myTradesProvider = FutureProvider<List<CardTrade>>((ref) {

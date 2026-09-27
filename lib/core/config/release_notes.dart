@@ -10,6 +10,16 @@ class ReleaseNote {
 
 const kReleaseNotes = <ReleaseNote>[
   ReleaseNote(
+    version: '0.3.30',
+    date: '28 Sep 2026',
+    title: 'Cards on your profile',
+    points: [
+      'Every profile has a Cards tab: your collection at a glance, with Open box and Trade right there.',
+      'Saved, Liked and Commented moved under the Posts tab on your own profile.',
+      'Fixed: opening a box could fail on the first try.',
+    ],
+  ),
+  ReleaseNote(
     version: '0.3.29',
     date: '28 Sep 2026',
     title: 'Blind box cards',

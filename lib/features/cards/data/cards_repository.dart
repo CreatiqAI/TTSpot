@@ -33,6 +33,12 @@ class CardsRepository {
   Future<List<UserCard>> friendCards(String userId) async =>
       _rows(await _client.rpc('friend_cards', params: {'p_user': userId})).map((m) => UserCard.fromMap({...m, 'status': 'held', 'source': 'box'})).toList();
 
+  /// Someone else's collection as counts per card (anyone signed in).
+  Future<Map<String, int>> publicCards(String userId) async {
+    final rows = _rows(await _client.rpc('public_cards', params: {'p_user': userId}));
+    return {for (final r in rows) r['card_id'] as String: (r['held'] as num).toInt()};
+  }
+
   Future<BoxResult> openBox(String boxId) async {
     final v = await _client.rpc('open_box', params: {'p_box': boxId});
     return BoxResult.fromMap((v as Map).cast<String, dynamic>());

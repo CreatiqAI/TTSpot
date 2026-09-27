@@ -14,6 +14,7 @@ import '../../../core/utils/friendly_error.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../cards/application/cards_providers.dart';
 import '../../cards/presentation/widgets/box_nudge.dart';
+import '../../cards/presentation/widgets/profile_cards_grid.dart';
 import '../../accounts/presentation/account_switcher.dart';
 import '../../accounts/presentation/account_title.dart';
 import '../../auth/application/onboarding_controller.dart';
@@ -39,11 +40,12 @@ import 'profile_menu.dart';
 import 'widgets/profile_header.dart';
 import '../../../core/utils/share_links.dart';
 
-enum _Tab { posts, garage, saved }
+enum _Tab { posts, garage, cards }
 
-enum _SavedKind { saved, liked, commented }
+enum _SavedKind { mine, saved, liked, commented }
 
-/// Profile: identity on top, moments, then Posts · Garage · Saved.
+/// Profile: identity on top, moments, then Posts · Garage · Cards.
+/// On my own page the Posts tab also holds Saved · Liked · Commented.
 /// `userId == null` means "me".
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key, this.userId});
@@ -55,7 +57,7 @@ class ProfileScreen extends ConsumerStatefulWidget {
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   _Tab _tab = _Tab.posts;
-  _SavedKind _savedKind = _SavedKind.saved;
+  _SavedKind _savedKind = _SavedKind.mine;
 
   void _snack(String msg) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
 
@@ -79,7 +81,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final tabs = [
       (AppIcons.squaresFour, 'Posts'),
       (AppIcons.garage, 'Garage'),
-      if (isMe) (AppIcons.bookmarkSimple, 'Saved'),
+      (AppIcons.sparkle, 'Cards'),
     ];
 
     Future<void> refresh() async {
@@ -91,7 +93,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       ref.invalidate(profileStatsProvider(id));
       ref.invalidate(friendCountProvider(id));
       ref.invalidate(friendshipStatusProvider(id));
+      ref.invalidate(cardTypesProvider);
       if (isMe) {
+        ref.read(cardsActionsProvider).refreshCollection();
         ref.invalidate(savedPostsProvider);
         ref.invalidate(likedPostsProvider);
         ref.invalidate(commentedPostsProvider);
@@ -183,7 +187,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           : switch (_tab) {
                               _Tab.posts => _postsBody(posts, isMe),
                               _Tab.garage => _garageBody(cars, isMe),
-                              _Tab.saved => _savedBody(),
+                              _Tab.cards => ProfileCardsGrid(
+                                  userId: id,
+                                  isMe: isMe,
+                                  isFriend: friendship == FriendshipStatus.friends,
+                                  onAddFriend: friendship == FriendshipStatus.none ? () => _friendAction(id, friendship, p.displayName ?? '@${p.username}') : null,
+                                ),
                             },
                     ),
                   ),
@@ -226,6 +235,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   Widget _postsBody(AsyncValue<List<FeedPost>> posts, bool isMe) {
     if (!kSocialFeed) return const SizedBox.shrink();
+    if (isMe) return _savedBody(posts);
     return posts.when(
       loading: () => const _Fill(child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
       error: (e, _) => _Fill(child: Center(child: Text(friendlyError(e)))),
@@ -243,14 +253,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
-  /// Saved tab: bookmarked, liked, or commented on. One row of pills.
-  Widget _savedBody() {
-    final items = ref.watch(switch (_savedKind) {
-      _SavedKind.saved => savedPostsProvider,
-      _SavedKind.liked => likedPostsProvider,
-      _SavedKind.commented => commentedPostsProvider,
-    });
+  /// My Posts tab: my posts, then bookmarked, liked, or commented on. One row of pills.
+  Widget _savedBody(AsyncValue<List<FeedPost>> mine) {
+    final items = switch (_savedKind) {
+      _SavedKind.mine => mine,
+      _SavedKind.saved => ref.watch(savedPostsProvider),
+      _SavedKind.liked => ref.watch(likedPostsProvider),
+      _SavedKind.commented => ref.watch(commentedPostsProvider),
+    };
     final (title, subtitle) = switch (_savedKind) {
+      _SavedKind.mine => ('No posts yet', 'Share your ride, a spotted, a poll or a guide.'),
       _SavedKind.saved => ('Nothing saved yet', 'Tap the bookmark on a post to keep it here.'),
       _SavedKind.liked => ('Nothing liked yet', 'Double-tap a post to like it. It shows up here.'),
       _SavedKind.commented => ('No comments yet', 'Posts you comment on collect here so you can find them again.'),
@@ -261,6 +273,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
           child: Row(
             children: [
+              _Pill(label: 'Posts', icon: AppIcons.squaresFour, on: _savedKind == _SavedKind.mine, onTap: () => setState(() => _savedKind = _SavedKind.mine)),
+              const SizedBox(width: 8),
               _Pill(label: 'Saved', icon: AppIcons.bookmarkSimple, on: _savedKind == _SavedKind.saved, onTap: () => setState(() => _savedKind = _SavedKind.saved)),
               const SizedBox(width: 8),
               _Pill(label: 'Liked', icon: AppIcons.heart, on: _savedKind == _SavedKind.liked, onTap: () => setState(() => _savedKind = _SavedKind.liked)),
@@ -273,7 +287,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           loading: () => const _Fill(child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
           error: (e, _) => _Fill(child: Center(child: Text(friendlyError(e)))),
           data: (list) => list.isEmpty
-              ? _Fill(child: EmptyState(art: _savedKind == _SavedKind.liked ? AppArt.heartYellow : (_savedKind == _SavedKind.commented ? AppArt.speech : AppArt.bookmark), title: title, subtitle: subtitle))
+              ? _Fill(
+                  child: EmptyState(
+                    art: switch (_savedKind) { _SavedKind.mine => AppArt.camera, _SavedKind.liked => AppArt.heartYellow, _SavedKind.commented => AppArt.speech, _SavedKind.saved => AppArt.bookmark },
+                    title: title,
+                    subtitle: subtitle,
+                    actionLabel: _savedKind == _SavedKind.mine ? 'Create a post' : null,
+                    onAction: _savedKind == _SavedKind.mine ? () => showCreateHub(context, ref) : null,
+                  ),
+                )
               : MasonryGrid(items: list),
         ),
       ],

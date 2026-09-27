@@ -10,6 +10,14 @@ class ReleaseNote {
 
 const kReleaseNotes = <ReleaseNote>[
   ReleaseNote(
+    version: '0.3.31',
+    date: '28 Sep 2026',
+    title: 'Meet TiTi',
+    points: [
+      'The real card art is in: Series 01 to 06 starring TiTi the cone. Series 07, the legendary, is still under wraps.',
+    ],
+  ),
+  ReleaseNote(
     version: '0.3.30',
     date: '28 Sep 2026',
     title: 'Cards on your profile',

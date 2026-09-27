@@ -6,8 +6,26 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../domain/cards.dart';
 
-/// Trading-card proportions everywhere (63 × 88 mm).
-const kCardAspect = 63 / 88;
+/// Card proportions everywhere: the posters are 2:3.
+const kCardAspect = 2 / 3;
+
+/// Art that ships inside the app, by card id. An `art_url` set by an admin
+/// wins over these. Series 07 (legendary) has no art yet.
+const kCardAssets = <String, String>{
+  'c1': 'assets/cards/c1.jpg',
+  'c2': 'assets/cards/c2.jpg',
+  'c3': 'assets/cards/c3.jpg',
+  'c4': 'assets/cards/c4.jpg',
+  'c5': 'assets/cards/c5.jpg',
+  'c6': 'assets/cards/c6.jpg',
+};
+
+/// The image for a card, or null when only the placeholder exists.
+ImageProvider? cardArt(CardType card) {
+  if (card.artUrl != null) return CachedNetworkImageProvider(card.artUrl!);
+  final asset = kCardAssets[card.id];
+  return asset == null ? null : AssetImage(asset);
+}
 
 /// The front of a card. Draws the final art when the design has landed,
 /// otherwise a tinted placeholder with the number, name and rarity ribbon.
@@ -27,6 +45,7 @@ class CardFace extends StatelessWidget {
     final r = width * 0.09;
     final rarity = card.rarity;
     final s = width / 120; // scale factor for text
+    final art = cardArt(card);
 
     Widget face = Container(
       width: width,
@@ -49,12 +68,12 @@ class CardFace extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          if (card.artUrl != null)
-            Image(image: CachedNetworkImageProvider(card.artUrl!), fit: BoxFit.cover, errorBuilder: (_, _, _) => const SizedBox.shrink())
+          if (art != null)
+            Image(image: art, fit: BoxFit.cover, errorBuilder: (_, _, _) => const SizedBox.shrink())
           else
             CustomPaint(painter: _PlaceholderPainter(number: card.number, rarity: rarity)),
-          // bottom plate: name + rarity
-          Positioned(
+          // bottom plate: name + rarity (the posters carry their own title)
+          if (art == null) Positioned(
             left: 0,
             right: 0,
             bottom: 0,
@@ -80,7 +99,7 @@ class CardFace extends StatelessWidget {
             ),
           ),
           // number, top left
-          Positioned(
+          if (art == null) Positioned(
             left: 8 * s,
             top: 7 * s,
             child: Text('No. ${card.number}', style: TextStyle(fontFamily: AppFonts.display, fontSize: 11 * s, fontWeight: FontWeight.w700, color: Colors.white.withValues(alpha: 0.85), letterSpacing: 0.5)),

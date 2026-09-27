@@ -1,7 +1,7 @@
 name: car_meet
 description: "Malaysian car community app — discover meets, TT sessions and convoys on a map."
 publish_to: 'none'
-version: 0.3.30+39
+version: 0.3.31+40
 
 environment:
   sdk: ^3.13.2
@@ -51,6 +51,7 @@ flutter:
     - assets/map_style_light.json
     - assets/art/
     - assets/brand/
+    - assets/cards/
   fonts:
     - family: Phosphor
       fonts:

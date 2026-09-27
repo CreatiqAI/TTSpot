@@ -10,6 +10,18 @@ class ReleaseNote {
 
 const kReleaseNotes = <ReleaseNote>[
   ReleaseNote(
+    version: '0.3.29',
+    date: '28 Sep 2026',
+    title: 'Blind box cards',
+    points: [
+      'Every member gets a blind box: tap it open, swipe to flip the card. 7 cards to collect (4 common, 2 rare, 1 legendary).',
+      'More boxes cost points. Odds are shown in the app.',
+      'Trade cards with friends, up to 9 a side. Offers land in Cards → Trades and in your activity.',
+      'Prizes: spend cards on rewards from TT Spot or partners and show a QR at pickup. Cards never expire.',
+      'Find it under Me → menu → Cards & blind boxes.',
+    ],
+  ),
+  ReleaseNote(
     version: '0.3.28',
     date: '24 Sep 2026',
     title: 'Getting ready for the App Store',

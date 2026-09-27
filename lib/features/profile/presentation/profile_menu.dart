@@ -50,6 +50,7 @@ Future<void> showProfileMenu(BuildContext context, WidgetRef ref) async {
               _Group('REWARDS'),
               _Item(AppIcons.star, 'Points', 'points'),
               _Item(AppIcons.gift, 'Rewards & vouchers', 'rewards'),
+              _Item(AppIcons.sparkle, 'Cards & blind boxes', 'cards'),
               _Item(AppIcons.trophy, 'Badges', 'badges'),
               _Group('PARTNERS & CLUBS'),
               _Item(AppIcons.storefront, isVendor ? 'Partner dashboard' : 'Become a partner', 'partner'),
@@ -90,6 +91,8 @@ Future<void> showProfileMenu(BuildContext context, WidgetRef ref) async {
       context.push(Routes.adminReview);
     case 'rewards':
       context.push(Routes.rewards);
+    case 'cards':
+      context.push(Routes.cards);
     case 'partner':
       context.push(isVendor ? Routes.vendor : Routes.partnerApply);
     case 'club':

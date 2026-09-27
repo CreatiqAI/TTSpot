@@ -33,6 +33,12 @@ import '../../features/points/presentation/my_qr_screen.dart';
 import '../../features/points/presentation/points_screen.dart';
 import '../../features/points/presentation/scan_screen.dart';
 import '../../features/points/presentation/spot_verify_screen.dart';
+import '../../features/cards/presentation/admin_cards_screen.dart';
+import '../../features/cards/presentation/card_prize_qr_screen.dart';
+import '../../features/cards/presentation/card_prize_redeem_screen.dart';
+import '../../features/cards/presentation/cards_screen.dart';
+import '../../features/cards/presentation/new_trade_screen.dart';
+import '../../features/cards/presentation/open_box_screen.dart';
 import '../../features/profile/presentation/badges_screen.dart';
 import '../../features/profile/presentation/car_detail_screen.dart';
 import '../../features/profile/presentation/car_form_screen.dart';
@@ -112,6 +118,17 @@ abstract final class Routes {
   static const rewards = '/rewards';
   static const myVouchers = '/rewards?tab=vouchers';
   static String voucherQr(String claimId) => '/voucher/$claimId';
+
+  // Blind box cards
+  static const cards = '/cards';
+  static const cardTrades = '/cards?tab=trades';
+  static const cardPrizes = '/cards?tab=prizes';
+  static String openBox(String boxId) => '/cards/box/$boxId';
+  static const newTrade = '/cards/trade/new';
+  static String newTradeWith(String userId) => '/cards/trade/new?with=$userId';
+  static String cardPrizeQr(String claimId) => '/cards/prize/$claimId';
+  static String cardPrizeRedeem(String claimId, String code) => '/cards/redeem/$claimId?code=$code';
+  static const adminCards = '/admin/cards';
 
   // Full-screen
   static const createEvent = '/create-event';
@@ -328,6 +345,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(path: Routes.rewards, pageBuilder: (_, s) => page(s, RewardsScreen(initialTab: switch (s.uri.queryParameters['tab']) { 'vouchers' => 2, 'partners' => 0, _ => 1 }))),
       GoRoute(path: '/voucher/:claim', pageBuilder: (_, s) => page(s, VoucherQrScreen(claimId: s.pathParameters['claim']!))),
+      GoRoute(path: Routes.cards, pageBuilder: (_, s) => page(s, CardsScreen(initialTab: switch (s.uri.queryParameters['tab']) { 'trades' => 1, 'prizes' => 2, _ => 0 }))),
+      GoRoute(path: '/cards/box/:id', pageBuilder: (_, s) => page(s, OpenBoxScreen(boxId: s.pathParameters['id']!))),
+      GoRoute(path: Routes.newTrade, pageBuilder: (_, s) => page(s, NewTradeScreen(withUserId: s.uri.queryParameters['with']))),
+      GoRoute(path: '/cards/prize/:claim', pageBuilder: (_, s) => page(s, CardPrizeQrScreen(claimId: s.pathParameters['claim']!))),
+      GoRoute(
+        path: '/cards/redeem/:claim',
+        pageBuilder: (_, s) => page(s, CardPrizeRedeemScreen(claimId: s.pathParameters['claim']!, code: s.uri.queryParameters['code'] ?? '')),
+      ),
+      GoRoute(path: Routes.adminCards, pageBuilder: (_, s) => page(s, const AdminCardsScreen())),
       GoRoute(
         path: '/spot/:id/verify',
         pageBuilder: (_, s) => page(s, SpotVerifyScreen(placeId: s.pathParameters['id']!, code: s.uri.queryParameters['code'] ?? '')),

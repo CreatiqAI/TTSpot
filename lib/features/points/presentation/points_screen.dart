@@ -24,6 +24,7 @@ class PointsScreen extends ConsumerWidget {
         'car_of_week' => AppArt.trophy,
         'badge' => AppArt.medal,
         'redeem' => AppArt.coffee,
+        'box' => AppArt.gift,
         _ => AppArt.star,
       };
 

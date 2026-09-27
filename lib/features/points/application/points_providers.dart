@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/utils/friendly_error.dart';
+import '../../auth/data/auth_repository.dart';
 import '../../events/application/event_providers.dart';
 import '../../friends/application/friends_providers.dart';
 import '../../map/application/map_providers.dart';
@@ -124,6 +125,13 @@ class PointsActions {
           throw const AppException('That\'s a member\'s voucher. Only the partner shop can scan it at the counter.');
         }
         return ScanOutcome(title: 'Voucher', route: '/vendor/redeem/$claimId?code=$code', silent: true);
+      case CardRewardCode(:final claimId, :final code):
+        final isAdmin = _ref.read(currentProfileProvider).value?.isAdmin ?? false;
+        final vendor = isAdmin ? null : await _ref.read(myVendorProvider.future);
+        if (!isAdmin && vendor == null) {
+          throw const AppException('That\'s a member\'s prize QR. Only the partner or TT Spot staff can scan it.');
+        }
+        return ScanOutcome(title: 'Prize', route: '/cards/redeem/$claimId?code=$code', silent: true);
     }
   }
 

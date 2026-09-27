@@ -52,7 +52,7 @@ const SETTING: Record<string, string> = {
   club_join: "notif_friends", club_request: "notif_friends", post_like: "notif_friends", post_comment: "notif_friends",
   tt_now: "notif_tt", garage: "notif_tt",
   points: "notif_rewards", referral: "notif_rewards", badge: "notif_rewards", voucher: "notif_rewards",
-  spotted_claim: "notif_rewards", car_of_week: "notif_rewards",
+  spotted_claim: "notif_rewards", car_of_week: "notif_rewards", cards: "notif_rewards",
 };
 
 const after = (s: string | null, prefix: string) => (s ?? "").startsWith(prefix) ? s!.slice(prefix.length) : s ?? "";
@@ -103,6 +103,12 @@ async function fromNotification(id: string): Promise<Push | null> {
       case "voucher": return ["TT Spot", (b ?? "").startsWith("redeemed:") ? `Voucher used: ${after(b, "redeemed:")}` : b ?? "Voucher update.", "/rewards?tab=vouchers"];
       case "spotted_claim": return [who, "claimed the car you spotted.", post_];
       case "partner": return ["TT Spot", b ?? "Partner update.", null];
+      case "cards":
+        return (b ?? "").startsWith("trade:") ? [who, "sent you a card trade offer.", "/cards?tab=trades"]
+          : (b ?? "").startsWith("accepted:") ? [who, "accepted your trade. The cards are in your collection.", "/cards"]
+          : (b ?? "").startsWith("declined:") ? [who, "passed on your trade offer.", "/cards?tab=trades"]
+          : (b ?? "").startsWith("redeemed:") ? ["TT Spot", `Prize handed over: ${after(b, "redeemed:")}`, "/cards?tab=prizes"]
+          : ["TT Spot", b ?? "Something new in Cards.", "/cards"];
       default: return ["TT Spot", b ?? "Something new for you.", null];
     }
   })();

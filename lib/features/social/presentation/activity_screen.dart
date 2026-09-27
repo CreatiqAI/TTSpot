@@ -95,6 +95,17 @@ class _ActivityListState extends ConsumerState<ActivityList> {
   return (body, null);
 }
 
+/// Card notifications carry `trade:<id>` (an offer, with an actor),
+/// `accepted:<id>` / `declined:<id>` (their answer) or `redeemed:<title>` (no actor).
+(String, String?) _cardsText(AppNotification n) {
+  final body = n.body ?? '';
+  if (body.startsWith('trade:')) return ('sent you a card trade offer. Open Trades to accept or decline.', Routes.cardTrades);
+  if (body.startsWith('accepted:')) return ('accepted your trade. The cards are in your collection.', Routes.cards);
+  if (body.startsWith('declined:')) return ('passed on your trade offer this time.', Routes.cardTrades);
+  if (body.startsWith('redeemed:')) return ('Prize handed over: ${body.substring(9)}', Routes.cardPrizes);
+  return (body.isEmpty ? 'Something new in Cards.' : body, Routes.cards);
+}
+
 class _Row extends ConsumerWidget {
   const _Row({required this.n, required this.badges, required this.me});
   final AppNotification n;
@@ -152,6 +163,7 @@ class _Row extends ConsumerWidget {
           },
           n.clubId == null ? null : Routes.club(n.clubId!)
         ),
+      NotificationType.cards => _cardsText(n),
       NotificationType.unknown => ('did something.', null),
     };
     final systemMessage = n.type == NotificationType.badge ||
@@ -160,7 +172,8 @@ class _Row extends ConsumerWidget {
         (n.type == NotificationType.partner && n.actor == null) ||
         (n.type == NotificationType.points && n.actor == null) ||
         (n.type == NotificationType.clubOfficial && n.actor == null) ||
-        n.type == NotificationType.voucher;
+        n.type == NotificationType.voucher ||
+        (n.type == NotificationType.cards && n.actor == null);
 
     return InkWell(
       onTap: route == null ? null : () => context.push(route),
@@ -182,6 +195,7 @@ class _Row extends ConsumerWidget {
                     NotificationType.partner => '🤝',
                     NotificationType.voucher => '☕',
                     NotificationType.points => '⭐',
+                    NotificationType.cards => '🎁',
                     _ => '⏰',
                   },
                   size: 26,

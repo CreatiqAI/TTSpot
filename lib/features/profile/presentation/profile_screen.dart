@@ -12,6 +12,8 @@ import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../../core/widgets/empty_state.dart';
+import '../../cards/application/cards_providers.dart';
+import '../../cards/presentation/widgets/box_nudge.dart';
 import '../../accounts/presentation/account_switcher.dart';
 import '../../accounts/presentation/account_title.dart';
 import '../../auth/application/onboarding_controller.dart';
@@ -149,6 +151,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     onCall: () => showCallSheet(context, ref, userId: id, name: p.displayName ?? '@${p.username}'),
                   ),
                 ),
+                if (isMe && ref.watch(sealedBoxesProvider).isNotEmpty)
+                  SliverToBoxAdapter(child: BoxNudge(count: ref.watch(sealedBoxesProvider).length, onTap: () => context.push(Routes.openBox(ref.read(sealedBoxesProvider).first.id)))),
                 SliverPersistentHeader(
                   pinned: true,
                   delegate: ProfileTabBar(
@@ -424,8 +428,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(leading: const Icon(AppIcons.shareFat), title: const Text('Share profile'), onTap: () => Navigator.pop(ctx, 'share')),
-            if (ref.read(friendIdsProvider).contains(p.id))
+            if (ref.read(friendIdsProvider).contains(p.id)) ...[
+              ListTile(leading: const Icon(AppIcons.sparkle), title: const Text('Trade cards'), subtitle: const Text('Swap blind box cards with them', style: TextStyle(fontSize: 12)), onTap: () => Navigator.pop(ctx, 'trade')),
               ListTile(leading: const Icon(AppIcons.mapPin), title: const Text('Colour on the map'), subtitle: const Text('Pick a colour so you spot them fast', style: TextStyle(fontSize: 12)), onTap: () => Navigator.pop(ctx, 'colour')),
+            ],
             ListTile(leading: const Icon(AppIcons.flag), title: const Text('Report profile'), onTap: () => Navigator.pop(ctx, 'report')),
             ListTile(
               leading: Icon(blocked ? AppIcons.checkCircle : AppIcons.prohibit, color: AppColors.danger),
@@ -442,6 +448,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     switch (action) {
       case 'share':
         await shareThing(type: 'profile', id: p.id, text: '@${p.username} on TT Spot');
+      case 'trade':
+        context.push(Routes.newTradeWith(p.id));
       case 'colour':
         await _pickColour(context, p);
       case 'report':

@@ -55,6 +55,7 @@ sealed class ScannedCode {
       if (uri.host == 'checkin' && segs.length >= 2) return MeetCheckinCode(eventId: segs[0], code: segs[1]);
       if (uri.host == 'spot' && segs.length >= 2) return SpotCode(placeId: segs[0], code: segs[1]);
       if (uri.host == 'voucher' && segs.length >= 2) return VoucherCode(claimId: segs[0], code: segs[1]);
+      if (uri.host == 'cardreward' && segs.length >= 2) return CardRewardCode(claimId: segs[0], code: segs[1]);
       if (uri.host == 'u' && segs.isNotEmpty) return FriendCode(username: segs[0], token: uri.queryParameters['t'] ?? '');
       return null;
     }
@@ -85,6 +86,14 @@ class SpotCode extends ScannedCode {
 
 /// A member's claimed voucher (`ttspot://voucher/<claimId>/<code>`). Only the
 /// partner it belongs to can do anything with it.
+/// A member's claimed card prize (`ttspot://cardreward/<claimId>/<code>`).
+/// The partner it belongs to, or an admin, hands it over.
+class CardRewardCode extends ScannedCode {
+  const CardRewardCode({required this.claimId, required this.code});
+  final String claimId;
+  final String code;
+}
+
 class VoucherCode extends ScannedCode {
   const VoucherCode({required this.claimId, required this.code});
   final String claimId;

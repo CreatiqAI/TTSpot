@@ -162,6 +162,7 @@ class AdminDashboardScreen extends ConsumerWidget {
                   onTap: () => _editNumber(context, ref, 'checkin_radius_m', 'Check-in radius (m)', ((settings['checkin_radius_m'] as num?) ?? 300).toDouble(), (v) => v.round()),
                 ),
                 _SettingTile(title: 'Commission report', value: 'Per partner, per month', onTap: () => context.push(Routes.adminCommission)),
+                _SettingTile(title: 'Cards & blind boxes', value: 'Drop odds, box price, designs, prizes, giveaways', onTap: () => context.push(Routes.adminCards)),
               ],
             ),
           );

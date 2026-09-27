@@ -15,7 +15,7 @@ class AccountBasics {
   final DateTime? termsAcceptedAt;
   final String? termsVersion;
   final bool emailConfirmed;
-  /// 'email', 'google', …
+  /// 'email', 'apple', …
   final List<String> providers;
 
   bool get hasPhone => phone != null && phone!.isNotEmpty;
@@ -23,7 +23,7 @@ class AccountBasics {
   /// Missing phone or (current) Terms → "Complete your account".
   bool get complete => hasPhone && acceptedCurrentTerms;
   bool get hasPassword => providers.contains('email');
-  bool get hasGoogle => providers.contains('google');
+  bool get hasApple => providers.contains('apple');
 
   factory AccountBasics.fromMap(Map<String, dynamic> m) => AccountBasics(
         phone: m['phone'] as String?,
@@ -133,17 +133,7 @@ class AccountActions {
     _ref.invalidate(accountBasicsProvider);
   }
 
-  Future<void> linkGoogle() async {
-    await _ref.read(authRepositoryProvider).linkGoogle();
-    _ref.invalidate(accountBasicsProvider);
-  }
-
-  Future<void> unlinkGoogle() async {
-    await _ref.read(authRepositoryProvider).unlinkProvider('google');
-    _ref.invalidate(accountBasicsProvider);
-  }
-
-  /// Google-only accounts: give the account a password so email login works too.
+  /// Apple-only accounts: give the account a password so email login works too.
   Future<void> setPassword(String password) async {
     if (password.length < 6) throw const AppException('Use at least 6 characters.');
     await _ref.read(authRepositoryProvider).updatePassword(password);

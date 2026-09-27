@@ -149,7 +149,7 @@ class SettingsScreen extends ConsumerWidget {
           _Row(
             icon: AppIcons.link,
             title: 'Sign-in methods',
-            subtitle: [if (basics.hasPassword) 'Email & password', if (basics.hasGoogle) 'Google'].join(' · '),
+            subtitle: [if (basics.hasPassword) 'Email & password', if (basics.hasApple) 'Apple'].join(' · '),
             onTap: () => _signInMethods(context, ref),
           ),
           if (basics.hasPassword)
@@ -219,7 +219,7 @@ class SettingsScreen extends ConsumerWidget {
   Future<void> _signInMethods(BuildContext context, WidgetRef ref) async {
     final b = ref.read(accountBasicsProvider).value ?? const AccountBasics();
     final email = ref.read(supabaseProvider).auth.currentUser?.email ?? '';
-    final action = await showModalBottomSheet<String>(
+    await showModalBottomSheet<void>(
       useRootNavigator: true, // above the shell tab bar
       context: context,
       showDragHandle: true,
@@ -232,7 +232,7 @@ class SettingsScreen extends ConsumerWidget {
             children: [
               const Text('Sign-in methods', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
               const SizedBox(height: 4),
-              Text('Link Google so you can log in with one tap. You always keep at least one method.', style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
+              Text('How you can log in to this account.', style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
               const SizedBox(height: 12),
               _Method(
                 icon: AppIcons.envelope,
@@ -242,30 +242,16 @@ class SettingsScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 8),
               _Method(
-                icon: AppIcons.googleLogo,
-                title: 'Google',
-                subtitle: b.hasGoogle ? 'Linked' : 'Not linked',
-                linked: b.hasGoogle,
-                action: b.hasGoogle ? (b.hasPassword ? 'Unlink' : null) : 'Link',
-                onAction: () => Navigator.pop(ctx, b.hasGoogle ? 'unlink' : 'link'),
+                icon: AppIcons.userCheck,
+                title: 'Apple',
+                subtitle: b.hasApple ? 'Linked' : 'Use "Sign in with Apple" on an iPhone',
+                linked: b.hasApple,
               ),
             ],
           ),
         ),
       ),
     );
-    if (action == null || !context.mounted) return;
-    try {
-      if (action == 'link') {
-        await ref.read(accountActionsProvider).linkGoogle();
-        if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Google linked.')));
-      } else {
-        await ref.read(accountActionsProvider).unlinkGoogle();
-        if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Google unlinked.')));
-      }
-    } catch (e) {
-      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
-    }
   }
 
   Future<void> _setPassword(BuildContext context, WidgetRef ref) async {
@@ -283,7 +269,7 @@ class SettingsScreen extends ConsumerWidget {
           children: [
             const Text('Set a password', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
             const SizedBox(height: 4),
-            Text('At least 6 characters. You can then log in with your email as well as Google.', style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
+            Text('At least 6 characters. You can then log in with your email as well as Apple.', style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
             const SizedBox(height: 14),
             TextField(controller: ctrl, autofocus: true, obscureText: true, decoration: const InputDecoration(hintText: 'New password'), onSubmitted: (v) => Navigator.pop(ctx, v)),
             const SizedBox(height: 14),
@@ -461,13 +447,11 @@ class _Toggle extends StatelessWidget {
 }
 
 class _Method extends StatelessWidget {
-  const _Method({required this.icon, required this.title, required this.subtitle, required this.linked, this.action, this.onAction});
+  const _Method({required this.icon, required this.title, required this.subtitle, required this.linked});
   final IconData icon;
   final String title;
   final String subtitle;
   final bool linked;
-  final String? action;
-  final VoidCallback? onAction;
   @override
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
@@ -485,9 +469,7 @@ class _Method extends StatelessWidget {
                 ],
               ),
             ),
-            if (action != null)
-              TextButton(onPressed: onAction, child: Text(action!))
-            else if (linked)
+            if (linked)
               const Icon(AppIcons.checkCircleFill, color: AppColors.success, size: 22),
           ],
         ),

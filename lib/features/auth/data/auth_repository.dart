@@ -3,11 +3,9 @@ import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../../core/env.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../domain/profile.dart';
@@ -17,8 +15,6 @@ import '../domain/profile.dart';
 class AuthRepository {
   AuthRepository(this._client);
   final SupabaseClient _client;
-
-  static bool _googleInitialised = false;
 
   User? get currentUser => _client.auth.currentUser;
 
@@ -69,65 +65,6 @@ class AuthRepository {
     await _client.auth.resend(type: OtpType.signup, email: email.trim().toLowerCase());
   }
 
-  // -------------------------------------------------------- linked logins ---
-
-  /// Link a Google account to the signed-in member (Settings → Sign-in methods).
-  Future<void> linkGoogle() async {
-    final t = await _googleTokens();
-    await _client.auth.linkIdentityWithIdToken(provider: OAuthProvider.google, idToken: t.$1, accessToken: t.$2);
-  }
-
-  Future<void> unlinkProvider(String provider) async {
-    final ids = _client.auth.currentUser?.identities ?? const [];
-    final id = ids.where((i) => i.provider == provider).firstOrNull;
-    if (id == null) throw const AppException('That sign-in method is not linked.');
-    await _client.auth.unlinkIdentity(id);
-    await _client.auth.refreshSession();
-  }
-
-  // --------------------------------------------------------------- google ---
-
-  /// Native Google sign-in → ID token → Supabase session.
-  /// Needs GOOGLE_WEB_CLIENT_ID in env.json and the Google provider enabled in Supabase.
-  Future<void> signInWithGoogle() async {
-    final t = await _googleTokens();
-    await _client.auth.signInWithIdToken(provider: OAuthProvider.google, idToken: t.$1, accessToken: t.$2);
-  }
-
-  /// (idToken, accessToken) from the native Google picker.
-  Future<(String, String?)> _googleTokens() async {
-    if (Env.googleWebClientId.isEmpty) {
-      throw const AppException('Google sign-in isn\'t set up yet. Use email for now.');
-    }
-    final gsi = GoogleSignIn.instance;
-    if (!_googleInitialised) {
-      await gsi.initialize(
-        serverClientId: Env.googleWebClientId,
-        clientId: Env.googleIosClientId.isEmpty ? null : Env.googleIosClientId,
-      );
-      _googleInitialised = true;
-    }
-
-    final GoogleSignInAccount account;
-    try {
-      account = await gsi.authenticate();
-    } on GoogleSignInException catch (e) {
-      if (e.code == GoogleSignInExceptionCode.canceled) {
-        throw const AppException('Google sign-in cancelled.');
-      }
-      rethrow;
-    }
-
-    final idToken = account.authentication.idToken;
-    if (idToken == null) {
-      throw const AppException('Google didn\'t return a sign-in token. Try again.');
-    }
-    const scopes = ['email', 'profile'];
-    final auth = await account.authorizationClient.authorizationForScopes(scopes) ??
-        await account.authorizationClient.authorizeScopes(scopes);
-    return (idToken, auth.accessToken);
-  }
-
   // ---------------------------------------------------------------- apple ---
 
   /// Native Sign in with Apple (iPhone only) → ID token → Supabase session.
@@ -162,14 +99,7 @@ class AuthRepository {
     }
   }
 
-  Future<void> signOut() async {
-    await _client.auth.signOut();
-    if (_googleInitialised) {
-      try {
-        await GoogleSignIn.instance.signOut();
-      } catch (_) {/* not signed in with Google; ignore */}
-    }
-  }
+  Future<void> signOut() => _client.auth.signOut();
 
   // -------------------------------------------------------------- profile ---
 

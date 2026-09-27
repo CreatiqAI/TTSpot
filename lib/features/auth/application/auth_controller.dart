@@ -27,10 +27,6 @@ class AuthController extends AsyncNotifier<void> {
         () => ref.read(authRepositoryProvider).requestPasswordReset(identifier),
       );
 
-  Future<void> signInWithGoogle() => _run(
-        () => ref.read(authRepositoryProvider).signInWithGoogle(),
-      );
-
   Future<void> signInWithApple() => _run(
         () => ref.read(authRepositoryProvider).signInWithApple(),
       );

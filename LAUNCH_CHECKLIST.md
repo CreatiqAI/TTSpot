@@ -27,9 +27,9 @@ Never commit keys: the GitHub repo is public.
 
 ## 2. Google Play
 
-- [ ] Finish the USD 25 payment (Maybank: turn on online/e-commerce payments and the online limit in MAE, or use another card)
-- [ ] Identity verification with your IC/passport
-- [ ] Borrow an Android phone, install **Play Console** app, sign in as `ttspotmy@gmail.com` (device verification)
+- [x] Finish the USD 25 payment (Maybank: turn on online/e-commerce payments and the online limit in MAE, or use another card)
+- [x] Identity verification with your IC/passport (submitted 2026-09-28, Google reviewing; then verify the contact phone number)
+- [x] Borrow an Android phone, install **Play Console** app, sign in as `ttspotmy@gmail.com` (device verification)
 - [ ] Create app: name `TT Spot`, app, free
 - [ ] Collect **15-20 Gmail addresses** of Android testers (you need 12 active for 14 days)
 - [ ] → Tell Claude "Play account ready" → Claude prepares the listing text, Data safety answers and content rating answers
@@ -49,14 +49,11 @@ Never commit keys: the GitHub repo is public.
 - [x] Save the three files in `C:\Users\Admin\.ttspot\` → Tell Claude
   - Done 2026-09-24: keys in env.json + `ENV_JSON`, service account in Supabase `FCM_SERVICE_ACCOUNT`, server push verified
 
-## 4. Google Cloud (Google sign-in + Maps)
+## 4. Google Cloud (Maps key)
 
-Same Google Cloud project as the Maps key (console.cloud.google.com).
+Google sign-in was removed on 2026-09-28 (email, username and Apple sign-in remain).
 
-- [ ] APIs & Services → Credentials → the **Android** OAuth client → package `my.ttspot.app`, SHA-1 `97:BA:42:10:58:0E:8D:26:BC:F2:99:15:E3:79:83:5A:CC:8D:AC:98` (upload key). Add a second Android client later with the Play app-signing SHA-1 (section 2)
-- [ ] + Create credentials → OAuth client ID → **iOS**, bundle `my.ttspot.app` → copy the client ID → Tell Claude
-- [ ] OAuth consent screen → app name `TT Spot`, support email, privacy + terms links → **Publish app** (In production)
-- [ ] Maps API key → Application restrictions: Android apps `my.ttspot.app` + both SHA-1s, and a second key (or the same) restricted to iOS bundle `my.ttspot.app`
+- [ ] Maps API key → Application restrictions: Android apps `my.ttspot.app` + the upload-key SHA-1 `97:BA:42:10:58:0E:8D:26:BC:F2:99:15:E3:79:83:5A:CC:8D:AC:98` (+ the Play app-signing SHA-1 later), and a key restricted to iOS bundle `my.ttspot.app`
 
 ## 5. Email + domain
 
@@ -85,7 +82,7 @@ So shared links open the app directly instead of the GitHub Pages landing page.
 
 - [ ] Tell Claude which demo users / meets / spots to delete, and list real spots you trust (Claude checks coordinates)
 - [ ] Full test pass on TestFlight + the Android build:
-  - sign up with email, Google, Apple · onboarding · map + live location
+  - sign up with email and Apple · onboarding · map + live location
   - create a meet, RSVP from a second account, check in with GPS at a real spot and by QR
   - chat, voice note, photo · push arrives for a message and a meet reminder
   - report a post, block a user, admin Remove / Suspend · delete account
@@ -113,7 +110,6 @@ So shared links open the app directly instead of the GitHub Pages landing page.
 | App Store Connect API key secrets | Runs TestFlight upload, fixes any signing error |
 | Team ID | Fills app-link file, Associated Domains |
 | Firebase files | env.json + `ENV_JSON` secret + `FCM_SERVICE_ACCOUNT`, test push end to end |
-| iOS Google client ID | `GOOGLE_IOS_CLIENT_ID` secret, Google sign-in on iPhone |
-| Play app-signing SHA-1/256 | assetlinks.json, Google Cloud note |
+| Play app-signing SHA-1/256 | assetlinks.json, Maps key note |
 | "Turn email codes on" | Re-enables the sign-up code (`tool/auth_config.py --verify`) |
 | Play account ready | Listing, Data safety, rating answers, screenshots |

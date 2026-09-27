@@ -7,13 +7,6 @@ abstract final class Env {
   /// legacy `anon` JWT — both work here.
   static const supabasePublishableKey = String.fromEnvironment('SUPABASE_PUBLISHABLE_KEY');
 
-  /// Google OAuth *Web* client ID — required by Supabase to verify the
-  /// ID token that native Google sign-in returns. Filled in during the auth step.
-  static const googleWebClientId = String.fromEnvironment('GOOGLE_WEB_CLIENT_ID');
-
-  /// Google OAuth *iOS* client ID (only needed when building for iOS).
-  static const googleIosClientId = String.fromEnvironment('GOOGLE_IOS_CLIENT_ID');
-
   /// DEBUG ONLY. Base64 of a PEM root certificate to additionally trust, for
   /// dev machines where antivirus / corporate proxies re-sign HTTPS (e.g. Avast).
   /// Ignored in release builds. Leave empty if you don't need it.

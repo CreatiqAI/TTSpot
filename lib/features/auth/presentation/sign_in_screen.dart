@@ -223,12 +223,11 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                             onPressed: _submit,
                           ),
 
-                          const SizedBox(height: 28),
-                          const _OrDivider(),
-                          const SizedBox(height: 20),
-
-                          // Apple asks for this whenever another social login is offered (iPhone only).
+                          // Sign in with Apple, iPhone only.
                           if (defaultTargetPlatform == TargetPlatform.iOS) ...[
+                            const SizedBox(height: 28),
+                            const _OrDivider(),
+                            const SizedBox(height: 20),
                             SizedBox(
                               height: 48,
                               child: SignInWithAppleButton(
@@ -240,14 +239,6 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                             ),
                             const SizedBox(height: 8),
                           ],
-
-                          TextButton.icon(
-                            onPressed: busy
-                                ? null
-                                : () => ref.read(authControllerProvider.notifier).signInWithGoogle(),
-                            icon: const _GoogleG(),
-                            label: Text(_isSignUp ? 'Sign up with Google' : 'Log in with Google'),
-                          ),
                         ],
                       ),
                     ),
@@ -299,27 +290,5 @@ class _OrDivider extends StatelessWidget {
       ),
       Expanded(child: Divider()),
     ]);
-  }
-}
-
-/// Google "G" mark drawn with text so we don't need an image asset.
-class _GoogleG extends StatelessWidget {
-  const _GoogleG();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 20,
-      height: 20,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(color: AppColors.border, width: 1.5),
-      ),
-      child: const Text(
-        'G',
-        style: TextStyle(color: Color(0xFF4285F4), fontWeight: FontWeight.w800, fontSize: 12, height: 1),
-      ),
-    );
   }
 }

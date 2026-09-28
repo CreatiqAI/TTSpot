@@ -104,11 +104,20 @@ class MapToolbar extends ConsumerWidget {
           onTap: () => onOpen(full: true),
         );
       case MapMode.spots:
-        final count = ref.watch(visibleSpotsProvider).value?.length ?? 0;
+        // Same list the sheet shows: spots plus partner shops, named apart.
+        final places = ref.watch(visibleSpotsProvider).value ?? const [];
+        final partners = places.where((p) => p.isPartner).length;
+        final spots = places.length - partners;
+        final text = places.isEmpty
+            ? 'No spots here yet'
+            : [
+                if (spots > 0) '$spots spot${spots == 1 ? '' : 's'}',
+                if (partners > 0) '$partners partner${partners == 1 ? '' : 's'}',
+              ].join(' · ');
         return _Pill(
           light: light,
           leading: Icon(AppIcons.magnifyingGlass, size: 18, color: _muted(light)),
-          text: count == 0 ? 'No spots here yet' : '$count spot${count == 1 ? '' : 's'}',
+          text: text,
           onTap: () => onOpen(full: true),
         );
     }

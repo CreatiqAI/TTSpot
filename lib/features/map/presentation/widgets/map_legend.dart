@@ -9,130 +9,268 @@ import '../../application/map_providers.dart';
 import 'car_marker.dart';
 import 'map_glyphs.dart';
 
-/// Small key on the left of the map: which shape means what on this layer,
-/// listing only the kinds that are drawn right now (`present`). Open the
-/// first time you see the map; folded to a "Key" pill after that.
-class MapLegend extends ConsumerStatefulWidget {
+/// The map key: a round button on the right edge (same look as the
+/// visibility and locate buttons above it). Tapping it opens "What's on the
+/// map", which explains every kind of pin in plain words, the ones drawn
+/// right now ([present]) first. A small red dot on the button until the key
+/// has been opened once.
+class MapLegend extends ConsumerWidget {
   const MapLegend({super.key, required this.mode, required this.light, required this.present});
   final MapMode mode;
+  /// White button on the day map.
   final bool light;
-  /// Glyph kinds currently on the map. Empty = nothing to explain, key hidden.
+  /// Pin kinds currently on the map.
+  final Set<LegendGlyph> present;
+
+  static const double size = 46;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final seen = ref.watch(settingsProvider.select((s) => s.mapKeySeen));
+    void open() {
+      if (!seen) ref.read(settingsActionsProvider).patch({'map_key_seen': true}).ignore();
+      showMapKeySheet(context, mode: mode, present: present);
+    }
+
+    return Tooltip(
+      message: 'What\'s on the map',
+      child: PressScale(
+        child: GlassPanel(
+          circle: true,
+          dark: !light,
+          child: Material(
+            color: Colors.transparent,
+            shape: const CircleBorder(),
+            child: InkWell(
+              onTap: open,
+              customBorder: const CircleBorder(),
+              child: SizedBox(
+                width: size,
+                height: size,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Icon(AppIcons.info, color: light ? AppColors.ink : Colors.white, size: 22),
+                    if (!seen)
+                      Positioned(
+                        right: 10,
+                        top: 10,
+                        child: Container(
+                          width: 9,
+                          height: 9,
+                          decoration: BoxDecoration(color: AppColors.brand, shape: BoxShape.circle, border: Border.all(color: light ? Colors.white : AppColors.mapSurface, width: 1.5)),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// "What's on the map": each kind of pin as it really looks, with one plain
+/// line on what it means. Kinds drawn right now come first, grouped; the
+/// rest follow, greyed, under "Not on the map right now".
+Future<void> showMapKeySheet(BuildContext context, {required MapMode mode, required Set<LegendGlyph> present}) {
+  return showModalBottomSheet<void>(
+    useRootNavigator: true, // above the shell tab bar
+    context: context,
+    showDragHandle: true,
+    isScrollControlled: true,
+    builder: (_) => _MapKeySheet(mode: mode, present: present),
+  );
+}
+
+enum _Section {
+  people('You and friends'),
+  events('Events'),
+  spots('Spots'),
+  partners('Partners');
+
+  const _Section(this.title);
+  final String title;
+}
+
+/// One row of the key: the glyph, its name, what it looks like and means,
+/// and which layers draw it.
+class _KeyItem {
+  const _KeyItem(this.glyph, this.section, this.name, this.meaning, this.layers);
+  final LegendGlyph glyph;
+  final _Section section;
+  final String name;
+  final String meaning;
+  final Set<MapMode> layers;
+}
+
+const _all = {MapMode.now, MapMode.upcoming, MapMode.spots};
+const _events = {MapMode.now, MapMode.upcoming};
+const _nowOnly = {MapMode.now};
+
+List<_KeyItem> _items(MapMode mode) => [
+      const _KeyItem(LegendGlyph.me, _Section.people, 'You', 'Red dot with a soft glow. Zoom in and it becomes your car.', _all),
+      const _KeyItem(LegendGlyph.friend, _Section.people, 'Friend', 'Blue dot, or the colour you gave them. Up close, their car and name.', _nowOnly),
+      const _KeyItem(LegendGlyph.club, _Section.people, 'Clubmate', 'Purple dot. Someone from one of your clubs.', _nowOnly),
+      const _KeyItem(LegendGlyph.nearby, _Section.people, 'Nearby driver', 'Grey dot. A car person close by who shares their spot.', _nowOnly),
+      const _KeyItem(LegendGlyph.moment, _Section.people, 'Moment', 'Photo card. A photo posted here in the last 24 hours.', _nowOnly),
+      _KeyItem(LegendGlyph.flag, _Section.events, 'TT session', mode == MapMode.now ? 'Red flag. A TT session happening now. Tap to join.' : 'Red flag. A TT session, a quick meet-up.', _events),
+      _KeyItem(LegendGlyph.balloon, _Section.events, 'Event', mode == MapMode.now ? 'Red pin. A meet, convoy or track day on right now.' : 'Red pin. A meet, convoy or track day coming up.', _events),
+      const _KeyItem(LegendGlyph.officialEvent, _Section.events, 'Official club event', 'Gold pin with a crown. Run by an official club.', _events),
+      const _KeyItem(LegendGlyph.partnerEvent, _Section.events, 'Partner event', 'Black pin with a shop. Hosted by a partner shop.', _events),
+      const _KeyItem(LegendGlyph.topSpot, _Section.spots, 'Top spot', 'Any badge with a red star. One of the best places around, like a top car café.', _all),
+      const _KeyItem(LegendGlyph.cafe, _Section.spots, 'Car café', 'Orange cup. A café where car people meet.', _all),
+      const _KeyItem(LegendGlyph.mamak, _Section.spots, 'Mamak', 'Teal glass. A mamak, the late-night hangout.', _all),
+      const _KeyItem(LegendGlyph.carpark, _Section.spots, 'Carpark', 'Blue P. A carpark where meets happen.', _all),
+      const _KeyItem(LegendGlyph.route, _Section.spots, 'Route', 'Green road. A good road for a drive.', _all),
+      const _KeyItem(LegendGlyph.circuit, _Section.spots, 'Circuit', 'Chequered flag. A race track.', _all),
+      const _KeyItem(LegendGlyph.mall, _Section.spots, 'Mall', 'Pink bag. A mall with a car scene.', _all),
+      const _KeyItem(LegendGlyph.workshop, _Section.spots, 'Workshop', 'Grey spanner. A workshop or car service.', _all),
+      const _KeyItem(LegendGlyph.spot, _Section.spots, 'Other spot', 'Grey pin. Any other place car people go.', _all),
+      const _KeyItem(LegendGlyph.partner, _Section.partners, 'Partner shop', 'Shop logo with a red tag. A TT Spot partner. Tap for its page.', _all),
+    ];
+
+String _layerNames(Set<MapMode> layers) => MapMode.values.where(layers.contains).map((m) => m.label).join(' and ');
+
+class _MapKeySheet extends StatelessWidget {
+  const _MapKeySheet({required this.mode, required this.present});
+  final MapMode mode;
   final Set<LegendGlyph> present;
 
   @override
-  ConsumerState<MapLegend> createState() => _MapLegendState();
+  Widget build(BuildContext context) {
+    final items = _items(mode);
+    final shown = items.where((i) => present.contains(i.glyph)).toList();
+    final rest = items.where((i) => !present.contains(i.glyph)).toList();
+
+    List<Widget> grouped(List<_KeyItem> list, {required bool dim}) => [
+          for (final s in _Section.values)
+            if (list.any((i) => i.section == s)) ...[
+              _SectionLabel(s.title, dim: dim),
+              for (final i in list.where((i) => i.section == s))
+                _KeyRow(
+                  item: i,
+                  dim: dim,
+                  // Greyed rows that this layer never draws say where to find them.
+                  note: dim && !i.layers.contains(mode) ? 'On ${_layerNames(i.layers)}' : null,
+                ),
+            ],
+        ];
+
+    return SafeArea(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.85),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('What\'s on the map', style: TextStyle(fontFamily: AppFonts.display, fontSize: 26, fontWeight: FontWeight.w700, height: 1)),
+              const SizedBox(height: 4),
+              Text(
+                shown.isEmpty ? 'Nothing on this part of the map yet. Here is what could show up.' : 'On the ${mode.label} layer right now.',
+                style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+              ),
+              const SizedBox(height: 6),
+              ...grouped(shown, dim: false),
+              if (rest.isNotEmpty) ...[
+                const SizedBox(height: 14),
+                Divider(height: 1, color: AppColors.divider),
+                const SizedBox(height: 12),
+                Text('Not on the map right now', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.textSecondary)),
+                ...grouped(rest, dim: true),
+              ],
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(color: AppColors.surfaceGray, borderRadius: BorderRadius.circular(12)),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(AppIcons.magnifyingGlass, size: 18, color: AppColors.textSecondary),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Zoomed far out, every pin shrinks to a small dot in the same colour. Zoom in to see the full shapes, names and cars. '
+                        'Spots show on every layer; the Spots layer shows them bigger, with names and check-ins.',
+                        style: TextStyle(fontSize: 12.5, height: 1.35, color: AppColors.textSecondary),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
-class _MapLegendState extends ConsumerState<MapLegend> {
-  static bool? _open; // remembered for the session
-
-  void _markSeen() {
-    if (!ref.read(settingsProvider).mapKeySeen) ref.read(settingsActionsProvider).patch({'map_key_seen': true}).ignore();
-  }
-
-  void _toggle() {
-    setState(() => _open = !(_open ?? true));
-    _markSeen();
-  }
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel(this.text, {required this.dim});
+  final String text;
+  final bool dim;
 
   @override
-  void initState() {
-    super.initState();
-    _open ??= !ref.read(settingsProvider).mapKeySeen;
-    // Seen it open once: next launch starts folded.
-    if (_open!) {
-      Future.delayed(const Duration(seconds: 8), () {
-        if (mounted) _markSeen();
-      });
-    }
-  }
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(top: 14, bottom: 4),
+        child: Text(
+          text.toUpperCase(),
+          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1, color: dim ? AppColors.textMuted : AppColors.textSecondary),
+        ),
+      );
+}
+
+class _KeyRow extends StatelessWidget {
+  const _KeyRow({required this.item, required this.dim, this.note});
+  final _KeyItem item;
+  final bool dim;
+  final String? note;
 
   @override
   Widget build(BuildContext context) {
-    final open = _open ?? true;
-    final p = MapPalette(light: widget.light, child: const SizedBox.shrink());
-    final all = switch (widget.mode) {
-      MapMode.now => const [
-          _Item(LegendGlyph.flag, 'TT session'),
-          _Item(LegendGlyph.balloon, 'Event'),
-          _Item(LegendGlyph.officialEvent, 'Official club'),
-          _Item(LegendGlyph.partnerEvent, 'Partner event'),
-          _Item(LegendGlyph.moment, 'Moment'),
-          _Item(LegendGlyph.partner, 'Partner shop'),
-          _Item(LegendGlyph.me, 'You'),
-          _Item(LegendGlyph.friend, 'Friend'),
-          _Item(LegendGlyph.club, 'Club'),
-          _Item(LegendGlyph.nearby, 'Nearby'),
-        ],
-      MapMode.upcoming => const [
-          _Item(LegendGlyph.balloon, 'Event'),
-          _Item(LegendGlyph.officialEvent, 'Official club'),
-          _Item(LegendGlyph.partnerEvent, 'Partner event'),
-          _Item(LegendGlyph.flag, 'TT session'),
-          _Item(LegendGlyph.partner, 'Partner shop'),
-          _Item(LegendGlyph.me, 'You'),
-        ],
-      MapMode.spots => const [
-          _Item(LegendGlyph.topSpot, 'Top spot'),
-          _Item(LegendGlyph.cafe, 'Café'),
-          _Item(LegendGlyph.mamak, 'Mamak'),
-          _Item(LegendGlyph.carpark, 'Carpark'),
-          _Item(LegendGlyph.route, 'Route'),
-          _Item(LegendGlyph.circuit, 'Circuit'),
-          _Item(LegendGlyph.mall, 'Mall'),
-          _Item(LegendGlyph.workshop, 'Workshop'),
-          _Item(LegendGlyph.spot, 'Other spot'),
-          _Item(LegendGlyph.partner, 'Partner shop'),
-          _Item(LegendGlyph.me, 'You'),
-        ],
-    };
-    final rows = all.where((r) => widget.present.contains(r.glyph)).toList();
-    if (rows.isEmpty) return const SizedBox.shrink();
-
-    return GlassPanel(
-      dark: !widget.light,
-      radius: 12,
-      blur: 14,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: _toggle,
-        child: AnimatedSize(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOut,
-          alignment: Alignment.topLeft,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(8, 6, 10, 6),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(open ? AppIcons.caretDown : AppIcons.caretRight, size: 11, color: p.text2),
-                    const SizedBox(width: 4),
-                    Text('KEY', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1, color: p.text2)),
-                  ],
-                ),
-                if (open) ...[
-                  const SizedBox(height: 4),
-                  Text('Zoom in for shapes', style: TextStyle(fontSize: 9.5, color: p.text2)),
-                  for (final r in rows)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 2),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          SizedBox(width: 22, height: 22, child: CustomPaint(painter: LegendGlyphPainter(r.glyph))),
-                          const SizedBox(width: 6),
-                          Text(r.label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: p.text)),
-                        ],
-                      ),
-                    ),
-                ],
-              ],
+    return Opacity(
+      opacity: dim ? 0.5 : 1,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 5),
+        child: Row(
+          children: [
+            // The glyph as the map draws it, on a map-grey tile so the white
+            // outlines read the way they do over the streets.
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(color: AppColors.surfaceGray, borderRadius: BorderRadius.circular(10)),
+              alignment: Alignment.center,
+              child: Transform.scale(
+                scale: 1.35,
+                child: SizedBox(width: 22, height: 22, child: CustomPaint(painter: LegendGlyphPainter(item.glyph))),
+              ),
             ),
-          ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(child: Text(item.name, style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700, color: AppColors.textPrimary))),
+                      if (note != null) ...[
+                        const SizedBox(width: 8),
+                        Text(note!, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: AppColors.textMuted)),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 1),
+                  Text(item.meaning, style: TextStyle(fontSize: 12.5, height: 1.3, color: AppColors.textSecondary)),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -152,12 +290,6 @@ LegendGlyph legendGlyphForSpot(SpotKind k) => switch (k) {
       SpotKind.workshop => LegendGlyph.workshop,
       SpotKind.other => LegendGlyph.spot,
     };
-
-class _Item {
-  const _Item(this.glyph, this.label);
-  final LegendGlyph glyph;
-  final String label;
-}
 
 class LegendGlyphPainter extends CustomPainter {
   const LegendGlyphPainter(this.glyph);

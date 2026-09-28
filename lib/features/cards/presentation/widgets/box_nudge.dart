@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/app_art.dart';
 import '../../../../core/theme/app_icons.dart';
 import '../../../../core/theme/app_theme.dart';
 
@@ -23,7 +22,7 @@ class BoxNudge extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(14, 10, 12, 10),
               child: Row(
                 children: [
-                  const ArtIcon(AppArt.gift, size: 30),
+                  Image.asset('assets/titi/box_closed.png', width: 30, height: 30, fit: BoxFit.contain, filterQuality: FilterQuality.medium),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(

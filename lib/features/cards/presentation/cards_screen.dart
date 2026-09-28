@@ -329,7 +329,7 @@ class _BoxBannerState extends State<_BoxBanner> with SingleTickerProviderStateMi
                 final angle = (t * 40).floor().isEven ? wiggle * 0.5 : -wiggle * 0.5;
                 return Transform.rotate(angle: angle, child: child);
               },
-              child: const ArtIcon(AppArt.gift, size: 44),
+              child: Image.asset('assets/titi/box_closed.png', width: 44, height: 44, fit: BoxFit.contain, filterQuality: FilterQuality.medium),
             ),
             const SizedBox(width: 14),
             Expanded(

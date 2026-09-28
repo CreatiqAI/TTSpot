@@ -164,6 +164,8 @@ abstract final class AppIcons {
   static const IconData phoneCall = IconData(0xe3ba, fontFamily: _family);
   static const IconData videoCamera = IconData(0xe4da, fontFamily: _family);
   static const IconData moon = IconData(0xe330, fontFamily: _family);
+  static const IconData deviceMobile = IconData(0xe1e0, fontFamily: _family);
+  static const IconData vibrate = IconData(0xe4d8, fontFamily: _family);
 
   // ---- filled twins ----
   static const IconData mapTrifoldFill = IconData(0xe31a, fontFamily: _fill);

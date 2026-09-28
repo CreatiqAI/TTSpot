@@ -47,7 +47,7 @@ async function fcmToken(sa: { client_email: string; private_key: string }): Prom
 // Settings toggle (profiles.settings) that silences each notification type.
 const SETTING: Record<string, string> = {
   event_join: "notif_meets", event_comment: "notif_meets", event_reminder: "notif_meets", event_cancelled: "notif_meets",
-  checkin: "notif_meets", club_event: "notif_meets", partner_event: "notif_meets",
+  checkin: "notif_meets", club_event: "notif_meets", partner_event: "notif_meets", meet_start: "notif_meets",
   follow: "notif_friends", friend_request: "notif_friends", friend_accepted: "notif_friends", club_invite: "notif_friends",
   club_join: "notif_friends", club_request: "notif_friends", post_like: "notif_friends", post_comment: "notif_friends",
   tt_now: "notif_tt", garage: "notif_tt",
@@ -84,6 +84,7 @@ async function fromNotification(id: string): Promise<Push | null> {
       case "event_reminder": return [ev, "is within 24 hours. See you there!", ev_];
       case "event_cancelled": return [ev, `${who || "The host"} cancelled it.`, ev_];
       case "checkin": return [ev, `${who} just checked in.`, ev_];
+      case "meet_start": return [ev, "is on. Open TT Spot when you arrive to check in.", ev_];
       case "friend_request": return [who, "wants to be friends.", "/friends"];
       case "friend_accepted": return [who, "accepted your friend request.", null];
       case "tt_now": return [who, `started TT now${b ? ` @ ${b}` : ""}. Otw?`, ev_];

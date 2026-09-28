@@ -164,11 +164,13 @@ class _Row extends ConsumerWidget {
           n.clubId == null ? null : Routes.club(n.clubId!)
         ),
       NotificationType.cards => _cardsText(n),
+      NotificationType.meetStart => ('${n.eventTitle ?? 'Your meet'} is on. Open TT Spot when you arrive to check in.', n.eventId == null ? null : Routes.event(n.eventId!)),
       NotificationType.unknown => ('did something.', null),
     };
     final systemMessage = n.type == NotificationType.badge ||
         n.type == NotificationType.carOfWeek ||
         n.type == NotificationType.eventReminder ||
+        n.type == NotificationType.meetStart ||
         (n.type == NotificationType.partner && n.actor == null) ||
         (n.type == NotificationType.points && n.actor == null) ||
         (n.type == NotificationType.clubOfficial && n.actor == null) ||
@@ -196,6 +198,7 @@ class _Row extends ConsumerWidget {
                     NotificationType.voucher => '☕',
                     NotificationType.points => '⭐',
                     NotificationType.cards => '🎁',
+                    NotificationType.meetStart => '🏁',
                     _ => '⏰',
                   },
                   size: 26,

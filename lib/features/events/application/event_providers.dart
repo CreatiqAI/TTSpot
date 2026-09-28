@@ -7,6 +7,7 @@ import '../../map/application/map_providers.dart';
 import '../../safety/data/safety_repository.dart';
 import '../../auth/domain/profile.dart';
 import '../data/events_repository.dart';
+import '../domain/checkin_row.dart';
 import '../domain/event.dart';
 import '../domain/event_detail.dart';
 import 'my_events_provider.dart';
@@ -39,6 +40,27 @@ final eventCheckedInProvider = FutureProvider.family<List<Profile>, String>((ref
 
 final eventRecapProvider = FutureProvider.family<EventRecap, String>((ref, id) {
   return ref.watch(eventsRepositoryProvider).fetchRecap(id);
+});
+
+// ------------------------------------------------------- host confirmation ---
+
+final meetModeProvider = FutureProvider.autoDispose.family<MeetMode, String>((ref, id) {
+  return ref.watch(eventsRepositoryProvider).meetMode(id);
+});
+
+/// The host's "Who's here" list. On a big meet, opening it first settles
+/// everyone who stayed 10+ min so the host only sees the exceptions.
+final hostCheckinListProvider = FutureProvider.autoDispose.family<List<CheckinRow>, String>((ref, id) async {
+  final repo = ref.watch(eventsRepositoryProvider);
+  final mode = await ref.watch(meetModeProvider(id).future);
+  if (mode == MeetMode.big) {
+    try {
+      await repo.autoConfirmStayed(id);
+    } catch (_) {
+      // not the host, or offline; the list still loads
+    }
+  }
+  return repo.checkinList(id);
 });
 
 /// Upcoming meets my friends are going to.
@@ -111,6 +133,19 @@ class EventActions {
     _ref.invalidate(eventCheckedInProvider(eventId));
     _ref.invalidate(eventRecapProvider(eventId));
     _refresh(eventId);
+  }
+
+  /// Host: mark one arrival as here / not here.
+  Future<void> hostConfirm(String eventId, String userId, {required bool confirmed}) async {
+    await _repo.hostConfirm(eventId: eventId, userId: userId, confirmed: confirmed);
+    _ref.invalidate(hostCheckinListProvider(eventId));
+  }
+
+  /// Host: confirm everyone still undecided. Returns how many.
+  Future<int> hostConfirmAll(String eventId) async {
+    final n = await _repo.hostConfirmAll(eventId);
+    _ref.invalidate(hostCheckinListProvider(eventId));
+    return n;
   }
 
   Future<void> addComment(String eventId, String body) async {

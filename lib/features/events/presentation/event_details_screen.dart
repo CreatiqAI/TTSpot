@@ -30,6 +30,7 @@ import '../../social/presentation/widgets/masonry_grid.dart';
 import '../application/event_providers.dart';
 import '../domain/event.dart';
 import '../domain/event_detail.dart';
+import 'whos_here_sheet.dart';
 import '../../../core/utils/share_links.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -317,6 +318,25 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                             if (d.event.isPast || d.event.checkinCount > 0) ...[
                               _RecapCard(event: d.event),
                               const SizedBox(height: 20),
+                            ],
+                            if (d.event.organizerId == ref.watch(currentUserIdProvider) &&
+                                (d.event.isLive || (d.event.isPast && DateTime.now().difference(d.event.closesAt) < const Duration(hours: 24)))) ...[
+                              Material(
+                                color: AppColors.surfaceGray,
+                                borderRadius: BorderRadius.circular(AppRadius.lg),
+                                child: ListTile(
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
+                                  leading: const Icon(AppIcons.listChecks),
+                                  title: const Text('Who\'s here', style: TextStyle(fontWeight: FontWeight.w700)),
+                                  subtitle: Text(
+                                    d.event.checkinCount == 0 ? 'Confirm arrivals as they check in.' : '${d.event.checkinCount} checked in. Confirm who really came.',
+                                    style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
+                                  ),
+                                  trailing: const Icon(AppIcons.caretRight),
+                                  onTap: () => showWhosHereSheet(context, d.event),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
                             ],
                             if ((d.event.isLive || d.event.isPast) && d.event.organizerId == ref.watch(currentUserIdProvider)) ...[
                               Material(

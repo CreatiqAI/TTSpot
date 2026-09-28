@@ -157,15 +157,42 @@ final myLocationProvider = FutureProvider<MyLocation>((ref) async {
   return ref.watch(friendsRepositoryProvider).myLocation(me);
 });
 
-/// A live meet the server noticed next to me that I haven't checked in to.
-class NearbyMeetNotifier extends Notifier<({String id, String title})?> {
+/// A live meet the server noticed within 300 m that I haven't checked in to.
+/// `done` is true for a moment after the one-tap check-in ("Checked in").
+typedef NearbyMeet = ({String id, String title, bool done});
+
+class NearbyMeetNotifier extends Notifier<NearbyMeet?> {
+  Timer? _clear;
+
   @override
-  ({String id, String title})? build() => null;
-  void set(({String id, String title})? v) => state = v;
-  void dismiss() => state = null;
+  NearbyMeet? build() {
+    ref.onDispose(() => _clear?.cancel());
+    return null;
+  }
+
+  void set(({String id, String title}) v) {
+    _clear?.cancel();
+    state = (id: v.id, title: v.title, done: false);
+  }
+
+  /// Flip the card to "Checked in" and take it down a few seconds later.
+  void markCheckedIn() {
+    final cur = state;
+    if (cur == null) return;
+    state = (id: cur.id, title: cur.title, done: true);
+    _clear?.cancel();
+    _clear = Timer(const Duration(seconds: 3), () {
+      if (state?.done == true) state = null;
+    });
+  }
+
+  void dismiss() {
+    _clear?.cancel();
+    state = null;
+  }
 }
 
-final nearbyMeetProvider = NotifierProvider<NearbyMeetNotifier, ({String id, String title})?>(NearbyMeetNotifier.new);
+final nearbyMeetProvider = NotifierProvider<NearbyMeetNotifier, NearbyMeet?>(NearbyMeetNotifier.new);
 
 /// Publishes my position while the app is in the foreground (Snapchat model:
 /// no background tracking). Start it once from the shell.
@@ -218,7 +245,9 @@ class LocationPublisher extends Notifier<bool> {
           _lastNearbyOffered = ping.nearbyEventId;
           ref.read(nearbyMeetProvider.notifier).set((id: ping.nearbyEventId!, title: ping.nearbyEventTitle ?? 'a meet'));
         }
-      } else {
+      } else if (ref.read(nearbyMeetProvider)?.done != true) {
+        // Not near a meet any more (or checked in). Leave a "Checked in" card
+        // to clear itself.
         ref.read(nearbyMeetProvider.notifier).dismiss();
       }
     } catch (_) {

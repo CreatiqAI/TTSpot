@@ -24,6 +24,11 @@ class TurnoutReport {
   int get firstTimers => _i('first_timers');
   int get noCar => _i('no_car');
   int get scanned => ((m['by_source'] as Map?)?['qr'] as num?)?.toInt() ?? 0;
+  /// Seen near the meet for 10+ minutes (3+ location pings).
+  int get stayed => _i('stayed');
+  /// Host said "Here" (or the big-meet auto-confirm did).
+  int get confirmed => _i('confirmed');
+  bool get isBig => m['mode'] == 'big';
   int? get showRate => rsvps == 0 ? null : (rsvpShowed * 100 / rsvps).round();
 
   List<({String label, int count})> _list(String key, String Function(Map) label) => [
@@ -43,6 +48,7 @@ class TurnoutReport {
     final b = StringBuffer()
       ..writeln('$title · ${formatEventDate(startsAt)}')
       ..writeln('$checkedIn cars checked in on TT Spot (location-verified)')
+      ..writeln('$stayed stayed 10+ min · $confirmed confirmed by the host')
       ..writeln('$rsvps RSVPs${showRate == null ? '' : ', $showRate % showed up'} · $walkIns walk-ins · $firstTimers first meet ever');
     if (makes.isNotEmpty) b.writeln('Top makes: ${makes.take(5).map((x) => '${x.label} ${x.count}').join(', ')}');
     if (models.isNotEmpty) b.writeln('Top models: ${models.take(3).map((x) => '${x.label} (${x.count})').join(', ')}');
@@ -51,7 +57,12 @@ class TurnoutReport {
 }
 
 final turnoutReportProvider = FutureProvider.autoDispose.family<TurnoutReport, String>((ref, eventId) async {
-  final res = await ref.read(supabaseProvider).rpc('event_turnout_report', params: {'p_event': eventId});
+  final client = ref.read(supabaseProvider);
+  // Big meets settle "stayed 10+ min" arrivals when the report opens; a no-op otherwise.
+  try {
+    await client.rpc('auto_confirm_stayed', params: {'p_event': eventId});
+  } catch (_) {}
+  final res = await client.rpc('event_turnout_report', params: {'p_event': eventId});
   return TurnoutReport((res as Map).cast<String, dynamic>());
 });
 
@@ -89,6 +100,16 @@ class TurnoutReportScreen extends ConsumerWidget {
               const SizedBox(height: 16),
               _Hero(value: r.checkedIn, label: 'cars checked in', note: 'Every check-in is proven on the spot: QR scan at the meet or GPS within range.'),
               const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(child: _Tile(value: '${r.checkedIn}', label: 'Checked in')),
+                  const SizedBox(width: 8),
+                  Expanded(child: _Tile(value: '${r.stayed}', label: 'Stayed 10+ min')),
+                  const SizedBox(width: 8),
+                  Expanded(child: _Tile(value: '${r.confirmed}', label: 'Confirmed by host')),
+                ],
+              ),
+              const SizedBox(height: 8),
               Row(
                 children: [
                   Expanded(child: _Tile(value: '${r.rsvps}', label: 'RSVPs')),

@@ -455,17 +455,24 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
 
   // ------------------------------------------------------------- actions ---
 
-  Future<void> _checkInNearby(({String id, String title}) meet) async {
+  bool _nearbyBusy = false;
+
+  /// One tap on the "You're at ..." card: a manual check-in with a fresh fix.
+  /// The card flips to "Checked in" and clears itself.
+  Future<void> _checkInNearby(NearbyMeet meet) async {
+    if (_nearbyBusy) return;
+    setState(() => _nearbyBusy = true);
     try {
       await ref.read(eventActionsProvider).checkIn(meet.id);
-      ref.read(nearbyMeetProvider.notifier).dismiss();
+      ref.read(nearbyMeetProvider.notifier).markCheckedIn();
       ref.invalidate(liveEventsProvider);
-      _snack('Checked in. Have a good one.');
     } catch (e) {
-      // The meet may have ended or been removed while the banner was up.
+      // The meet may have ended or been removed while the card was up.
       ref.read(nearbyMeetProvider.notifier).dismiss();
       ref.invalidate(liveEventsProvider);
       _snack(friendlyError(e));
+    } finally {
+      if (mounted) setState(() => _nearbyBusy = false);
     }
   }
 
@@ -559,6 +566,8 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
                         const SizedBox(height: 10),
                         _NearbyBanner(
                           title: nearby.title,
+                          done: nearby.done,
+                          busy: _nearbyBusy,
                           onCheckIn: () => _checkInNearby(nearby),
                           onDismiss: () => ref.read(nearbyMeetProvider.notifier).dismiss(),
                         ),
@@ -701,9 +710,13 @@ class _ModeSwitch extends StatelessWidget {
   }
 }
 
+/// "You're at [title]. Check in now" card; one tap checks in, then it reads
+/// "Checked in" for a moment before it goes.
 class _NearbyBanner extends StatelessWidget {
-  const _NearbyBanner({required this.title, required this.onCheckIn, required this.onDismiss});
+  const _NearbyBanner({required this.title, required this.done, required this.busy, required this.onCheckIn, required this.onDismiss});
   final String title;
+  final bool done;
+  final bool busy;
   final VoidCallback onCheckIn;
   final VoidCallback onDismiss;
 
@@ -714,22 +727,30 @@ class _NearbyBanner extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xF2151820),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.primary.withValues(alpha: 0.6)),
+        border: Border.all(color: (done ? AppColors.success : AppColors.primary).withValues(alpha: 0.6)),
         boxShadow: const [BoxShadow(color: Color(0x55000000), blurRadius: 16, offset: Offset(0, 4))],
       ),
       child: Row(
         children: [
+          if (done) ...[
+            const Icon(AppIcons.checkCircleFill, color: AppColors.success, size: 22),
+            const SizedBox(width: 10),
+          ],
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('You\'re at a meet', style: TextStyle(color: AppColors.mapTextSecondary, fontSize: 11.5, fontWeight: FontWeight.w600)),
+                Text(done ? 'Checked in' : 'You\'re at', style: TextStyle(color: done ? AppColors.success : AppColors.mapTextSecondary, fontSize: 11.5, fontWeight: FontWeight.w600)),
                 Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700)),
               ],
             ),
           ),
-          TextButton(onPressed: onCheckIn, child: const Text('Check in')),
-          IconButton(visualDensity: VisualDensity.compact, icon: const Icon(AppIcons.x, color: AppColors.mapTextSecondary, size: 18), onPressed: onDismiss),
+          if (!done) ...[
+            busy
+                ? const Padding(padding: EdgeInsets.symmetric(horizontal: 14), child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)))
+                : TextButton(onPressed: onCheckIn, child: const Text('Check in now')),
+            IconButton(visualDensity: VisualDensity.compact, icon: const Icon(AppIcons.x, color: AppColors.mapTextSecondary, size: 18), onPressed: onDismiss),
+          ],
         ],
       ),
     );

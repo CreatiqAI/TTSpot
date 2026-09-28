@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/supabase/supabase_client.dart';
 import '../../auth/domain/profile.dart';
+import '../domain/checkin_row.dart';
 import '../domain/event.dart';
 import '../domain/event_detail.dart';
 
@@ -79,6 +80,34 @@ class EventsRepository {
         .order('checked_in_at', ascending: false)
         .limit(limit);
     return rows.map((r) => r['profiles']).whereType<Map<String, dynamic>>().map(Profile.fromMap).toList();
+  }
+
+  // ---------------------------------------------------- host confirmation ---
+
+  Future<MeetMode> meetMode(String eventId) async {
+    final v = await _client.rpc('meet_mode', params: {'p_event': eventId});
+    return MeetMode.fromDb(v as String?);
+  }
+
+  /// The host's door list, newest first. Host / club officers / admins only.
+  Future<List<CheckinRow>> checkinList(String eventId) async {
+    final rows = await _client.rpc('event_checkin_list', params: {'p_event': eventId}) as List;
+    return rows.map((r) => CheckinRow.fromMap((r as Map).cast<String, dynamic>())).toList();
+  }
+
+  Future<void> hostConfirm({required String eventId, required String userId, required bool confirmed}) =>
+      _client.rpc('host_confirm_checkin', params: {'p_event': eventId, 'p_user': userId, 'p_confirmed': confirmed});
+
+  /// Confirms every undecided check-in; returns how many.
+  Future<int> hostConfirmAll(String eventId) async {
+    final v = await _client.rpc('host_confirm_all', params: {'p_event': eventId});
+    return (v as num?)?.toInt() ?? 0;
+  }
+
+  /// Big meets: confirm everyone who stayed. No-op for small meets / non-hosts.
+  Future<int> autoConfirmStayed(String eventId) async {
+    final v = await _client.rpc('auto_confirm_stayed', params: {'p_event': eventId});
+    return (v as num?)?.toInt() ?? 0;
   }
 
   Future<EventRecap> fetchRecap(String eventId) async {

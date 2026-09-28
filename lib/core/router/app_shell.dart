@@ -57,20 +57,20 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
   static const _personal = [
     TabSpec(0, AppIcons.house, AppIcons.houseFill, 'Posts'),
     TabSpec(1, AppIcons.mapTrifold, AppIcons.mapTrifoldFill, 'Map'),
-    TabSpec(2, AppIcons.chatCircle, AppIcons.chatCircleFill, 'Chats'),
+    TabSpec(2, AppIcons.chatCircleDots, AppIcons.chatCircleDotsFill, 'Chats'),
     TabSpec(3, AppIcons.user, AppIcons.userFill, 'Me'),
   ];
   static const _club = [
     TabSpec(0, AppIcons.shield, AppIcons.shieldFill, 'Club'),
     TabSpec(1, AppIcons.flagCheckered, AppIcons.flagCheckeredFill, 'Events'),
-    TabSpec(2, AppIcons.chatCircle, AppIcons.chatCircleFill, 'Chats'),
+    TabSpec(2, AppIcons.chatCircleDots, AppIcons.chatCircleDotsFill, 'Chats'),
     TabSpec(3, AppIcons.gear, AppIcons.gear, 'Account'),
   ];
   static const _partner = [
     TabSpec(0, AppIcons.storefront, AppIcons.storefront, 'Overview'),
     TabSpec(1, AppIcons.shoppingBag, AppIcons.shoppingBag, 'Products'),
     TabSpec(4, AppIcons.ticket, AppIcons.ticket, 'Vouchers'),
-    TabSpec(2, AppIcons.chatCircle, AppIcons.chatCircleFill, 'Chats'),
+    TabSpec(2, AppIcons.chatCircleDots, AppIcons.chatCircleDotsFill, 'Chats'),
     TabSpec(3, AppIcons.gear, AppIcons.gear, 'Account'),
   ];
   static const _admin = [

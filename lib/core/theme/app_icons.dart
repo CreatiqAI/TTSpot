@@ -171,6 +171,7 @@ abstract final class AppIcons {
   static const IconData mapTrifoldFill = IconData(0xe31a, fontFamily: _fill);
   static const IconData flagCheckeredFill = IconData(0xea38, fontFamily: _fill);
   static const IconData chatCircleFill = IconData(0xe168, fontFamily: _fill);
+  static const IconData chatCircleDotsFill = IconData(0xe16c, fontFamily: _fill);
   static const IconData userFill = IconData(0xe4c2, fontFamily: _fill);
   static const IconData heartFill = IconData(0xe2a8, fontFamily: _fill);
   static const IconData bookmarkSimpleFill = IconData(0xe0ea, fontFamily: _fill);

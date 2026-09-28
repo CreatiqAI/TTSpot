@@ -6,6 +6,8 @@ import '../../../core/supabase/supabase_client.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../events/application/event_providers.dart';
+import '../../floorplan/application/floorplan_providers.dart';
+import '../../floorplan/data/floorplan_repository.dart';
 import '../../friends/application/friends_providers.dart';
 import '../../map/application/map_providers.dart';
 import '../../social/application/notification_providers.dart';
@@ -125,6 +127,18 @@ class PointsActions {
           throw const AppException('That\'s a member\'s voucher. Only the partner shop can scan it at the counter.');
         }
         return ScanOutcome(title: 'Voucher', route: '/vendor/redeem/$claimId?code=$code', silent: true);
+      case ZoneCode(:final pinId):
+        final r = await _ref.read(floorplanRepositoryProvider).setPositionFromZone(pinId);
+        _ref.invalidate(myEventPositionProvider(r.eventId));
+        return ScanOutcome(
+          title: 'Spot saved',
+          subtitle: 'Only you see your spot. Cleared after the event.',
+          route: '/event/${r.eventId}/floorplan?level=${r.levelId}',
+        );
+      case EventInviteCode(:final code):
+        final eventId = await _ref.read(floorplanRepositoryProvider).eventForInviteCode(code);
+        if (eventId == null) throw const AppException("That invite code isn't linked to a meet any more.");
+        return ScanOutcome(title: 'Meet', route: '/event/$eventId', silent: true);
       case CardRewardCode(:final claimId, :final code):
         final isAdmin = _ref.read(currentProfileProvider).value?.isAdmin ?? false;
         final vendor = isAdmin ? null : await _ref.read(myVendorProvider.future);

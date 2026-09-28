@@ -51,6 +51,7 @@ class FriendPin {
     this.carMake,
     this.carModel,
     this.carColor,
+    this.carPhoto,
   });
 
   /// A stranger in nearby mode: rounded position, no face, grey car.
@@ -62,6 +63,8 @@ class FriendPin {
   final String? carMake;
   final String? carModel;
   final String? carColor;
+  /// Cover of their default car (portrait, else first photo): the portrait badge on the map.
+  final String? carPhoto;
   String? get carTitle => carMake == null ? null : '$carMake ${carModel ?? ''}'.trim();
 
   /// True when I only see this person because we share a car club.
@@ -101,6 +104,7 @@ class FriendPin {
         carMake: m['car_make'] as String?,
         carModel: m['car_model'] as String?,
         carColor: m['car_color'] as String?,
+        carPhoto: m['car_photo'] as String?,
       );
 }
 

@@ -74,7 +74,14 @@ class _MapLegendState extends ConsumerState<MapLegend> {
         ],
       MapMode.spots => const [
           _Item(LegendGlyph.topSpot, 'Top spot'),
-          _Item(LegendGlyph.spot, 'Spot'),
+          _Item(LegendGlyph.cafe, 'Café'),
+          _Item(LegendGlyph.mamak, 'Mamak'),
+          _Item(LegendGlyph.carpark, 'Carpark'),
+          _Item(LegendGlyph.route, 'Route'),
+          _Item(LegendGlyph.circuit, 'Circuit'),
+          _Item(LegendGlyph.mall, 'Mall'),
+          _Item(LegendGlyph.workshop, 'Workshop'),
+          _Item(LegendGlyph.spot, 'Other spot'),
           _Item(LegendGlyph.partner, 'Partner shop'),
           _Item(LegendGlyph.me, 'You'),
         ],
@@ -132,7 +139,19 @@ class _MapLegendState extends ConsumerState<MapLegend> {
   }
 }
 
-enum LegendGlyph { balloon, officialEvent, partnerEvent, flag, spot, topSpot, partner, moment, me, friend, club, nearby }
+enum LegendGlyph { balloon, officialEvent, partnerEvent, flag, spot, topSpot, cafe, mamak, carpark, route, circuit, mall, workshop, partner, moment, me, friend, club, nearby }
+
+/// The key row for a place of this kind.
+LegendGlyph legendGlyphForSpot(SpotKind k) => switch (k) {
+      SpotKind.cafe => LegendGlyph.cafe,
+      SpotKind.mamak => LegendGlyph.mamak,
+      SpotKind.carpark => LegendGlyph.carpark,
+      SpotKind.route => LegendGlyph.route,
+      SpotKind.circuit => LegendGlyph.circuit,
+      SpotKind.mall => LegendGlyph.mall,
+      SpotKind.workshop => LegendGlyph.workshop,
+      SpotKind.other => LegendGlyph.spot,
+    };
 
 class _Item {
   const _Item(this.glyph, this.label);
@@ -157,9 +176,23 @@ class LegendGlyphPainter extends CustomPainter {
       case LegendGlyph.flag:
         paintFlag(c, Offset(centre.dx - 12 * 0.6, 0), scale: 0.6);
       case LegendGlyph.spot:
-        paintSpotBadge(c, Offset(centre.dx - 11 * 0.75, centre.dy - 11 * 0.75), scale: 0.75);
+        paintSpotBadge(c, Offset(centre.dx - 12 * 0.75, centre.dy - 12 * 0.75), scale: 0.75);
       case LegendGlyph.topSpot:
-        paintSpotBadge(c, Offset(centre.dx - 11 * 0.75, centre.dy - 11 * 0.75), scale: 0.75, recommended: true);
+        paintSpotBadge(c, Offset(centre.dx - 12 * 0.75, centre.dy - 12 * 0.75), scale: 0.75, recommended: true, kind: SpotKind.cafe);
+      case LegendGlyph.cafe:
+        paintSpotBadge(c, Offset(centre.dx - 12 * 0.75, centre.dy - 12 * 0.75), scale: 0.75, kind: SpotKind.cafe);
+      case LegendGlyph.mamak:
+        paintSpotBadge(c, Offset(centre.dx - 12 * 0.75, centre.dy - 12 * 0.75), scale: 0.75, kind: SpotKind.mamak);
+      case LegendGlyph.carpark:
+        paintSpotBadge(c, Offset(centre.dx - 12 * 0.75, centre.dy - 12 * 0.75), scale: 0.75, kind: SpotKind.carpark);
+      case LegendGlyph.route:
+        paintSpotBadge(c, Offset(centre.dx - 12 * 0.75, centre.dy - 12 * 0.75), scale: 0.75, kind: SpotKind.route);
+      case LegendGlyph.circuit:
+        paintSpotBadge(c, Offset(centre.dx - 12 * 0.75, centre.dy - 12 * 0.75), scale: 0.75, kind: SpotKind.circuit);
+      case LegendGlyph.mall:
+        paintSpotBadge(c, Offset(centre.dx - 12 * 0.75, centre.dy - 12 * 0.75), scale: 0.75, kind: SpotKind.mall);
+      case LegendGlyph.workshop:
+        paintSpotBadge(c, Offset(centre.dx - 12 * 0.75, centre.dy - 12 * 0.75), scale: 0.75, kind: SpotKind.workshop);
       case LegendGlyph.partner:
         final box = Rect.fromCenter(center: centre.translate(0, -1), width: 15, height: 15);
         c.drawRRect(RRect.fromRectAndRadius(box.inflate(1.5), const Radius.circular(5)), Paint()..color = Colors.white);
@@ -177,6 +210,7 @@ class LegendGlyphPainter extends CustomPainter {
         c.drawRect(const Rect.fromLTWH(-6, -6.5, 12, 12), Paint()..color = const Color(0xFF9AA0A6));
         c.restore();
       case LegendGlyph.me:
+        paintHalo(c, centre, 9);
         paintDot(c, centre, r: 4.5, color: kRelationMe);
       case LegendGlyph.friend:
         paintDot(c, centre, r: 4.5, color: kRelationFriend);

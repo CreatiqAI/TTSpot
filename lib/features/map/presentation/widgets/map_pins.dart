@@ -204,19 +204,25 @@ class MapPinFactory {
 
   /// A partner's shop: round logo with a white ring and a small red tag, so
   /// it reads as "a business" next to the plain spot badges.
-  Future<MapPin> partner({required String key, required String? logoUrl, double scale = 1}) async {
-    final k = 'v|$key|$logoUrl|$scale';
+  Future<MapPin> partner({required String key, required String? logoUrl, double scale = 1, String? name}) async {
+    final k = 'v|$key|$logoUrl|$scale|$name';
     final cached = _cache[k];
     if (cached != null) return cached;
-    final image = logoUrl == null ? null : await _image(logoUrl, targetWidth: 120);
+    final image = logoUrl == null ? null : await _image(logoUrl, targetWidth: 140);
     // A shop signboard: rounded square with the logo, a pointer underneath,
-    // and a small red storefront badge so it never reads as a person.
-    final size = 34.0 * scale, ring = 2.5 * scale, tail = 7.0 * scale, badge = 13.0 * scale;
-    final totalW = size + ring * 2 + badge * 0.6, totalH = size + ring * 2 + tail + 2;
-    final left = ring, top = ring;
+    // and a small red storefront badge so it never reads as a person. With
+    // [name], the shop's name sits on a chip under the pointer.
+    final size = 42.0 * scale, ring = 3.0 * scale, tail = 8.0 * scale, badge = 15.0 * scale;
+    final label = name == null || name.isEmpty ? null : _text(_short(name, 16), 11.5, FontWeight.w700, Colors.white);
+    final chipW = label == null ? 0.0 : label.width + 16, chipH = label == null ? 0.0 : label.height + 8;
+    const gap = 3.0;
+    final boardW = size + ring * 2 + badge * 0.6;
+    final totalW = math.max(boardW, chipW + 4);
+    final totalH = size + ring * 2 + tail + 2 + (label == null ? 0 : gap + chipH);
+    final left = (totalW - boardW) / 2 + ring, top = ring;
     final box = Rect.fromLTWH(left, top, size, size);
-    final outer = RRect.fromRectAndRadius(box.inflate(ring), Radius.circular(10 * scale));
-    final inner = RRect.fromRectAndRadius(box, Radius.circular(8 * scale));
+    final outer = RRect.fromRectAndRadius(box.inflate(ring), Radius.circular(11 * scale));
+    final inner = RRect.fromRectAndRadius(box, Radius.circular(8.5 * scale));
     final cx = box.center.dx;
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder)..scale(devicePixelRatio);
@@ -248,7 +254,11 @@ class MapPinFactory {
     canvas.drawCircle(bc, badge / 2, Paint()..color = const Color(0xFFE00008));
     final ic = _icon(AppIcons.storefront, badge * 0.62, Colors.white);
     ic.paint(canvas, bc - Offset(ic.width / 2, ic.height / 2));
-    final pin = await _finish(recorder, totalW, totalH, anchorY: (box.bottom + ring + tail) / totalH);
+    if (label != null) {
+      final chipTop = box.bottom + ring + tail + gap;
+      _chip(canvas, Rect.fromLTWH(totalW / 2 - chipW / 2, chipTop, chipW, chipH), label);
+    }
+    final pin = await _finish(recorder, totalW, totalH, anchorY: (box.bottom + ring + tail) / totalH, anchorX: cx / totalW);
     return _cache[k] = pin;
   }
 
@@ -326,7 +336,7 @@ class MapPinFactory {
   Future<ui.Image?> image(String url, {required int targetWidth}) => _image(url, targetWidth: targetWidth);
   TextPainter text(String t, double size, FontWeight weight, Color color) => _text(t, size, weight, color);
   void drawCover(Canvas canvas, ui.Image image, Rect dst, {bool dimmed = false}) => _drawCover(canvas, image, dst, dimmed: dimmed);
-  Future<MapPin> finish(ui.PictureRecorder recorder, double w, double h, {required double anchorY}) => _finish(recorder, w, h, anchorY: anchorY);
+  Future<MapPin> finish(ui.PictureRecorder recorder, double w, double h, {required double anchorY, double anchorX = 0.5}) => _finish(recorder, w, h, anchorY: anchorY, anchorX: anchorX);
 
   static String _short(String s, int max) => s.length <= max ? s : '${s.substring(0, max - 1)}…';
 
@@ -358,12 +368,12 @@ class MapPinFactory {
     canvas.drawImageRect(image, src, dst, paint);
   }
 
-  Future<MapPin> _finish(ui.PictureRecorder recorder, double w, double h, {required double anchorY}) async {
+  Future<MapPin> _finish(ui.PictureRecorder recorder, double w, double h, {required double anchorY, double anchorX = 0.5}) async {
     final picture = recorder.endRecording();
     final img = await picture.toImage((w * devicePixelRatio).ceil(), (h * devicePixelRatio).ceil());
     final bytes = await img.toByteData(format: ui.ImageByteFormat.png);
     img.dispose();
-    return MapPin(bytes!.buffer.asUint8List(), Offset(0.5, anchorY), Size(w, h));
+    return MapPin(bytes!.buffer.asUint8List(), Offset(anchorX, anchorY), Size(w, h));
   }
 
   final _assets = <String, ui.Image?>{};

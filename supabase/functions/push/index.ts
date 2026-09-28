@@ -52,7 +52,7 @@ const SETTING: Record<string, string> = {
   club_join: "notif_friends", club_request: "notif_friends", post_like: "notif_friends", post_comment: "notif_friends",
   tt_now: "notif_tt", garage: "notif_tt",
   points: "notif_rewards", referral: "notif_rewards", badge: "notif_rewards", voucher: "notif_rewards",
-  spotted_claim: "notif_rewards", car_of_week: "notif_rewards", cards: "notif_rewards",
+  spotted_claim: "notif_rewards", car_of_week: "notif_rewards", cards: "notif_rewards", portrait: "notif_rewards",
 };
 
 const after = (s: string | null, prefix: string) => (s ?? "").startsWith(prefix) ? s!.slice(prefix.length) : s ?? "";
@@ -109,6 +109,7 @@ async function fromNotification(id: string): Promise<Push | null> {
           : (b ?? "").startsWith("declined:") ? [who, "passed on your trade offer.", "/cards?tab=trades"]
           : (b ?? "").startsWith("redeemed:") ? ["TT Spot", `Prize handed over: ${after(b, "redeemed:")}`, "/cards?tab=prizes"]
           : ["TT Spot", b ?? "Something new in Cards.", "/cards"];
+      case "portrait": return ["TT Spot", "Your car portrait is ready. Tap to see it.", "/me"];
       default: return ["TT Spot", b ?? "Something new for you.", null];
     }
   })();

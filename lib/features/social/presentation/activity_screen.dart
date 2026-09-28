@@ -164,6 +164,7 @@ class _Row extends ConsumerWidget {
           n.clubId == null ? null : Routes.club(n.clubId!)
         ),
       NotificationType.cards => _cardsText(n),
+      NotificationType.portrait => ('Your car portrait is ready. Tap to see it.', n.body == null ? Routes.garage : Routes.car(n.body!)),
       NotificationType.unknown => ('did something.', null),
     };
     final systemMessage = n.type == NotificationType.badge ||
@@ -173,7 +174,8 @@ class _Row extends ConsumerWidget {
         (n.type == NotificationType.points && n.actor == null) ||
         (n.type == NotificationType.clubOfficial && n.actor == null) ||
         n.type == NotificationType.voucher ||
-        (n.type == NotificationType.cards && n.actor == null);
+        (n.type == NotificationType.cards && n.actor == null) ||
+        n.type == NotificationType.portrait;
 
     return InkWell(
       onTap: route == null ? null : () => context.push(route),
@@ -196,6 +198,7 @@ class _Row extends ConsumerWidget {
                     NotificationType.voucher => '☕',
                     NotificationType.points => '⭐',
                     NotificationType.cards => '🎁',
+                    NotificationType.portrait => '✨',
                     _ => '⏰',
                   },
                   size: 26,

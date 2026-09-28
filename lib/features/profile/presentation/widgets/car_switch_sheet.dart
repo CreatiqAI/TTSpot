@@ -9,6 +9,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/friendly_error.dart';
 import '../../application/profile_providers.dart';
 import '../../domain/car.dart';
+import 'portrait_style_sheet.dart';
 
 /// "Which car are you today?" Pick the default: it fronts the profile,
 /// drives on the map and goes with you to meets.
@@ -78,6 +79,7 @@ Future<void> showCarActionsSheet(BuildContext context, WidgetRef ref, Car car) a
           if (!car.isDefault)
             ListTile(leading: const Icon(AppIcons.checkCircle), title: const Text('Set as default car'), subtitle: const Text('Fronts your profile and goes with you to meets', style: TextStyle(fontSize: 12)), onTap: () => Navigator.pop(ctx, 'default')),
           ListTile(leading: const Icon(AppIcons.pencilSimple), title: const Text('Edit car'), onTap: () => Navigator.pop(ctx, 'edit')),
+          ListTile(leading: const Icon(AppIcons.sparkle), title: const Text('AI portrait'), subtitle: const Text('Turn a photo into plate-free artwork', style: TextStyle(fontSize: 12)), onTap: () => Navigator.pop(ctx, 'portrait')),
           ListTile(leading: const Icon(AppIcons.car), title: const Text('Open car page'), onTap: () => Navigator.pop(ctx, 'open')),
           const SizedBox(height: 8),
         ],
@@ -94,6 +96,8 @@ Future<void> showCarActionsSheet(BuildContext context, WidgetRef ref, Car car) a
       }
     case 'edit':
       context.push(Routes.editCar(car.id));
+    case 'portrait':
+      await showPortraitStyleSheet(context, ref, car);
     case 'open':
       context.push(Routes.car(car.id));
   }

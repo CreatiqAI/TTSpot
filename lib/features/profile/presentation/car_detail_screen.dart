@@ -19,6 +19,8 @@ import '../../social/domain/post.dart';
 import '../../social/presentation/widgets/masonry_grid.dart';
 import '../application/profile_providers.dart';
 import '../domain/car.dart';
+import 'widgets/car_portraits_section.dart';
+import 'widgets/portrait_style_sheet.dart';
 
 class CarDetailScreen extends ConsumerStatefulWidget {
   const CarDetailScreen({super.key, required this.carId});
@@ -64,6 +66,7 @@ class _CarDetailScreenState extends ConsumerState<CarDetailScreen> {
         title: Text(car.value?.title ?? ''),
         actions: [
           if (car.value != null && car.value!.ownerId == me) ...[
+            IconButton(icon: const Icon(AppIcons.sparkle), tooltip: 'AI portrait', onPressed: () => showPortraitStyleSheet(context, ref, car.value!)),
             IconButton(icon: const Icon(AppIcons.pencilSimple), onPressed: () => context.push(Routes.editCar(car.value!.id))),
             IconButton(icon: const Icon(AppIcons.trash), onPressed: () => _delete(car.value!)),
           ],
@@ -78,21 +81,23 @@ class _CarDetailScreenState extends ConsumerState<CarDetailScreen> {
           final mine = c.ownerId == me;
           final total = mods.fold<double>(0, (s, m) => s + (m.cost ?? 0));
           final showSpend = mine || c.showSpend;
+          // The portrait (when chosen) leads the hero, then the real photos.
+          final pages = [if (c.portraitUrl != null) c.portraitUrl!, ...c.photoUrls];
           return ListView(
             padding: const EdgeInsets.only(bottom: 32),
             children: [
               AspectRatio(
                 aspectRatio: 4 / 3,
-                child: c.photoUrls.isEmpty
+                child: pages.isEmpty
                     ? ColoredBox(color: AppColors.surfaceGray, child: Center(child: ArtIcon(AppArt.car, size: 120)))
                     : Stack(
                         children: [
                           PageView.builder(
-                            itemCount: c.photoUrls.length,
+                            itemCount: pages.length,
                             onPageChanged: (i) => setState(() => _page = i),
-                            itemBuilder: (_, i) => Image(image: CachedNetworkImageProvider(c.photoUrls[i]), fit: BoxFit.cover, errorBuilder: (_, _, _) => ColoredBox(color: AppColors.surfaceGray)),
+                            itemBuilder: (_, i) => Image(image: CachedNetworkImageProvider(pages[i]), fit: BoxFit.cover, errorBuilder: (_, _, _) => ColoredBox(color: AppColors.surfaceGray)),
                           ),
-                          if (c.photoUrls.length > 1)
+                          if (pages.length > 1)
                             Positioned(
                               bottom: 10,
                               left: 0,
@@ -100,7 +105,7 @@ class _CarDetailScreenState extends ConsumerState<CarDetailScreen> {
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  for (var i = 0; i < c.photoUrls.length; i++)
+                                  for (var i = 0; i < pages.length; i++)
                                     Container(width: 6, height: 6, margin: const EdgeInsets.symmetric(horizontal: 3), decoration: BoxDecoration(shape: BoxShape.circle, color: i == _page ? AppColors.primary : Colors.white70)),
                                 ],
                               ),
@@ -108,6 +113,7 @@ class _CarDetailScreenState extends ConsumerState<CarDetailScreen> {
                         ],
                       ),
               ),
+              if (mine) Padding(padding: const EdgeInsets.only(top: 14), child: CarPortraitsSection(car: c)),
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
                 child: Column(

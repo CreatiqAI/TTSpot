@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 
-import '../theme/app_art.dart';
+import '../theme/app_icons.dart';
 import '../theme/app_theme.dart';
+import '../theme/titi.dart';
 import '../widgets/primary_button.dart';
 
 /// TT Spot is a map first: friends and clubmates on it, check-ins that prove
@@ -86,36 +87,57 @@ class _LocationGateScreenState extends ConsumerState<LocationGateScreen> with Wi
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(28, 24, 28, 24),
-          child: Column(
-            children: [
-              const Spacer(),
-              const ArtIcon(AppArt.map, size: 112),
-              const SizedBox(height: 26),
-              const Text('TT Spot runs on location', textAlign: TextAlign.center, style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, height: 1.15)),
-              const SizedBox(height: 12),
-              Text(
-                'It\'s how the map works. Turn it on to see friends and your club on the map, check in at meets and spots, and scan a meet\'s QR when you\'re actually there.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 15, color: AppColors.textSecondary, height: 1.45),
-              ),
-              const SizedBox(height: 22),
-              const _Point(art: AppArt.pin, text: 'Only while the app is open. Nothing runs in the background.'),
-              const _Point(art: AppArt.ghost, text: 'Go invisible any time with ghost mode on the map.'),
-              const _Point(art: AppArt.shield, text: 'Friends and clubmates you choose can see you. Nobody else.'),
-              const Spacer(),
-              if (_deniedForever)
-                const Padding(
-                  padding: EdgeInsets.only(bottom: 10),
-                  child: Text('Location is off for TT Spot in your phone settings. Allow it there, then come back.', textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: AppColors.danger)),
+        child: LayoutBuilder(
+          builder: (_, c) => SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: c.maxHeight > 32 ? c.maxHeight - 32 : 0),
+              child: IntrinsicHeight(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Container(
+                          height: 300,
+                          decoration: BoxDecoration(color: AppColors.surfaceGray, borderRadius: BorderRadius.circular(28)),
+                          alignment: Alignment.center,
+                          child: const Titi(TitiPose.mapPin, height: 260),
+                        ),
+                        const Positioned(
+                          left: 14,
+                          bottom: -22,
+                          child: TitiBubble('Last thing. I need to know where the meet is, and where you are.', maxWidth: 280),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 44),
+                    Text(
+                      'TT SPOT IS A MAP.',
+                      style: TextStyle(fontFamily: AppFonts.display, fontSize: 40, height: 0.98, fontWeight: FontWeight.w800, letterSpacing: -0.3, color: AppColors.textPrimary),
+                    ),
+                    const SizedBox(height: 18),
+                    const _Point(icon: AppIcons.mapPin, title: 'Check in at meets and spots', text: 'One tap when you arrive. That\'s how you earn points.'),
+                    const _Point(icon: AppIcons.usersThree, title: 'See friends on the road', text: 'Only friends you choose see you. Off by default.'),
+                    const _Point(icon: AppIcons.navigationArrow, title: 'Navigate to the meet', text: 'Turn-by-turn inside TT Spot, or open Waze.'),
+                    const Spacer(),
+                    const SizedBox(height: 20),
+                    if (_deniedForever)
+                      const Padding(
+                        padding: EdgeInsets.only(bottom: 10),
+                        child: Text('Location is off for TT Spot in your phone settings. Allow it there, then come back.', textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: AppColors.danger)),
+                      ),
+                    PrimaryButton(label: _deniedForever ? 'Open settings' : 'Turn on location', loading: _busy, onPressed: _allow),
+                    const SizedBox(height: 4),
+                    TextButton(
+                      onPressed: () => ref.read(locationGateSkippedProvider.notifier).skip(),
+                      child: Text('Not now, take me to the map', style: TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.w600)),
+                    ),
+                  ],
                 ),
-              PrimaryButton(label: _deniedForever ? 'Open settings' : 'Turn on location', loading: _busy, onPressed: _allow),
-              TextButton(
-                onPressed: () => ref.read(locationGateSkippedProvider.notifier).skip(),
-                child: Text('Not now', style: TextStyle(color: AppColors.textSecondary)),
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -123,18 +145,36 @@ class _LocationGateScreenState extends ConsumerState<LocationGateScreen> with Wi
   }
 }
 
+/// One reason row: a 40 px icon square, a bold title and a one-line why.
 class _Point extends StatelessWidget {
-  const _Point({required this.art, required this.text});
-  final String art;
+  const _Point({required this.icon, required this.title, required this.text});
+  final IconData icon;
+  final String title;
   final String text;
+
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
+        padding: const EdgeInsets.symmetric(vertical: 8),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ArtIcon(art, size: 28),
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(color: AppColors.surfaceGray, borderRadius: BorderRadius.circular(12)),
+              child: Icon(icon, size: 20, color: AppColors.textPrimary),
+            ),
             const SizedBox(width: 12),
-            Expanded(child: Text(text, style: const TextStyle(fontSize: 13.5, height: 1.35))),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
+                  const SizedBox(height: 2),
+                  Text(text, style: TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.35)),
+                ],
+              ),
+            ),
           ],
         ),
       );

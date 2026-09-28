@@ -25,6 +25,9 @@ class OnboardingController extends AsyncNotifier<void> {
     String? referralCode,
     String? phone,
     bool acceptedTerms = false,
+    /// Onboarding passes false: it refreshes the profile itself once TiTi has
+    /// handed over the first blind box, so the router does not move on early.
+    bool refreshProfile = true,
   }) async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
@@ -66,7 +69,7 @@ class OnboardingController extends AsyncNotifier<void> {
           await ref.read(pointsRepositoryProvider).claimReferral(code);
         } catch (_) {/* a bad code never blocks sign-up */}
       }
-      ref.invalidate(currentProfileProvider);
+      if (refreshProfile) ref.invalidate(currentProfileProvider);
     });
   }
 }

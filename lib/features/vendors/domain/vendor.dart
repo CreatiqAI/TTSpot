@@ -6,9 +6,9 @@ DateTime? _date(Object? v) => v == null ? null : DateTime.parse(v as String).toL
 
 /// What a partner application is for.
 enum ApplicationKind {
-  vendor, club;
+  vendor, club, organizer;
   String get db => name;
-  static ApplicationKind fromDb(String? v) => v == 'club' ? club : vendor;
+  static ApplicationKind fromDb(String? v) => switch (v) { 'club' => club, 'organizer' => organizer, _ => vendor };
 }
 
 /// Options shown in the vendor application form (db value, label). Partners
@@ -27,6 +27,7 @@ const kBusinessTypes = <(String, String)>[
 
 String businessTypeLabel(String type) => switch (type) {
       'club' => 'Car club',
+      'organizer' => 'Event organizer',
       'restaurant' => 'Restaurant / mamak',
       'petrol' => 'Petrol / car wash',
       _ => kBusinessTypes.where((t) => t.$1 == type).map((t) => t.$2).firstOrNull ?? 'Other',
@@ -59,6 +60,8 @@ class PartnerApplication {
     this.avatarUrl,
     this.state,
     this.shopPhotoUrl,
+    this.website,
+    this.eventSize,
   });
 
   final String id;
@@ -82,6 +85,9 @@ class PartnerApplication {
   final String? avatarUrl;
   final String? state;
   final String? shopPhotoUrl;
+  /// Organizer applications: Instagram / website and typical turnout.
+  final String? website;
+  final String? eventSize;
 
   factory PartnerApplication.fromMap(Map<String, dynamic> m) => PartnerApplication(
         id: m['id'] as String,
@@ -104,6 +110,8 @@ class PartnerApplication {
         avatarUrl: m['avatar_url'] as String?,
         state: m['state'] as String?,
         shopPhotoUrl: m['shop_photo_url'] as String?,
+        website: m['website'] as String?,
+        eventSize: m['event_size'] as String?,
       );
 }
 

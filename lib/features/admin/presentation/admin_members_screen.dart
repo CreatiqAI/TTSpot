@@ -24,7 +24,7 @@ class _AdminMembersScreenState extends ConsumerState<AdminMembersScreen> {
   final _q = TextEditingController();
   String _filter = 'all';
 
-  static const _filters = [('all', 'All'), ('new', 'New this week'), ('active', 'Active today'), ('admins', 'Admins'), ('clubs', 'Club owners'), ('partners', 'Partners'), ('nocar', 'No car')];
+  static const _filters = [('all', 'All'), ('new', 'New this week'), ('active', 'Active today'), ('admins', 'Admins'), ('clubs', 'Club owners'), ('organizers', 'Organizers'), ('partners', 'Partners'), ('nocar', 'No car')];
 
   @override
   void dispose() {
@@ -44,6 +44,7 @@ class _AdminMembersScreenState extends ConsumerState<AdminMembersScreen> {
       'active' => u.lastSeen != null && u.lastSeen!.isAfter(DateTime(now.year, now.month, now.day)),
       'admins' => u.isAdmin,
       'clubs' => u.clubOwner,
+      'organizers' => u.isOrganizer,
       'partners' => u.isPartner,
       'nocar' => u.cars == 0,
       _ => true,
@@ -133,6 +134,7 @@ class _MemberRow extends ConsumerWidget {
       if (u.isAdmin) ('Admin', AppColors.brand),
       if (u.clubOwner) ('Club owner', const Color(0xFFA855F7)),
       if (u.isPartner) ('Partner', const Color(0xFF2B7CFF)),
+      if (u.isOrganizer) ('Organizer', AppColors.success),
     ];
     return ListTile(
       leading: UserAvatar(url: u.avatarUrl, name: u.displayName ?? u.username, size: 44),
@@ -164,6 +166,8 @@ class _MemberRow extends ConsumerWidget {
                       await a.setRole(u.id, admin: !u.isAdmin);
                     case 'club':
                       await a.setRole(u.id, clubOwner: !u.clubOwner);
+                    case 'organizer':
+                      await a.setOrganizer(u.id, on: !u.isOrganizer);
                     case 'profile':
                       if (context.mounted) context.push(Routes.profile(u.id));
                   }
@@ -174,6 +178,7 @@ class _MemberRow extends ConsumerWidget {
               itemBuilder: (_) => [
                 const PopupMenuItem(value: 'profile', child: Text('Open profile')),
                 PopupMenuItem(value: 'club', child: Text(u.clubOwner ? 'Remove club owner' : 'Make club owner')),
+                PopupMenuItem(value: 'organizer', child: Text(u.isOrganizer ? 'Remove verified organizer' : 'Make verified organizer')),
                 PopupMenuItem(value: 'admin', child: Text(u.isAdmin ? 'Remove admin' : 'Make admin')),
               ],
             ),

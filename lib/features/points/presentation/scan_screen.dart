@@ -9,12 +9,17 @@ import '../../../core/theme/app_art.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/friendly_error.dart';
+import '../../organizer/domain/organizer_models.dart' show parseDrawClaimCode;
+import '../../organizer/presentation/widgets/prize_claim_dialog.dart';
 import '../application/points_providers.dart';
 import '../domain/points.dart';
 
-/// One scanner for every TT Spot code: friend QR, meet check-in, spot sticker.
+/// One scanner for every TT Spot code: friend QR, meet check-in, spot sticker,
+/// lucky-draw prize claim. [prizeClaims] = the crew's "Scan prize claim" mode:
+/// only claim QRs, and it keeps scanning after each one.
 class ScanScreen extends ConsumerStatefulWidget {
-  const ScanScreen({super.key});
+  const ScanScreen({super.key, this.prizeClaims = false});
+  final bool prizeClaims;
 
   @override
   ConsumerState<ScanScreen> createState() => _ScanScreenState();
@@ -54,6 +59,12 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
 
   Future<void> _handleRaw(String raw) async {
     _lastRaw = raw;
+    final claim = parseDrawClaimCode(raw);
+    if (claim != null) return _claimPrize(claim);
+    if (widget.prizeClaims) {
+      _toast('That is not a prize claim QR.');
+      return;
+    }
     final code = ScannedCode.parse(raw);
     if (code == null) {
       _toast('Not a TT Spot code.');
@@ -79,6 +90,16 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
       _lastRaw = null;
       await _controller.start();
     }
+  }
+
+  Future<void> _claimPrize(String code) async {
+    setState(() => _busy = true);
+    await _controller.stop();
+    if (mounted) await showPrizeClaim(context, ref, code);
+    if (!mounted) return;
+    setState(() => _busy = false);
+    _lastRaw = null;
+    await _controller.start();
   }
 
   void _toast(String msg) {
@@ -124,7 +145,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
         leading: IconButton(icon: const Icon(AppIcons.x), onPressed: () => context.pop()),
-        title: const Text('Scan', style: TextStyle(color: Colors.white)),
+        title: Text(widget.prizeClaims ? 'Scan prize claim' : 'Scan', style: const TextStyle(color: Colors.white)),
         actions: [
           IconButton(tooltip: 'From photo', icon: const Icon(AppIcons.images), onPressed: _fromPhoto),
           IconButton(tooltip: 'Torch', icon: const Icon(AppIcons.lightning), onPressed: () => _controller.toggleTorch()),
@@ -167,7 +188,11 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
             right: 24,
             bottom: 48,
             child: Text(
-              _busy ? 'Checking…' : 'Point at a friend\'s QR, the organiser\'s check-in code, or a spot sticker.',
+              _busy
+                  ? 'Checking…'
+                  : widget.prizeClaims
+                      ? 'Point at the winner\'s claim QR on their phone.'
+                      : 'Point at a friend\'s QR, the organiser\'s check-in code, or a spot sticker.',
               textAlign: TextAlign.center,
               style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600, shadows: [Shadow(blurRadius: 8, color: Colors.black)]),
             ),

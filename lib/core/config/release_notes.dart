@@ -10,6 +10,21 @@ class ReleaseNote {
 
 const kReleaseNotes = <ReleaseNote>[
   ReleaseNote(
+    version: '0.3.37',
+    date: '29 Sep 2026',
+    title: 'Organizer tools',
+    points: [
+      'Verified organizers get a toolkit for their meets: crew who can work the door, scheduled announcements, and a lucky draw with a big-screen reveal and prize-claim QR codes.',
+      'Floorplans with levels: organizers upload each floor and pin zones, booths and the stage. Members tap where they are, scan a zone QR, and save where they parked.',
+      'Event invite QR: newcomers scan, download and enter the event code at sign-up to join the meet.',
+      'Your own referral code (six letters and numbers) with a share link, on My QR and in Me, Invite friends.',
+      'Pick which car you are bringing to TT now, a meet or a check-in when you own more than one.',
+      'Map: spots show on every layer, your own marker no longer disappears on iPhone, and a clearer What\'s on the map key.',
+      'TiTi welcomes you before sign-in, car recognition is more accurate, no more plate blurring, and log out asks first.',
+      'New card back, and a clearer Chats icon.',
+    ],
+  ),
+  ReleaseNote(
     version: '0.3.36',
     date: '29 Sep 2026',
     title: 'Meet TiTi',

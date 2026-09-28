@@ -9,11 +9,11 @@ import '../../domain/cards.dart';
 /// Card proportions everywhere: the posters are 2:3.
 const kCardAspect = 2 / 3;
 
-/// Art that ships inside the app, by card id. An `art_url` set by an admin
-/// wins over these.
 /// The printed back of every card.
 const kCardBackAsset = 'assets/cards/back.jpg';
 
+/// Art that ships inside the app, by card id. An `art_url` set by an admin
+/// wins over these.
 const kCardAssets = <String, String>{
   'c1': 'assets/cards/c1.jpg',
   'c2': 'assets/cards/c2.jpg',

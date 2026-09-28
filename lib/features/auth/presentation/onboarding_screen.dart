@@ -16,6 +16,9 @@ import '../../../core/utils/friendly_error.dart';
 import '../../../core/widgets/photo_picker_sheet.dart';
 import '../../../core/widgets/primary_button.dart';
 import '../../profile/application/profile_providers.dart';
+import '../../profile/data/profile_repository.dart';
+import '../../profile/domain/car_recognition.dart';
+import '../../profile/presentation/widgets/car_color_picker.dart';
 import '../application/auth_controller.dart';
 import '../application/account_basics.dart';
 import '../application/onboarding_controller.dart';
@@ -24,9 +27,11 @@ import '../../../core/legal/legal_text.dart';
 import '../../settings/presentation/settings_screen.dart' show LegalScreen;
 import '../data/auth_repository.dart';
 
-/// First-run setup in two steps, laid out like Instagram's "Edit profile":
-/// 1. who you are (avatar, name, username, state)
-/// 2. your ride (make, model, at least one photo) — every member has a car.
+/// First-run setup in two steps, car first:
+/// 1. your ride — one photo; the recogniser guesses make, model, year and
+///    colour (all editable) and blurs the number plate before upload.
+/// 2. who you are (avatar, name, username, state, phone, Terms).
+/// An existing member who only lacks one of the two lands on that step alone.
 class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key});
 
@@ -46,11 +51,20 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   bool _prefilled = false;
   bool _validate = false;
 
-  // step 2
+  // step 1 — the car
   final _make = TextEditingController();
   final _model = TextEditingController();
   final _year = TextEditingController();
-  final List<XFile> _carPhotos = [];
+  String? _carColor;
+  /// The file just picked, shown while the recogniser is still looking.
+  XFile? _pickedFile;
+  /// What gets uploaded: the plate blurred when one was seen.
+  Uint8List? _carBytes;
+  bool _carPreparing = false;
+  CarRecognition? _guess;
+  bool _guessed = false;
+  bool _plateBlurred = false;
+  bool _carSaved = false;
   bool _carValidate = false;
 
   @override
@@ -65,29 +79,84 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     super.dispose();
   }
 
-  Future<void> _pickCarPhotos() async {
-    final files = await pickPhotos(context, max: 5 - _carPhotos.length, multi: true);
-    if (files.isEmpty) return;
-    setState(() => _carPhotos.addAll(files.take(5 - _carPhotos.length)));
+  Future<void> _pickCarPhoto() async {
+    final files = await pickPhotos(context, max: 1, multi: false);
+    if (files.isEmpty || !mounted) return;
+    final file = files.first;
+    setState(() {
+      _pickedFile = file;
+      _carBytes = null;
+      _carPreparing = true;
+      _plateBlurred = false;
+    });
+    Uint8List bytes;
+    try {
+      bytes = await file.readAsBytes();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _carPreparing = false;
+        _pickedFile = null;
+      });
+      _snack(friendlyError(e));
+      return;
+    }
+    final prepared = await prepareCarPhoto(ref.read(profileRepositoryProvider), bytes);
+    if (!mounted) return;
+    setState(() {
+      _carPreparing = false;
+      _carBytes = prepared.bytes;
+      _plateBlurred = prepared.plateBlurred;
+      // Only touch the fields when they are empty or hold an earlier guess;
+      // never overwrite what the member typed.
+      final untouched = _guessed || (_make.text.trim().isEmpty && _model.text.trim().isEmpty);
+      if (!untouched) return;
+      final g = prepared.guess;
+      if (g != null && g.confident) {
+        _guess = g;
+        _guessed = true;
+        _make.text = g.make;
+        _model.text = g.model;
+        _year.text = g.year?.toString() ?? '';
+        _carColor = g.color ?? _carColor;
+      } else if (_guessed) {
+        _guess = null;
+        _guessed = false;
+        _make.clear();
+        _model.clear();
+        _year.clear();
+      }
+    });
   }
 
   Future<void> _submitCar() async {
     FocusScope.of(context).unfocus();
     setState(() => _carValidate = true);
+    if (_carPreparing) return;
     if (_make.text.trim().isEmpty || _model.text.trim().isEmpty) return;
-    if (_carPhotos.isEmpty) {
-      _snack('Add at least one photo of your car.');
+    final bytes = _carBytes;
+    if (bytes == null) {
+      _snack('Add a photo of your car.');
       return;
     }
+    // Spec line / body style only while they still describe this make + model.
+    final g = _guess;
+    final keepGuess = g != null && g.matches(_make.text, _model.text);
     final id = await ref.read(carFormControllerProvider.notifier).save(
           make: _make.text,
           model: _model.text,
           yearText: _year.text,
           description: '',
+          color: _carColor,
           keptPhotoUrls: const [],
-          newPhotos: _carPhotos,
+          newPhotos: [bytes],
+          specs: keepGuess ? g.specLine : null,
+          bodyStyle: keepGuess ? g.bodyStyle : null,
         );
-    if (id != null) ref.invalidate(currentProfileProvider); // carCount updates → router moves on
+    if (id != null && mounted) {
+      setState(() => _carSaved = true);
+      ref.invalidate(currentProfileProvider); // carCount updates → step 2, or the router moves on
+    }
   }
 
   Future<void> _pickAvatar() async {
@@ -178,9 +247,26 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     final existing = profile?.isOnboarded ?? false;
     final basicsDone = basics?.complete ?? false;
 
-    // Profile + basics done, car missing → step 2.
-    if (profile != null && existing && basicsDone) {
-      return _carStep(context, busy: ref.watch(carFormControllerProvider).isLoading);
+    // No car yet → step 1. Once it is parked, the profile step (or, for a
+    // member whose profile is already complete, the router moves on).
+    if (profile != null && profile.needsCar && !_carSaved) {
+      return _carStep(
+        context,
+        busy: ref.watch(carFormControllerProvider).isLoading || _carPreparing,
+        onlyStep: existing && basicsDone,
+      );
+    }
+
+    // Step 2 header: the car just parked (or the one already in the garage).
+    ImageProvider? rideImage;
+    String? rideTitle;
+    if (_carBytes != null) {
+      rideImage = MemoryImage(_carBytes!);
+      rideTitle = '${_make.text.trim()} ${_model.text.trim()}'.trim();
+    } else if (profile != null && !existing) {
+      final car = ref.watch(userCarsProvider(profile.id)).value?.firstOrNull;
+      if (car?.cover != null) rideImage = CachedNetworkImageProvider(car!.cover!);
+      rideTitle = car?.title;
     }
 
     return Scaffold(
@@ -190,7 +276,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           icon: const Icon(AppIcons.x),
           onPressed: busy ? null : () => ref.read(authControllerProvider.notifier).signOut(),
         ),
-        title: Text(existing ? 'Complete your account' : 'Step 1 of 2 · You'),
+        title: Text(existing ? 'Complete your account' : 'Step 2 of 2 · You'),
         actions: [
           busy
               ? const Padding(
@@ -220,7 +306,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                       'Two quick things every member needs: a phone number and a tick on the Terms. Then you are back on the map.',
                       style: TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.4),
                     ),
-                  ),
+                  )
+                else if (rideImage != null)
+                  _RideBanner(image: rideImage, title: rideTitle ?? ''),
                 Center(
                   child: _AvatarPicker(
                     file: _avatar,
@@ -304,7 +392,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     );
   }
 
-  Widget _carStep(BuildContext context, {required bool busy}) {
+  Widget _carStep(BuildContext context, {required bool busy, required bool onlyStep}) {
+    final yearHint = _guess?.yearRange;
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -312,7 +401,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           icon: const Icon(AppIcons.x),
           onPressed: busy ? null : () => ref.read(authControllerProvider.notifier).signOut(),
         ),
-        title: const Text('Step 2 of 2 · Your ride'),
+        title: Text(onlyStep ? 'Your ride' : 'Step 1 of 2 · Your ride'),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -326,73 +415,40 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      'What do you drive? Everyone on TT Spot has a car in the garage, and it needs a photo.',
+                      'Show us your ride. One photo is enough: we work out what it is and blur the number plate for you.',
                       style: TextStyle(fontSize: 14, color: AppColors.textSecondary, height: 1.4),
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 22),
-              Text('PHOTOS', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textSecondary)),
-              const SizedBox(height: 8),
-              SizedBox(
-                height: 110,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  children: [
-                    for (var i = 0; i < _carPhotos.length; i++)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: Stack(
-                          children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(AppRadius.md),
-                              child: Image.file(File(_carPhotos[i].path), width: 110, height: 110, fit: BoxFit.cover),
-                            ),
-                            Positioned(
-                              right: 4,
-                              top: 4,
-                              child: GestureDetector(
-                                onTap: busy ? null : () => setState(() => _carPhotos.removeAt(i)),
-                                child: Container(
-                                  padding: const EdgeInsets.all(3),
-                                  decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
-                                  child: const Icon(AppIcons.x, size: 14, color: Colors.white),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    if (_carPhotos.length < 5)
-                      GestureDetector(
-                        onTap: busy ? null : _pickCarPhotos,
-                        child: Container(
-                          width: 110,
-                          height: 110,
-                          decoration: BoxDecoration(
-                            color: AppColors.surfaceRaised,
-                            borderRadius: BorderRadius.circular(AppRadius.md),
-                            border: Border.all(color: _carValidate && _carPhotos.isEmpty ? AppColors.danger : AppColors.border),
-                          ),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(AppIcons.cameraPlus, size: 26, color: AppColors.textSecondary),
-                              const SizedBox(height: 6),
-                              Text(_carPhotos.isEmpty ? 'Add photo' : 'Add more', style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary, fontWeight: FontWeight.w600)),
-                            ],
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
+              _CarPhotoPicker(
+                bytes: _carBytes,
+                file: _pickedFile,
+                preparing: _carPreparing,
+                error: _carValidate && _carBytes == null && !_carPreparing,
+                onTap: busy ? null : _pickCarPhoto,
               ),
-              if (_carValidate && _carPhotos.isEmpty)
+              if (_carValidate && _carBytes == null && !_carPreparing)
                 const Padding(
                   padding: EdgeInsets.only(top: 6),
-                  child: Text('At least one photo is required.', style: TextStyle(fontSize: 12.5, color: AppColors.danger)),
+                  child: Text('A photo of your car is required.', style: TextStyle(fontSize: 12.5, color: AppColors.danger)),
                 ),
+              if (_plateBlurred || _guessed) ...[
+                const SizedBox(height: 12),
+                if (_plateBlurred)
+                  Padding(
+                    padding: EdgeInsets.only(bottom: _guessed ? 6 : 0),
+                    child: Row(
+                      children: [
+                        Icon(AppIcons.shieldCheck, size: 16, color: AppColors.textSecondary),
+                        const SizedBox(width: 6),
+                        Expanded(child: Text('Number plate blurred before upload.', style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary))),
+                      ],
+                    ),
+                  ),
+                if (_guessed) const CarGuessNote(),
+              ],
               const SizedBox(height: 18),
               TextField(
                 controller: _make,
@@ -414,19 +470,147 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 controller: _year,
                 keyboardType: TextInputType.number,
                 maxLength: 4,
-                decoration: const InputDecoration(labelText: 'Year (optional)', counterText: ''),
+                decoration: InputDecoration(labelText: 'Year (optional)', hintText: yearHint == null ? null : 'Our guess: $yearHint', counterText: ''),
               ),
+              const SizedBox(height: 18),
+              Text('COLOUR', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1, color: AppColors.textSecondary)),
+              const SizedBox(height: 4),
+              Text('Shows as your car on the map.', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+              const SizedBox(height: 10),
+              CarColorPicker(value: _carColor, onChanged: busy ? null : (v) => setState(() => _carColor = v)),
               const SizedBox(height: 26),
               PrimaryButton(label: 'Park it in my garage', loading: busy, onPressed: busy ? null : _submitCar),
               const SizedBox(height: 10),
               Text(
-                'You can add more cars, mods and a build log later from your garage.',
+                'You can add more photos, cars, mods and a build log later from your garage.',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary, height: 1.4),
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// One big photo tile: empty prompt, the picked photo dimmed with "Looking at
+/// your car…" while the recogniser runs, then the final (plate-blurred) image.
+class _CarPhotoPicker extends StatelessWidget {
+  const _CarPhotoPicker({required this.bytes, required this.file, required this.preparing, required this.error, required this.onTap});
+  final Uint8List? bytes;
+  final XFile? file;
+  final bool preparing;
+  final bool error;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    ImageProvider? image;
+    if (bytes != null) {
+      image = MemoryImage(bytes!);
+    } else if (file != null) {
+      image = FileImage(File(file!.path));
+    }
+    return GestureDetector(
+      onTap: preparing ? null : onTap,
+      child: AspectRatio(
+        aspectRatio: 16 / 10,
+        child: Container(
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            color: AppColors.surfaceRaised,
+            borderRadius: BorderRadius.circular(AppRadius.lg),
+            border: Border.all(color: error ? AppColors.danger : AppColors.border),
+          ),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (image != null) Image(image: image, fit: BoxFit.cover),
+              if (image == null)
+                Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(AppIcons.cameraPlus, size: 36, color: AppColors.textSecondary),
+                    const SizedBox(height: 10),
+                    Text('Add a photo of your car', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                    const SizedBox(height: 4),
+                    Text('Camera or gallery', style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
+                  ],
+                ),
+              if (preparing)
+                Container(
+                  color: Colors.black.withValues(alpha: 0.45),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.2, color: Colors.white)),
+                      const SizedBox(height: 12),
+                      const Text('Looking at your car…', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white)),
+                      const SizedBox(height: 4),
+                      Text('Reading the model and hiding the plate', style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.8))),
+                    ],
+                  ),
+                ),
+              if (image != null && !preparing)
+                Positioned(
+                  right: 10,
+                  bottom: 10,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.55), borderRadius: BorderRadius.circular(999)),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(AppIcons.camera, size: 14, color: Colors.white),
+                        SizedBox(width: 6),
+                        Text('Change', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white)),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Step 2 header: the car parked in step 1.
+class _RideBanner extends StatelessWidget {
+  const _RideBanner({required this.image, required this.title});
+  final ImageProvider image;
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 22),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(color: AppColors.surfaceGray, borderRadius: BorderRadius.circular(AppRadius.md)),
+      child: Row(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(AppRadius.sm),
+            child: Image(image: image, width: 64, height: 64, fit: BoxFit.cover),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('PARKED', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, letterSpacing: 1.2, color: AppColors.textSecondary)),
+                const SizedBox(height: 2),
+                Text(title.isEmpty ? 'Your ride' : title, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                const SizedBox(height: 2),
+                Text('Now a bit about you.', style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
+              ],
+            ),
+          ),
+          Icon(AppIcons.checkCircleFill, size: 22, color: AppColors.brand),
+        ],
       ),
     );
   }

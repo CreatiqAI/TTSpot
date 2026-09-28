@@ -33,6 +33,7 @@ import '../domain/event_detail.dart';
 import '../../profile/presentation/widgets/car_picker_sheet.dart';
 import 'event_car_widgets.dart';
 import 'whos_here_sheet.dart';
+import '../../floorplan/presentation/floorplan_entry.dart';
 import '../../../core/utils/share_links.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -323,6 +324,7 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                             const SizedBox(height: 20),
                             _MapPreview(event: d.event),
                             const SizedBox(height: 20),
+                            FloorplanEntry(eventId: d.event.id),
                             if (d.event.isPast || d.event.checkinCount > 0) ...[
                               _RecapCard(event: d.event),
                               const SizedBox(height: 20),

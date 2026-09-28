@@ -13,6 +13,9 @@ import '../../features/events/presentation/convoy_live_screen.dart';
 import '../../features/events/presentation/create_event_screen.dart';
 import '../../features/events/presentation/event_details_screen.dart';
 import '../../features/events/presentation/turnout_report_screen.dart';
+import '../../features/floorplan/presentation/event_invite_screen.dart';
+import '../../features/floorplan/presentation/floorplan_editor_screen.dart';
+import '../../features/floorplan/presentation/floorplan_screen.dart';
 import '../../features/events/presentation/my_events_screen.dart';
 import '../../features/friends/presentation/friends_screen.dart';
 import '../../features/points/presentation/admin_review_screen.dart';
@@ -278,6 +281,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(path: 'live', pageBuilder: (_, s) => page(s, ConvoyLiveScreen(eventId: s.pathParameters['id']!))),
           GoRoute(path: 'qr', pageBuilder: (_, s) => page(s, EventQrScreen(eventId: s.pathParameters['id']!))),
           GoRoute(path: 'report', pageBuilder: (_, s) => page(s, TurnoutReportScreen(eventId: s.pathParameters['id']!))),
+          GoRoute(path: 'floorplan', pageBuilder: (_, s) => page(s, FloorplanScreen(eventId: s.pathParameters['id']!, initialLevelId: s.uri.queryParameters['level']))),
+          GoRoute(path: 'floorplan/edit', pageBuilder: (_, s) => page(s, FloorplanEditorScreen(eventId: s.pathParameters['id']!))),
+          GoRoute(path: 'invite', pageBuilder: (_, s) => page(s, EventInviteScreen(eventId: s.pathParameters['id']!))),
         ],
       ),
       GoRoute(

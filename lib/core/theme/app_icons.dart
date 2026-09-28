@@ -123,6 +123,14 @@ abstract final class AppIcons {
   static const IconData mapPinArea = IconData(0xee3a, fontFamily: _family);
   static const IconData storefront = IconData(0xe470, fontFamily: _family);
   static const IconData buildings = IconData(0xe102, fontFamily: _family);
+  static const IconData toilet = IconData(0xe79a, fontFamily: _family);
+  static const IconData elevator = IconData(0xecc0, fontFamily: _family);
+  static const IconData doorOpen = IconData(0xe7e6, fontFamily: _family);
+  static const IconData microphoneStage = IconData(0xe75c, fontFamily: _family);
+  static const IconData stackSimple = IconData(0xe468, fontFamily: _family);
+  static const IconData copy = IconData(0xe1ca, fontFamily: _family);
+  static const IconData printer = IconData(0xe3dc, fontFamily: _family);
+  static const IconData trendUp = IconData(0xe4ae, fontFamily: _family);
   static const IconData forkKnife = IconData(0xe262, fontFamily: _family);
   static const IconData gasPump = IconData(0xe768, fontFamily: _family);
   static const IconData tire = IconData(0xedd2, fontFamily: _family);

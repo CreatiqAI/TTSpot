@@ -44,10 +44,14 @@ class PointRule {
 ///   `https://ttspot.my/u/{username}?t={token}` → friend
 ///   `ttspot://checkin/{eventId}/{code}`        → meet check-in
 ///   `ttspot://spot/{placeId}/{code}`           → spot sticker (phase 2)
+///   `ttspot:zone:{pinId}`                      → floorplan zone QR (sets my spot)
+///   `https://ttspot.my/e/{CODE}`               → event invite QR (opens the event)
 sealed class ScannedCode {
   const ScannedCode();
 
   static ScannedCode? parse(String raw) {
+    final zone = RegExp(r'^ttspot:zone:([0-9a-fA-F-]{36})$', caseSensitive: false).firstMatch(raw.trim());
+    if (zone != null) return ZoneCode(pinId: zone.group(1)!);
     final uri = Uri.tryParse(raw.trim());
     if (uri == null) return null;
     if (uri.scheme == 'ttspot') {
@@ -62,6 +66,9 @@ sealed class ScannedCode {
     if ((uri.host == 'ttspot.my' || uri.host == 'www.ttspot.my') && uri.pathSegments.length >= 2 && uri.pathSegments[0] == 'u') {
       return FriendCode(username: uri.pathSegments[1], token: uri.queryParameters['t'] ?? '');
     }
+    if ((uri.host == 'ttspot.my' || uri.host == 'www.ttspot.my') && uri.pathSegments.length >= 2 && uri.pathSegments[0] == 'e' && uri.pathSegments[1].isNotEmpty) {
+      return EventInviteCode(code: uri.pathSegments[1]);
+    }
     return null;
   }
 }
@@ -70,6 +77,18 @@ class FriendCode extends ScannedCode {
   const FriendCode({required this.username, required this.token});
   final String username;
   final String token;
+}
+
+/// A printed floorplan zone QR (`ttspot:zone:<pinId>`).
+class ZoneCode extends ScannedCode {
+  const ZoneCode({required this.pinId});
+  final String pinId;
+}
+
+/// An organizer's event invite QR (`https://ttspot.my/e/<CODE>`).
+class EventInviteCode extends ScannedCode {
+  const EventInviteCode({required this.code});
+  final String code;
 }
 
 class MeetCheckinCode extends ScannedCode {

@@ -11,9 +11,11 @@ class ProfileRepository {
   final SupabaseClient _client;
 
   Future<List<Car>> fetchCars(String ownerId) async {
-    final rows = await _client.from('cars').select().eq('owner_id', ownerId).order('created_at', ascending: false);
+    final rows = await _client.from('cars').select().eq('owner_id', ownerId).order('is_default', ascending: false).order('created_at', ascending: false);
     return rows.map(Car.fromMap).toList();
   }
+
+  Future<void> setDefaultCar(String carId) => _client.rpc('set_default_car', params: {'p_car': carId});
 
   Future<Car?> fetchCar(String id) async {
     final row = await _client.from('cars').select().eq('id', id).maybeSingle();

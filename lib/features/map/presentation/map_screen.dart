@@ -418,7 +418,8 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
     if (here != null) _lastHere = here;
     final me = ref.read(currentUserIdProvider);
     if (here != null && me != null) {
-      final myCar = (ref.read(userCarsProvider(me)).value ?? const []).firstOrNull;
+      final myCars = ref.read(userCarsProvider(me)).value ?? const [];
+      final myCar = myCars.where((c) => c.isDefault).firstOrNull ?? myCars.firstOrNull;
       final pin = !_close
           ? await _carFactory.dot(key: 'me', color: kRelationMe, me: true, scale: _glyphScale)
           : await _carFactory.car(key: 'me', colorKey: showColor ? (myCar?.color ?? 'red') : 'red', name: 'Me', status: 'now', showFace: false, me: true);

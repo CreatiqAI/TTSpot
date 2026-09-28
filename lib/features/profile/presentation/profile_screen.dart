@@ -37,12 +37,13 @@ import '../../social/presentation/widgets/masonry_grid.dart';
 import '../application/profile_providers.dart';
 import '../domain/car.dart';
 import 'profile_menu.dart';
+import 'widgets/albums_strip.dart';
+import 'widgets/car_switch_sheet.dart';
+import 'widgets/garage_card.dart';
 import 'widgets/profile_header.dart';
 import '../../../core/utils/share_links.dart';
 
 enum _Tab { posts, garage, cards }
-
-enum _SavedKind { mine, saved, liked, commented }
 
 /// Profile: identity on top, moments, then Posts · Garage · Cards.
 /// On my own page the Posts tab also holds Saved · Liked · Commented.
@@ -57,7 +58,6 @@ class ProfileScreen extends ConsumerStatefulWidget {
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   _Tab _tab = _Tab.posts;
-  _SavedKind _savedKind = _SavedKind.mine;
 
   void _snack(String msg) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
 
@@ -139,7 +139,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     friendCount: friendCount,
                     points: points,
                     moments: moments,
-                    albums: albums,
                     friendship: friendship,
                     onMeets: () => context.push(Routes.meets),
                     onFriends: isMe ? () => context.push(Routes.friends) : null,
@@ -148,8 +147,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     onRewards: () => context.push(Routes.rewards),
                     onQr: () => context.push(Routes.myQr),
                     onAvatar: () => _avatarSheet(p, isMe, moments),
-                    onAlbum: (a) => _openAlbum(p, a),
-                    onAddAlbum: () => context.push(Routes.newAlbum),
+                    onSwitchCar: () => showCarSwitchSheet(context, ref, cars.value ?? const []),
+                    onAddCar: () => context.push(Routes.newCar),
+                    onCar: (c) => context.push(Routes.car(c.id)),
                     onFriendAction: () => _friendAction(id, friendship, p.displayName ?? '@${p.username}'),
                     onMessage: () => _message(id),
                     onCall: () => showCallSheet(context, ref, userId: id, name: p.displayName ?? '@${p.username}'),
@@ -179,13 +179,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ),
                     layoutBuilder: (current, previous) => Stack(alignment: Alignment.topCenter, children: [...previous, ?current]),
                     child: KeyedSubtree(
-                      key: ValueKey(blocked ? 'blocked' : '$_tab$_savedKind'),
+                      key: ValueKey(blocked ? 'blocked' : '$_tab'),
                       child: blocked
                           ? const _Fill(
                               child: EmptyState(art: AppArt.prohibited, title: 'You blocked this user', subtitle: 'Unblock from the menu to see their garage.'),
                             )
                           : switch (_tab) {
-                              _Tab.posts => _postsBody(posts, isMe),
+                              _Tab.posts => _postsBody(posts, isMe, p, albums),
                               _Tab.garage => _garageBody(cars, isMe),
                               _Tab.cards => ProfileCardsGrid(
                                   userId: id,
@@ -225,22 +225,25 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               padding: const EdgeInsets.only(bottom: 24),
               child: Column(
                 children: [
-                  for (final c in list) ShowroomCard(car: c, onTap: () => context.push(Routes.car(c.id))),
-                  if (isMe) AddCarCard(onTap: () => context.push(Routes.newCar)),
+                  for (final c in list) GarageCard(car: c, onTap: () => context.push(Routes.car(c.id)), onMore: isMe ? () => showCarActionsSheet(context, ref, c) : null),
+                  if (isMe) AddCarTile(onTap: () => context.push(Routes.newCar)),
                 ],
               ),
             ),
     );
   }
 
-  Widget _postsBody(AsyncValue<List<FeedPost>> posts, bool isMe) {
+  Widget _postsBody(AsyncValue<List<FeedPost>> posts, bool isMe, Profile p, List<MomentAlbum> albums) {
     if (!kSocialFeed) return const SizedBox.shrink();
-    if (isMe) return _savedBody(posts);
     return posts.when(
       loading: () => const _Fill(child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
       error: (e, _) => _Fill(child: Center(child: Text(friendlyError(e)))),
-      data: (list) => list.isEmpty
-          ? _Fill(
+      data: (list) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AlbumsStrip(albums: albums, onAlbum: (a) => _openAlbum(p, a), onAdd: isMe ? () => context.push(Routes.newAlbum) : null),
+          if (list.isEmpty)
+            _Fill(
               child: EmptyState(
                 art: AppArt.camera,
                 title: isMe ? 'No posts yet' : 'No posts',
@@ -249,56 +252,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 onAction: isMe ? () => showCreateHub(context, ref) : null,
               ),
             )
-          : MasonryGrid(items: list),
-    );
-  }
-
-  /// My Posts tab: my posts, then bookmarked, liked, or commented on. One row of pills.
-  Widget _savedBody(AsyncValue<List<FeedPost>> mine) {
-    final items = switch (_savedKind) {
-      _SavedKind.mine => mine,
-      _SavedKind.saved => ref.watch(savedPostsProvider),
-      _SavedKind.liked => ref.watch(likedPostsProvider),
-      _SavedKind.commented => ref.watch(commentedPostsProvider),
-    };
-    final (title, subtitle) = switch (_savedKind) {
-      _SavedKind.mine => ('No posts yet', 'Share your ride, a spotted, a poll or a guide.'),
-      _SavedKind.saved => ('Nothing saved yet', 'Tap the bookmark on a post to keep it here.'),
-      _SavedKind.liked => ('Nothing liked yet', 'Double-tap a post to like it. It shows up here.'),
-      _SavedKind.commented => ('No comments yet', 'Posts you comment on collect here so you can find them again.'),
-    };
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-          child: Row(
-            children: [
-              _Pill(label: 'Posts', icon: AppIcons.squaresFour, on: _savedKind == _SavedKind.mine, onTap: () => setState(() => _savedKind = _SavedKind.mine)),
-              const SizedBox(width: 8),
-              _Pill(label: 'Saved', icon: AppIcons.bookmarkSimple, on: _savedKind == _SavedKind.saved, onTap: () => setState(() => _savedKind = _SavedKind.saved)),
-              const SizedBox(width: 8),
-              _Pill(label: 'Liked', icon: AppIcons.heart, on: _savedKind == _SavedKind.liked, onTap: () => setState(() => _savedKind = _SavedKind.liked)),
-              const SizedBox(width: 8),
-              _Pill(label: 'Commented', icon: AppIcons.chatCircle, on: _savedKind == _SavedKind.commented, onTap: () => setState(() => _savedKind = _SavedKind.commented)),
-            ],
-          ),
-        ),
-        items.when(
-          loading: () => const _Fill(child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
-          error: (e, _) => _Fill(child: Center(child: Text(friendlyError(e)))),
-          data: (list) => list.isEmpty
-              ? _Fill(
-                  child: EmptyState(
-                    art: switch (_savedKind) { _SavedKind.mine => AppArt.camera, _SavedKind.liked => AppArt.heartYellow, _SavedKind.commented => AppArt.speech, _SavedKind.saved => AppArt.bookmark },
-                    title: title,
-                    subtitle: subtitle,
-                    actionLabel: _savedKind == _SavedKind.mine ? 'Create a post' : null,
-                    onAction: _savedKind == _SavedKind.mine ? () => showCreateHub(context, ref) : null,
-                  ),
-                )
-              : MasonryGrid(items: list),
-        ),
-      ],
+          else
+            MasonryGrid(items: list),
+        ],
+      ),
     );
   }
 
@@ -501,31 +458,3 @@ class _Fill extends StatelessWidget {
   Widget build(BuildContext context) => SizedBox(height: 380, child: child);
 }
 
-class _Pill extends StatelessWidget {
-  const _Pill({required this.label, required this.icon, required this.on, required this.onTap});
-  final String label;
-  final IconData icon;
-  final bool on;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-          decoration: BoxDecoration(
-            color: on ? AppColors.textPrimary : AppColors.surfaceGray,
-            borderRadius: BorderRadius.circular(999),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 14, color: on ? AppColors.onInk : AppColors.textPrimary),
-              const SizedBox(width: 6),
-              Text(label, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: on ? AppColors.onInk : AppColors.textPrimary)),
-            ],
-          ),
-        ),
-      );
-}

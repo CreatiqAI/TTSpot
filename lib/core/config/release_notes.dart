@@ -10,6 +10,16 @@ class ReleaseNote {
 
 const kReleaseNotes = <ReleaseNote>[
   ReleaseNote(
+    version: '0.3.34',
+    date: '28 Sep 2026',
+    title: 'Your car up front',
+    points: [
+      'The Me page opens on your default car. Switch car from the photo when you own more than one.',
+      'One row of tabs: Posts, Garage, Cards. Saved, liked and commented posts moved to the menu.',
+      'The garage is a clean list with a Default badge; the default car is the one on the map and the one you go to meets with.',
+    ],
+  ),
+  ReleaseNote(
     version: '0.3.33',
     date: '28 Sep 2026',
     title: 'Navigate without leaving',

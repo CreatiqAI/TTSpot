@@ -47,6 +47,7 @@ Future<void> showProfileMenu(BuildContext context, WidgetRef ref) async {
               _Item(AppIcons.pencilSimple, 'Edit profile', 'edit'),
               _Item(AppIcons.users, 'Friends', 'friends'),
               _Item(AppIcons.camera, 'My moments', 'moments'),
+              _Item(AppIcons.bookmarkSimple, 'Saved posts', 'saved'),
               _Group('REWARDS'),
               _Item(AppIcons.star, 'Points', 'points'),
               _Item(AppIcons.gift, 'Rewards & vouchers', 'rewards'),

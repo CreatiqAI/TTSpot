@@ -72,6 +72,14 @@ class CarFormController extends AsyncNotifier<void> {
     return savedId;
   }
 
+  /// The car that fronts my profile and drives on the map.
+  Future<void> setDefault(String carId) async {
+    final me = ref.read(currentUserIdProvider);
+    if (me == null) throw const AppException('You\'re signed out. Sign in again.');
+    await ref.read(profileRepositoryProvider).setDefaultCar(carId);
+    ref.invalidate(userCarsProvider(me));
+  }
+
   Future<bool> delete(String carId) async {
     state = const AsyncLoading();
     var ok = false;

@@ -11,6 +11,8 @@ class Car {
     required this.createdAt,
     this.showSpend = true,
     this.color,
+    this.isDefault = false,
+    this.portraitUrl,
   });
 
   final String id;
@@ -24,9 +26,13 @@ class Car {
   final bool showSpend;
   /// One of kCarColors keys (red, black, white, grey, silver, blue, yellow, green, orange).
   final String? color;
+  /// Fronts the profile, drives on the map, goes with me to meets.
+  final bool isDefault;
+  /// AI portrait (plate-free) when generated; falls back to the first photo.
+  final String? portraitUrl;
 
   String get title => '$make $model';
-  String? get cover => photoUrls.isEmpty ? null : photoUrls.first;
+  String? get cover => portraitUrl ?? (photoUrls.isEmpty ? null : photoUrls.first);
 
   factory Car.fromMap(Map<String, dynamic> m) => Car(
         id: m['id'] as String,
@@ -39,6 +45,8 @@ class Car {
         createdAt: DateTime.parse(m['created_at'] as String).toLocal(),
         showSpend: (m['show_spend'] as bool?) ?? true,
         color: m['color'] as String?,
+        isDefault: m['is_default'] as bool? ?? false,
+        portraitUrl: m['portrait_url'] as String?,
       );
 }
 

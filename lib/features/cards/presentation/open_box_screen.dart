@@ -183,15 +183,22 @@ class _OpenBoxScreenState extends ConsumerState<OpenBoxScreen> with TickerProvid
   // ------------------------------------------------------------- navigation ---
 
   /// Close. When this is the end of onboarding the profile provider still
-  /// says "not onboarded"; refresh it after leaving so the router lets us in.
-  void _leave() {
+  /// says "not onboarded": refresh it and wait for the answer BEFORE moving,
+  /// or the router bounces through /onboarding for a frame on the way out.
+  Future<void> _leave() async {
     final onboarded = ref.read(currentProfileProvider).value?.isOnboarded == true;
+    if (!onboarded) {
+      ref.invalidate(currentProfileProvider);
+      try {
+        await ref.read(currentProfileProvider.future);
+      } catch (_) {/* the router copes either way */}
+    }
+    if (!mounted) return;
     if (context.canPop()) {
       context.pop();
     } else {
       context.go(Routes.map);
     }
-    if (!onboarded) ref.invalidate(currentProfileProvider);
   }
 
   void _openAnother() {

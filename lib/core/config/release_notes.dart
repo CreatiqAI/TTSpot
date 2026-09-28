@@ -10,6 +10,18 @@ class ReleaseNote {
 
 const kReleaseNotes = <ReleaseNote>[
   ReleaseNote(
+    version: '0.3.36',
+    date: '29 Sep 2026',
+    title: 'Meet TiTi',
+    points: [
+      'TiTi the cone now walks you through sign-up: welcome, your ride (he reads the model off your photo while you watch), you, then a gift.',
+      'Your first blind box opens at the end of sign-up. Shake the phone (or tap the box three times); it buzzes harder each time, cracks, and the card flips itself.',
+      'A real box: the blind box is now the red TT Spot box with the ribbon, on the Cards page too.',
+      'Camera and Gallery buttons go straight to the camera or your photos.',
+      'Location is asked last, with TiTi explaining why.',
+    ],
+  ),
+  ReleaseNote(
     version: '0.3.35',
     date: '28 Sep 2026',
     title: 'Big one',

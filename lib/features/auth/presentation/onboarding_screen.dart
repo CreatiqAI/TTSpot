@@ -105,8 +105,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     super.dispose();
   }
 
-  Future<void> _pickCarPhoto() async {
-    final files = await pickPhotos(context, max: 1, multi: false);
+  Future<void> _pickCarPhoto([ImageSource? source]) async {
+    final files = await pickPhotos(context, max: 1, multi: false, source: source);
     if (files.isEmpty || !mounted) return;
     final file = files.first;
     final started = DateTime.now();
@@ -466,7 +466,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             const SizedBox(height: 22),
             const _Headline('WHAT DO YOU DRIVE?'),
             const SizedBox(height: 16),
-            _DropZone(onTap: busy ? null : _pickCarPhoto),
+            _DropZone(onTap: busy ? null : _pickCarPhoto, onCamera: busy ? null : () => _pickCarPhoto(ImageSource.camera), onGallery: busy ? null : () => _pickCarPhoto(ImageSource.gallery)),
             const SizedBox(height: 14),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -542,7 +542,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   left: 0,
                   right: 0,
                   bottom: 0,
-                  height: 140,
+                  height: 84,
                   child: DecoratedBox(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
@@ -721,7 +721,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   // ─────────────────────────────────────────────────────────────── 2. you ──
 
   Widget _youPage({required bool busy, required bool existing, String? avatarUrl}) {
-    final first = malaysianStates.take(6).toList();
+    // Where most members are, first; the rest behind More.
+    const popular = ['Selangor', 'Kuala Lumpur', 'Johor', 'Penang', 'Perak', 'Negeri Sembilan'];
+    final first = [for (final p in popular) if (malaysianStates.contains(p)) p];
     final showAll = _allStates || (_homeState != null && !first.contains(_homeState));
     final states = showAll ? malaysianStates : first;
 
@@ -1073,29 +1075,39 @@ class _Road extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final lineColor = light ? Colors.white.withValues(alpha: 0.75) : AppColors.border;
-    return LayoutBuilder(
-      builder: (_, c) {
-        final w = c.maxWidth;
-        double cx(int i) => w * (2 * i + 1) / 6;
-        return SizedBox(
-          height: 84,
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Positioned(
-                left: cx(0),
-                width: cx(2) - cx(0),
-                top: 42,
-                height: 2,
-                child: CustomPaint(painter: _DashedPainter(color: lineColor, width: 2, dash: 7, gap: 6)),
-              ),
-              for (var i = 0; i < 3; i++) ...[
-                Positioned(left: cx(i) - 15, top: 28, child: _checkpoint(i)),
-                Positioned(
-                  left: cx(i) - 60,
-                  width: 120,
-                  top: 66,
-                  child: Text(
+    // Checkpoints sit at 1/6, 1/2 and 5/6 of the width. Each layer is a
+    // zero-width anchor with an OverflowBox, so Align lands the centre exactly
+    // and nothing here needs a LayoutBuilder (which cannot report intrinsic
+    // sizes, and the gift page measures this row inside an IntrinsicHeight).
+    Alignment at(int i) => Alignment(-1 + 2 * (2 * i + 1) / 6, 0);
+    Widget anchor(Widget child, {required double w, required double h}) =>
+        SizedBox(width: 0, height: h, child: OverflowBox(minWidth: w, maxWidth: w, minHeight: h, maxHeight: h, child: child));
+    return SizedBox(
+      height: 84,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned(
+            left: 0,
+            right: 0,
+            top: 42,
+            height: 2,
+            child: FractionallySizedBox(
+              alignment: Alignment.center,
+              widthFactor: 2 / 3,
+              child: CustomPaint(painter: _DashedPainter(color: lineColor, width: 2, dash: 7, gap: 6)),
+            ),
+          ),
+          for (var i = 0; i < 3; i++) ...[
+            Positioned(left: 0, right: 0, top: 28, child: Align(alignment: at(i), child: anchor(_checkpoint(i), w: 30, h: 30))),
+            Positioned(
+              left: 0,
+              right: 0,
+              top: 66,
+              child: Align(
+                alignment: at(i),
+                child: anchor(
+                  Text(
                     labels[i],
                     textAlign: TextAlign.center,
                     style: TextStyle(
@@ -1107,19 +1119,25 @@ class _Road extends StatelessWidget {
                           : (light ? Colors.white.withValues(alpha: 0.7) : AppColors.textSecondary),
                     ),
                   ),
+                  w: 120,
+                  h: 14,
                 ),
-              ],
-              AnimatedPositioned(
-                duration: const Duration(milliseconds: 500),
-                curve: Curves.easeOutCubic,
-                left: cx(step) - 22,
-                top: 0,
-                child: const SizedBox(width: 44, height: 34, child: Titi(TitiPose.rolling, height: 34)),
               ),
-            ],
+            ),
+          ],
+          Positioned(
+            left: 0,
+            right: 0,
+            top: 0,
+            child: AnimatedAlign(
+              duration: const Duration(milliseconds: 500),
+              curve: Curves.easeOutCubic,
+              alignment: at(step),
+              child: anchor(const Titi(TitiPose.rolling, height: 34), w: 44, h: 34),
+            ),
           ),
-        );
-      },
+        ],
+      ),
     );
   }
 
@@ -1194,11 +1212,13 @@ class _DashedPainter extends CustomPainter {
       old.color != color || old.width != width || old.dash != dash || old.gap != gap || old.radius != radius || old.circle != circle;
 }
 
-/// Big dashed target for the car photo, with Camera / Gallery pills. Both
-/// open the same picker sheet.
+/// Big dashed target for the car photo (tap = choose), with Camera and
+/// Gallery pills that skip the source sheet.
 class _DropZone extends StatelessWidget {
-  const _DropZone({required this.onTap});
+  const _DropZone({required this.onTap, required this.onCamera, required this.onGallery});
   final VoidCallback? onTap;
+  final VoidCallback? onCamera;
+  final VoidCallback? onGallery;
 
   @override
   Widget build(BuildContext context) => GestureDetector(
@@ -1228,9 +1248,9 @@ class _DropZone extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    _Pill(icon: AppIcons.camera, label: 'Camera', onTap: onTap, filled: true),
+                    _Pill(icon: AppIcons.camera, label: 'Camera', onTap: onCamera, filled: true),
                     const SizedBox(width: 10),
-                    _Pill(icon: AppIcons.images, label: 'Gallery', onTap: onTap, filled: false),
+                    _Pill(icon: AppIcons.images, label: 'Gallery', onTap: onGallery, filled: false),
                   ],
                 ),
               ],

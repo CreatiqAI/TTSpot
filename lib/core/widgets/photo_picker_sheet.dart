@@ -40,9 +40,11 @@ Future<ImageSource?> showPhotoSourceSheet(BuildContext context, {VoidCallback? o
   );
 }
 
-/// Picks one photo (camera or gallery) or several from the gallery.
-Future<List<XFile>> pickPhotos(BuildContext context, {int max = 10, bool multi = true}) async {
-  final source = await showPhotoSourceSheet(context);
+/// Picks one photo (camera or gallery) or several from the gallery. Pass
+/// [source] to skip the "camera or library" sheet when the button already
+/// says which.
+Future<List<XFile>> pickPhotos(BuildContext context, {int max = 10, bool multi = true, ImageSource? source}) async {
+  source ??= await showPhotoSourceSheet(context);
   if (source == null) return const [];
   final picker = ImagePicker();
   if (source == ImageSource.gallery && multi && max > 1) {

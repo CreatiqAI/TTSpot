@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/utils/friendly_error.dart';
+import '../../auth/data/auth_repository.dart';
 import '../data/portrait_repository.dart';
 import '../domain/portrait_style.dart';
 import 'profile_providers.dart';
@@ -86,5 +87,21 @@ class PortraitActions {
     if (me != null) _ref.invalidate(userCarsProvider(me));
   }
 }
+
+/// Whether members may make AI portraits right now (`platform_settings.
+/// portraits_enabled`, flipped by an admin). Admins always can, so styles and
+/// prompts can be tuned before the feature opens. Off until proven good:
+/// the first renders drifted from the photo (wrong paint colour).
+final portraitsEnabledProvider = FutureProvider<bool>((ref) async {
+  final admin = ref.watch(currentProfileProvider).value?.isAdmin ?? false;
+  if (admin) return true;
+  try {
+    final row = await ref.watch(supabaseProvider).from('platform_settings').select('value').eq('key', 'portraits_enabled').maybeSingle();
+    final v = row?['value'];
+    return v == true || v == 'true' || v == 1 || v == '1';
+  } catch (_) {
+    return false;
+  }
+});
 
 final portraitActionsProvider = Provider<PortraitActions>((ref) => PortraitActions(ref));

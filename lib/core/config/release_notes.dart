@@ -10,6 +10,17 @@ class ReleaseNote {
 
 const kReleaseNotes = <ReleaseNote>[
   ReleaseNote(
+    version: '0.3.35',
+    date: '28 Sep 2026',
+    title: 'Big one',
+    points: [
+      'Map: opens on you, a Back to me button when you drift away, a glowing You marker with heading, cleaner spot and partner pins, fewer map labels.',
+      'Sign-up starts with your car: snap a photo, we read the make, model, year and colour and blur the number plate before it is saved. Fix anything we got wrong.',
+      'Car photo AI: the app now reads make, model, year and specs off your car photo when you add a car (editable). AI portraits are built but stay off for members until the renders match the photo; admins can try the eight styles from the car page.',
+      'Check-ins: a card pops up when you are at a meet, hosts get a Who\'s here list to confirm arrivals (small meets) or an exceptions list (big meets), and the turnout report shows checked in, stayed 10+ min and confirmed by host.',
+    ],
+  ),
+  ReleaseNote(
     version: '0.3.34',
     date: '28 Sep 2026',
     title: 'Your car up front',

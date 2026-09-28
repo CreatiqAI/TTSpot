@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -58,7 +59,8 @@ class _MapScreenState extends ConsumerState<MapScreen> with TickerProviderStateM
   Set<LegendGlyph> _present = const {};
   List<AppCircle> _circles = const [];
   // Radar: one pulse every 5 s on live meets (and a static ring for nearby mode).
-  late final AnimationController _radar = AnimationController(vsync: this, duration: const Duration(milliseconds: 1400))..addListener(_paintCircles);
+  late final AnimationController _radar = AnimationController(vsync: this, duration: const Duration(milliseconds: 1400))..addListener(_onRadar);
+  int _radarStep = -1;
   Timer? _radarTimer;
   // The pulse around me: one soft ring every 2 s, ~14 frames each, so the
   // polygon layer is not rebuilt at 60 fps.
@@ -131,6 +133,14 @@ class _MapScreenState extends ConsumerState<MapScreen> with TickerProviderStateM
   /// Last position we drew myself at, so a location refresh never blinks me away.
   LatLng? _lastHere;
   bool get _showPeople => _zoom >= _peopleZoom;
+
+  /// Repaint the radar rings a dozen times per sweep, not every frame.
+  void _onRadar() {
+    final step = (_radar.value * 12).floor();
+    if (step == _radarStep) return;
+    _radarStep = step;
+    _paintCircles();
+  }
 
   void _onPulse() {
     final step = (_pulse.value * 14).floor();
@@ -273,7 +283,11 @@ class _MapScreenState extends ConsumerState<MapScreen> with TickerProviderStateM
       if (before != (_tier, _glyphScale, _showPeople)) _rebuild();
       // Off-screen counts as "away" even when the centre is within 150 m (very close zooms).
       final here = _lastHere;
-      if (here != null) _setAway(!bounds.contains(here) || distanceKm(bounds.center, here) > 0.15);
+      if (here != null) {
+        // The camera centre respects the toolbar padding; the bounds' centre does not.
+        final centre = await _map.center() ?? bounds.center;
+        if (mounted) _setAway(!bounds.contains(here) || distanceKm(centre, here) > 0.15);
+      }
     });
   }
 
@@ -462,6 +476,7 @@ class _MapScreenState extends ConsumerState<MapScreen> with TickerProviderStateM
         }
     }
     if (mode != MapMode.now) await _addPeople(built, stale, present, onlyMe: true);
+    if (kDebugMode) debugPrint('map: ${built.length} markers, tier $_tier, zoom ${_zoom.toStringAsFixed(1)}');
     if (mounted) {
       setState(() {
         _markerSet = built;

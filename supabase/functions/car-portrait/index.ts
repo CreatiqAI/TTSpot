@@ -108,10 +108,10 @@ type CarRow = { id: string; owner_id: string; make: string; model: string; year:
 
 function buildPrompt(car: CarRow, style: Style): string {
   const bits = [car.year ? String(car.year) : "", car.make, car.model].filter(Boolean).join(" ");
-  const colour = car.color ? `${car.color} ` : "";
+  // The colour field is typed by hand and often wrong; the photo is the truth.
   return [
-    `Recreate this exact car, a ${colour}${bits}, as ${style.look}.`,
-    "Keep the same body shape, proportions, wheels, trim, badges, colour and every visible detail of the car in the reference photo; do not change the model or restyle the car.",
+    `Recreate this exact car, a ${bits}, as ${style.look}.`,
+    "Keep the exact paint colour and finish of the car in the reference photo (do not recolour it), and the same body shape, proportions, wheels, trim, badges and every visible detail; do not change the model or restyle the car.",
     "Remove the number plate or leave it blank. No people, no text, no logos or watermarks added.",
     "Single car, centred, whole car in frame, 1K output.",
   ].join(" ");

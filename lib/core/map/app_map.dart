@@ -75,6 +75,12 @@ class AppMapController {
   final _byAnnotation = <String, String>{};
   Future<void> _queue = Future.value();
   bool _disposed = false;
+  /// Latest requested markers / circles / lines. A burst of updates (the
+  /// pulse repaints its ring 14 times a second) collapses to one job each:
+  /// the queued job applies whatever is newest when it runs.
+  List<AppMarker>? _wantMarkers;
+  List<AppCircle>? _wantCircles;
+  List<AppLine>? _wantLines;
 
   bool get isReady => _map != null;
 
@@ -105,8 +111,10 @@ class AppMapController {
       if (_disposed) return;
       try {
         await job();
-      } catch (_) {
-        // the platform view may be gone (screen popped mid-flight); nothing to do
+      } catch (e, st) {
+        // the platform view may be gone (screen popped mid-flight); log in debug so a bad
+        // annotation option never fails silently
+        if (kDebugMode) debugPrint('AppMap: annotation job failed: $e\n$st');
       }
     });
     _queue = next;
@@ -202,7 +210,16 @@ class AppMapController {
 
   // ------------------------------------------------------------- markers ---
 
-  Future<void> setMarkers(List<AppMarker> markers) => _serial(() => _applyMarkers(markers));
+  Future<void> setMarkers(List<AppMarker> markers) {
+    final first = _wantMarkers == null;
+    _wantMarkers = markers;
+    if (!first) return _queue; // an earlier job will pick these up
+    return _serial(() async {
+      final m = _wantMarkers;
+      _wantMarkers = null;
+      if (m != null) await _applyMarkers(m);
+    });
+  }
 
   Future<void> _applyMarkers(List<AppMarker> markers) async {
     final pm = _points;
@@ -237,10 +254,14 @@ class AppMapController {
       for (var i = 0; i < toCreate.length && i < created.length; i++) {
         final a = created[i];
         if (a == null) continue;
+        // The plugin hands back a PNG re-encode of the bitmap. Drop it so a
+        // later position update does not decode and register the image again.
+        a.image = null;
         _live[toCreate[i].id] = (a, toCreate[i]);
         _byAnnotation[a.id] = toCreate[i].id;
       }
     }
+    if (kDebugMode) debugPrint('AppMap: +${toCreate.length} -${toDelete.length} ~${toUpdate.length} -> ${_live.length} live');
   }
 
   mb.PointAnnotationOptions _options(AppMarker m) => mb.PointAnnotationOptions(
@@ -254,7 +275,29 @@ class AppMapController {
 
   // ---------------------------------------------------- circles + lines ---
 
-  Future<void> setCircles(List<AppCircle> circles) => _serial(() async {
+  Future<void> setCircles(List<AppCircle> circles) {
+    final first = _wantCircles == null;
+    _wantCircles = circles;
+    if (!first) return _queue;
+    return _serial(() async {
+      final c = _wantCircles;
+      _wantCircles = null;
+      if (c != null) await _applyCircles(c);
+    });
+  }
+
+  Future<void> setLines(List<AppLine> lines) {
+    final first = _wantLines == null;
+    _wantLines = lines;
+    if (!first) return _queue;
+    return _serial(() async {
+      final l = _wantLines;
+      _wantLines = null;
+      if (l != null) await _applyLines(l);
+    });
+  }
+
+  Future<void> _applyCircles(List<AppCircle> circles) async {
         final pm = _polys;
         if (pm == null) return;
         await pm.deleteAll();
@@ -270,9 +313,9 @@ class AppMapController {
               fillSortKey: c.zIndex.toDouble(),
             ),
         ]);
-      });
+  }
 
-  Future<void> setLines(List<AppLine> lines) => _serial(() async {
+  Future<void> _applyLines(List<AppLine> lines) async {
         final lm = _lines;
         if (lm == null) return;
         await lm.deleteAll();
@@ -286,7 +329,7 @@ class AppMapController {
               lineJoin: mb.LineJoin.ROUND,
             ),
         ]);
-      });
+  }
 
   static List<mb.Position> _ring(LatLng c, double radiusM, {int n = 48}) {
     final latR = radiusM / 111320.0;

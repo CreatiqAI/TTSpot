@@ -58,3 +58,6 @@ ios/Flutter/Secrets.xcconfig
 # Deep-research working files (reports are shared separately)
 research_notes/
 reports/
+
+# Claude Code agent worktrees and local settings
+.claude/

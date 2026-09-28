@@ -17,6 +17,7 @@ import '../../social/application/social_providers.dart';
 import '../../social/domain/club.dart';
 import '../../social/domain/post.dart';
 import '../../social/presentation/widgets/masonry_grid.dart';
+import '../application/portrait_providers.dart';
 import '../application/profile_providers.dart';
 import '../domain/car.dart';
 import 'widgets/car_portraits_section.dart';
@@ -66,7 +67,7 @@ class _CarDetailScreenState extends ConsumerState<CarDetailScreen> {
         title: Text(car.value?.title ?? ''),
         actions: [
           if (car.value != null && car.value!.ownerId == me) ...[
-            IconButton(icon: const Icon(AppIcons.sparkle), tooltip: 'AI portrait', onPressed: () => showPortraitStyleSheet(context, ref, car.value!)),
+            if (ref.watch(portraitsEnabledProvider).value ?? false) IconButton(icon: const Icon(AppIcons.sparkle), tooltip: 'AI portrait', onPressed: () => showPortraitStyleSheet(context, ref, car.value!)),
             IconButton(icon: const Icon(AppIcons.pencilSimple), onPressed: () => context.push(Routes.editCar(car.value!.id))),
             IconButton(icon: const Icon(AppIcons.trash), onPressed: () => _delete(car.value!)),
           ],
@@ -113,7 +114,7 @@ class _CarDetailScreenState extends ConsumerState<CarDetailScreen> {
                         ],
                       ),
               ),
-              if (mine) Padding(padding: const EdgeInsets.only(top: 14), child: CarPortraitsSection(car: c)),
+              if (mine && (ref.watch(portraitsEnabledProvider).value ?? false)) Padding(padding: const EdgeInsets.only(top: 14), child: CarPortraitsSection(car: c)),
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
                 child: Column(

@@ -1,10 +1,11 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:geolocator/geolocator.dart' show LocationAccuracyStatus;
+import 'package:geolocator/geolocator.dart' show Geolocator, LocationAccuracyStatus;
 import '../../../core/geo/latlng.dart';
 import '../../../core/map/app_map.dart';
 
@@ -47,7 +48,7 @@ class MapScreen extends ConsumerStatefulWidget {
   ConsumerState<MapScreen> createState() => _MapScreenState();
 }
 
-class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProviderStateMixin {
+class _MapScreenState extends ConsumerState<MapScreen> with TickerProviderStateMixin {
   final _map = AppMapController();
   GlyphMarkerFactory? _glyphs;
   MapPinFactory? _pins;
@@ -59,9 +60,19 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
   // Radar: one pulse every 5 s on live meets (and a static ring for nearby mode).
   late final AnimationController _radar = AnimationController(vsync: this, duration: const Duration(milliseconds: 1400))..addListener(_paintCircles);
   Timer? _radarTimer;
+  // The pulse around me: one soft ring every 2 s, ~14 frames each, so the
+  // polygon layer is not rebuilt at 60 fps.
+  late final AnimationController _pulse = AnimationController(vsync: this, duration: const Duration(milliseconds: 1300))..addListener(_onPulse);
+  Timer? _pulseTimer;
+  int _pulseStep = -1;
   Timer? _idleDebounce;
   int _generation = 0;
   bool _movedToUser = false;
+  /// Where the map opens. Resolved before the map is built (a quick read of
+  /// the phone's last fix) so the first frame is already "here", not KL.
+  ({LatLng target, double zoom})? _initialCamera;
+  /// The camera has drifted off me: I am off-screen or > 150 m from the centre.
+  bool _awayFromMe = false;
   final _sheet = DraggableScrollableController();
   /// The glass toolbar hides while the sheet is up.
   bool _sheetOpen = false;
@@ -78,7 +89,11 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
     _radarTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       if (mounted && ref.read(mapModeProvider) == MapMode.now) _radar.forward(from: 0);
     });
+    _pulseTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+      if (mounted && _map.isReady && _lastHere != null && !_pulse.isAnimating) _pulse.forward(from: 0);
+    });
     _sheet.addListener(_onSheetMoved);
+    _resolveInitialCamera();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(livePositionProvider.notifier).start();
       ref.read(locationPublisherProvider.notifier).start();
@@ -117,10 +132,42 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
   LatLng? _lastHere;
   bool get _showPeople => _zoom >= _peopleZoom;
 
+  void _onPulse() {
+    final step = (_pulse.value * 14).floor();
+    if (step == _pulseStep) return;
+    _pulseStep = step;
+    _paintCircles();
+  }
+
+  /// Metres per logical pixel at the current zoom, so ground-anchored rings
+  /// can be sized in screen terms (the pulse should look the same at any zoom).
+  double get _metresPerPx {
+    final lat = (_lastHere ?? kualaLumpur).latitude * math.pi / 180;
+    return 156543.03392 * math.cos(lat) / math.pow(2, _zoom);
+  }
+
   void _paintCircles() {
     if (!mounted) return;
     final t = _radar.value;
     final circles = <AppCircle>[];
+    final here = ref.read(userLocationProvider).value ?? _lastHere;
+    final live = ref.read(livePositionProvider);
+    // How sure the phone is: a soft ring, only when it is worth showing.
+    if (live != null && live.accuracyM > 20 && live.accuracyM < 3000) {
+      circles.add(AppCircle(
+        id: 'me-accuracy',
+        center: live.latLng,
+        radiusM: live.accuracyM,
+        strokeWidth: 1,
+        stroke: kRelationMe.withValues(alpha: 0.35),
+        fill: kRelationMe.withValues(alpha: 0.08),
+        zIndex: 1,
+      ));
+    }
+    // The pulse: ~36 px of ground around me, whatever the zoom.
+    if (here != null && _pulse.isAnimating) {
+      circles.add(pulseCircle(at: here, radiusM: (36 * _metresPerPx).clamp(8.0, 5000.0), t: _pulse.value));
+    }
     if (ref.read(mapModeProvider) == MapMode.now) {
       if (_radar.isAnimating) {
         for (final e in ref.read(liveEventsProvider).value ?? const <Event>[]) {
@@ -128,20 +175,6 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
         }
       }
       final my = ref.read(myLocationProvider).value;
-      final here = ref.read(userLocationProvider).value;
-      final live = ref.read(livePositionProvider);
-      // How sure the phone is: a soft ring, only when it is worth showing.
-      if (live != null && live.accuracyM > 20 && live.accuracyM < 3000) {
-        circles.add(AppCircle(
-          id: 'me-accuracy',
-          center: live.latLng,
-          radiusM: live.accuracyM,
-          strokeWidth: 1,
-          stroke: kRelationMe.withValues(alpha: 0.35),
-          fill: kRelationMe.withValues(alpha: 0.08),
-          zIndex: 1,
-        ));
-      }
       if (my != null && my.shareMode == 'nearby' && here != null) {
         circles.add(AppCircle(
           id: 'nearby-ring',
@@ -160,6 +193,8 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
   void dispose() {
     _radarTimer?.cancel();
     _radar.dispose();
+    _pulseTimer?.cancel();
+    _pulse.dispose();
     _idleDebounce?.cancel();
     _glyphs?.dispose();
     _pins?.dispose();
@@ -170,15 +205,57 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
 
   // -------------------------------------------------------------- camera ---
 
+  /// Zoom the map lands on me at: close enough to see my car and the street.
+  static const _hereZoom = 14.5;
+
+  /// Land on me from the first frame: a fix we already hold, else the phone's
+  /// last known position (a cache read, capped at 300 ms so the map is never
+  /// held up), else Kuala Lumpur. A stale cached fix still beats KL as an
+  /// opening view; the real fix re-centres us when it lands.
+  Future<void> _resolveInitialCamera() async {
+    final known = ref.read(livePositionProvider)?.latLng ?? ref.read(userLocationProvider).value;
+    if (known != null) {
+      _movedToUser = true;
+      _lastHere = known;
+      _zoom = _hereZoom;
+      _tier = _tierFor(_zoom);
+      _initialCamera = (target: known, zoom: _hereZoom);
+      return;
+    }
+    LatLng? last;
+    var fresh = false;
+    try {
+      final p = await Geolocator.getLastKnownPosition().timeout(const Duration(milliseconds: 300));
+      if (p != null) {
+        last = LatLng(p.latitude, p.longitude);
+        fresh = DateTime.now().difference(p.timestamp) < LivePositionNotifier.cachedMaxAge;
+      }
+    } catch (_) {}
+    if (!mounted) return;
+    if (fresh) _movedToUser = true;
+    setState(() {
+      _zoom = last == null ? 11.3 : (fresh ? _hereZoom : 13);
+      _tier = _tierFor(_zoom);
+      _initialCamera = last == null ? (target: kualaLumpur, zoom: 11.3) : (target: last, zoom: fresh ? _hereZoom : 13);
+    });
+  }
+
   void _onMapReady() => _moveToUserIfKnown();
 
+  /// The first real fix: jump there straight away if the map has not settled
+  /// yet (nobody has seen it, so no need to fly), else glide.
   void _moveToUserIfKnown() {
     final loc = ref.read(userLocationProvider).value;
-    if (loc != null && !_movedToUser) {
-      _movedToUser = true;
-      _map.animateTo(loc, zoom: 12);
-    }
+    // Not live yet: onReady calls us again, so leave the flag alone.
+    if (loc == null || _movedToUser || !_map.isReady) return;
+    _movedToUser = true;
+    _lastHere = loc;
+    _hadFirstIdle ? _map.animateTo(loc, zoom: _hereZoom) : _map.moveTo(loc, zoom: _hereZoom);
   }
+
+  static int _tierFor(double zoom) => zoom < _midZoom ? 0 : (zoom < _closeZoom ? 1 : 2);
+
+  bool _hadFirstIdle = false;
 
   void _onCameraIdle() {
     _idleDebounce?.cancel();
@@ -187,13 +264,36 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
       final bounds = await _map.visibleRegion();
       final zoom = await _map.zoom();
       if (!mounted || bounds == null) return;
+      _hadFirstIdle = true;
       ref.read(mapViewportProvider.notifier).set(bounds);
-      final tier = zoom < _midZoom ? 0 : (zoom < _closeZoom ? 1 : 2);
+      final tier = _tierFor(zoom);
       final before = (_tier, _glyphScale, _showPeople);
       _zoom = zoom;
       _tier = tier;
       if (before != (_tier, _glyphScale, _showPeople)) _rebuild();
+      // Off-screen counts as "away" even when the centre is within 150 m (very close zooms).
+      final here = _lastHere;
+      if (here != null) _setAway(!bounds.contains(here) || distanceKm(bounds.center, here) > 0.15);
     });
+  }
+
+  /// Every camera frame: cheap distance check, state changes only on a flip.
+  void _onCameraMove(LatLng centre) {
+    final here = _lastHere;
+    if (here == null) return;
+    _setAway(distanceKm(centre, here) > 0.15);
+  }
+
+  /// I moved (driving) while the camera stayed put: re-check against the centre.
+  Future<void> _checkAway() async {
+    final here = _lastHere;
+    if (here == null || !_map.isReady) return;
+    final centre = await _map.center();
+    if (centre != null && mounted) _setAway(distanceKm(centre, here) > 0.15);
+  }
+
+  void _setAway(bool away) {
+    if (away != _awayFromMe && mounted) setState(() => _awayFromMe = away);
   }
 
   Future<void> _locateMe() async {
@@ -329,19 +429,28 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
         await _addPartners(built, stale, present);
       case MapMode.spots:
         for (final p in ref.read(spotsProvider).value ?? const <Place>[]) {
-          final pin = _far
-              ? (p.isPartner ? await _pinFactory.partnerMini(key: p.id, scale: _glyphScale) : await _glyphFactory.dot(key: p.id, color: p.recommended ? kInk : kSpotGrey, r: 4.5 * _glyphScale))
-              : p.isPartner
-                  ? await _pinFactory.partner(key: p.id, logoUrl: p.vendorLogo, scale: _glyphScale)
+          // One language for places: kind colour + silhouette, a red-ringed
+          // dot far out for top spots, bigger and named up close.
+          final kind = spotKindOf(p.kind);
+          final pin = p.isPartner
+              ? await _partnerPin(p)
+              : _far
+                  ? await _glyphFactory.dot(key: p.id, color: spotKindColor(kind), r: (p.recommended ? 5.5 : 4.5) * _glyphScale, ring: p.recommended ? kEventRed : Colors.white)
                   : await _glyphFactory.spot(
                       key: p.id,
                       recommended: p.recommended,
+                      kind: kind,
                       label: _close ? p.name : null,
                       sub: _close && p.totalCheckins > 0 ? '${p.totalCheckins} ✓' : null,
-                      scale: _glyphScale,
+                      scale: _close ? _glyphScale * 1.2 : _glyphScale,
                     );
           if (await stale()) return;
-          present.add(p.isPartner ? LegendGlyph.partner : (p.recommended ? LegendGlyph.topSpot : LegendGlyph.spot));
+          if (p.isPartner) {
+            present.add(LegendGlyph.partner);
+          } else {
+            present.add(legendGlyphForSpot(kind));
+            if (p.recommended) present.add(LegendGlyph.topSpot);
+          }
           built.add(AppMarker(
             id: 'place:${p.id}',
             position: p.latLng,
@@ -361,11 +470,17 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
     }
   }
 
+  /// A partner's shop: red storefront square far out, the logo signboard
+  /// mid-way, and the signboard with the shop's name up close.
+  Future<MapPin> _partnerPin(Place p) => _far
+      ? _pinFactory.partnerMini(key: p.id, scale: _glyphScale)
+      : _pinFactory.partner(key: p.id, logoUrl: p.vendorLogo, scale: _close ? _glyphScale * 1.1 : _glyphScale, name: _close ? (p.vendorName ?? p.name) : null);
+
   /// Partner shops show on every layer: logo pin when zoomed in, red dot far out.
   Future<void> _addPartners(List<AppMarker> built, Future<bool> Function() stale, Set<LegendGlyph> present) async {
     for (final p in (ref.read(spotsProvider).value ?? const <Place>[]).where((p) => p.isPartner)) {
       present.add(LegendGlyph.partner);
-      final pin = _far ? await _pinFactory.partnerMini(key: p.id, scale: _glyphScale) : await _pinFactory.partner(key: p.id, logoUrl: p.vendorLogo, scale: _glyphScale);
+      final pin = await _partnerPin(p);
       if (await stale()) return;
       built.add(AppMarker(
         id: 'place:${p.id}',
@@ -382,26 +497,39 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
   /// when zoomed out. Colour = relationship, or the colour I gave a friend.
   Future<void> _addPeople(List<AppMarker> built, Future<bool> Function() stale, Set<LegendGlyph> present, {bool onlyMe = false}) async {
     final tags = ref.read(friendTagsProvider).value ?? const <String, String>{};
-    final showColor = ref.read(settingsProvider).showCarColor;
     if (!onlyMe && !_far && _showPeople) {
       for (final f in ref.read(friendPinsProvider).value ?? const <FriendPin>[]) {
         final stranger = f.isStranger;
         final relation = stranger ? kRelationStranger : (kTagColors[tags[f.user.id]] ?? (f.viaClub ? kRelationClub : kRelationFriend));
         final name = stranger ? '@${f.user.username ?? ''}' : (f.user.displayName ?? f.user.username ?? '');
+        final photo = f.carPhoto;
         final pin = !_close
             ? await _carFactory.dot(key: f.user.id, color: relation, scale: _glyphScale)
-            : await _carFactory.car(
-                key: f.user.id,
-                colorKey: f.carColor ?? (stranger ? 'grey' : 'silver'),
-                name: stranger ? (f.carTitle ?? name) : name,
-                status: stranger ? null : freshnessLabel(f.updatedAt),
-                statusColor: f.isFresh ? const Color(0xFF22C55E) : const Color(0xFF8A919E),
-                headingDeg: f.heading ?? 0,
-                faceUrl: f.user.avatarUrl,
-                showFace: !stranger,
-                dim: stranger || !f.isFresh,
-                relation: relation,
-              );
+            : photo != null
+                // Their car's portrait in a ring of the relationship colour.
+                ? await _carFactory.badge(
+                    key: f.user.id,
+                    coverUrl: photo,
+                    name: stranger ? (f.carTitle ?? name) : name,
+                    ring: relation,
+                    status: stranger ? null : freshnessLabel(f.updatedAt),
+                    statusColor: f.isFresh ? const Color(0xFF22C55E) : const Color(0xFF8A919E),
+                    headingDeg: f.heading,
+                    dim: stranger || !f.isFresh,
+                  )
+                // No photo yet: the top-down car in their colour.
+                : await _carFactory.car(
+                    key: f.user.id,
+                    colorKey: f.carColor ?? (stranger ? 'grey' : 'silver'),
+                    name: stranger ? (f.carTitle ?? name) : name,
+                    status: stranger ? null : freshnessLabel(f.updatedAt),
+                    statusColor: f.isFresh ? const Color(0xFF22C55E) : const Color(0xFF8A919E),
+                    headingDeg: f.heading ?? 0,
+                    faceUrl: f.user.avatarUrl,
+                    showFace: !stranger,
+                    dim: stranger || !f.isFresh,
+                    relation: relation,
+                  );
         if (await stale()) return;
         present.add(stranger ? LegendGlyph.nearby : (f.viaClub ? LegendGlyph.club : LegendGlyph.friend));
         built.add(AppMarker(
@@ -418,30 +546,47 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
     if (here != null) _lastHere = here;
     final me = ref.read(currentUserIdProvider);
     if (here != null && me != null) {
-      final myCars = ref.read(userCarsProvider(me)).value ?? const [];
-      final myCar = myCars.where((c) => c.isDefault).firstOrNull ?? myCars.firstOrNull;
-      final pin = !_close
-          ? await _carFactory.dot(key: 'me', color: kRelationMe, me: true, scale: _glyphScale)
-          : await _carFactory.car(key: 'me', colorKey: showColor ? (myCar?.color ?? 'red') : 'red', name: 'Me', status: 'now', showFace: false, me: true);
+      final pin = await _mePin(me);
       if (await stale()) return;
       present.add(LegendGlyph.me);
-      built.add(AppMarker(id: 'me', position: here, image: pin.bytes, size: pin.size, anchor: pin.anchor, zIndex: 6));
+      built.add(AppMarker(id: 'me', position: here, image: pin.bytes, size: pin.size, anchor: pin.anchor, zIndex: _meZ));
     }
   }
 
-  /// Only my own pin moved: swap that one marker instead of rebuilding all.
-  void _updateMe() {
+  /// Above every other pin, always.
+  static const _meZ = 10;
+
+  /// My marker for the current tier: my car's portrait badge (or the
+  /// top-down car when it has no photo) up close, a red dot on a halo further
+  /// out. Both carry a heading cone once the phone knows which way I face.
+  Future<MapPin> _mePin(String me) {
+    final live = ref.read(livePositionProvider);
+    final heading = live != null && live.age < const Duration(minutes: 2) ? live.heading : null;
+    if (!_close) return _carFactory.meDot(headingDeg: heading, scale: _glyphScale);
+    final showColor = ref.read(settingsProvider).showCarColor;
+    final myCars = ref.read(userCarsProvider(me)).value ?? const [];
+    final myCar = myCars.where((c) => c.isDefault).firstOrNull ?? myCars.firstOrNull;
+    return _carFactory.me(coverUrl: myCar?.cover, colorKey: showColor ? (myCar?.color ?? 'red') : 'red', headingDeg: heading);
+  }
+
+  /// Only my own pin moved or turned: swap that one marker instead of
+  /// rebuilding all. The bitmap is cached per 10° of heading, so this is
+  /// usually just a position update on the annotation.
+  Future<void> _updateMe() async {
     final here = ref.read(userLocationProvider).value ?? _lastHere;
     final me = ref.read(currentUserIdProvider);
     if (here == null || me == null || _markerSet.isEmpty) return;
     _lastHere = here;
-    final idx = _markerSet.indexWhere((m) => m.id == 'me');
-    if (idx < 0) {
+    if (_markerSet.indexWhere((m) => m.id == 'me') < 0) {
       _rebuild();
       return;
     }
+    final pin = await _mePin(me);
     if (!mounted) return;
-    setState(() => _markerSet = [..._markerSet]..[idx] = _markerSet[idx].copyWith(position: here));
+    final idx = _markerSet.indexWhere((m) => m.id == 'me');
+    if (idx < 0) return;
+    setState(() => _markerSet = [..._markerSet]..[idx] = AppMarker(id: 'me', position: here, image: pin.bytes, size: pin.size, anchor: pin.anchor, zIndex: _meZ));
+    _checkAway();
   }
 
   void _openMoment(Story m) {
@@ -525,16 +670,22 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
         backgroundColor: AppColors.mapBg,
         body: Stack(
           children: [
+            if (_initialCamera == null)
+              // A beat (<= 300 ms) while we read the phone's last fix, so the
+              // map is born centred on me instead of flying in from KL.
+              const ColoredBox(color: AppColors.mapBg, child: SizedBox.expand())
+            else
             AppMap(
               controller: _map,
-              initialTarget: kualaLumpur,
-              initialZoom: 11.3,
+              initialTarget: _initialCamera!.target,
+              initialZoom: _initialCamera!.zoom,
               night: _isNight,
               markers: _markerSet,
               circles: _circles,
               padding: EdgeInsets.only(bottom: mapPadding),
               onReady: _onMapReady,
               onCameraIdle: _onCameraIdle,
+              onCameraMove: _onCameraMove,
               // Tap the map while the sheet is up: close it.
               onTap: (_) {
                 if (_sheetOpen) _sheet.animateTo(MapSheet.closed, duration: const Duration(milliseconds: 240), curve: Curves.easeOut);
@@ -601,12 +752,26 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
                       _RoundButton(
                         icon: hasLocation ? AppIcons.gpsFix : AppIcons.crosshair,
                         tooltip: 'My location · hold to check',
+                        active: hasLocation && !_awayFromMe,
                         light: !_isNight,
                         onTap: _locateMe,
                         onLongPress: () => showLocationCheckSheet(context),
                       ),
                     ],
                   ),
+                ),
+              ),
+            ),
+
+            // "Back to me": only while the camera has wandered off me.
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: toolbarBottom + MapToolbar.height + 12,
+              child: Center(
+                child: _BackToMePill(
+                  visible: hasLocation && _awayFromMe && !_sheetOpen,
+                  onTap: _locateMe,
                 ),
               ),
             ),
@@ -757,6 +922,53 @@ class _PreciseBanner extends StatelessWidget {
           ),
           TextButton(onPressed: onTurnOn, style: TextButton.styleFrom(visualDensity: VisualDensity.compact), child: const Text('Turn on precise')),
         ],
+      ),
+    );
+  }
+}
+
+/// Floating red pill: "Back to me". Slides in when I am off-screen or the
+/// camera is more than 150 m away, and goes once the map is centred again.
+class _BackToMePill extends StatelessWidget {
+  const _BackToMePill({required this.visible, required this.onTap});
+  final bool visible;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      ignoring: !visible,
+      child: AnimatedOpacity(
+        opacity: visible ? 1 : 0,
+        duration: const Duration(milliseconds: 180),
+        child: AnimatedSlide(
+          offset: visible ? Offset.zero : const Offset(0, 0.6),
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+          child: PressScale(
+            child: Material(
+              color: AppColors.brand,
+              shape: const StadiumBorder(),
+              elevation: 8,
+              shadowColor: Colors.black54,
+              child: InkWell(
+                onTap: onTap,
+                customBorder: const StadiumBorder(),
+                child: const Padding(
+                  padding: EdgeInsets.fromLTRB(14, 10, 18, 10),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(AppIcons.navigationArrow, size: 18, color: Colors.white),
+                      SizedBox(width: 8),
+                      Text('Back to me', style: TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.w800)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

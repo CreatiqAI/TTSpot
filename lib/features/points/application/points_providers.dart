@@ -88,7 +88,8 @@ class PointsActions {
   }
 
   /// Handles any TT Spot QR. Throws [AppException] with a friendly message on failure.
-  Future<ScanOutcome> handle(ScannedCode code) async {
+  /// [carId] only matters for a meet check-in: the car I brought.
+  Future<ScanOutcome> handle(ScannedCode code, {String? carId}) async {
     switch (code) {
       case FriendCode(:final username, :final token):
         if (token.isEmpty) throw const AppException('That QR code is missing its key. Ask them to show it from the app.');
@@ -103,8 +104,9 @@ class PointsActions {
         if (pos == null) {
           throw const AppException('Turn on location so we can confirm you are at the meet, then scan again.');
         }
-        final r = await _repo.checkinByQr(eventId: eventId, code: code, lat: pos.latitude, lng: pos.longitude);
+        final r = await _repo.checkinByQr(eventId: eventId, code: code, lat: pos.latitude, lng: pos.longitude, carId: carId);
         _ref.invalidate(myCheckinsProvider);
+        _ref.invalidate(eventCarsProvider(eventId));
         _ref.invalidate(eventDetailProvider(eventId));
         _ref.invalidate(eventCheckedInProvider(eventId));
         _ref.invalidate(eventRecapProvider(eventId));

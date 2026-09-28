@@ -18,6 +18,7 @@ import '../../../../core/widgets/user_avatar.dart';
 import '../../../auth/domain/profile.dart';
 import '../../../events/application/event_providers.dart';
 import '../../../friends/application/friends_providers.dart';
+import '../../../profile/presentation/widgets/car_picker_sheet.dart';
 import '../../../social/application/chat_providers.dart';
 import '../../application/map_providers.dart';
 
@@ -151,6 +152,9 @@ class _TtNowSheetState extends ConsumerState<_TtNowSheet> {
   }
 
   Future<void> _go(List<Profile> friends) async {
+    // 2+ cars: which one is TT-ing? (One car or none: no question.)
+    final car = await chooseOutingCar(context, ref, title: 'Which car is TT-ing?', subtitle: 'Friends see it on the session.');
+    if (car.cancelled || !mounted) return;
     setState(() => _busy = true);
     try {
       double? lat = _picked?.lat;
@@ -169,7 +173,7 @@ class _TtNowSheetState extends ConsumerState<_TtNowSheet> {
       if (lat == null || lng == null) throw const AppException('Turn on location so friends know where to come.');
 
       final invitees = (_invited ?? friends.map((f) => f.id).toSet()).toList();
-      final id = await ref.read(eventActionsProvider).ttNow(lat: lat, lng: lng, venue: _venue.text, minutes: _minutes, invitees: invitees, address: _picked?.address);
+      final id = await ref.read(eventActionsProvider).ttNow(lat: lat, lng: lng, venue: _venue.text, minutes: _minutes, invitees: invitees, address: _picked?.address, carId: car.car?.id);
       ref.invalidate(liveEventsProvider);
       // one invite card in each friend's chat
       final chat = ref.read(chatActionsProvider);

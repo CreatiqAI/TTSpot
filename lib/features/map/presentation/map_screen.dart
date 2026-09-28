@@ -20,6 +20,7 @@ import '../../../core/utils/friendly_error.dart';
 import '../../../core/utils/geo.dart';
 import '../../events/application/event_providers.dart';
 import '../../events/domain/event.dart';
+import '../../events/presentation/event_car_widgets.dart';
 import '../../events/presentation/my_events_screen.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../profile/application/profile_providers.dart';
@@ -621,9 +622,11 @@ class _MapScreenState extends ConsumerState<MapScreen> with TickerProviderStateM
   /// The card flips to "Checked in" and clears itself.
   Future<void> _checkInNearby(NearbyMeet meet) async {
     if (_nearbyBusy) return;
+    final car = await chooseCheckinCar(context, ref, meet.id); // asks only with 2+ cars
+    if (car.cancelled || !mounted) return;
     setState(() => _nearbyBusy = true);
     try {
-      await ref.read(eventActionsProvider).checkIn(meet.id);
+      await ref.read(eventActionsProvider).checkIn(meet.id, carId: car.car?.id);
       ref.read(nearbyMeetProvider.notifier).markCheckedIn();
       ref.invalidate(liveEventsProvider);
     } catch (e) {

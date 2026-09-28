@@ -9,6 +9,7 @@ import '../../../core/theme/app_art.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/friendly_error.dart';
+import '../../events/presentation/event_car_widgets.dart';
 import '../application/points_providers.dart';
 import '../domain/points.dart';
 
@@ -62,7 +63,21 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
     setState(() => _busy = true);
     await _controller.stop();
     try {
-      final outcome = await ref.read(pointsActionsProvider).handle(code);
+      // Meet check-in: which car did you bring? (Only asks with 2+ cars.)
+      String? carId;
+      if (code is MeetCheckinCode) {
+        if (!mounted) return;
+        final choice = await chooseCheckinCar(context, ref, code.eventId);
+        if (!mounted) return;
+        if (choice.cancelled) {
+          setState(() => _busy = false);
+          _lastRaw = null;
+          await _controller.start();
+          return;
+        }
+        carId = choice.car?.id;
+      }
+      final outcome = await ref.read(pointsActionsProvider).handle(code, carId: carId);
       if (!mounted) return;
       if (!outcome.silent) await _showResult(outcome);
       if (mounted) {

@@ -30,6 +30,8 @@ import '../../social/presentation/widgets/masonry_grid.dart';
 import '../application/event_providers.dart';
 import '../domain/event.dart';
 import '../domain/event_detail.dart';
+import '../../profile/presentation/widgets/car_picker_sheet.dart';
+import 'event_car_widgets.dart';
 import 'whos_here_sheet.dart';
 import '../../../core/utils/share_links.dart';
 import 'package:share_plus/share_plus.dart';
@@ -73,13 +75,16 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
   }
 
   Future<void> _toggleRsvp(EventDetail d) async {
+    // Joining with 2+ cars: which one? (Closing the sheet cancels the join.)
+    final car = d.isAttending ? null : await chooseOutingCar(context, ref, title: 'Which car are you bringing?');
+    if ((car?.cancelled ?? false) || !mounted) return;
     setState(() => _rsvpBusy = true);
     try {
       final actions = ref.read(eventActionsProvider);
       if (d.isAttending) {
         await actions.leave(d.event.id);
       } else {
-        await actions.join(d.event.id);
+        await actions.join(d.event.id, carId: car?.car?.id);
       }
     } catch (e) {
       _snack(friendlyError(e));
@@ -106,9 +111,11 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
   bool _checkInBusy = false;
 
   Future<void> _checkIn(EventDetail d) async {
+    final car = await chooseCheckinCar(context, ref, d.event.id); // asks only with 2+ cars
+    if (car.cancelled || !mounted) return;
     setState(() => _checkInBusy = true);
     try {
-      await ref.read(eventActionsProvider).checkIn(d.event.id);
+      await ref.read(eventActionsProvider).checkIn(d.event.id, carId: car.car?.id);
       _snack('Checked in. You\'re on the record.');
     } catch (e) {
       _snack(friendlyError(e));
@@ -296,6 +303,7 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                                 ],
                               ],
                             ),
+                            if (d.isAttending && !d.event.isPast && !d.event.isCancelled) BringingCarRow(eventId: d.event.id),
                             if (d.isAttending || d.event.organizerId == ref.watch(currentUserIdProvider)) ...[
                               const SizedBox(height: 8),
                               Row(
@@ -606,6 +614,7 @@ class _Attendees extends StatelessWidget {
         builder: (ctx, ref, _) {
           final going = ref.watch(eventAttendeesProvider(e.id));
           final checked = ref.watch(eventCheckedInProvider(e.id)).value?.map((p) => p.id).toSet() ?? const <String>{};
+          final cars = ref.watch(eventCarsProvider(e.id)).value ?? const {};
           return SafeArea(
             child: SizedBox(
               height: MediaQuery.sizeOf(ctx).height * 0.6,
@@ -625,13 +634,17 @@ class _Attendees extends StatelessWidget {
                           final p = list[i];
                           final here = checked.contains(p.id);
                           final host = p.id == e.organizerId;
+                          final car = cars[p.id];
+                          final status = Text(
+                            [if (host) 'Host', if (here) 'Checked in', '@${p.username ?? ''}'].join(' · '),
+                            style: TextStyle(fontSize: 12, color: here ? AppColors.success : AppColors.textSecondary),
+                          );
                           return ListTile(
                             leading: UserAvatar(url: p.avatarUrl, name: p.displayName ?? p.username, size: 42),
                             title: Text(p.displayName ?? '@${p.username}', style: const TextStyle(fontWeight: FontWeight.w600)),
-                            subtitle: Text(
-                              [if (host) 'Host', if (here) 'Checked in', '@${p.username ?? ''}'].join(' · '),
-                              style: TextStyle(fontSize: 12, color: here ? AppColors.success : AppColors.textSecondary),
-                            ),
+                            subtitle: car?.title == null
+                                ? status
+                                : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [status, EventCarLine(title: car!.title!, cover: car.cover)]),
                             trailing: host ? const Icon(AppIcons.crown, size: 18, color: AppColors.warnColor) : null,
                             onTap: () {
                               Navigator.pop(ctx);

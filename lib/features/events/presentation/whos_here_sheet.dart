@@ -12,6 +12,7 @@ import '../../../core/widgets/user_avatar.dart';
 import '../application/event_providers.dart';
 import '../domain/checkin_row.dart';
 import '../domain/event.dart';
+import 'event_car_widgets.dart';
 
 /// Host's door list while the meet is live and for a day after. Small meet:
 /// every check-in, Here / Not here per row, "Confirm all so far". Big meet:
@@ -180,7 +181,6 @@ class _Row extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final detail = [
-      if (row.car != null) row.car!,
       '${formatTime(row.checkedInAt)} · $_via',
       row.stayed ? 'stayed ${row.stayedMin} min' : (row.stayedMin > 0 ? 'seen ${row.stayedMin} min' : 'not seen since'),
     ].join(' · ');
@@ -188,7 +188,14 @@ class _Row extends StatelessWidget {
       onTap: onOpen,
       leading: UserAvatar(url: row.avatarUrl, name: row.name, size: 42),
       title: Text(row.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600)),
-      subtitle: Text(detail, maxLines: 2, style: TextStyle(fontSize: 12, color: row.stayed ? AppColors.success : AppColors.textSecondary)),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // the car they brought (their pick, else their default car)
+          if (row.car != null) EventCarLine(title: row.car!, cover: row.carCover),
+          Text(detail, maxLines: 2, style: TextStyle(fontSize: 12, color: row.stayed ? AppColors.success : AppColors.textSecondary)),
+        ],
+      ),
       trailing: busy
           ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
           : Row(

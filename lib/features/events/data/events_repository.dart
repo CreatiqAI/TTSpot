@@ -7,6 +7,7 @@ import '../../../core/supabase/supabase_client.dart';
 import '../../auth/domain/profile.dart';
 import '../domain/checkin_row.dart';
 import '../domain/event.dart';
+import '../domain/event_car.dart';
 import '../domain/event_detail.dart';
 
 const _profileCols = 'id, username, display_name, bio, avatar_url, home_state, created_at';
@@ -68,8 +69,22 @@ class EventsRepository {
     return rows.map((r) => r['event_id'] as String).toSet();
   }
 
-  Future<void> checkIn({required String eventId, required String userId, required double lat, required double lng}) =>
-      _client.from('checkins').insert({'event_id': eventId, 'user_id': userId, 'lat': lat, 'lng': lng, 'source': 'manual'});
+  /// [carId] null: the database uses my RSVP car, else my default car.
+  Future<void> checkIn({required String eventId, required String userId, required double lat, required double lng, String? carId}) =>
+      _client.from('checkins').insert({'event_id': eventId, 'user_id': userId, 'lat': lat, 'lng': lng, 'source': 'manual', 'car_id': ?carId});
+
+  // ------------------------------------------------------------- cars ---
+
+  /// The car each member is bringing / brought (RPC `event_cars`), by user id.
+  Future<Map<String, EventCar>> eventCars(String eventId) async {
+    final rows = await _client.rpc('event_cars', params: {'p_event': eventId}) as List;
+    final cars = rows.map((r) => EventCar.fromMap((r as Map).cast<String, dynamic>()));
+    return {for (final c in cars) c.userId: c};
+  }
+
+  /// Change the car I bring to a meet (my RSVP and my check-in). Null = default car.
+  Future<void> setEventCar({required String eventId, String? carId}) =>
+      _client.rpc('set_event_car', params: {'p_event': eventId, 'p_car': carId});
 
   /// People who checked in (newest first) with profiles.
   Future<List<Profile>> fetchCheckedIn(String eventId, {int limit = 30}) async {
@@ -200,8 +215,9 @@ class EventsRepository {
 
   // ----------------------------------------------------------------- rsvp ---
 
-  Future<void> join({required String eventId, required String userId}) =>
-      _client.from('event_attendees').insert({'event_id': eventId, 'user_id': userId});
+  /// [carId] null: the database uses my default car (validated by a trigger).
+  Future<void> join({required String eventId, required String userId, String? carId}) =>
+      _client.from('event_attendees').insert({'event_id': eventId, 'user_id': userId, 'car_id': ?carId});
 
   Future<void> leave({required String eventId, required String userId}) =>
       _client.from('event_attendees').delete().eq('event_id', eventId).eq('user_id', userId);
@@ -252,8 +268,9 @@ class EventsRepository {
   }
 
   /// Instant meet at my spot; the database pings my friends. Returns the event id.
-  Future<String> ttNow({required double lat, required double lng, String? venue, String? title, int minutes = 60, List<String>? invitees, String? address}) async {
+  Future<String> ttNow({required double lat, required double lng, String? venue, String? title, int minutes = 60, List<String>? invitees, String? address, String? carId}) async {
     final v = await _client.rpc('tt_now', params: {
+      'p_car': ?carId,
       'p_lat': lat,
       'p_lng': lng,
       'p_venue': ?venue,

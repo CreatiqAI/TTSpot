@@ -55,8 +55,9 @@ class PointsRepository {
   Future<String> eventQrPayload(String eventId) async => await _client.rpc('event_qr_payload', params: {'p_event': eventId}) as String;
 
   /// Attendee: check in with a scanned code. Returns whether it was new and the points.
-  Future<({bool isNew, int points})> checkinByQr({required String eventId, required String code, double? lat, double? lng}) async {
-    final v = await _client.rpc('checkin_by_qr', params: {'p_event': eventId, 'p_code': code, 'p_lat': ?lat, 'p_lng': ?lng});
+  /// [carId]: the car I brought (null = my RSVP car, else my default car).
+  Future<({bool isNew, int points})> checkinByQr({required String eventId, required String code, double? lat, double? lng, String? carId}) async {
+    final v = await _client.rpc('checkin_by_qr', params: {'p_event': eventId, 'p_code': code, 'p_lat': ?lat, 'p_lng': ?lng, 'p_car': ?carId});
     final m = (v as Map).cast<String, dynamic>();
     return (isNew: m['new'] as bool? ?? false, points: (m['points'] as num?)?.toInt() ?? 0);
   }

@@ -12,14 +12,19 @@ class CheckinRow {
     required this.stayed,
     required this.confirmed,
     required this.rejected,
+    this.carId,
+    this.carCover,
   });
 
   final String userId;
   final String? username;
   final String? displayName;
   final String? avatarUrl;
-  /// Default car, "Make Model", when they have one in their garage.
+  /// The car they brought, "Make Model" (their default car when they didn't pick).
   final String? car;
+  final String? carId;
+  /// That car's portrait / first photo.
+  final String? carCover;
   final DateTime checkedInAt;
   /// 'manual' | 'auto' | 'organizer' | 'qr'
   final String source;
@@ -46,6 +51,8 @@ class CheckinRow {
         stayed: m['stayed'] == true,
         confirmed: m['confirmed'] == true,
         rejected: m['rejected'] == true,
+        carId: m['car_id'] as String?,
+        carCover: m['car_cover'] as String?,
       );
 }
 

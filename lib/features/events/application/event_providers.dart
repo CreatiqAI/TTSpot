@@ -9,6 +9,7 @@ import '../../auth/domain/profile.dart';
 import '../data/events_repository.dart';
 import '../domain/checkin_row.dart';
 import '../domain/event.dart';
+import '../domain/event_car.dart';
 import '../domain/event_detail.dart';
 import 'my_events_provider.dart';
 
@@ -40,6 +41,16 @@ final eventCheckedInProvider = FutureProvider.family<List<Profile>, String>((ref
 
 final eventRecapProvider = FutureProvider.family<EventRecap, String>((ref, id) {
   return ref.watch(eventsRepositoryProvider).fetchRecap(id);
+});
+
+/// The car each member is bringing to the meet, by user id (their pick, else
+/// their default car). Empty when the lookup fails, so lists still render.
+final eventCarsProvider = FutureProvider.family<Map<String, EventCar>, String>((ref, id) async {
+  try {
+    return await ref.watch(eventsRepositoryProvider).eventCars(id);
+  } catch (_) {
+    return const {};
+  }
 });
 
 // ------------------------------------------------------- host confirmation ---
@@ -81,9 +92,18 @@ class EventActions {
 
   EventsRepository get _repo => _ref.read(eventsRepositoryProvider);
 
-  Future<void> join(String eventId) async {
-    await _repo.join(eventId: eventId, userId: _me);
+  /// [carId]: the car I'm bringing (null = my default car).
+  Future<void> join(String eventId, {String? carId}) async {
+    await _repo.join(eventId: eventId, userId: _me, carId: carId);
     _refresh(eventId);
+  }
+
+  /// Switch the car I'm bringing to a meet I joined / checked in at.
+  Future<void> setCar(String eventId, String carId) async {
+    await _repo.setEventCar(eventId: eventId, carId: carId);
+    _ref.invalidate(eventCarsProvider(eventId));
+    _ref.invalidate(eventRecapProvider(eventId));
+    _ref.invalidate(hostCheckinListProvider(eventId));
   }
 
   Future<void> leave(String eventId) async {
@@ -102,16 +122,17 @@ class EventActions {
     _refresh(eventId);
   }
 
-  Future<String> ttNow({required double lat, required double lng, String? venue, int minutes = 60, List<String>? invitees, String? address}) async {
+  Future<String> ttNow({required double lat, required double lng, String? venue, int minutes = 60, List<String>? invitees, String? address, String? carId}) async {
     final v = venue?.trim();
-    final id = await _repo.ttNow(lat: lat, lng: lng, venue: v == null || v.isEmpty ? null : v, minutes: minutes, invitees: invitees, address: address);
+    final id = await _repo.ttNow(lat: lat, lng: lng, venue: v == null || v.isEmpty ? null : v, minutes: minutes, invitees: invitees, address: address, carId: carId);
     _ref.invalidate(myCheckinsProvider);
     _ref.invalidate(myEventsProvider);
     return id;
   }
 
   /// Check in with a fresh GPS fix. The database rejects it when too far / too early.
-  Future<void> checkIn(String eventId) async {
+  /// [carId]: the car I brought (null = my RSVP car, else my default car).
+  Future<void> checkIn(String eventId, {String? carId}) async {
     Position pos;
     try {
       if (!await Geolocator.isLocationServiceEnabled()) throw const AppException('Turn on location to check in.');
@@ -128,8 +149,9 @@ class EventActions {
     } catch (_) {
       throw const AppException('Couldn\'t get your location. Try again outside.');
     }
-    await _repo.checkIn(eventId: eventId, userId: _me, lat: pos.latitude, lng: pos.longitude);
+    await _repo.checkIn(eventId: eventId, userId: _me, lat: pos.latitude, lng: pos.longitude, carId: carId);
     _ref.invalidate(myCheckinsProvider);
+    _ref.invalidate(eventCarsProvider(eventId));
     _ref.invalidate(eventCheckedInProvider(eventId));
     _ref.invalidate(eventRecapProvider(eventId));
     _refresh(eventId);
@@ -161,6 +183,7 @@ class EventActions {
 
   void _refresh(String eventId) {
     _ref.invalidate(eventDetailProvider(eventId));
+    _ref.invalidate(eventCarsProvider(eventId));
     _ref.invalidate(mapEventsProvider); // attendee counts on the map list
     _ref.invalidate(myEventsProvider);
   }

@@ -6,7 +6,7 @@ import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/user_avatar.dart';
-import '../../auth/application/auth_controller.dart';
+import '../../auth/presentation/widgets/confirm_logout.dart';
 import '../../social/domain/post.dart';
 import '../application/active_account.dart';
 import 'account_switcher.dart';
@@ -125,7 +125,7 @@ class AccountTab extends ConsumerWidget {
           ListTile(
             leading: const Icon(AppIcons.signOut, color: AppColors.danger),
             title: const Text('Log out', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14.5, color: AppColors.danger)),
-            onTap: () => ref.read(authControllerProvider.notifier).signOut(),
+            onTap: () => confirmLogout(context, ref),
           ),
         ],
       ),

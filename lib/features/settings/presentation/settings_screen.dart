@@ -15,6 +15,7 @@ import '../../../core/widgets/user_avatar.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../auth/application/account_basics.dart';
 import '../../auth/data/auth_repository.dart';
+import '../../auth/presentation/widgets/confirm_logout.dart';
 import '../../safety/data/safety_repository.dart';
 import '../application/settings_providers.dart';
 import '../../../core/push/push_service.dart';
@@ -163,7 +164,7 @@ class SettingsScreen extends ConsumerWidget {
             })
           else
             _Row(icon: AppIcons.lock, title: 'Set a password', subtitle: 'So you can also log in with $email', onTap: () => _setPassword(context, ref)),
-          _Row(icon: AppIcons.signOut, title: 'Log out', onTap: () => ref.read(authControllerProvider.notifier).signOut()),
+          _Row(icon: AppIcons.signOut, title: 'Log out', onTap: () => confirmLogout(context, ref)),
           _Row(
             icon: AppIcons.trash,
             title: 'Delete account',

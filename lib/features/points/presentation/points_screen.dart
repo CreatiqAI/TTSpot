@@ -10,6 +10,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/dates.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../application/points_providers.dart';
+import 'widgets/referral_code_card.dart';
 import '../domain/points.dart';
 import '../domain/verification.dart';
 
@@ -84,6 +85,12 @@ class PointsScreen extends ConsumerWidget {
                 subtitle: Text(r.description, style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
                 trailing: Text('+${r.points}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
                 onTap: r.reason.startsWith('referral') ? () => context.push(Routes.myQr) : null,
+              ),
+            // The referral rows above pay out through this code.
+            if (rules.any((r) => r.reason.startsWith('referral')))
+              const Padding(
+                padding: EdgeInsets.fromLTRB(16, 8, 16, 4),
+                child: ReferralCodeCard(),
               ),
             if (verifications.isNotEmpty) ...[
               const _Section('STICKER CHECK-INS'),

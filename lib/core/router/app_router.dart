@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart' show AuthChangeEvent;
 
 import '../../features/auth/data/auth_repository.dart';
 import '../../features/auth/presentation/onboarding_screen.dart';
+import '../../features/auth/presentation/welcome_screen.dart';
 import '../../features/auth/presentation/reset_password_screen.dart';
 import '../../features/auth/presentation/sign_in_screen.dart';
 import '../../features/events/presentation/convoy_live_screen.dart';
@@ -78,6 +79,9 @@ import 'app_shell.dart';
 /// All route paths in one place so screens never hard-code strings.
 abstract final class Routes {
   static const signIn = '/sign-in';
+  static const signUp = '/sign-in?mode=signup';
+  /// TiTi's front door: where every signed-out cold start lands.
+  static const welcome = '/welcome';
   static const onboarding = '/onboarding';
   static const intro = '/intro';
   static const resetPassword = '/reset-password';
@@ -228,9 +232,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       }
       final signedIn = ref.read(currentUserIdProvider) != null;
       final path = state.uri.path;
-      final onAuthPage = path == Routes.signIn || path == '/verify';
+      final onAuthPage = path == Routes.signIn || path == '/verify' || path == Routes.welcome;
 
-      if (!signedIn) return onAuthPage ? null : Routes.signIn;
+      if (!signedIn) return onAuthPage || path == Routes.resetPassword ? null : Routes.welcome;
       if (path == Routes.resetPassword) return null;
 
       final profile = ref.read(currentProfileProvider);
@@ -256,7 +260,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
-      GoRoute(path: Routes.signIn, pageBuilder: (_, s) => page(s, const SignInScreen())),
+      GoRoute(path: Routes.welcome, pageBuilder: (_, s) => page(s, const WelcomeScreen())),
+      GoRoute(path: Routes.signIn, pageBuilder: (_, s) => page(s, SignInScreen(signUp: s.uri.queryParameters['mode'] == 'signup'))),
       GoRoute(path: Routes.onboarding, pageBuilder: (_, s) => page(s, const OnboardingScreen())),
       GoRoute(path: Routes.intro, pageBuilder: (_, s) => page(s, const IntroScreen())),
       GoRoute(path: '/verify', pageBuilder: (_, s) => page(s, VerifyEmailScreen(email: s.uri.queryParameters['email'] ?? ''))),

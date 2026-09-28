@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:qr_flutter/qr_flutter.dart';
@@ -12,9 +11,10 @@ import '../../../core/widgets/primary_button.dart';
 import '../../../core/widgets/user_avatar.dart';
 import '../../auth/data/auth_repository.dart';
 import '../application/points_providers.dart';
+import 'widgets/referral_code_card.dart';
 
 /// My QR: friends scan it to add me instantly; new members who scan it are
-/// counted as my referral. Username is the typed fallback.
+/// counted as my referral. Below it, my referral code to copy or share.
 class MyQrScreen extends ConsumerWidget {
   const MyQrScreen({super.key});
 
@@ -83,36 +83,11 @@ class MyQrScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 16),
-          PrimaryButton(label: 'Scan a code', onPressed: () => context.pushReplacement(Routes.scan)),
-          const SizedBox(height: 24),
-          Text('BRING A FRIEND', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textSecondary)),
-          const SizedBox(height: 8),
+          const ReferralCodeCard(),
+          const SizedBox(height: 10),
           Text(
-            'Your username is your referral code. When someone signs up with it and does their first check-in, you get $referrerPts points.',
-            style: const TextStyle(fontSize: 14, height: 1.45),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                  decoration: BoxDecoration(color: AppColors.surfaceGray, borderRadius: BorderRadius.circular(AppRadius.md)),
-                  child: Text(profile?.username ?? '', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, letterSpacing: 0.5)),
-                ),
-              ),
-              const SizedBox(width: 8),
-              SizedBox(
-                width: 96,
-                child: SecondaryButton(
-                  label: 'Copy',
-                  onPressed: () async {
-                    await Clipboard.setData(ClipboardData(text: profile?.username ?? ''));
-                    if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Copied.')));
-                  },
-                ),
-              ),
-            ],
+            'When someone signs up with your code and does their first check-in, you get $referrerPts points and they get points too.',
+            style: TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.45),
           ),
           if (referrals != null && referrals.total > 0) ...[
             const SizedBox(height: 10),
@@ -121,6 +96,8 @@ class MyQrScreen extends ConsumerWidget {
               style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
             ),
           ],
+          const SizedBox(height: 24),
+          PrimaryButton(label: 'Scan a code', onPressed: () => context.pushReplacement(Routes.scan)),
         ],
       ),
     );

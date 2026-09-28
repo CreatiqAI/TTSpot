@@ -21,11 +21,11 @@ import '../../../core/widgets/photo_picker_sheet.dart';
 import '../../../core/widgets/primary_button.dart';
 import '../../cards/application/cards_providers.dart';
 import '../../cards/domain/cards.dart';
-import '../../map/presentation/widgets/car_marker.dart' show kCarColorLabels;
 import '../../profile/application/profile_providers.dart';
 import '../../profile/data/profile_repository.dart';
 import '../../profile/domain/car_recognition.dart';
 import '../../profile/presentation/widgets/car_color_picker.dart';
+import '../../profile/presentation/widgets/car_scan_widgets.dart';
 import '../../settings/presentation/settings_screen.dart' show LegalScreen;
 import '../application/account_basics.dart';
 import '../application/auth_controller.dart';
@@ -33,24 +33,21 @@ import '../application/onboarding_controller.dart';
 import '../data/auth_repository.dart';
 import 'widgets/username_field.dart';
 
-/// First-run setup, guided by TiTi. One route, four pages switched here:
-/// 0. welcome (new members only)
+/// First-run setup, guided by TiTi. One route, three pages switched here
+/// (TiTi's welcome is the app's front door now, before sign-in: see
+/// WelcomeScreen):
 /// 1. your ride: one photo; the recogniser guesses make, model, year and
-///    colour (all editable) and blurs the number plate before upload.
+///    colour (all editable).
 /// 2. you: avatar, name, handle, state, phone, Terms.
 /// 3. a gift: the first blind box, when one is waiting.
 /// An existing member who only lacks a car, or a phone + Terms, lands on
-/// that step alone: no welcome, no road, no gift.
+/// that step alone: no road, no gift.
 class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key});
 
   @override
   ConsumerState<OnboardingScreen> createState() => _OnboardingScreenState();
 }
-
-/// How long the scanning frame stays up at minimum, so the status rows get
-/// to tick through before the reveal.
-const _kScanHold = Duration(milliseconds: 2600);
 
 class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   final _formKey = GlobalKey<FormState>();
@@ -66,7 +63,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   XFile? _avatar;
   bool _prefilled = false;
   bool _validate = false;
-  bool _welcomeDone = false;
   bool _showReferral = false;
   bool _allStates = false;
   /// Looking for the first blind box after the profile saved.
@@ -80,7 +76,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   String? _carColor;
   /// The file just picked, shown while the recogniser is still looking.
   XFile? _pickedFile;
-  /// What gets uploaded: the plate blurred when one was seen.
+  /// What gets uploaded.
   Uint8List? _carBytes;
   bool _carPreparing = false;
   /// The recogniser is back; the last status row goes green.
@@ -88,7 +84,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   DateTime? _scanStart;
   CarRecognition? _guess;
   bool _guessed = false;
-  bool _plateBlurred = false;
   bool _carSaved = false;
   bool _carValidate = false;
   bool _editingCar = false;
@@ -116,7 +111,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       _carPreparing = true;
       _scanDone = false;
       _scanStart = started;
-      _plateBlurred = false;
     });
     Uint8List bytes;
     try {
@@ -134,13 +128,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     if (!mounted || _scanStart != started) return;
     // Let the status rows finish ticking before the reveal.
     setState(() => _scanDone = true);
-    final left = _kScanHold - DateTime.now().difference(started);
+    final left = kCarScanHold - DateTime.now().difference(started);
     await Future<void>.delayed((left.isNegative ? Duration.zero : left) + const Duration(milliseconds: 450));
     if (!mounted || _scanStart != started) return; // a newer pick took over
     setState(() {
       _carPreparing = false;
       _carBytes = prepared.bytes;
-      _plateBlurred = prepared.plateBlurred;
       // Only touch the fields when they are empty or hold an earlier guess;
       // never overwrite what the member typed.
       final untouched = _guessed || (_make.text.trim().isEmpty && _model.text.trim().isEmpty);
@@ -324,7 +317,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     final basicsDone = basics?.complete ?? false;
 
     if (_gift != null) return _giftPage(_gift!);
-    if (!existing && !_welcomeDone && !_carSaved) return _welcomePage(busy: busy);
 
     // No car yet → step 1. Once it is parked, the profile step (or, for a
     // member whose profile is already complete, the router moves on).
@@ -336,97 +328,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       );
     }
     return _youPage(busy: busy, existing: existing, avatarUrl: profile?.avatarUrl);
-  }
-
-  // ─────────────────────────────────────────────────────────── 0. welcome ──
-
-  Widget _welcomePage({required bool busy}) {
-    final display = TextStyle(fontFamily: AppFonts.display, fontSize: 46, height: 44 / 46, fontWeight: FontWeight.w800, letterSpacing: -0.5, color: AppColors.textPrimary);
-    return Scaffold(
-      body: SafeArea(
-        child: _FillScroll(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  Text.rich(
-                    TextSpan(
-                      style: TextStyle(fontFamily: AppFonts.display, fontSize: 22, fontWeight: FontWeight.w800, letterSpacing: 0.5, color: AppColors.textPrimary, height: 1),
-                      children: const [
-                        TextSpan(text: 'TT', style: TextStyle(color: AppColors.brand)),
-                        TextSpan(text: 'SPOT'),
-                      ],
-                    ),
-                  ),
-                  const Spacer(),
-                  Text('MALAYSIA\'S CAR COMMUNITY', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.5, color: AppColors.textSecondary)),
-                ],
-              ),
-              const SizedBox(height: 18),
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Container(
-                    height: 316,
-                    decoration: BoxDecoration(color: AppColors.surfaceGray, borderRadius: BorderRadius.circular(28)),
-                    alignment: Alignment.center,
-                    child: const Titi(TitiPose.wave, height: 300),
-                  ),
-                  const Positioned(
-                    left: 14,
-                    bottom: -22,
-                    child: TitiBubble('Hi, I\'m TiTi. Two minutes and you\'re on the road with us.', maxWidth: 270),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 44),
-              Text.rich(
-                TextSpan(
-                  style: display,
-                  children: const [
-                    TextSpan(text: 'DRIVE.\nCONNECT.\n'),
-                    TextSpan(text: 'EXPLORE.', style: TextStyle(color: AppColors.brand)),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Meets, TT sessions and good spots on one map. Your car is your profile.',
-                style: TextStyle(fontSize: 15, color: AppColors.textSecondary, height: 1.4),
-              ),
-              const Spacer(),
-              const SizedBox(height: 24),
-              const Wrap(
-                spacing: 14,
-                runSpacing: 8,
-                children: [
-                  _StepBadge(1, 'YOUR RIDE'),
-                  _StepBadge(2, 'YOU'),
-                  _StepBadge(3, 'A GIFT'),
-                ],
-              ),
-              const SizedBox(height: 16),
-              PrimaryButton(
-                label: 'Let\'s go',
-                onPressed: busy
-                    ? null
-                    : () {
-                        HapticFeedback.lightImpact();
-                        setState(() => _welcomeDone = true);
-                      },
-              ),
-              const SizedBox(height: 4),
-              TextButton(
-                onPressed: busy ? null : _signOut,
-                child: Text('Already a member? Sign in', style: TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.w600)),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 
   // ─────────────────────────────────────────────────────────── 1. your ride ──
@@ -462,7 +363,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             _TopBar(onSignOut: busy ? null : _signOut),
             _stepHeader(existing: existing, step: 0, done: 0),
             const SizedBox(height: 20),
-            const TitiSays('Show me your ride. I\'ll read the model and hide the plate for you.', pose: TitiPose.camera),
+            const TitiSays('Show me your ride. I\'ll work out what it is.', pose: TitiPose.camera),
             const SizedBox(height: 22),
             const _Headline('WHAT DO YOU DRIVE?'),
             const SizedBox(height: 16),
@@ -502,7 +403,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             const _TopBar(onSignOut: null),
             _stepHeader(existing: existing, step: 0, done: 0),
             const SizedBox(height: 20),
-            _ScanningCard(file: _pickedFile!, startedAt: _scanStart ?? DateTime.now(), done: _scanDone),
+            CarScanningCard(image: FileImage(File(_pickedFile!.path)), startedAt: _scanStart ?? DateTime.now(), done: _scanDone),
             const SizedBox(height: 18),
             Text(
               'Usually under 5 seconds. You can correct anything after.',
@@ -520,10 +421,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     final make = _make.text.trim();
     final model = _model.text.trim();
     final year = _year.text.trim().isNotEmpty ? _year.text.trim() : (_guess?.yearRange ?? '');
-    final makeYear = [if (make.isNotEmpty) make.toUpperCase(), if (year.isNotEmpty) year].join(' · ');
-    final tiles = _specTiles(_guess, make, model);
+    final tiles = carSpecTiles(_guess, make, model);
     final colourFromPhoto = _guessed && _carColor != null && _guess?.color == _carColor;
-    final colourText = _carColor == null ? 'Pick one' : '${kCarColorLabels[_carColor] ?? _carColor} · ${colourFromPhoto ? 'from the photo' : 'picked by you'}';
+    final colourText = carColourNote(_carColor, fromPhoto: colourFromPhoto);
     final missing = _carValidate && (make.isEmpty || model.isEmpty);
 
     return SingleChildScrollView(
@@ -582,15 +482,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   ),
                 ),
                 Positioned(
-                  left: 20,
-                  bottom: 16,
-                  child: _Chip(
-                    icon: _plateBlurred ? AppIcons.shieldCheck : AppIcons.check,
-                    label: _plateBlurred ? 'PLATE HIDDEN' : 'PHOTO ADDED',
-                    dark: true,
-                  ),
-                ),
-                Positioned(
                   right: 20,
                   bottom: 16,
                   child: _Pill(icon: AppIcons.camera, label: 'Change photo', onTap: busy ? null : _pickCarPhoto, filled: false),
@@ -618,37 +509,16 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   ],
                 ),
                 const SizedBox(height: 20),
-                Text(makeYear.isEmpty ? 'MAKE · YEAR' : makeYear, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1.2, color: AppColors.textSecondary)),
-                const SizedBox(height: 4),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        model.isEmpty ? 'YOUR CAR' : model,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontFamily: AppFonts.display,
-                          fontSize: 48,
-                          height: 46 / 48,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.5,
-                          color: model.isEmpty ? AppColors.textMuted : AppColors.textPrimary,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Padding(
-                      padding: const EdgeInsets.only(top: 6),
-                      child: _Pill(
-                        icon: _editingCar ? AppIcons.check : AppIcons.pencilSimple,
-                        label: _editingCar ? 'Done' : 'Edit',
-                        onTap: busy ? null : () => setState(() => _editingCar = !_editingCar),
-                        filled: _editingCar,
-                      ),
-                    ),
-                  ],
+                CarFoundTitle(
+                  make: make,
+                  model: model,
+                  year: year,
+                  trailing: _Pill(
+                    icon: _editingCar ? AppIcons.check : AppIcons.pencilSimple,
+                    label: _editingCar ? 'Done' : 'Edit',
+                    onTap: busy ? null : () => setState(() => _editingCar = !_editingCar),
+                    filled: _editingCar,
+                  ),
                 ),
                 AnimatedSize(
                   duration: const Duration(milliseconds: 220),
@@ -695,7 +565,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   ),
                 if (tiles.isNotEmpty) ...[
                   const SizedBox(height: 18),
-                  _SpecGrid(tiles: tiles),
+                  CarSpecGrid(tiles: tiles),
                 ],
                 const SizedBox(height: 22),
                 Text('COLOUR', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1.2, color: AppColors.textSecondary)),
@@ -821,7 +691,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text('Got a friend\'s code?', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: AppColors.textPrimary, decoration: TextDecoration.underline)),
+                            Text('Have a referral code?', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: AppColors.textPrimary, decoration: TextDecoration.underline)),
                             const SizedBox(width: 4),
                             Icon(AppIcons.caretDown, size: 14, color: AppColors.textSecondary),
                           ],
@@ -829,17 +699,19 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                       ),
                     )
                   else ...[
-                    const _Label('FRIEND\'S CODE', top: 0),
+                    const _Label('REFERRAL CODE', top: 0),
                     TextFormField(
                       controller: _referral,
                       autocorrect: false,
                       autofocus: true,
                       maxLength: 20,
-                      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9_]')), _LowercaseFormatter()],
+                      textCapitalization: TextCapitalization.characters,
+                      // Codes are 6 letters and numbers; an old invite may still be a username.
+                      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9_]')), _UppercaseFormatter()],
                       decoration: const InputDecoration(
-                        hintText: 'username',
-                        prefixText: '@',
-                        helperText: 'A friend\'s username. You both get points after your first check-in.',
+                        hintText: 'e.g. K7XP4M',
+                        helperText: 'From a friend, an event or a partner. You both get points after your first check-in.',
+                        helperMaxLines: 2,
                         counterText: '',
                       ),
                     ),
@@ -948,30 +820,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
 // ─────────────────────────────────────────────────────────────── helpers ──
 
-/// The spec tiles: the recogniser's spec line split into parts, plus the
-/// body style. Only while the guess still describes the typed make + model.
-List<(String, String)> _specTiles(CarRecognition? g, String make, String model) {
-  if (g == null || !g.matches(make, model)) return const [];
-  final out = <(String, String)>[];
-  for (final raw in g.specLine.split('·')) {
-    final p = raw.trim();
-    if (p.isEmpty) continue;
-    final label = _specLabel(p);
-    final value = label == 'HP' ? p.replaceAll(RegExp(r'\s*hp\b', caseSensitive: false), '').trim() : p;
-    out.add((value.isEmpty ? p : value, label));
-  }
-  if (g.bodyStyle.isNotEmpty) out.add((g.bodyStyle, 'BODY'));
-  return out.take(4).toList();
-}
-
-String _specLabel(String part) {
-  final l = part.toLowerCase();
-  if (RegExp(r'\bhp\b').hasMatch(l)) return 'HP';
-  if (RegExp(r'\b(cvt|at|mt|dct|amt|auto|automatic|manual|e-cvt|ivt)\b').hasMatch(l)) return 'GEARBOX';
-  if (part.contains('L')) return 'ENGINE';
-  return 'SPEC';
-}
-
 /// Scroll view whose content fills the viewport at least, so a `Spacer`
 /// pushes the actions to the bottom on tall phones and the page still
 /// scrolls on short ones.
@@ -1035,29 +883,6 @@ class _Label extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
         padding: EdgeInsets.only(top: top, bottom: 6),
         child: Text(text, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1.2, color: AppColors.textSecondary)),
-      );
-}
-
-/// Numbered badge on the welcome page: "1 YOUR RIDE".
-class _StepBadge extends StatelessWidget {
-  const _StepBadge(this.n, this.label);
-  final int n;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) => Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 20,
-            height: 20,
-            alignment: Alignment.center,
-            decoration: const BoxDecoration(color: AppColors.brand, shape: BoxShape.circle),
-            child: Text('$n', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Colors.white, height: 1)),
-          ),
-          const SizedBox(width: 6),
-          Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1, color: AppColors.textPrimary)),
-        ],
       );
 }
 
@@ -1240,7 +1065,7 @@ class _DropZone extends StatelessWidget {
                 Text('Add a photo of your car', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
                 const SizedBox(height: 6),
                 Text(
-                  'Front three-quarter angle works best. Plate is blurred before it leaves your phone.',
+                  'Front three-quarter angle works best.',
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary, height: 1.4),
                 ),
@@ -1297,228 +1122,52 @@ class _Pill extends StatelessWidget {
   }
 }
 
-/// Small status chip ("PLATE HIDDEN").
-class _Chip extends StatelessWidget {
-  const _Chip({required this.icon, required this.label, required this.dark});
-  final IconData icon;
-  final String label;
-  final bool dark;
-
-  @override
-  Widget build(BuildContext context) {
-    final fg = dark ? Colors.white : AppColors.ink;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(color: dark ? AppColors.ink : Colors.white, borderRadius: BorderRadius.circular(999)),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 13, color: fg),
-          const SizedBox(width: 5),
-          Text(label, style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, letterSpacing: 1, color: fg)),
-        ],
-      ),
-    );
-  }
-}
-
-/// The picked photo with a scan line sweeping it, TiTi peeking in with his
-/// magnifier, and three status rows driven by the clock.
-class _ScanningCard extends StatefulWidget {
-  const _ScanningCard({required this.file, required this.startedAt, required this.done});
-  final XFile file;
-  final DateTime startedAt;
-  final bool done;
-
-  @override
-  State<_ScanningCard> createState() => _ScanningCardState();
-}
-
-class _ScanningCardState extends State<_ScanningCard> with SingleTickerProviderStateMixin {
-  late final AnimationController _sweep = AnimationController(vsync: this, duration: const Duration(milliseconds: 1600))..repeat();
-
-  static const _rows = ['Number plate found and hidden', 'Reading make, model and year', 'Pulling engine and gearbox specs'];
-  static const _startsAt = [Duration.zero, Duration(milliseconds: 900), Duration(milliseconds: 2200)];
-
-  @override
-  void dispose() {
-    _sweep.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        AspectRatio(
-          aspectRatio: 4 / 3,
-          child: Container(
-            clipBehavior: Clip.antiAlias,
-            decoration: BoxDecoration(color: AppColors.ink, borderRadius: BorderRadius.circular(24)),
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                Image.file(File(widget.file.path), fit: BoxFit.cover),
-                ColoredBox(color: Colors.black.withValues(alpha: 0.28)),
-                AnimatedBuilder(
-                  animation: _sweep,
-                  builder: (_, _) => Align(
-                    alignment: Alignment(0, -1 + 2 * Curves.easeInOut.transform(_sweep.value)),
-                    child: Container(
-                      height: 2,
-                      decoration: BoxDecoration(
-                        color: AppColors.brand,
-                        boxShadow: [BoxShadow(color: AppColors.brand.withValues(alpha: 0.8), blurRadius: 16, spreadRadius: 3)],
-                      ),
-                    ),
-                  ),
-                ),
-                const Positioned(
-                  right: 12,
-                  bottom: 12,
-                  child: TitiAvatar(TitiPose.magnifier, size: 60, background: Colors.white),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 14),
-        const Align(
-          alignment: Alignment.centerRight,
-          child: TitiBubble('Hold on, having a look at this one…', tailRight: true, maxWidth: 280),
-        ),
-        const SizedBox(height: 18),
-        AnimatedBuilder(
-          animation: _sweep,
-          builder: (_, _) {
-            final elapsed = DateTime.now().difference(widget.startedAt);
-            return Column(
-              children: [
-                for (var i = 0; i < _rows.length; i++)
-                  _StatusRow(
-                    label: _rows[i],
-                    state: widget.done || (i + 1 < _startsAt.length && elapsed >= _startsAt[i + 1])
-                        ? _RowState.done
-                        : elapsed >= _startsAt[i]
-                            ? _RowState.active
-                            : _RowState.pending,
-                  ),
-              ],
-            );
-          },
-        ),
-      ],
-    );
-  }
-}
-
-enum _RowState { pending, active, done }
-
-class _StatusRow extends StatelessWidget {
-  const _StatusRow({required this.label, required this.state});
-  final String label;
-  final _RowState state;
-
-  @override
-  Widget build(BuildContext context) {
-    final Widget dot = switch (state) {
-      _RowState.done => Container(
-          width: 26,
-          height: 26,
-          decoration: const BoxDecoration(color: AppColors.success, shape: BoxShape.circle),
-          child: const Icon(AppIcons.check, size: 14, color: Colors.white),
-        ),
-      _RowState.active => const SizedBox(
-          width: 26,
-          height: 26,
-          child: Padding(padding: EdgeInsets.all(2), child: CircularProgressIndicator(strokeWidth: 2.5, color: AppColors.brand)),
-        ),
-      _RowState.pending => Container(
-          width: 26,
-          height: 26,
-          decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: AppColors.border, width: 2)),
-        ),
-    };
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 7),
-      child: Row(
-        children: [
-          dot,
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: state == _RowState.pending ? FontWeight.w500 : FontWeight.w700,
-                color: state == _RowState.pending ? AppColors.textSecondary : AppColors.textPrimary,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Four-across spec tiles: big value, tiny label.
-class _SpecGrid extends StatelessWidget {
-  const _SpecGrid({required this.tiles});
-  final List<(String, String)> tiles;
-
-  @override
-  Widget build(BuildContext context) => LayoutBuilder(
-        builder: (_, c) {
-          const gap = 8.0;
-          final w = (c.maxWidth - gap * 3) / 4;
-          return Wrap(
-            spacing: gap,
-            runSpacing: gap,
-            children: [
-              for (final (value, label) in tiles)
-                Container(
-                  width: w,
-                  padding: const EdgeInsets.fromLTRB(10, 12, 10, 10),
-                  decoration: BoxDecoration(color: AppColors.surfaceGray, borderRadius: BorderRadius.circular(14)),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerLeft,
-                        child: Text(value, maxLines: 1, style: TextStyle(fontFamily: AppFonts.display, fontSize: 22, height: 1, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
-                      ),
-                      const SizedBox(height: 5),
-                      Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, letterSpacing: 1, color: AppColors.textSecondary)),
-                    ],
-                  ),
-                ),
-            ],
-          );
-        },
-      );
-}
-
-/// Home-state chip: black when selected, outlined otherwise.
+/// Home-state chip. Selected is unmistakable: brand fill, a tick, white bold
+/// text and a small pop. Unselected is white with a thin border. The same
+/// chip is used for the short list, "More…" and the full list.
 class _StateChip extends StatelessWidget {
   const _StateChip({required this.label, required this.selected, required this.onTap});
   final String label;
   final bool selected;
   final VoidCallback? onTap;
 
+  static const _duration = Duration(milliseconds: 160);
+
   @override
   Widget build(BuildContext context) => GestureDetector(
         onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-          decoration: BoxDecoration(
-            color: selected ? AppColors.ink : Colors.transparent,
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: selected ? AppColors.ink : AppColors.border),
+        child: AnimatedScale(
+          scale: selected ? 1.06 : 1,
+          duration: _duration,
+          curve: Curves.easeOutBack,
+          child: AnimatedContainer(
+            duration: _duration,
+            curve: Curves.easeOut,
+            padding: EdgeInsets.fromLTRB(selected ? 10 : 14, 9, 14, 9),
+            decoration: BoxDecoration(
+              color: selected ? AppColors.brand : Colors.white,
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: selected ? AppColors.brand : AppColors.border),
+              boxShadow: selected ? [BoxShadow(color: AppColors.brand.withValues(alpha: 0.3), blurRadius: 10, offset: const Offset(0, 3))] : null,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (selected) ...[
+                  const Icon(AppIcons.check, size: 14, color: Colors.white),
+                  const SizedBox(width: 5),
+                ],
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                    color: selected ? Colors.white : AppColors.ink,
+                  ),
+                ),
+              ],
+            ),
           ),
-          child: Text(label, style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: selected ? Colors.white : AppColors.textPrimary)),
         ),
       );
 }
@@ -1622,8 +1271,8 @@ class _AvatarPicker extends StatelessWidget {
   }
 }
 
-class _LowercaseFormatter extends TextInputFormatter {
+class _UppercaseFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) =>
-      newValue.copyWith(text: newValue.text.toLowerCase());
+      newValue.copyWith(text: newValue.text.toUpperCase());
 }

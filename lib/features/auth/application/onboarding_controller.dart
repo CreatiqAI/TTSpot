@@ -63,10 +63,11 @@ class OnboardingController extends AsyncNotifier<void> {
         avatarUrl: avatarUrl,
       );
       if (phone != null) await ref.read(accountActionsProvider).setBasics(phone: phone, acceptedTerms: acceptedTerms);
-      final code = referralCode?.trim().toLowerCase() ?? '';
-      if (code.isNotEmpty && code != cleanUsername) {
+      // A member's code, a meet's invite code, or (older invites) a username.
+      final code = (referralCode ?? '').trim().replaceFirst(RegExp(r'^@'), '');
+      if (code.isNotEmpty && code.toLowerCase() != cleanUsername) {
         try {
-          await ref.read(pointsRepositoryProvider).claimReferral(code);
+          await ref.read(pointsRepositoryProvider).redeemReferralCode(code);
         } catch (_) {/* a bad code never blocks sign-up */}
       }
       if (refreshProfile) ref.invalidate(currentProfileProvider);

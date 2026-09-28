@@ -4,7 +4,6 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/utils/friendly_error.dart';
-import '../../../core/utils/plate_blur.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../auth/domain/profile.dart';
 import '../data/profile_repository.dart';
@@ -28,8 +27,9 @@ final profileStatsProvider = FutureProvider.family<ProfileStats, String>((ref, u
   return ref.watch(profileRepositoryProvider).fetchStats(userId);
 });
 
-/// A car photo ready to upload: the plate blurred when one was seen, plus what
-/// the recogniser thinks the car is (null when it could not run or was unsure).
+/// A car photo ready to upload, plus what the recogniser thinks the car is
+/// (null when it could not run or was unsure). [plateBlurred] is always false
+/// while plate blurring is off.
 class PreparedCarPhoto {
   const PreparedCarPhoto({required this.bytes, this.guess, this.plateBlurred = false});
   final Uint8List bytes;
@@ -37,24 +37,17 @@ class PreparedCarPhoto {
   final bool plateBlurred;
 }
 
-/// Recognise the car and blur its plate, on the phone, before anything is
-/// stored. Never throws: with no network or no key you get the original
-/// bytes back and no guess, and the form is just a form.
+/// Recognise the car on the phone before anything is stored. Never throws:
+/// with no network or no key you get the original bytes back and no guess,
+/// and the form is just a form.
 Future<PreparedCarPhoto> prepareCarPhoto(ProfileRepository repo, Uint8List original) async {
-  CarRecognition guess;
+  // Plate blurring is off: the owner decided hiding plates is not needed for
+  // now (core/utils/plate_blur.dart stays in place for when it comes back).
   try {
-    guess = await repo.recognizeCar(bytes: original);
+    final guess = await repo.recognizeCar(bytes: original);
+    return PreparedCarPhoto(bytes: original, guess: guess);
   } catch (_) {
     return PreparedCarPhoto(bytes: original);
-  }
-  final plate = guess.plate;
-  if (plate == null) return PreparedCarPhoto(bytes: original, guess: guess);
-  try {
-    final blurred = await blurPlate(original, x0: plate.x0, y0: plate.y0, x1: plate.x1, y1: plate.y1);
-    return PreparedCarPhoto(bytes: blurred, guess: guess, plateBlurred: true);
-  } catch (_) {
-    // The image would not decode; there is nothing better to upload.
-    return PreparedCarPhoto(bytes: original, guess: guess);
   }
 }
 

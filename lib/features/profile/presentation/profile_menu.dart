@@ -6,9 +6,10 @@ import '../../../core/router/app_router.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/glass_tab_bar.dart';
 import '../../accounts/application/active_account.dart';
 import '../../accounts/presentation/account_switcher.dart';
-import '../../auth/application/auth_controller.dart';
+import '../../auth/presentation/widgets/confirm_logout.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../social/application/community_providers.dart';
 import '../../vendors/application/vendors_providers.dart';
@@ -33,38 +34,42 @@ Future<void> showProfileMenu(BuildContext context, WidgetRef ref) async {
     context: context,
     showDragHandle: true,
     isScrollControlled: true,
-    builder: (ctx) => SafeArea(
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(ctx).height * 0.82),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _Group('ACCOUNT'),
-              _Item(AppIcons.arrowsClockwise, 'Switch account', 'switch'),
-              _Item(AppIcons.gear, 'Settings', 'settings'),
-              _Item(AppIcons.pencilSimple, 'Edit profile', 'edit'),
-              _Item(AppIcons.users, 'Friends', 'friends'),
-              _Item(AppIcons.camera, 'My moments', 'moments'),
-              _Item(AppIcons.bookmarkSimple, 'Saved posts', 'saved'),
-              _Group('REWARDS'),
-              _Item(AppIcons.star, 'Points', 'points'),
-              _Item(AppIcons.gift, 'Rewards & vouchers', 'rewards'),
-              _Item(AppIcons.sparkle, 'Cards & blind boxes', 'cards'),
-              _Item(AppIcons.trophy, 'Badges', 'badges'),
-              _Group('PARTNERS & CLUBS'),
-              _Item(AppIcons.storefront, isVendor ? 'Partner dashboard' : 'Become a partner', 'partner'),
-              _Item(AppIcons.usersThree, canRunClubs ? 'My car club' : 'Run a car club', 'club'),
-              if (isAdmin) ...[
-                _Group('ADMIN'),
-                _Item(AppIcons.shieldCheck, 'Switch to TT Spot Admin', 'admin'),
-              ],
-              const Divider(height: 16),
-              _Item(AppIcons.signOut, 'Log out', 'logout', danger: true),
-              const SizedBox(height: 8),
+    builder: (ctx) => ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(ctx).height * 0.82),
+      child: SingleChildScrollView(
+        // Clear of the floating tab bar: the last row never sits where the
+        // Me tab is, so a second tap on it cannot hit Log out.
+        padding: EdgeInsets.only(bottom: GlassTabBar.height + GlassTabBar.margin.bottom + MediaQuery.paddingOf(ctx).bottom),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _Group('ACCOUNT'),
+            _Item(AppIcons.arrowsClockwise, 'Switch account', 'switch'),
+            _Item(AppIcons.gear, 'Settings', 'settings'),
+            _Item(AppIcons.pencilSimple, 'Edit profile', 'edit'),
+            _Item(AppIcons.users, 'Friends', 'friends'),
+            _Item(AppIcons.camera, 'My moments', 'moments'),
+            _Item(AppIcons.bookmarkSimple, 'Saved posts', 'saved'),
+            _Group('REWARDS'),
+            _Item(AppIcons.star, 'Points', 'points'),
+            _Item(AppIcons.userPlus, 'Invite friends', 'invite'),
+            _Item(AppIcons.gift, 'Rewards & vouchers', 'rewards'),
+            _Item(AppIcons.sparkle, 'Cards & blind boxes', 'cards'),
+            _Item(AppIcons.trophy, 'Badges', 'badges'),
+            _Group('PARTNERS & CLUBS'),
+            _Item(AppIcons.storefront, isVendor ? 'Partner dashboard' : 'Become a partner', 'partner'),
+            _Item(AppIcons.usersThree, canRunClubs ? 'My car club' : 'Run a car club', 'club'),
+            if (isAdmin) ...[
+              _Group('ADMIN'),
+              _Item(AppIcons.shieldCheck, 'Switch to TT Spot Admin', 'admin'),
             ],
-          ),
+            const SizedBox(height: 12),
+            const Divider(height: 1),
+            const SizedBox(height: 12),
+            _Item(AppIcons.signOut, 'Log out', 'logout', danger: true),
+            const SizedBox(height: 8),
+          ],
         ),
       ),
     ),
@@ -110,11 +115,12 @@ Future<void> showProfileMenu(BuildContext context, WidgetRef ref) async {
     case 'commission':
       context.push(Routes.adminCommission);
     case 'qr':
+    case 'invite':
       context.push(Routes.myQr);
     case 'car':
       context.push(Routes.newCar);
     case 'logout':
-      await ref.read(authControllerProvider.notifier).signOut();
+      await confirmLogout(context, ref);
   }
 }
 

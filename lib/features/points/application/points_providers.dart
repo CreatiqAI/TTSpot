@@ -38,6 +38,12 @@ final myReferralsProvider = FutureProvider<({int total, int rewarded})>((ref) as
   return ref.watch(pointsRepositoryProvider).myReferrals(me);
 });
 
+/// My 6-character referral code ('' when signed out).
+final myReferralCodeProvider = FutureProvider<String>((ref) {
+  if (ref.watch(currentUserIdProvider) == null) return Future.value('');
+  return ref.watch(pointsRepositoryProvider).myReferralCode();
+});
+
 /// The payload for my friend QR. Refetch after [PointsActions.rotateQr].
 final myQrPayloadProvider = FutureProvider<String>((ref) {
   if (ref.watch(currentUserIdProvider) == null) return Future.value('');

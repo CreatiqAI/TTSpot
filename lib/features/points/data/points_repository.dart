@@ -33,6 +33,20 @@ class PointsRepository {
     return v as bool? ?? false;
   }
 
+  /// Redeem whatever was typed in "Referral code": a member's code (or an old
+  /// username), or a meet's invite code. Throws for an unknown code.
+  Future<({String kind, String name})> redeemReferralCode(String code) async {
+    final v = await _client.rpc('redeem_referral_code', params: {'p_code': code});
+    final m = (v as Map).cast<String, dynamic>();
+    return (kind: m['kind'] as String? ?? 'user', name: m['name'] as String? ?? '');
+  }
+
+  /// My 6-character referral code (created on first ask).
+  Future<String> myReferralCode() async => await _client.rpc('my_referral_code') as String;
+
+  /// A meet's invite code. Host only.
+  Future<String> eventInviteCode(String eventId) async => await _client.rpc('event_invite_code', params: {'p_event': eventId}) as String;
+
   /// How many people I brought in, and how many of those have been paid out.
   Future<({int total, int rewarded})> myReferrals(String me) async {
     final rows = await _client.from('referrals').select('rewarded_at').eq('referrer_id', me);

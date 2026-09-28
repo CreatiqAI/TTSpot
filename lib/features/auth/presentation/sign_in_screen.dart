@@ -19,8 +19,11 @@ enum _Mode { signIn, signUp }
 
 /// Instagram-style login: centered wordmark, two fields, blue button,
 /// "OR" divider, Google link, and a pinned switch row at the bottom.
+/// Opened from the welcome screen in sign-up mode ([signUp], via
+/// `/sign-in?mode=signup`) or log-in mode (`/sign-in`).
 class SignInScreen extends ConsumerStatefulWidget {
-  const SignInScreen({super.key});
+  const SignInScreen({super.key, this.signUp = false});
+  final bool signUp;
 
   @override
   ConsumerState<SignInScreen> createState() => _SignInScreenState();
@@ -30,7 +33,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
   final _formKey = GlobalKey<FormState>();
   final _email = TextEditingController();
   final _password = TextEditingController();
-  _Mode _mode = _Mode.signIn;
+  late _Mode _mode = widget.signUp ? _Mode.signUp : _Mode.signIn;
   bool _showPassword = false;
   bool _validate = false;
 
@@ -134,6 +137,16 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
       body: SafeArea(
         child: Column(
           children: [
+            // Back to the welcome screen.
+            if (context.canPop())
+              Align(
+                alignment: Alignment.centerLeft,
+                child: IconButton(
+                  tooltip: 'Back',
+                  icon: const Icon(AppIcons.arrowLeft),
+                  onPressed: busy ? null : () => context.pop(),
+                ),
+              ),
             Expanded(
               child: Center(
                 child: SingleChildScrollView(

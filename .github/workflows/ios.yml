@@ -48,14 +48,17 @@ jobs:
             echo "MAPS_API_KEY=${MAPS_API_KEY}"
             echo "GOOGLE_IOS_CLIENT_ID=${GOOGLE_IOS_CLIENT_ID}"
             echo "GOOGLE_IOS_REVERSED_CLIENT_ID=${REV}"
+            echo "MAPBOX_PUBLIC_TOKEN=$(python3 -c "import json; print(json.load(open('env.json')).get('MAPBOX_PUBLIC_TOKEN', ''))")"
           } > ios/Flutter/Secrets.xcconfig
           python3 -c "import json; json.load(open('env.json')); print('env.json ok')"
 
       - name: Flutter doctor
         run: flutter doctor -v
 
-      - name: Pub get
-        run: flutter pub get
+      - name: Pub get (Swift Package Manager on: the navigation SDK ships via SwiftPM)
+        run: |
+          flutter config --enable-swift-package-manager
+          flutter pub get
 
       - name: Build iOS (release, no signing)
         # Verbose log goes to a file; on failure print the real Xcode/Dart errors

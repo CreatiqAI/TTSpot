@@ -10,6 +10,16 @@ class ReleaseNote {
 
 const kReleaseNotes = <ReleaseNote>[
   ReleaseNote(
+    version: '0.3.33',
+    date: '28 Sep 2026',
+    title: 'Navigate without leaving',
+    points: [
+      'Directions now offers "Navigate in TT Spot": full-screen turn-by-turn with voice, live traffic and reroutes, inside the app.',
+      'Waze and Google Maps are still there as before.',
+      'Early version. Tell us how the routes compare to Waze on your usual roads.',
+    ],
+  ),
+  ReleaseNote(
     version: '0.3.32',
     date: '28 Sep 2026',
     title: 'A new map',

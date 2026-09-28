@@ -83,6 +83,8 @@
 	</dict>
 	<key>MapsApiKey</key>
 	<string>$(MAPS_API_KEY)</string>
+	<key>MBXAccessToken</key>
+	<string>$(MAPBOX_PUBLIC_TOKEN)</string>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
 		<string>waze</string>

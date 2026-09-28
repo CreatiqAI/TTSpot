@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../geo/latlng.dart';
+import '../navigation/app_navigation.dart';
 import '../theme/app_icons.dart';
+import 'friendly_error.dart';
 import '../theme/app_theme.dart';
 import '../widgets/primary_button.dart';
 
@@ -106,6 +109,19 @@ Future<void> showDirectionsSheet(BuildContext context, {required double lat, req
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 6),
             child: Align(alignment: Alignment.centerLeft, child: Text(label == null ? 'Directions' : 'Directions to $label', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800))),
+          ),
+          ListTile(
+            leading: const NavigateTileIcon(icon: AppIcons.car),
+            title: const Text('Navigate in TT Spot', style: TextStyle(fontWeight: FontWeight.w700)),
+            subtitle: Text('Turn-by-turn without leaving the app', style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
+            onTap: () async {
+              Navigator.pop(ctx);
+              try {
+                await AppNavigation.start(to: LatLng(lat, lng), name: label ?? 'Destination');
+              } catch (e) {
+                if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
+              }
+            },
           ),
           ListTile(
             leading: Container(width: 40, height: 40, alignment: Alignment.center, decoration: BoxDecoration(color: const Color(0xFF33CCFF).withValues(alpha: 0.18), borderRadius: BorderRadius.circular(12)), child: const Icon(AppIcons.navigationArrow, color: Color(0xFF0B7FA6))),

@@ -52,6 +52,7 @@ jobs:
         run: |
           printf '%s' "$ENV_JSON" > env.json
           echo "MAPS_API_KEY=${MAPS_API_KEY}" > android/local.properties
+          echo "MAPBOX_PUBLIC_TOKEN=$(python3 -c "import json; print(json.load(open('env.json')).get('MAPBOX_PUBLIC_TOKEN', ''))")" >> android/local.properties
           mkdir -p ~/.gradle && echo "SDK_REGISTRY_TOKEN=${MAPBOX_DOWNLOADS_TOKEN}" >> ~/.gradle/gradle.properties
           python3 -c "import json; json.load(open('env.json')); print('env.json ok')"
 

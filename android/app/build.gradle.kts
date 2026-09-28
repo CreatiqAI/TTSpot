@@ -24,6 +24,9 @@ val keyProps = Properties().apply {
 android {
     namespace = "my.ttspot.app"
     compileSdk = flutter.compileSdkVersion
+    buildFeatures {
+        resValues = true // mapbox_access_token string for the navigation SDK
+    }
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -45,6 +48,8 @@ android {
         versionName = flutter.versionName
 
         manifestPlaceholders["MAPS_API_KEY"] = mapsApiKey
+        // Mapbox Navigation SDK reads the public token from this resource (MAPBOX_PUBLIC_TOKEN in local.properties).
+        resValue("string", "mapbox_access_token", localProps.getProperty("MAPBOX_PUBLIC_TOKEN") ?: "")
     }
 
     signingConfigs {

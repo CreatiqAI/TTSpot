@@ -64,7 +64,7 @@ jobs:
           } > ios/Flutter/Secrets.xcconfig
           python3 -c "import json; json.load(open('env.json')); print('env.json ok')"
 
-      - name: Pub get (Swift Package Manager on: the navigation SDK ships via SwiftPM)
+      - name: Pub get with Swift Package Manager (the navigation SDK ships via SwiftPM)
         run: |
           flutter config --enable-swift-package-manager
           flutter pub get

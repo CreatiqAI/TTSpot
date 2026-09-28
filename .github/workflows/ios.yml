@@ -55,7 +55,7 @@ jobs:
       - name: Flutter doctor
         run: flutter doctor -v
 
-      - name: Pub get (Swift Package Manager on: the navigation SDK ships via SwiftPM)
+      - name: Pub get with Swift Package Manager (the navigation SDK ships via SwiftPM)
         run: |
           flutter config --enable-swift-package-manager
           flutter pub get

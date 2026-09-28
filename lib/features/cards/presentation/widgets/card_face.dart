@@ -11,6 +11,9 @@ const kCardAspect = 2 / 3;
 
 /// Art that ships inside the app, by card id. An `art_url` set by an admin
 /// wins over these.
+/// The printed back of every card.
+const kCardBackAsset = 'assets/cards/back.jpg';
+
 const kCardAssets = <String, String>{
   'c1': 'assets/cards/c1.jpg',
   'c2': 'assets/cards/c2.jpg',
@@ -216,7 +219,20 @@ class CardBack extends StatelessWidget {
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 12 * s, offset: Offset(0, 5 * s))],
       ),
       clipBehavior: Clip.antiAlias,
-      child: Stack(
+      // The printed card back (assets/cards/back.jpg). The drawn version stays
+      // as the fallback if the asset ever fails to load.
+      child: Image.asset(
+        kCardBackAsset,
+        fit: BoxFit.cover,
+        width: width,
+        height: h,
+        filterQuality: FilterQuality.medium,
+        errorBuilder: (_, _, _) => _drawnBack(s),
+      ),
+    );
+  }
+
+  Widget _drawnBack(double s) => Stack(
         alignment: Alignment.center,
         children: [
           Positioned.fill(child: CustomPaint(painter: _BackPainter())),
@@ -226,9 +242,7 @@ class CardBack extends StatelessWidget {
             child: Text('TT SPOT', style: TextStyle(fontFamily: AppFonts.display, fontSize: 20 * s, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: 1.5, height: 1)),
           ),
         ],
-      ),
-    );
-  }
+      );
 }
 
 class _BackPainter extends CustomPainter {

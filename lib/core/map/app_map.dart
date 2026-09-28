@@ -167,11 +167,37 @@ class AppMapController {
     } catch (_) {}
   }
 
-  /// Standard style light preset: day or night.
-  Future<void> setNight(bool night) async {
+  /// Standard style light preset: day or night. Also re-applies the label
+  /// settings, since a preset change can happen before the style has loaded.
+  Future<void> setNight(bool night) => applyStyle(night: night);
+
+  /// Everything we set on the Standard style once it has loaded: the light
+  /// preset, and fewer labels. Mapbox's own shop / restaurant / ATM labels
+  /// fight with our pins at street zoom, so they go; roads and place names
+  /// stay so the map still reads as a map.
+  Future<void> applyStyle({required bool night}) async {
+    final map = _map;
+    if (map == null) return;
     try {
-      await _map?.style.setStyleImportConfigProperty('basemap', 'lightPreset', night ? 'night' : 'day');
-    } catch (_) {}
+      await map.style.setStyleImportConfigProperties('basemap', {
+        'lightPreset': night ? 'night' : 'day',
+        'showPointOfInterestLabels': false,
+        'showTransitLabels': false,
+        'showRoadLabels': true,
+        'showPlaceLabels': true,
+      });
+    } catch (_) {
+      // Older style versions reject unknown keys as a batch; fall back to the one we can't do without.
+      try {
+        await map.style.setStyleImportConfigProperty('basemap', 'lightPreset', night ? 'night' : 'day');
+      } catch (_) {}
+    }
+  }
+
+  /// Where the camera is pointed right now (null before the map is live).
+  Future<LatLng?> center() async {
+    final s = await _map?.getCameraState();
+    return s == null ? null : _ll(s.center);
   }
 
   // ------------------------------------------------------------- markers ---

@@ -11,12 +11,12 @@ let package = Package(
     dependencies: [
         // Flutter injects this local package during build
         .package(name: "FlutterFramework", path: "../FlutterFramework"),
-        // Pinned to 3.24.x: from 3.31 its test-only dependencies
-        // (swift-snapshot-testing / swift-custom-dump) fail to resolve
-        // together in an app's workspace. Widen deliberately, after checking.
+        // TT Spot patch: exact 3.31.1 because mapbox_maps_flutter 2.31.1 pins
+        // mapbox-maps-ios exactly to 11.31.1 and the navigation SDK pins the
+        // same maps version; two different exact pins cannot resolve together.
         .package(
             url: "https://github.com/mapbox/mapbox-navigation-ios.git",
-            .upToNextMinor(from: "3.24.0")
+            exact: "3.31.1"
         )
     ],
     targets: [

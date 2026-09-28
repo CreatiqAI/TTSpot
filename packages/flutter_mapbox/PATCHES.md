@@ -20,3 +20,7 @@ When upstream ships a fix, drop this folder and go back to the pub.dev dependenc
 3. Full-screen navigation honours the Dart `units` option for banners and the
    trip panel (DistanceFormatterOptions) and hides the map scale bar, which sat
    under the status bar.
+
+4. `ios/flutter_mapbox/Package.swift`: mapbox-navigation-ios pinned exactly to
+   3.31.1 (it pins mapbox-maps-ios 11.31.1, the same exact version the map
+   plugin requires; 3.24.x wanted an older maps version and SwiftPM failed).

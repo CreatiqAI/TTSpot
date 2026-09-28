@@ -171,6 +171,143 @@ class CarMarkerFactory {
     return _cache[k] = pin;
   }
 
+  /// A person as their car's portrait: a rounded-square badge with the cover
+  /// photo inside, a 3 px ring in the relationship colour, a small chevron on
+  /// the ring pointing where they are heading, and a name chip underneath.
+  /// Falls back to [car] when there is no photo (callers check [coverUrl]).
+  /// The anchor is the badge centre, like the top-down car.
+  Future<MapPin> badge({
+    required String key,
+    required String coverUrl,
+    required String name,
+    required Color ring,
+    String? status,
+    Color statusColor = const Color(0xFF22C55E),
+    double? headingDeg,
+    bool dim = false,
+    bool me = false,
+  }) async {
+    final h = headingDeg == null ? null : ((headingDeg % 360) / 10).round() * 10;
+    final k = 'badge|$key|$coverUrl|$name|$status|${statusColor.toARGB32()}|$h|$dim|$me|${ring.toARGB32()}';
+    final cached = _cache[k];
+    if (cached != null) return cached;
+
+    final image = await pins.image(coverUrl, targetWidth: 160);
+    const side = 44.0, ringW = 3.0, radius = 12.0, pad = 12.0, gap = 4.0;
+    final label = pins.text(name.length > 14 ? '${name.substring(0, 13)}…' : name, 11, FontWeight.w800, me ? Colors.white : const Color(0xFF101010));
+    final st = status == null ? null : pins.text(status, 10.5, FontWeight.w700, statusColor);
+    final chipW = label.width + (st == null ? 0 : st.width + 5) + 16;
+    final chipH = label.height + 7;
+    final outer = side + ringW * 2;
+    final totalW = math.max(outer + pad * 2, chipW + 4);
+    final totalH = pad + outer + gap + chipH + 6;
+    final cx = totalW / 2;
+    final centre = Offset(cx, pad + outer / 2);
+
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder)..scale(devicePixelRatio);
+    final ringPaint = Paint()..color = dim ? Color.lerp(ring, const Color(0xFFBFC3CA), 0.5)! : ring;
+    if (me) paintHalo(canvas, centre, outer / 2 + 6);
+    if (headingDeg != null) paintHeadingCone(canvas, centre, headingDeg, length: outer / 2 + 12, color: ringPaint.color);
+    // shadow + ring
+    final outerRect = RRect.fromRectAndRadius(Rect.fromCenter(center: centre, width: outer, height: outer), const Radius.circular(radius + ringW));
+    canvas.drawRRect(outerRect.shift(const Offset(0, 2)), Paint()..color = Colors.black.withValues(alpha: 0.28)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3));
+    canvas.drawRRect(outerRect, ringPaint);
+    // cover
+    final inner = Rect.fromCenter(center: centre, width: side, height: side);
+    canvas.save();
+    canvas.clipRRect(RRect.fromRectAndRadius(inner, const Radius.circular(radius)));
+    if (image != null) {
+      pins.drawCover(canvas, image, inner, dimmed: dim);
+    } else {
+      canvas.drawRect(inner, Paint()..color = const Color(0xFF2A2F3A));
+    }
+    canvas.restore();
+    // heading chevron on the ring
+    if (headingDeg != null) {
+      final a = headingDeg * math.pi / 180;
+      final dir = Offset(math.sin(a), -math.cos(a));
+      // where the heading ray leaves the rounded square (a circle is close enough at this size)
+      final tip = centre + dir * (outer / 2 + 5);
+      final base = centre + dir * (outer / 2 - 3);
+      final side2 = Offset(-dir.dy, dir.dx) * 5.5;
+      final chevron = Path()
+        ..moveTo(tip.dx, tip.dy)
+        ..lineTo(base.dx + side2.dx, base.dy + side2.dy)
+        ..lineTo(base.dx - side2.dx, base.dy - side2.dy)
+        ..close();
+      canvas.drawPath(chevron, Paint()..color = Colors.white..style = PaintingStyle.stroke..strokeWidth = 2.5..strokeJoin = StrokeJoin.round);
+      canvas.drawPath(chevron, ringPaint);
+    }
+    // name chip
+    final chipTop = pad + outer + gap;
+    final rect = Rect.fromLTWH(cx - chipW / 2, chipTop, chipW, chipH);
+    canvas.drawRRect(RRect.fromRectAndRadius(rect.shift(const Offset(0, 1.5)), const Radius.circular(8)), Paint()..color = Colors.black.withValues(alpha: 0.18));
+    canvas.drawRRect(RRect.fromRectAndRadius(rect, const Radius.circular(8)), Paint()..color = me ? const Color(0xFF101010) : (dim ? const Color(0xFFF2F2F2) : Colors.white));
+    label.paint(canvas, Offset(rect.left + 8, rect.top + 3.5));
+    st?.paint(canvas, Offset(rect.left + 8 + label.width + 5, rect.top + 4));
+
+    final pin = await pins.finish(recorder, totalW, totalH, anchorY: centre.dy / totalH);
+    return _cache[k] = pin;
+  }
+
+  /// Me, up close: my car's portrait badge when it has a photo, else the
+  /// top-down car, both over a soft red halo and (when known) a heading cone,
+  /// so I am the one thing on the map that cannot be mistaken for anyone else.
+  Future<MapPin> me({required String? coverUrl, required String colorKey, double? headingDeg}) async {
+    if (coverUrl != null) {
+      return badge(key: 'me', coverUrl: coverUrl, name: 'Me', ring: kRelationMe, status: 'now', headingDeg: headingDeg, me: true);
+    }
+    final h = headingDeg == null ? null : ((headingDeg % 360) / 10).round() * 10;
+    final k = 'mecar|$colorKey|$h';
+    final cached = _cache[k];
+    if (cached != null) return cached;
+    const carSize = 58.0, pad = 14.0, gap = 2.0;
+    final label = pins.text('Me', 11, FontWeight.w800, Colors.white);
+    final st = pins.text('now', 10.5, FontWeight.w700, const Color(0xFF22C55E));
+    final chipW = label.width + st.width + 5 + 16;
+    final chipH = label.height + 7;
+    final totalW = carSize + pad * 2;
+    final totalH = pad + carSize + gap + chipH + 8;
+    final cx = totalW / 2;
+    final centre = Offset(cx, pad + carSize / 2);
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder)..scale(devicePixelRatio);
+    paintHalo(canvas, centre, carSize / 2 + 4);
+    if (headingDeg != null) paintHeadingCone(canvas, centre, headingDeg, length: carSize / 2 + 14, color: kRelationMe);
+    paintCar(canvas, centre: centre, size: carSize, color: carColor(colorKey), headingDeg: headingDeg ?? 0);
+    final chipTop = pad + carSize + gap;
+    final rect = Rect.fromLTWH(cx - chipW / 2, chipTop, chipW, chipH);
+    canvas.drawRRect(RRect.fromRectAndRadius(rect.shift(const Offset(0, 1.5)), const Radius.circular(8)), Paint()..color = Colors.black.withValues(alpha: 0.18));
+    canvas.drawRRect(RRect.fromRectAndRadius(rect, const Radius.circular(8)), Paint()..color = const Color(0xFF101010));
+    label.paint(canvas, Offset(rect.left + 8, rect.top + 3.5));
+    st.paint(canvas, Offset(rect.left + 8 + label.width + 5, rect.top + 4));
+    final pin = await pins.finish(recorder, totalW, totalH, anchorY: centre.dy / totalH);
+    return _cache[k] = pin;
+  }
+
+  /// Me, zoomed out: a red dot with a white ring on a soft halo, plus a
+  /// heading chevron when known. Always findable, whatever the zoom.
+  Future<MapPin> meDot({double? headingDeg, double scale = 1}) async {
+    final h = headingDeg == null ? null : ((headingDeg % 360) / 15).round() * 15;
+    final k = 'medot|$h|$scale';
+    final cached = _cache[k];
+    if (cached != null) return cached;
+    final size = 18.0 * scale.clamp(0.8, 1.2);
+    const pad = 14.0;
+    final total = size + pad * 2;
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder)..scale(devicePixelRatio);
+    final c = Offset(total / 2, total / 2);
+    paintHalo(canvas, c, size / 2 + 8);
+    if (headingDeg != null) paintHeadingCone(canvas, c, headingDeg, length: size / 2 + 12, color: kRelationMe);
+    canvas.drawCircle(c.translate(0, 1), size / 2 + 1, Paint()..color = Colors.black.withValues(alpha: 0.25)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2));
+    canvas.drawCircle(c, size / 2 + 2.5, Paint()..color = Colors.white);
+    canvas.drawCircle(c, size / 2, Paint()..color = kRelationMe);
+    final pin = await pins.finish(recorder, total, total, anchorY: 0.5);
+    return _cache[k] = pin;
+  }
+
   /// Far-zoom marker: a small dot in the relationship colour with a white ring.
   Future<MapPin> dot({required String key, required Color color, bool me = false, double scale = 1}) async {
     final k = 'dot|$key|${color.toARGB32()}|$me|$scale';
@@ -215,6 +352,40 @@ String freshnessLabel(DateTime updatedAt) {
   if (d < const Duration(hours: 24)) return '${d.inHours}h';
   return '${d.inDays}d';
 }
+
+/// Soft red glow under my marker, so the eye lands on me first.
+void paintHalo(Canvas canvas, Offset centre, double r, {Color color = kRelationMe}) {
+  canvas.drawCircle(centre, r, Paint()..color = color.withValues(alpha: 0.30)..maskFilter = MaskFilter.blur(BlurStyle.normal, r * 0.35));
+  canvas.drawCircle(centre, r * 0.8, Paint()..color = color.withValues(alpha: 0.16));
+}
+
+/// Translucent wedge (±28°) from [centre] along [headingDeg] (0 = north),
+/// like the phone's own blue-dot beam. Drawn under the marker.
+void paintHeadingCone(Canvas canvas, Offset centre, double headingDeg, {required double length, required Color color}) {
+  final a = headingDeg * math.pi / 180 - math.pi / 2;
+  const half = 28 * math.pi / 180;
+  final path = Path()
+    ..moveTo(centre.dx, centre.dy)
+    ..arcTo(Rect.fromCircle(center: centre, radius: length), a - half, half * 2, false)
+    ..close();
+  canvas.drawPath(
+    path,
+    Paint()
+      ..shader = ui.Gradient.radial(centre, length, [color.withValues(alpha: 0.55), color.withValues(alpha: 0.0)]),
+  );
+}
+
+/// The pulse ring around me, in metres so it stays glued to the ground. [t]
+/// 0..1: grows from the marker's edge out to [radiusM] and fades away.
+AppCircle pulseCircle({required LatLng at, required double radiusM, required double t}) => AppCircle(
+      id: 'me-pulse',
+      center: at,
+      radiusM: radiusM * (0.25 + 0.75 * t),
+      strokeWidth: 2,
+      stroke: kRelationMe.withValues(alpha: (1 - t) * 0.7),
+      fill: kRelationMe.withValues(alpha: (1 - t) * 0.14),
+      zIndex: 2,
+    );
 
 /// A circle with the radar look, used for live meets and the nearby ring.
 AppCircle radarCircle({required String id, required LatLng at, required double radiusM, required double t, Color color = const Color(0xFFE00008)}) {

@@ -48,6 +48,7 @@ async function fcmToken(sa: { client_email: string; private_key: string }): Prom
 const SETTING: Record<string, string> = {
   event_join: "notif_meets", event_comment: "notif_meets", event_reminder: "notif_meets", event_cancelled: "notif_meets",
   checkin: "notif_meets", club_event: "notif_meets", partner_event: "notif_meets", meet_start: "notif_meets",
+  announcement: "notif_meets", lucky_draw: "notif_meets",
   follow: "notif_friends", friend_request: "notif_friends", friend_accepted: "notif_friends", club_invite: "notif_friends",
   club_join: "notif_friends", club_request: "notif_friends", post_like: "notif_friends", post_comment: "notif_friends",
   tt_now: "notif_tt", garage: "notif_tt",
@@ -111,6 +112,12 @@ async function fromNotification(id: string): Promise<Push | null> {
           : (b ?? "").startsWith("redeemed:") ? ["TT Spot", `Prize handed over: ${after(b, "redeemed:")}`, "/cards?tab=prizes"]
           : ["TT Spot", b ?? "Something new in Cards.", "/cards"];
       case "portrait": return ["TT Spot", "Your car portrait is ready. Tap to see it.", "/me"];
+      // body = "<title>\n<message>" from the host / co-host.
+      case "announcement": {
+        const [head, ...rest] = (b ?? "").split("\n");
+        return [ev, rest.length ? `${head}: ${rest.join(" ")}` : head, ev_];
+      }
+      case "lucky_draw": return [ev, b ?? "Lucky draw update.", ev_];
       default: return ["TT Spot", b ?? "Something new for you.", null];
     }
   })();

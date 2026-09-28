@@ -31,7 +31,7 @@ class AdminReport {
 }
 
 class AdminUser {
-  const AdminUser({required this.id, required this.username, this.displayName, this.avatarUrl, required this.createdAt, this.homeState, required this.isAdmin, required this.clubOwner, required this.cars, this.lastSeen, this.phone, this.isPartner = false, this.email});
+  const AdminUser({required this.id, required this.username, this.displayName, this.avatarUrl, required this.createdAt, this.homeState, required this.isAdmin, required this.clubOwner, required this.cars, this.lastSeen, this.phone, this.isPartner = false, this.email, this.isOrganizer = false});
   final String id;
   final String username;
   final String? displayName;
@@ -45,6 +45,7 @@ class AdminUser {
   final String? phone;
   final bool isPartner;
   final String? email;
+  final bool isOrganizer;
 }
 
 final adminStatsProvider = FutureProvider<AdminStats>((ref) async {
@@ -95,6 +96,7 @@ final adminUsersProvider = FutureProvider<List<AdminUser>>((ref) async {
       phone: m['phone'] as String?,
       isPartner: m['is_partner'] as bool? ?? false,
       email: m['email'] as String?,
+      isOrganizer: m['is_organizer'] as bool? ?? false,
     );
   }).toList();
 });
@@ -163,6 +165,12 @@ class AdminActions {
 
   Future<void> setRole(String userId, {bool? admin, bool? clubOwner}) async {
     await _ref.read(supabaseProvider).rpc('admin_set_role', params: {'p_user': userId, 'p_admin': ?admin, 'p_club_owner': ?clubOwner});
+    _ref.invalidate(adminUsersProvider);
+  }
+
+  /// Verified organizer: unlocks crew, announcements and lucky draws on their meets.
+  Future<void> setOrganizer(String userId, {required bool on}) async {
+    await _ref.read(supabaseProvider).rpc('admin_set_organizer', params: {'p_user': userId, 'p_on': on});
     _ref.invalidate(adminUsersProvider);
   }
 

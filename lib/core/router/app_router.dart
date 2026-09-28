@@ -19,6 +19,13 @@ import '../../features/floorplan/presentation/floorplan_editor_screen.dart';
 import '../../features/floorplan/presentation/floorplan_screen.dart';
 import '../../features/events/presentation/my_events_screen.dart';
 import '../../features/friends/presentation/friends_screen.dart';
+import '../../features/organizer/presentation/announcements_screen.dart';
+import '../../features/organizer/presentation/crew_screen.dart';
+import '../../features/organizer/presentation/lucky_draw_edit_screen.dart';
+import '../../features/organizer/presentation/lucky_draw_stage_screen.dart';
+import '../../features/organizer/presentation/lucky_draws_screen.dart';
+import '../../features/organizer/presentation/organizer_apply_screen.dart';
+import '../../features/organizer/presentation/organizer_tools_screen.dart';
 import '../../features/points/presentation/admin_review_screen.dart';
 import '../../features/vendors/presentation/admin_commission_screen.dart';
 import '../../features/vendors/presentation/admin_partners_screen.dart';
@@ -196,6 +203,17 @@ abstract final class Routes {
   static String club(String id) => '/club/$id';
   static String place(String id) => '/place/$id';
   static String partner(String id) => '/partner/$id';
+
+  // Organizer tools (verified organizers and their crew)
+  static const organizerApply = '/organizer/apply';
+  static const prizeScan = '/scan/prize';
+  static String eventTools(String eventId) => '/event-tools/$eventId';
+  static String eventCrew(String eventId) => '/event-tools/$eventId/crew';
+  static String eventAnnouncements(String eventId) => '/event-tools/$eventId/announcements';
+  static String eventDraws(String eventId) => '/event-tools/$eventId/draws';
+  static String eventDrawNew(String eventId) => '/event-tools/$eventId/draws/new';
+  static String eventDrawEdit(String eventId, String drawId) => '/event-tools/$eventId/draws/$drawId/edit';
+  static String drawStage(String eventId, String drawId) => '/event-tools/$eventId/draws/$drawId/stage';
 }
 
 /// Explicit Material page for every route. go_router 18 only recognises
@@ -336,6 +354,25 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: Routes.terms, pageBuilder: (_, s) => page(s, const LegalScreen(title: 'Terms of Use', body: kTerms))),
       GoRoute(path: Routes.friends, pageBuilder: (_, s) => page(s, const FriendsScreen())),
       GoRoute(path: Routes.scan, pageBuilder: (_, s) => page(s, const ScanScreen())),
+      GoRoute(path: Routes.prizeScan, pageBuilder: (_, s) => page(s, const ScanScreen(prizeClaims: true))),
+      GoRoute(path: Routes.organizerApply, pageBuilder: (_, s) => page(s, const OrganizerApplyScreen())),
+      GoRoute(
+        path: '/event-tools/:id',
+        pageBuilder: (_, s) => page(s, OrganizerToolsScreen(eventId: s.pathParameters['id']!)),
+        routes: [
+          GoRoute(path: 'crew', pageBuilder: (_, s) => page(s, CrewScreen(eventId: s.pathParameters['id']!))),
+          GoRoute(path: 'announcements', pageBuilder: (_, s) => page(s, AnnouncementsScreen(eventId: s.pathParameters['id']!))),
+          GoRoute(
+            path: 'draws',
+            pageBuilder: (_, s) => page(s, LuckyDrawsScreen(eventId: s.pathParameters['id']!)),
+            routes: [
+              GoRoute(path: 'new', pageBuilder: (_, s) => page(s, LuckyDrawEditScreen(eventId: s.pathParameters['id']!))),
+              GoRoute(path: ':draw/edit', pageBuilder: (_, s) => page(s, LuckyDrawEditScreen(eventId: s.pathParameters['id']!, drawId: s.pathParameters['draw']))),
+              GoRoute(path: ':draw/stage', pageBuilder: (_, s) => page(s, LuckyDrawStageScreen(eventId: s.pathParameters['id']!, drawId: s.pathParameters['draw']!))),
+            ],
+          ),
+        ],
+      ),
       GoRoute(path: Routes.myQr, pageBuilder: (_, s) => page(s, const MyQrScreen())),
       GoRoute(path: Routes.points, pageBuilder: (_, s) => page(s, const PointsScreen())),
       GoRoute(path: Routes.adminReview, pageBuilder: (_, s) => page(s, const AdminReviewScreen())),

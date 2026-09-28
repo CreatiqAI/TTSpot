@@ -60,6 +60,7 @@ Future<void> showProfileMenu(BuildContext context, WidgetRef ref) async {
             _Group('PARTNERS & CLUBS'),
             _Item(AppIcons.storefront, isVendor ? 'Partner dashboard' : 'Become a partner', 'partner'),
             _Item(AppIcons.usersThree, canRunClubs ? 'My car club' : 'Run a car club', 'club'),
+            _Item(AppIcons.sealCheck, 'Apply to be an organizer', 'organizer'),
             if (isAdmin) ...[
               _Group('ADMIN'),
               _Item(AppIcons.shieldCheck, 'Switch to TT Spot Admin', 'admin'),
@@ -108,6 +109,8 @@ Future<void> showProfileMenu(BuildContext context, WidgetRef ref) async {
       } else {
         context.push(Routes.clubApply);
       }
+    case 'organizer':
+      context.push(Routes.organizerApply);
     case 'admin':
       ref.read(activeAccountProvider.notifier).set(const AdminAccount());
     case 'partners':

@@ -86,6 +86,9 @@ class _ActivityListState extends ConsumerState<ActivityList> {
 /// `approved:<name>` or `rejected:<reason>` (to the applicant, no actor).
 (String, String?) _partnerText(AppNotification n) {
   final body = n.body ?? '';
+  if (body.startsWith('applied-organizer:')) return ('applied to be a verified organizer: ${body.substring(18)}', Routes.adminPartners);
+  if (body.startsWith('approved-organizer:')) return ('You\'re a verified organizer. Open any meet you host and tap Organizer tools.', Routes.meets);
+  if (body.startsWith('rejected-organizer:')) return ('Your organizer application was not approved: ${body.substring(19)}', Routes.organizerApply);
   if (body.startsWith('applied-club:')) return ('applied to run a car club: ${body.substring(13)}', Routes.adminPartners);
   if (body.startsWith('approved-club:')) return ('You can now run ${body.substring(14)} on TT Spot. Create the club and start inviting members.', Routes.createClub);
   if (body.startsWith('rejected-club:')) return ('Your car club application was not approved: ${body.substring(14)}', Routes.clubApply);
@@ -166,12 +169,19 @@ class _Row extends ConsumerWidget {
       NotificationType.cards => _cardsText(n),
       NotificationType.portrait => ('Your car portrait is ready. Tap to see it.', n.body == null ? Routes.garage : Routes.car(n.body!)),
       NotificationType.meetStart => ('${n.eventTitle ?? 'Your meet'} is on. Open TT Spot when you arrive to check in.', n.eventId == null ? null : Routes.event(n.eventId!)),
+      NotificationType.announcement => (
+          'in ${n.eventTitle ?? 'your meet'}: ${(n.body ?? '').replaceFirst('\n', ' · ')}',
+          n.eventId == null ? null : Routes.event(n.eventId!)
+        ),
+      NotificationType.luckyDraw => (n.body ?? 'Lucky draw update.', n.eventId == null ? null : Routes.event(n.eventId!)),
       NotificationType.unknown => ('did something.', null),
     };
     final systemMessage = n.type == NotificationType.badge ||
         n.type == NotificationType.carOfWeek ||
         n.type == NotificationType.eventReminder ||
         n.type == NotificationType.meetStart ||
+        n.type == NotificationType.luckyDraw ||
+        (n.type == NotificationType.announcement && n.actor == null) ||
         (n.type == NotificationType.partner && n.actor == null) ||
         (n.type == NotificationType.points && n.actor == null) ||
         (n.type == NotificationType.clubOfficial && n.actor == null) ||
@@ -202,6 +212,8 @@ class _Row extends ConsumerWidget {
                     NotificationType.cards => '🎁',
                     NotificationType.portrait => '✨',
                     NotificationType.meetStart => '🏁',
+                    NotificationType.luckyDraw => '🎉',
+                    NotificationType.announcement => '📣',
                     _ => '⏰',
                   },
                   size: 26,

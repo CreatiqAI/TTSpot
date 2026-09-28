@@ -48,7 +48,7 @@ class _AdminQueuesScreenState extends ConsumerState<AdminQueuesScreen> {
         children: [
           const _Head('WAITING FOR YOU'),
           _Queue(icon: AppIcons.sealCheck, title: 'Spot photo reviews', subtitle: 'Sticker check-ins the AI was unsure about', count: stats?['pending_verifications'], onTap: () => context.push(Routes.adminReview)),
-          _Queue(icon: AppIcons.handshake, title: 'Partner & club applications', subtitle: 'Approve to unlock hosting and vouchers', count: stats?['pending_partners'], onTap: () => context.push(Routes.adminPartners)),
+          _Queue(icon: AppIcons.handshake, title: 'Partner, club & organizer applications', subtitle: 'Approve to unlock hosting, vouchers and organizer tools', count: stats?['pending_partners'], onTap: () => context.push(Routes.adminPartners)),
           _Queue(icon: AppIcons.mapPinPlus, title: 'Spot suggestions', subtitle: 'Members proposing places for the map', count: stats?['pending_suggestions'], onTap: () => showSuggestionsSheet(context)),
 
           Padding(

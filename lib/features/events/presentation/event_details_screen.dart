@@ -34,6 +34,9 @@ import '../../profile/presentation/widgets/car_picker_sheet.dart';
 import 'event_car_widgets.dart';
 import 'whos_here_sheet.dart';
 import '../../floorplan/presentation/floorplan_entry.dart';
+import '../../organizer/presentation/widgets/lucky_draw_card.dart';
+import '../../organizer/presentation/widgets/organizer_badge.dart';
+import '../../organizer/presentation/widgets/organizer_tools_entry.dart';
 import '../../../core/utils/share_links.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -284,6 +287,7 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                               _CheckInCard(detail: d, busy: _checkInBusy, onCheckIn: () => _checkIn(d)),
                               const SizedBox(height: 8),
                             ],
+                            LuckyDrawCard(eventId: d.event.id),
                             Row(
                               children: [
                                 Expanded(child: _RsvpButton(detail: d, busy: _rsvpBusy, onPressed: () => _toggleRsvp(d))),
@@ -329,6 +333,7 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                               _RecapCard(event: d.event),
                               const SizedBox(height: 20),
                             ],
+                            OrganizerToolsEntry(event: d.event),
                             if (d.event.organizerId == ref.watch(currentUserIdProvider) &&
                                 (d.event.isLive || (d.event.isPast && DateTime.now().difference(d.event.closesAt) < const Duration(hours: 24)))) ...[
                               Material(
@@ -551,6 +556,7 @@ class _OrganizerTile extends StatelessWidget {
                       children: [
                         const TextSpan(text: 'Organised by '),
                         TextSpan(text: name, style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+                        WidgetSpan(alignment: PlaceholderAlignment.middle, child: OrganizerBadge(userId: o?.id)),
                       ],
                     ),
                   ),

@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:geolocator/geolocator.dart' show Geolocator, LocationAccuracyStatus;
+import 'package:geolocator/geolocator.dart' show Geolocator, LocationAccuracyStatus, LocationPermission;
 import '../../../core/geo/latlng.dart';
 import '../../../core/map/app_map.dart';
 
@@ -14,6 +14,7 @@ import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/location/live_position.dart';
+import '../../../core/location/location_gate.dart' show locationGrantedProvider;
 import '../../../core/widgets/glass.dart';
 import '../../../core/widgets/glass_tab_bar.dart';
 import '../../../core/utils/friendly_error.dart';
@@ -41,8 +42,9 @@ import 'widgets/car_marker.dart';
 import 'widgets/visibility_sheet.dart';
 import '../../settings/application/settings_providers.dart';
 
-/// Home. One dark map, three time layers: Now (friends, live meets, moments),
-/// Upcoming (meets on the calendar) and Before (places with history).
+/// Home. One map, three layers: Now (friends, live meets, moments), Upcoming
+/// (meets on the calendar) and Spots (places to check in, shown big and
+/// named). Spots and partner shops also sit quietly under every other layer.
 class MapScreen extends ConsumerStatefulWidget {
   const MapScreen({super.key});
 
@@ -76,6 +78,10 @@ class _MapScreenState extends ConsumerState<MapScreen> with TickerProviderStateM
   ({LatLng target, double zoom})? _initialCamera;
   /// The camera has drifted off me: I am off-screen or > 150 m from the centre.
   bool _awayFromMe = false;
+  /// "Back to me" / locate is gliding the camera home: the pill stays hidden
+  /// for the flight instead of flickering back while the centre catches up.
+  bool _homing = false;
+  Timer? _homingTimer;
   final _sheet = DraggableScrollableController();
   /// The glass toolbar hides while the sheet is up.
   bool _sheetOpen = false;
@@ -207,6 +213,7 @@ class _MapScreenState extends ConsumerState<MapScreen> with TickerProviderStateM
     _pulseTimer?.cancel();
     _pulse.dispose();
     _idleDebounce?.cancel();
+    _homingTimer?.cancel();
     _glyphs?.dispose();
     _pins?.dispose();
     _sheet.dispose();
@@ -251,7 +258,12 @@ class _MapScreenState extends ConsumerState<MapScreen> with TickerProviderStateM
     });
   }
 
-  void _onMapReady() => _moveToUserIfKnown();
+  void _onMapReady() {
+    _moveToUserIfKnown();
+    // Data that loaded before the map was live (spots from the home tab,
+    // a location fix) fires no listener again: draw it now.
+    _rebuild();
+  }
 
   /// The first real fix: jump there straight away if the map has not settled
   /// yet (nobody has seen it, so no need to fly), else glide.
@@ -308,24 +320,73 @@ class _MapScreenState extends ConsumerState<MapScreen> with TickerProviderStateM
   }
 
   void _setAway(bool away) {
+    if (away && _homing) return; // mid-flight home; re-checked when it lands
     if (away != _awayFromMe && mounted) setState(() => _awayFromMe = away);
   }
 
+  /// The locate button and the "Back to me" pill. Glides to the fix we hold,
+  /// then again if a fresh one moves us. With no fix at all it asks for what
+  /// is missing (location services, the permission) instead of doing nothing.
   Future<void> _locateMe() async {
-    // Glide to what we have now, then again if a fresh fix moves us.
     final known = ref.read(livePositionProvider)?.latLng ?? ref.read(userLocationProvider).value;
-    if (known != null) _map.animateTo(known, zoom: 15);
+    if (known != null) _flyHome(known);
     var loc = await ref.read(livePositionProvider.notifier).refresh();
+    if (loc == null && known == null) {
+      if (!await _askForLocation()) return;
+      loc = await ref.read(livePositionProvider.notifier).refresh();
+    }
     if (loc == null) {
       ref.invalidate(userLocationProvider);
       loc = await ref.read(userLocationProvider.future);
     }
     if (!mounted) return;
     if (loc == null) {
-      _snack('Location is off. Showing Kuala Lumpur instead.');
+      if (known == null) _snack('No location fix yet. Try again in a moment, ideally with a view of the sky.');
       return;
     }
-    if (known == null || distanceKm(known, loc) > 0.01) _map.animateTo(loc, zoom: 15);
+    if (known == null || distanceKm(known, loc) > 0.01) _flyHome(loc);
+  }
+
+  /// Glide to me, make sure my own pin is on the map there, and keep the
+  /// "Back to me" pill down: hidden for the flight, re-checked on landing.
+  void _flyHome(LatLng at) {
+    const ms = 600;
+    _lastHere = at;
+    _movedToUser = true;
+    _homing = true;
+    _homingTimer?.cancel();
+    _homingTimer = Timer(const Duration(milliseconds: ms + 250), () {
+      _homing = false;
+      _checkAway();
+    });
+    _setAway(false);
+    _map.animateTo(at, zoom: 15, ms: ms);
+    // Draws my marker if it is missing (first fix, or it was never built).
+    _updateMe();
+  }
+
+  /// Same asks as the location gate (which cannot be reopened once skipped):
+  /// location services, then the system prompt, then Settings when it was
+  /// denied for good. True when a fix is worth trying for again.
+  Future<bool> _askForLocation() async {
+    try {
+      if (!await Geolocator.isLocationServiceEnabled()) {
+        if (mounted) _snack('Location services are off.', action: SnackBarAction(label: 'Turn on', onPressed: () => Geolocator.openLocationSettings()));
+        return false;
+      }
+      var p = await Geolocator.checkPermission();
+      if (p == LocationPermission.denied) p = await Geolocator.requestPermission();
+      if (!mounted) return false;
+      if (p == LocationPermission.denied || p == LocationPermission.deniedForever) {
+        _snack('TT Spot needs your location to show you on the map.', action: SnackBarAction(label: 'Settings', onPressed: () => Geolocator.openAppSettings()));
+        return false;
+      }
+      ref.invalidate(locationGrantedProvider);
+      await ref.read(livePositionProvider.notifier).start();
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   Future<void> _turnOnPrecise() async {
@@ -342,10 +403,10 @@ class _MapScreenState extends ConsumerState<MapScreen> with TickerProviderStateM
     _sheet.animateTo(MapSheet.closed, duration: const Duration(milliseconds: 260), curve: Curves.easeOut);
   }
 
-  void _snack(String msg) {
+  void _snack(String msg, {SnackBarAction? action}) {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(msg)));
+      ..showSnackBar(SnackBar(content: Text(msg), action: action));
   }
 
   // ------------------------------------------------------------- markers ---
@@ -425,7 +486,7 @@ class _MapScreenState extends ConsumerState<MapScreen> with TickerProviderStateM
             onTap: () => _openAt(at, () => _openMoment(m)),
           ));
         }
-        await _addPartners(built, stale, present);
+        await _addPlaces(built, stale, present, focused: false);
         await _addPeople(built, stale, present);
       case MapMode.upcoming:
         final now = DateTime.now();
@@ -438,43 +499,13 @@ class _MapScreenState extends ConsumerState<MapScreen> with TickerProviderStateM
             position: e.latLng,
             image: bmp.bytes, size: bmp.size,
             anchor: bmp.anchor,
+            zIndex: 3, // above the spots underneath
             onTap: () => _openAt(e.latLng, () => context.push(Routes.event(e.id))),
           ));
         }
-        await _addPartners(built, stale, present);
+        await _addPlaces(built, stale, present, focused: false);
       case MapMode.spots:
-        for (final p in ref.read(spotsProvider).value ?? const <Place>[]) {
-          // One language for places: kind colour + silhouette, a red-ringed
-          // dot far out for top spots, bigger and named up close.
-          final kind = spotKindOf(p.kind);
-          final pin = p.isPartner
-              ? await _partnerPin(p)
-              : _far
-                  ? await _glyphFactory.dot(key: p.id, color: spotKindColor(kind), r: (p.recommended ? 5.5 : 4.5) * _glyphScale, ring: p.recommended ? kEventRed : Colors.white)
-                  : await _glyphFactory.spot(
-                      key: p.id,
-                      recommended: p.recommended,
-                      kind: kind,
-                      label: _close ? p.name : null,
-                      sub: _close && p.totalCheckins > 0 ? '${p.totalCheckins} ✓' : null,
-                      scale: _close ? _glyphScale * 1.2 : _glyphScale,
-                    );
-          if (await stale()) return;
-          if (p.isPartner) {
-            present.add(LegendGlyph.partner);
-          } else {
-            present.add(legendGlyphForSpot(kind));
-            if (p.recommended) present.add(LegendGlyph.topSpot);
-          }
-          built.add(AppMarker(
-            id: 'place:${p.id}',
-            position: p.latLng,
-            image: pin.bytes, size: pin.size,
-            anchor: pin.anchor,
-            zIndex: p.isPartner ? 3 : (p.recommended ? 2 : 1),
-            onTap: () => _openAt(p.latLng, () => context.push(p.isPartner ? Routes.partner(p.vendorId!) : Routes.place(p.id))),
-          ));
-        }
+        await _addPlaces(built, stale, present, focused: true);
     }
     if (mode != MapMode.now) await _addPeople(built, stale, present, onlyMe: true);
     if (kDebugMode) debugPrint('map: ${built.length} markers, tier $_tier, zoom ${_zoom.toStringAsFixed(1)}');
@@ -492,19 +523,53 @@ class _MapScreenState extends ConsumerState<MapScreen> with TickerProviderStateM
       ? _pinFactory.partnerMini(key: p.id, scale: _glyphScale)
       : _pinFactory.partner(key: p.id, logoUrl: p.vendorLogo, scale: _close ? _glyphScale * 1.1 : _glyphScale, name: _close ? (p.vendorName ?? p.name) : null);
 
-  /// Partner shops show on every layer: logo pin when zoomed in, red dot far out.
-  Future<void> _addPartners(List<AppMarker> built, Future<bool> Function() stale, Set<LegendGlyph> present) async {
-    for (final p in (ref.read(spotsProvider).value ?? const <Place>[]).where((p) => p.isPartner)) {
-      present.add(LegendGlyph.partner);
-      final pin = await _partnerPin(p);
+  /// Spots (car cafés, mamaks, carparks, the check-in places the home Spots
+  /// tab lists) and partner shops, on every layer.
+  ///
+  /// [focused] = the Spots layer: bigger badges, a red-ringed dot far out for
+  /// top spots, names and check-in counts up close. On Now and Upcoming they
+  /// sit quietly under the events and people (zIndex 0): a small dot far out,
+  /// a small badge closer in, never a label. Partner shops look the same on
+  /// every layer (logo pin, red storefront square far out).
+  Future<void> _addPlaces(List<AppMarker> built, Future<bool> Function() stale, Set<LegendGlyph> present, {required bool focused}) async {
+    for (final p in ref.read(spotsProvider).value ?? const <Place>[]) {
+      final kind = spotKindOf(p.kind);
+      final MapPin pin;
+      if (p.isPartner) {
+        pin = await _partnerPin(p);
+      } else if (_far) {
+        pin = await _glyphFactory.dot(
+          key: p.id,
+          color: spotKindColor(kind),
+          r: (p.recommended ? 5.5 : 4.5) * _glyphScale * (focused ? 1 : 0.85),
+          ring: p.recommended ? kEventRed : Colors.white,
+        );
+      } else if (focused) {
+        pin = await _glyphFactory.spot(
+          key: p.id,
+          recommended: p.recommended,
+          kind: kind,
+          label: _close ? p.name : null,
+          sub: _close && p.totalCheckins > 0 ? '${p.totalCheckins} ✓' : null,
+          scale: _close ? _glyphScale * 1.2 : _glyphScale,
+        );
+      } else {
+        pin = await _glyphFactory.spot(key: p.id, recommended: p.recommended, kind: kind, scale: _glyphScale * 0.8);
+      }
       if (await stale()) return;
+      if (p.isPartner) {
+        present.add(LegendGlyph.partner);
+      } else {
+        present.add(legendGlyphForSpot(kind));
+        if (p.recommended) present.add(LegendGlyph.topSpot);
+      }
       built.add(AppMarker(
         id: 'place:${p.id}',
         position: p.latLng,
         image: pin.bytes, size: pin.size,
         anchor: pin.anchor,
-        zIndex: 2,
-        onTap: () => _openAt(p.latLng, () => context.push(Routes.partner(p.vendorId!))),
+        zIndex: p.isPartner ? (focused ? 3 : 2) : (focused ? (p.recommended ? 2 : 1) : 0),
+        onTap: () => _openAt(p.latLng, () => context.push(p.isPartner ? Routes.partner(p.vendorId!) : Routes.place(p.id))),
       ));
     }
   }
@@ -591,8 +656,9 @@ class _MapScreenState extends ConsumerState<MapScreen> with TickerProviderStateM
   Future<void> _updateMe() async {
     final here = ref.read(userLocationProvider).value ?? _lastHere;
     final me = ref.read(currentUserIdProvider);
-    if (here == null || me == null || _markerSet.isEmpty) return;
+    if (here == null || me == null) return;
     _lastHere = here;
+    // Not drawn yet (first fix, or a map with nothing else on it): full rebuild.
     if (_markerSet.indexWhere((m) => m.id == 'me') < 0) {
       _rebuild();
       return;
@@ -747,19 +813,6 @@ class _MapScreenState extends ConsumerState<MapScreen> with TickerProviderStateM
               ),
             ),
 
-            // Left-side key: what the shapes mean on this layer
-            SafeArea(
-              child: Align(
-                alignment: Alignment.topLeft,
-                child: AnimatedPadding(
-                  duration: const Duration(milliseconds: 200),
-                  // Below the mode switch, and below the "you're at a meet" banner when it shows.
-                  padding: EdgeInsets.only(top: 66 + (nearby == null ? 0 : 60) + (reduced ? 54 : 0), left: 12),
-                  child: MapLegend(mode: mode, light: !_isNight, present: _present),
-                ),
-              ),
-            ),
-
             // Right-side round buttons
             SafeArea(
               child: Align(
@@ -784,6 +837,9 @@ class _MapScreenState extends ConsumerState<MapScreen> with TickerProviderStateM
                         onTap: _locateMe,
                         onLongPress: () => showLocationCheckSheet(context),
                       ),
+                      const SizedBox(height: 10),
+                      // The key: opens "What's on the map".
+                      MapLegend(mode: mode, light: !_isNight, present: _present),
                     ],
                   ),
                 ),

@@ -16,6 +16,14 @@ import '../geo/latlng.dart';
 
 /// A rendered bitmap placed on the map. [anchor] is the fraction of the image
 /// that sits on the coordinate (0.5, 1 = bottom centre). [size] is logical px.
+///
+/// [image] must be a PNG drawn at the screen's device pixel ratio (size x
+/// devicePixelRatio pixels, as MapPinFactory / GlyphMarkerFactory do). Both
+/// plugins register the bitmap at the screen density, so it shows at [size]
+/// logical px on either platform: Android adds it at
+/// `displayMetrics.density` (what Flutter reports as devicePixelRatio there)
+/// and iOS decodes it with `UIImage(data:scale: UIScreen.main.scale)` (what
+/// Flutter reports there). The offset maths in `_options` relies on that.
 class AppMarker {
   const AppMarker({
     required this.id,
@@ -71,6 +79,9 @@ class AppMapController {
   mb.PointAnnotationManager? _points;
   mb.PolygonAnnotationManager? _polys;
   mb.PolylineAnnotationManager? _lines;
+  /// Live annotations by our marker id. The annotation object is what the
+  /// plugin handed back from createMulti; its `id` is the handle every later
+  /// update / delete / tap uses on both platforms.
   final _live = <String, (mb.PointAnnotation, AppMarker)>{};
   final _byAnnotation = <String, String>{};
   Future<void> _queue = Future.value();
@@ -88,12 +99,44 @@ class AppMapController {
     _map = map;
     _polys = await map.annotations.createPolygonAnnotationManager();
     _lines = await map.annotations.createPolylineAnnotationManager();
-    _points = await map.annotations.createPointAnnotationManager();
-    _points!.tapEvents(onTap: (a) {
+    final points = _points = await map.annotations.createPointAnnotationManager();
+    // Pins always draw, like the Google markers this map replaced. Left unset,
+    // the symbol layer's collision rules decide, and those differ in practice
+    // between the two SDKs' annotation managers: a pin sitting on top of
+    // another (me at a spot, a friend at a meet) could simply not be placed.
+    // With overlap allowed, symbolSortKey also means the same thing on both:
+    // a higher zIndex draws on top. (With collisions on, the spec flips it and
+    // the LOWER sort key wins placement, so "me" at zIndex 10 would lose.)
+    try {
+      await points.setIconAllowOverlap(true);
+    } catch (e) {
+      if (kDebugMode) debugPrint('AppMap: iconAllowOverlap failed: $e');
+    }
+    // Taps: both plugins report the same annotation id they returned from
+    // createMulti, and both consume the tap once we listen (the map's own
+    // onTap does not fire for a pin), so one lookup works on either platform.
+    points.tapEvents(onTap: (a) {
       final id = _byAnnotation[a.id];
       if (id != null) _live[id]?.$2.onTap?.call();
     });
   }
+
+  /// Whether an update must carry the bitmap again.
+  ///
+  /// Android (PointAnnotationController.kt `updateAnnotation`) patches the
+  /// live annotation and only touches the icon when `image` is non-null, so a
+  /// geometry-only update can and should leave it null: every bitmap it is
+  /// sent is registered as a new style image (named by the Bitmap's hash) and
+  /// never removed, so re-sending it on each GPS fix would pile up images.
+  ///
+  /// iOS (PointAnnotationController.swift `update` -> `toPointAnnotation()`)
+  /// builds a brand-new annotation from the Flutter object and sets an image
+  /// only when `image` is non-null. An update without the bytes therefore
+  /// replaces the pin with one that has no icon: that is how my own marker
+  /// vanished on iPhone after the first location fix and after "Back to me".
+  /// It reuses the annotation's `iconImage` name, so re-sending the bytes
+  /// just refreshes the same style image rather than adding one.
+  static bool get _updateNeedsImage => defaultTargetPlatform != TargetPlatform.android;
 
   void dispose() {
     _disposed = true;
@@ -234,6 +277,9 @@ class AppMapController {
       if (w != null && identical(w.image, old.image) && w.anchor == old.anchor && w.zIndex == old.zIndex) {
         if (w.position != old.position) {
           a.geometry = _pt(w.position);
+          // The bytes we already hold (identical to what the pin was created
+          // with); see [_updateNeedsImage] for why iOS needs them here.
+          a.image = _updateNeedsImage ? w.image : null;
           toUpdate.add(a);
         }
         _live[e.key] = (a, w);
@@ -254,8 +300,9 @@ class AppMapController {
       for (var i = 0; i < toCreate.length && i < created.length; i++) {
         final a = created[i];
         if (a == null) continue;
-        // The plugin hands back a PNG re-encode of the bitmap. Drop it so a
-        // later position update does not decode and register the image again.
+        // Both plugins hand back a PNG re-encode of the bitmap. We never send
+        // that copy back: a geometry update sets `image` itself, per platform
+        // (see [_updateNeedsImage]), from the original bytes in the AppMarker.
         a.image = null;
         _live[toCreate[i].id] = (a, toCreate[i]);
         _byAnnotation[a.id] = toCreate[i].id;
@@ -268,8 +315,13 @@ class AppMapController {
         geometry: _pt(m.position),
         image: m.image,
         iconAnchor: mb.IconAnchor.CENTER,
-        // shift the image so its anchor point, not its centre, sits on the coordinate
+        // Shift the image so its anchor point, not its centre, sits on the
+        // coordinate. icon-offset is in the icon's display units (logical px,
+        // times icon-size, which we leave at 1) on both SDKs, and the image
+        // displays at m.size logical px on both (see [AppMarker]), so the
+        // same numbers land the tip in the same place on iPhone and Android.
         iconOffset: [(0.5 - m.anchor.dx) * m.size.width, (0.5 - m.anchor.dy) * m.size.height],
+        // Draw order: higher on top (overlap is allowed, see _attach).
         symbolSortKey: m.zIndex.toDouble(),
       );
 

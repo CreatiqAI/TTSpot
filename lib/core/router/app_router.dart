@@ -235,21 +235,22 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       final profile = ref.read(currentProfileProvider);
       if (profile.isLoading) return null;
-      // Four quick slides, once. Settings → About replays it.
-      final introSeen = profile.value == null || (profile.value!.settings['intro_seen'] as bool? ?? false);
-      if (!introSeen) return path == Routes.intro ? null : Routes.intro;
+      // The old four-slide intro is gone: TiTi says each value prop inside onboarding.
+      // Settings → About can still replay IntroScreen.
       final onboarded = profile.value?.isOnboarded ?? false;
 
       final needsCar = profile.value?.needsCar ?? false;
       final basics = ref.read(accountBasicsProvider);
       if (basics.isLoading) return null;
       final basicsDone = basics.value?.complete ?? true; // null = RPC failed; don't lock people out
-      if (!onboarded || !basicsDone || needsCar) return path == Routes.onboarding ? null : Routes.onboarding;
+      // Opening the first blind box is the last onboarding step, so that route may show before the profile refreshes.
+      final openingBox = path.startsWith('/cards/box/');
+      if (!onboarded || !basicsDone || needsCar) return path == Routes.onboarding || openingBox ? null : Routes.onboarding;
 
       // Location first: the app is a map. Ask once per launch, with context.
       final granted = ref.read(locationGrantedProvider);
       final skipped = ref.read(locationGateSkippedProvider);
-      if (granted.hasValue && !granted.value! && !skipped) return path == Routes.locationGate ? null : Routes.locationGate;
+      if (granted.hasValue && !granted.value! && !skipped && !openingBox) return path == Routes.locationGate ? null : Routes.locationGate;
 
       if (onAuthPage || path == Routes.onboarding || path == Routes.locationGate || path == Routes.intro) return Routes.map;
       return null;

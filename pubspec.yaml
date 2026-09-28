@@ -54,6 +54,7 @@ flutter:
     - assets/art/
     - assets/brand/
     - assets/cards/
+    - assets/titi/
   fonts:
     - family: Phosphor
       fonts:

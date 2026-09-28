@@ -126,6 +126,7 @@ class _CarDetailScreenState extends ConsumerState<CarDetailScreen> {
                           ),
                       ],
                     ),
+                    if (c.specLine != null) ...[const SizedBox(height: 4), Text(c.specLine!, style: TextStyle(fontSize: 13, color: AppColors.textSecondary))],
                     if ((c.description ?? '').trim().isNotEmpty) ...[const SizedBox(height: 10), Text(c.description!.trim(), style: const TextStyle(fontSize: 15, height: 1.5))],
                     const SizedBox(height: 14),
                     Row(

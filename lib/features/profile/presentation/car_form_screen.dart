@@ -1,5 +1,4 @@
 import 'package:cached_network_image/cached_network_image.dart';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -12,10 +11,15 @@ import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../application/profile_providers.dart';
-import '../../map/presentation/widgets/car_marker.dart';
+import '../data/profile_repository.dart';
 import '../domain/car.dart';
+import '../domain/car_recognition.dart';
+import 'widgets/car_color_picker.dart';
 
 /// Add or edit a car. Pass [carId] to edit.
+///
+/// Adding: the first photo goes through the recogniser (make, model, year,
+/// colour prefilled, plate blurred) when make and model are still empty.
 class CarFormScreen extends ConsumerStatefulWidget {
   const CarFormScreen({super.key, this.carId});
   final String? carId;
@@ -31,8 +35,15 @@ class _CarFormScreenState extends ConsumerState<CarFormScreen> {
   String? _color;
   final _description = TextEditingController();
   final _kept = <String>[];
-  final _new = <XFile>[];
+  final _new = <Uint8List>[];
   bool _loaded = false;
+  Car? _loadedCar;
+
+  // recognition
+  bool _recognizing = false;
+  CarRecognition? _guess;
+  bool _guessed = false;
+  bool _plateBlurred = false;
 
   bool get _isEdit => widget.carId != null;
 
@@ -48,6 +59,7 @@ class _CarFormScreenState extends ConsumerState<CarFormScreen> {
   void _prefill(Car c) {
     if (_loaded) return;
     _loaded = true;
+    _loadedCar = c;
     _make.text = c.make;
     _model.text = c.model;
     _year.text = c.year?.toString() ?? '';
@@ -83,16 +95,55 @@ class _CarFormScreenState extends ConsumerState<CarFormScreen> {
       ),
     );
     if (source == null) return;
+    Uint8List bytes;
     try {
       final f = await pickCarPhoto(source);
-      if (f != null) setState(() => _new.add(f));
+      if (f == null) return;
+      bytes = await f.readAsBytes();
     } catch (e) {
       if (mounted) _snack(friendlyError(e));
+      return;
     }
+    if (!mounted) return;
+
+    // Nothing typed yet → let the photo fill the form in.
+    final blank = _make.text.trim().isEmpty && _model.text.trim().isEmpty;
+    if (!blank) {
+      setState(() => _new.add(bytes));
+      return;
+    }
+    setState(() => _recognizing = true);
+    final prepared = await prepareCarPhoto(ref.read(profileRepositoryProvider), bytes);
+    if (!mounted) return;
+    setState(() {
+      _recognizing = false;
+      _new.add(prepared.bytes);
+      _plateBlurred = _plateBlurred || prepared.plateBlurred;
+      final g = prepared.guess;
+      if (g != null && g.confident) {
+        _guess = g;
+        _guessed = true;
+        _make.text = g.make;
+        _model.text = g.model;
+        _year.text = g.year?.toString() ?? '';
+        _color = g.color ?? _color;
+      }
+    });
   }
 
   Future<void> _save() async {
     FocusScope.of(context).unfocus();
+    // Spec line / body style only while they still describe this make + model.
+    String? specs;
+    String? bodyStyle;
+    final g = _guess;
+    if (g != null && g.matches(_make.text, _model.text)) {
+      specs = g.specLine;
+      bodyStyle = g.bodyStyle;
+    } else if (_loadedCar != null && _loadedCar!.make.trim().toLowerCase() == _make.text.trim().toLowerCase() && _loadedCar!.model.trim().toLowerCase() == _model.text.trim().toLowerCase()) {
+      specs = _loadedCar!.specs;
+      bodyStyle = _loadedCar!.bodyStyle;
+    }
     final id = await ref.read(carFormControllerProvider.notifier).save(
           carId: widget.carId,
           make: _make.text,
@@ -102,6 +153,8 @@ class _CarFormScreenState extends ConsumerState<CarFormScreen> {
           color: _color,
           keptPhotoUrls: _kept,
           newPhotos: _new,
+          specs: specs,
+          bodyStyle: bodyStyle,
         );
     if (id != null && mounted) {
       if (_isEdit) {
@@ -117,7 +170,7 @@ class _CarFormScreenState extends ConsumerState<CarFormScreen> {
     ref.listen(carFormControllerProvider, (_, next) {
       if (next.hasError && !next.isLoading) _snack(friendlyError(next.error!));
     });
-    final busy = ref.watch(carFormControllerProvider).isLoading;
+    final busy = ref.watch(carFormControllerProvider).isLoading || _recognizing;
 
     if (_isEdit) {
       final car = ref.watch(carProvider(widget.carId!));
@@ -126,6 +179,8 @@ class _CarFormScreenState extends ConsumerState<CarFormScreen> {
       }
       if (car.value != null) _prefill(car.value!);
     }
+
+    final yearHint = _guess?.yearRange;
 
     return Scaffold(
       appBar: AppBar(
@@ -154,7 +209,15 @@ class _CarFormScreenState extends ConsumerState<CarFormScreen> {
                   for (var i = 0; i < _kept.length; i++)
                     _Thumb(image: CachedNetworkImageProvider(_kept[i]), onRemove: busy ? null : () => setState(() => _kept.removeAt(i))),
                   for (var i = 0; i < _new.length; i++)
-                    _Thumb(image: FileImage(File(_new[i].path)), onRemove: busy ? null : () => setState(() => _new.removeAt(i))),
+                    _Thumb(image: MemoryImage(_new[i]), onRemove: busy ? null : () => setState(() => _new.removeAt(i))),
+                  if (_recognizing)
+                    Container(
+                      width: 96,
+                      height: 96,
+                      margin: const EdgeInsets.only(right: 8),
+                      decoration: BoxDecoration(color: AppColors.surfaceRaised, borderRadius: BorderRadius.circular(AppRadius.md), border: Border.all(color: AppColors.border)),
+                      child: const Center(child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))),
+                    ),
                   if (_kept.length + _new.length < 5)
                     GestureDetector(
                       onTap: busy ? null : _addPhoto,
@@ -174,9 +237,15 @@ class _CarFormScreenState extends ConsumerState<CarFormScreen> {
             ),
             const SizedBox(height: 6),
             Text(
-              '${_kept.length + _new.length} of 5 · first photo is the cover',
+              _recognizing
+                  ? 'Looking at your car…'
+                  : '${_kept.length + _new.length} of 5 · first photo is the cover${_plateBlurred ? ' · plate blurred' : ''}',
               style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
             ),
+            if (_guessed) ...[
+              const SizedBox(height: 12),
+              const CarGuessNote(),
+            ],
             const SizedBox(height: 20),
             TextField(
               controller: _make,
@@ -196,40 +265,14 @@ class _CarFormScreenState extends ConsumerState<CarFormScreen> {
               controller: _year,
               keyboardType: TextInputType.number,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(4)],
-              decoration: const InputDecoration(labelText: 'Year (optional)', hintText: 'e.g. 2019'),
+              decoration: InputDecoration(labelText: 'Year (optional)', hintText: yearHint == null ? 'e.g. 2019' : 'Our guess: $yearHint'),
             ),
             const SizedBox(height: 18),
             Text('COLOUR', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1, color: AppColors.textSecondary)),
             const SizedBox(height: 4),
             Text('Shows as your car on the map.', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
             const SizedBox(height: 10),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: [
-                for (final e in kCarColors.entries)
-                  GestureDetector(
-                    onTap: () => setState(() => _color = e.key),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            color: e.value,
-                            shape: BoxShape.circle,
-                            border: Border.all(color: _color == e.key ? AppColors.textPrimary : AppColors.border, width: _color == e.key ? 3 : 1),
-                          ),
-                          child: _color == e.key ? Icon(AppIcons.check, size: 18, color: e.value.computeLuminance() > 0.5 ? AppColors.ink : Colors.white) : null,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(kCarColorLabels[e.key]!, style: TextStyle(fontSize: 10.5, fontWeight: _color == e.key ? FontWeight.w800 : FontWeight.w500)),
-                      ],
-                    ),
-                  ),
-              ],
-            ),
+            CarColorPicker(value: _color, onChanged: (v) => setState(() => _color = v)),
             const SizedBox(height: 14),
             TextField(
               controller: _description,

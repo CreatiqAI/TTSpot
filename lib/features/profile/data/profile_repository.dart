@@ -1,9 +1,13 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/supabase/supabase_client.dart';
+import '../../../core/utils/plate_blur.dart';
 import '../domain/car.dart';
+import '../domain/car_recognition.dart';
 
 /// `cars` reads/writes, car photo uploads, and profile stats.
 class ProfileRepository {
@@ -48,6 +52,8 @@ class ProfileRepository {
     String? description,
     required List<String> photoUrls,
     String? color,
+    String? specs,
+    String? bodyStyle,
   }) async {
     final row = await _client
         .from('cars')
@@ -59,6 +65,8 @@ class ProfileRepository {
           'year': ?year,
           'description': ?description?.trim(),
           'photo_urls': photoUrls,
+          'specs': ?_blank(specs),
+          'body_style': ?_blank(bodyStyle),
         })
         .select()
         .single();
@@ -73,6 +81,8 @@ class ProfileRepository {
     String? description,
     required List<String> photoUrls,
     String? color,
+    String? specs,
+    String? bodyStyle,
   }) async {
     final row = await _client
         .from('cars')
@@ -83,6 +93,8 @@ class ProfileRepository {
           'year': year,
           'description': description?.trim(),
           'photo_urls': photoUrls,
+          'specs': _blank(specs),
+          'body_style': _blank(bodyStyle),
         })
         .eq('id', id)
         .select()
@@ -92,15 +104,37 @@ class ProfileRepository {
 
   Future<void> deleteCar(String id) => _client.from('cars').delete().eq('id', id);
 
-  /// Uploads to `car-photos/<userId>/<millis>_<index>.jpg`, returns the public URL.
+  /// Uploads to `car-photos/<userId>/<millis>_<index>.<ext>`, returns the
+  /// public URL. JPEG straight from the picker; PNG once a plate was blurred.
   Future<String> uploadCarPhoto({required String userId, required Uint8List bytes, required int index}) async {
-    final path = '$userId/${DateTime.now().millisecondsSinceEpoch}_$index.jpg';
+    final type = imageContentType(bytes);
+    final ext = switch (type) { 'image/png' => 'png', 'image/webp' => 'webp', _ => 'jpg' };
+    final path = '$userId/${DateTime.now().millisecondsSinceEpoch}_$index.$ext';
     await _client.storage.from('car-photos').uploadBinary(
           path,
           bytes,
-          fileOptions: const FileOptions(contentType: 'image/jpeg'),
+          fileOptions: FileOptions(contentType: type),
         );
     return _client.storage.from('car-photos').getPublicUrl(path);
+  }
+
+  /// Asks the `recognize-car` edge function what the photo shows. The bytes go
+  /// up as a data URL, so the unblurred original never touches storage;
+  /// [photoUrl] is for a photo that is already in the car-photos bucket.
+  Future<CarRecognition> recognizeCar({Uint8List? bytes, String? photoUrl}) async {
+    assert(bytes != null || photoUrl != null);
+    final body = bytes != null
+        ? {'image': 'data:${imageContentType(bytes)};base64,${base64Encode(bytes)}'}
+        : {'photoUrl': photoUrl};
+    final res = await _client.functions.invoke('recognize-car', body: body);
+    final data = res.data;
+    if (data is Map && data['error'] != null) throw Exception(data['error']);
+    return CarRecognition.fromMap((data as Map).cast<String, dynamic>());
+  }
+
+  static String? _blank(String? s) {
+    final t = s?.trim();
+    return t == null || t.isEmpty ? null : t;
   }
 }
 

@@ -55,6 +55,11 @@ class GarageCard extends StatelessWidget {
                           children: [
                             Text(car.make.toUpperCase(), style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, letterSpacing: 1.6, color: Colors.white70)),
                             Text(car.model, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontFamily: AppFonts.display, fontSize: 26, fontWeight: FontWeight.w800, color: Colors.white, height: 1)),
+                            if (car.specLine != null)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Text(car.specLine!, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w500, color: Colors.white70)),
+                              ),
                           ],
                         ),
                       ),

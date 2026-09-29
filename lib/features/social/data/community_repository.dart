@@ -139,6 +139,24 @@ class CommunityRepository {
     return rows.map(Event.fromMap).toList();
   }
 
+  /// Meets each club has held or planned since [since], by club id. Feeds
+  /// the "Most active" order on the map's list of clubs.
+  Future<Map<String, int>> clubMeetCounts({required DateTime since}) async {
+    final rows = await _client
+        .from('events')
+        .select('club_id')
+        .not('club_id', 'is', null)
+        .eq('status', 'active')
+        .gte('starts_at', since.toUtc().toIso8601String())
+        .limit(2000);
+    final counts = <String, int>{};
+    for (final r in rows) {
+      final id = r['club_id'] as String?;
+      if (id != null) counts[id] = (counts[id] ?? 0) + 1;
+    }
+    return counts;
+  }
+
   // --------------------------------------------------------------- places ---
 
   Future<Place?> place(String id) async {

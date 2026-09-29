@@ -38,6 +38,7 @@ class PlaceScreen extends ConsumerStatefulWidget {
 class _PlaceScreenState extends ConsumerState<PlaceScreen> {
   static const _days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   bool _busy = false;
+  bool _saving = false;
 
   String get id => widget.placeId;
 
@@ -57,9 +58,23 @@ class _PlaceScreenState extends ConsumerState<PlaceScreen> {
     }
   }
 
+  Future<void> _toggleSave() async {
+    if (_saving) return;
+    setState(() => _saving = true);
+    try {
+      final saved = await ref.read(communityActionsProvider).toggleSavePlace(id);
+      _snack(saved ? 'Saved. It stays on your map.' : 'Removed from your saved spots.');
+    } catch (e) {
+      _snack(friendlyError(e));
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final place = ref.watch(placeProvider(id));
+    final saved = ref.watch(savedPlaceIdsProvider).contains(id);
     final events = ref.watch(placeEventsProvider(id)).value ?? const [];
     final moments = ref.watch(placeMomentsProvider(id)).value ?? const <Story>[];
     final posts = kSocialFeed ? (ref.watch(postsWhereProvider((column: 'place_id', value: id))).value ?? const <FeedPost>[]) : const <FeedPost>[];
@@ -104,6 +119,16 @@ class _PlaceScreenState extends ConsumerState<PlaceScreen> {
                       padding: const EdgeInsets.all(6),
                       child: _Circle(
                         child: IconButton(
+                          tooltip: saved ? 'Saved · tap to remove' : 'Save spot',
+                          icon: Icon(saved ? AppIcons.bookmarkSimpleFill : AppIcons.bookmarkSimple, color: Colors.white),
+                          onPressed: _saving ? null : _toggleSave,
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(6),
+                      child: _Circle(
+                        child: IconButton(
                           tooltip: 'Share spot',
                           icon: const Icon(AppIcons.shareFat, color: Colors.white),
                           onPressed: () => shareThing(type: 'place', id: p.id, text: '${p.name} on TT Spot'),
@@ -117,6 +142,8 @@ class _PlaceScreenState extends ConsumerState<PlaceScreen> {
                           tooltip: 'Show on map',
                           icon: const Icon(AppIcons.mapTrifold, color: Colors.white),
                           onPressed: () {
+                            // Focus first: the Spots layer then skips its "nearest spots" view.
+                            ref.read(mapFocusProvider.notifier).request(p.latLng);
                             ref.read(mapModeProvider.notifier).set(MapMode.spots);
                             ref.read(mapListViewProvider.notifier).set(false);
                             context.go(Routes.map);
@@ -218,6 +245,13 @@ class _PlaceScreenState extends ConsumerState<PlaceScreen> {
                           ),
                           const SizedBox(height: 6),
                           Text('Check-ins need your location, within 300 m of the spot.', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                          const SizedBox(height: 10),
+                          // Saved spots stay on the map on every layer, wherever the camera is.
+                          SecondaryButton(
+                            label: saved ? 'Saved · on your map' : 'Save spot',
+                            icon: saved ? AppIcons.bookmarkSimpleFill : AppIcons.bookmarkSimple,
+                            onPressed: _saving ? null : _toggleSave,
+                          ),
                           if (p.isPartner) ...[
                             const SizedBox(height: 12),
                             SecondaryButton(label: 'Partner page · ${p.vendorName ?? ''}', icon: AppIcons.storefront, onPressed: () => context.push(Routes.partner(p.vendorId!))),

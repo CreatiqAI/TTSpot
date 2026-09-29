@@ -16,6 +16,7 @@ import '../../../events/domain/event.dart';
 import '../../../friends/application/friends_providers.dart';
 import '../../../friends/domain/friend.dart';
 import '../../../social/application/chat_providers.dart';
+import '../../../social/application/community_providers.dart';
 import '../../../social/domain/club.dart';
 import '../../../social/domain/post.dart';
 import '../../../social/presentation/story_viewer_screen.dart';
@@ -349,6 +350,35 @@ class _SpotsContent extends ConsumerWidget {
     final origin = ref.watch(mapOriginProvider);
     final query = ref.watch(mapSearchProvider).trim();
     final searching = query.length >= 2;
+    int byDistance(Place a, Place b) => distanceKm(origin, a.latLng).compareTo(distanceKm(origin, b.latLng));
+    // My saved spots come first, wherever they are, nearest first.
+    final savedAll = ref.watch(savedPlacesProvider).value ?? const <Place>[];
+    final savedIds = {for (final p in savedAll) p.id};
+    final saved = savedAll.where((p) => spotMatches(p, query)).toList()..sort(byDistance);
+    final nearest = ref.watch(nearestSpotsProvider).value ?? const <Place>[];
+
+    Widget row(Place p) => SpotRow(
+          place: p,
+          distanceKm: distanceKm(origin, p.latLng),
+          dark: !MapPalette.of(context).light,
+          saved: savedIds.contains(p.id),
+          onTap: () => context.push(Routes.place(p.id)),
+          onLongPress: () => onFocus(p.latLng),
+        );
+
+    Widget header(String text, {Widget? trailing}) => Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 6),
+          child: SizedBox(
+            height: 32,
+            child: Row(
+              children: [
+                Text(text, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1, color: MapPalette.of(context).text2)),
+                const Spacer(),
+                ?trailing,
+              ],
+            ),
+          ),
+        );
 
     return SliverMainAxisGroup(
       slivers: [
@@ -359,49 +389,62 @@ class _SpotsContent extends ConsumerWidget {
           ),
         ),
         if (searching) _GoogleSuggestions(query: query, origin: origin, onFocus: onFocus),
-        if (!searching)
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
-              child: Row(
-                children: [
-                  Text('SPOTS NEAR YOU', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1, color: MapPalette.of(context).text2)),
-                  const Spacer(),
-                  TextButton.icon(
-                    style: TextButton.styleFrom(visualDensity: VisualDensity.compact, padding: const EdgeInsets.symmetric(horizontal: 6)),
-                    onPressed: () => context.push(Routes.suggestSpot),
-                    icon: const Icon(AppIcons.mapPinPlus, size: 16),
-                    label: const Text('Suggest a spot', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
-                  ),
-                ],
-              ),
-            ),
+        if (saved.isNotEmpty) ...[
+          SliverToBoxAdapter(child: header('SAVED')),
+          SliverList.separated(
+            itemCount: saved.length,
+            separatorBuilder: (_, _) => Divider(height: 1, indent: 92, color: MapPalette.of(context).divider),
+            itemBuilder: (_, i) => row(saved[i]),
           ),
+          const SliverToBoxAdapter(child: SizedBox(height: 8)),
+        ],
         places.when(
           loading: () => const SliverToBoxAdapter(child: _Hint('Finding spots…')),
           error: (e, _) => SliverToBoxAdapter(
             child: _Message(title: 'Couldn\'t load spots', subtitle: 'Check your connection.', actionLabel: 'Retry', onAction: () => ref.invalidate(spotsProvider)),
           ),
-          data: (list) => list.isEmpty
-              ? SliverToBoxAdapter(
-                  child: searching
-                      ? const _Hint('No check-in spots match. Pick a place above to jump there.')
-                      : const _Message(title: 'No spots around here yet', subtitle: 'Check in or post a moment at a place, or suggest one above.'),
-                )
-              : SliverPadding(
+          data: (inView) {
+            // Nothing in the viewport (the map opens zoomed in on me): list
+            // the spots nearest to me instead, however far they are.
+            final fallback = inView.isEmpty;
+            final list = (fallback ? nearest.where((p) => spotMatches(p, query)) : inView).where((p) => !savedIds.contains(p.id)).toList()..sort(byDistance);
+            final title = fallback ? 'NEAREST SPOTS' : 'SPOTS NEAR YOU';
+            final suggest = searching
+                ? null
+                : TextButton.icon(
+                    style: TextButton.styleFrom(visualDensity: VisualDensity.compact, padding: const EdgeInsets.symmetric(horizontal: 6)),
+                    onPressed: () => context.push(Routes.suggestSpot),
+                    icon: const Icon(AppIcons.mapPinPlus, size: 16),
+                    label: const Text('Suggest a spot', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
+                  );
+            if (list.isEmpty) {
+              return SliverToBoxAdapter(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (!searching) header(title, trailing: suggest),
+                    if (searching)
+                      const _Hint('No check-in spots match. Pick a place above to jump there.')
+                    else if (saved.isEmpty)
+                      const _Message(title: 'No spots around here yet', subtitle: 'Check in or post a moment at a place, or suggest one above.'),
+                  ],
+                ),
+              );
+            }
+            return SliverMainAxisGroup(
+              slivers: [
+                SliverToBoxAdapter(child: header(title, trailing: suggest)),
+                SliverPadding(
                   padding: const EdgeInsets.only(bottom: 24),
                   sliver: SliverList.separated(
                     itemCount: list.length,
                     separatorBuilder: (_, _) => Divider(height: 1, indent: 92, color: MapPalette.of(context).divider),
-                    itemBuilder: (_, i) => SpotRow(
-                      place: list[i],
-                      distanceKm: distanceKm(origin, list[i].latLng),
-                      dark: !MapPalette.of(context).light,
-                      onTap: () => context.push(Routes.place(list[i].id)),
-                      onLongPress: () => onFocus(list[i].latLng),
-                    ),
+                    itemBuilder: (_, i) => row(list[i]),
                   ),
                 ),
+              ],
+            );
+          },
         ),
       ],
     );
@@ -458,12 +501,16 @@ class _GoogleSuggestions extends ConsumerWidget {
 /// One spot in a list: cover (or kind art), name, tags, check-ins, distance.
 /// Used on the dark map sheet and the light feed tab.
 class SpotRow extends StatelessWidget {
-  const SpotRow({super.key, required this.place, required this.distanceKm, required this.onTap, this.onLongPress, this.dark = false});
+  const SpotRow({super.key, required this.place, required this.distanceKm, required this.onTap, this.onLongPress, this.dark = false, this.saved = false, this.trailing});
   final Place place;
   final double distanceKm;
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
   final bool dark;
+  /// One of my saved spots: a small bookmark on the thumbnail.
+  final bool saved;
+  /// E.g. an unsave button on the Saved spots list.
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -505,6 +552,17 @@ class SpotRow extends StatelessWidget {
                           child: const Text('★', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Colors.white)),
                         ),
                       ),
+                    if (saved)
+                      Positioned(
+                        right: 4,
+                        top: 4,
+                        child: Container(
+                          width: 18,
+                          height: 18,
+                          decoration: BoxDecoration(color: AppColors.ink, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 1.5)),
+                          child: const Icon(AppIcons.bookmarkSimpleFill, size: 10, color: Colors.white),
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -532,6 +590,7 @@ class SpotRow extends StatelessWidget {
                 ],
               ),
             ),
+            ?trailing,
           ],
         ),
       ),

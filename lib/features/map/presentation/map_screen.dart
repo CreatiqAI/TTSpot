@@ -27,6 +27,7 @@ import '../../../core/supabase/supabase_client.dart';
 import '../../profile/application/profile_providers.dart';
 import '../../friends/application/friends_providers.dart';
 import '../../friends/domain/friend.dart';
+import '../../social/application/community_providers.dart';
 import '../../social/domain/club.dart';
 import '../../social/domain/post.dart';
 import '../../social/presentation/story_viewer_screen.dart';
@@ -259,7 +260,10 @@ class _MapScreenState extends ConsumerState<MapScreen> with TickerProviderStateM
   }
 
   void _onMapReady() {
+    // A "Show on map" that came in before the map was live wins over landing on me.
+    _handleFocus();
     _moveToUserIfKnown();
+    if (ref.read(mapModeProvider) == MapMode.spots && _pendingFocus == null) _fitNearestSpots();
     // Data that loaded before the map was live (spots from the home tab,
     // a location fix) fires no listener again: draw it now.
     _rebuild();
@@ -403,6 +407,65 @@ class _MapScreenState extends ConsumerState<MapScreen> with TickerProviderStateM
     _sheet.animateTo(MapSheet.closed, duration: const Duration(milliseconds: 260), curve: Curves.easeOut);
   }
 
+  // ---------------------------------------------------------- spots view ---
+
+  LatLng? get _pendingFocus => ref.read(mapFocusProvider);
+
+  /// Glide to a point another screen asked for ("Show on map" on a spot).
+  void _handleFocus() {
+    final at = _pendingFocus;
+    if (at == null || !_map.isReady) return;
+    // The first GPS fix must not pull the camera back to me afterwards.
+    _movedToUser = true;
+    Future.microtask(() => ref.read(mapFocusProvider.notifier).clear());
+    _focus(at, zoom: 16);
+  }
+
+  /// Room around fitted points: the mode switch on top, the round buttons on
+  /// the right. The toolbar at the bottom is already the map's own padding.
+  EdgeInsets get _fitInsets => EdgeInsets.fromLTRB(44, MediaQuery.paddingOf(context).top + 64, 72, 36);
+
+  /// The Spots layer opens on me and my 5 nearest spots, however far away
+  /// they are, so it never opens on an empty street.
+  Future<void> _fitNearestSpots() async {
+    List<Place> near;
+    try {
+      near = await ref.read(nearestSpotsProvider.future);
+    } catch (_) {
+      return;
+    }
+    if (!mounted || !_map.isReady || ref.read(mapModeProvider) != MapMode.spots || _pendingFocus != null) return;
+    final here = ref.read(userLocationProvider).value ?? _lastHere;
+    final points = [?here, for (final p in near.take(5)) p.latLng];
+    if (points.isEmpty) return;
+    if (points.length == 1) {
+      await _map.animateTo(points.first, zoom: 15);
+      return;
+    }
+    await _map.fitBounds(boundsAround(points), insets: _fitInsets, maxZoom: 15.5, ms: 700);
+  }
+
+  /// "3 spots nearby · closest Wheels Cafe 4.2 km" on Now and Upcoming while
+  /// no spot is in view (the map opens on me, usually on a street without
+  /// one). Null = no pill: a spot is in view, or it was closed this session.
+  String? _spotsHint() {
+    if (ref.watch(spotsHintDismissedProvider)) return null;
+    final view = ref.watch(mapViewportProvider);
+    final inView = ref.watch(spotsProvider).value;
+    if (view == null || inView == null || inView.isNotEmpty) return null;
+    final saved = ref.watch(savedPlacesProvider).value ?? const <Place>[];
+    if (saved.any((p) => view.contains(p.latLng))) return null;
+    final origin = ref.watch(mapOriginProvider);
+    final near = [...ref.watch(nearestSpotsProvider).value ?? const <Place>[]]
+      ..sort((a, b) => distanceKm(origin, a.latLng).compareTo(distanceKm(origin, b.latLng)));
+    if (near.isEmpty) return null;
+    final closest = near.first;
+    final km = formatDistance(distanceKm(origin, closest.latLng));
+    final n = near.where((p) => distanceKm(origin, p.latLng) <= 30).length;
+    if (n == 0) return 'Nearest spot · ${closest.name} $km';
+    return '$n spot${n == 1 ? '' : 's'} nearby · closest ${closest.name} $km';
+  }
+
   void _snack(String msg, {SnackBarAction? action}) {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
@@ -531,9 +594,15 @@ class _MapScreenState extends ConsumerState<MapScreen> with TickerProviderStateM
   /// sit quietly under the events and people (zIndex 0): a small dot far out,
   /// a small badge closer in, never a label. Partner shops look the same on
   /// every layer (logo pin, red storefront square far out).
+  ///
+  /// My saved spots are always drawn, wherever the camera is (the viewport
+  /// query alone would drop them): full-size badges with a bookmark mark, a
+  /// name up close on every layer, above the other spots.
   Future<void> _addPlaces(List<AppMarker> built, Future<bool> Function() stale, Set<LegendGlyph> present, {required bool focused}) async {
-    for (final p in ref.read(spotsProvider).value ?? const <Place>[]) {
+    final savedIds = ref.read(savedPlaceIdsProvider);
+    for (final p in ref.read(mapPlacesProvider)) {
       final kind = spotKindOf(p.kind);
+      final saved = savedIds.contains(p.id);
       final MapPin pin;
       if (p.isPartner) {
         pin = await _partnerPin(p);
@@ -541,16 +610,18 @@ class _MapScreenState extends ConsumerState<MapScreen> with TickerProviderStateM
         pin = await _glyphFactory.dot(
           key: p.id,
           color: spotKindColor(kind),
-          r: (p.recommended ? 5.5 : 4.5) * _glyphScale * (focused ? 1 : 0.85),
-          ring: p.recommended ? kEventRed : Colors.white,
+          r: (p.recommended || saved ? 5.5 : 4.5) * _glyphScale * (focused || saved ? 1 : 0.85),
+          // Saved: an ink ring, like the bookmark disc on the badge.
+          ring: saved ? kInk : (p.recommended ? kEventRed : Colors.white),
         );
-      } else if (focused) {
+      } else if (focused || saved) {
         pin = await _glyphFactory.spot(
           key: p.id,
           recommended: p.recommended,
           kind: kind,
+          saved: saved,
           label: _close ? p.name : null,
-          sub: _close && p.totalCheckins > 0 ? '${p.totalCheckins} ✓' : null,
+          sub: focused && _close && p.totalCheckins > 0 ? '${p.totalCheckins} ✓' : null,
           scale: _close ? _glyphScale * 1.2 : _glyphScale,
         );
       } else {
@@ -562,13 +633,14 @@ class _MapScreenState extends ConsumerState<MapScreen> with TickerProviderStateM
       } else {
         present.add(legendGlyphForSpot(kind));
         if (p.recommended) present.add(LegendGlyph.topSpot);
+        if (saved) present.add(LegendGlyph.savedSpot);
       }
       built.add(AppMarker(
         id: 'place:${p.id}',
         position: p.latLng,
         image: pin.bytes, size: pin.size,
         anchor: pin.anchor,
-        zIndex: p.isPartner ? (focused ? 3 : 2) : (focused ? (p.recommended ? 2 : 1) : 0),
+        zIndex: p.isPartner ? (focused ? 3 : 2) : saved ? (focused ? 3 : 1) : (focused ? (p.recommended ? 2 : 1) : 0),
         onTap: () => _openAt(p.latLng, () => context.push(p.isPartner ? Routes.partner(p.vendorId!) : Routes.place(p.id))),
       ));
     }
@@ -709,9 +781,14 @@ class _MapScreenState extends ConsumerState<MapScreen> with TickerProviderStateM
 
   @override
   Widget build(BuildContext context) {
-    ref.listen(mapModeProvider, (_, _) {
+    ref.listen(mapModeProvider, (prev, next) {
       _rebuild();
       _paintCircles();
+      if (next == MapMode.spots && prev != MapMode.spots && _pendingFocus == null) _fitNearestSpots();
+    });
+    ref.listen(savedPlacesProvider, (_, _) => _rebuild());
+    ref.listen(mapFocusProvider, (_, next) {
+      if (next != null) _handleFocus();
     });
     ref.listen(mapEventsProvider, (_, _) => _rebuild());
     ref.listen(liveEventsProvider, (_, _) => _rebuild());
@@ -750,6 +827,8 @@ class _MapScreenState extends ConsumerState<MapScreen> with TickerProviderStateM
     final toolbarBottom = (bottomInset >= barSpace ? bottomInset : bottomInset + barSpace) + 8;
     final mapPadding = toolbarBottom + MapToolbar.height + 6;
     final reduced = ref.watch(locationPrecisionProvider).value == LocationAccuracyStatus.reduced;
+    final spotsHint = mode == MapMode.spots ? null : _spotsHint();
+    final backToMe = hasLocation && _awayFromMe && !_sheetOpen;
 
     if (listView) {
       return MyEventsScreen(embedded: true, onShowMap: () => ref.read(mapListViewProvider.notifier).set(false));
@@ -853,11 +932,30 @@ class _MapScreenState extends ConsumerState<MapScreen> with TickerProviderStateM
               bottom: toolbarBottom + MapToolbar.height + 12,
               child: Center(
                 child: _BackToMePill(
-                  visible: hasLocation && _awayFromMe && !_sheetOpen,
+                  visible: backToMe,
                   onTap: _locateMe,
                 ),
               ),
             ),
+
+            // "N spots nearby": no spot in view on Now / Upcoming. Tap = the Spots layer, fitted.
+            if (spotsHint != null)
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOut,
+                left: 16,
+                right: 16,
+                bottom: toolbarBottom + MapToolbar.height + 12 + (backToMe ? 50 : 0),
+                child: Center(
+                  child: _SpotsNearbyPill(
+                    text: spotsHint,
+                    visible: !_sheetOpen,
+                    light: !_isNight,
+                    onTap: () => ref.read(mapModeProvider.notifier).set(MapMode.spots),
+                    onDismiss: () => ref.read(spotsHintDismissedProvider.notifier).dismiss(),
+                  ),
+                ),
+              ),
 
             // Glass toolbar above the tab bar; fades away while the sheet is up.
             Positioned(
@@ -1060,6 +1158,58 @@ class _BackToMePill extends StatelessWidget {
                     ],
                   ),
                 ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Small pill above the toolbar: "3 spots nearby · closest ...". Tap to see
+/// them on the Spots layer; the cross hides it for the session.
+class _SpotsNearbyPill extends StatelessWidget {
+  const _SpotsNearbyPill({required this.text, required this.visible, required this.light, required this.onTap, required this.onDismiss});
+  final String text;
+  final bool visible;
+  final bool light;
+  final VoidCallback onTap;
+  final VoidCallback onDismiss;
+
+  @override
+  Widget build(BuildContext context) {
+    final fg = light ? AppColors.ink : Colors.white;
+    return IgnorePointer(
+      ignoring: !visible,
+      child: AnimatedOpacity(
+        opacity: visible ? 1 : 0,
+        duration: const Duration(milliseconds: 160),
+        child: Material(
+          color: light ? Colors.white : AppColors.mapSurface,
+          shape: const StadiumBorder(),
+          elevation: 6,
+          shadowColor: Colors.black45,
+          child: InkWell(
+            onTap: onTap,
+            customBorder: const StadiumBorder(),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 4, 2, 4),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(AppIcons.mapPin, size: 16, color: fg),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: fg, fontSize: 13, fontWeight: FontWeight.w700)),
+                  ),
+                  IconButton(
+                    tooltip: 'Hide',
+                    visualDensity: VisualDensity.compact,
+                    onPressed: onDismiss,
+                    icon: Icon(AppIcons.x, size: 16, color: fg.withValues(alpha: 0.6)),
+                  ),
+                ],
               ),
             ),
           ),

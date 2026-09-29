@@ -23,6 +23,18 @@ double distanceKm(LatLng a, LatLng b) {
 
 double _rad(double deg) => deg * math.pi / 180;
 
+/// The smallest box holding every point. [points] must not be empty.
+LatLngBounds boundsAround(Iterable<LatLng> points) {
+  var s = 90.0, n = -90.0, w = 180.0, e = -180.0;
+  for (final p in points) {
+    s = math.min(s, p.latitude);
+    n = math.max(n, p.latitude);
+    w = math.min(w, p.longitude);
+    e = math.max(e, p.longitude);
+  }
+  return LatLngBounds(southwest: LatLng(s, w), northeast: LatLng(n, e));
+}
+
 /// "850 m", "3.2 km", "42 km"
 String formatDistance(double km) {
   if (km < 1) return '${(km * 1000).round()} m';

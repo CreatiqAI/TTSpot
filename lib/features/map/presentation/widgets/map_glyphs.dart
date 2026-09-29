@@ -198,8 +198,10 @@ Offset _pointOn(Offset p0, Offset p1, Offset p2, Offset p3, double t) {
 
 /// Spot badge: 24 × 24 logical px, centred: a rounded square in the kind's
 /// colour with its silhouette; top spots get a small red star in the corner.
+/// [saved] = one of my saved spots: an ink disc with a white bookmark takes
+/// the top-right corner (the star, if any, moves to the top-left).
 const badgeSize = Size(24, 24);
-void paintSpotBadge(Canvas c, Offset o, {double scale = 1, bool recommended = false, SpotKind kind = SpotKind.other}) {
+void paintSpotBadge(Canvas c, Offset o, {double scale = 1, bool recommended = false, SpotKind kind = SpotKind.other, bool saved = false}) {
   c.save();
   c.translate(o.dx, o.dy);
   c.scale(scale);
@@ -208,8 +210,20 @@ void paintSpotBadge(Canvas c, Offset o, {double scale = 1, bool recommended = fa
   c.drawRRect(rect, Paint()..color = Colors.white..style = PaintingStyle.stroke..strokeWidth = 3);
   c.drawRRect(rect, Paint()..color = spotKindColor(kind));
   paintSpotSilhouette(c, kind, const Offset(12, 12), 19);
-  if (recommended) paintStarBadge(c, const Offset(21, 3.5));
+  if (recommended) paintStarBadge(c, saved ? const Offset(3, 3.5) : const Offset(21, 3.5));
+  if (saved) paintSavedBadge(c, const Offset(21, 3.5));
   c.restore();
+}
+
+/// Small white bookmark on an ink disc: "saved by me", pinned to a badge corner.
+void paintSavedBadge(Canvas c, Offset centre, {double r = 5.2}) {
+  c.drawCircle(centre, r + 1.4, Paint()..color = Colors.white);
+  c.drawCircle(centre, r, Paint()..color = kInk);
+  final tp = TextPainter(
+    text: TextSpan(text: String.fromCharCode(AppIcons.bookmarkSimpleFill.codePoint), style: TextStyle(fontFamily: AppIcons.bookmarkSimpleFill.fontFamily, fontSize: r * 1.4, color: Colors.white, height: 1)),
+    textDirection: TextDirection.ltr,
+  )..layout();
+  tp.paint(c, centre - Offset(tp.width / 2, tp.height / 2));
 }
 
 /// Small red star on a white disc: "top spot", pinned to a badge corner.
@@ -246,8 +260,8 @@ class GlyphMarkerFactory {
 
   /// A place, in its kind's colour and silhouette. [label] / [sub] add the
   /// name chip when zoomed in; [scale] grows the badge with the zoom.
-  Future<MapPin> spot({required String key, required bool recommended, SpotKind kind = SpotKind.other, String? label, String? sub, double scale = 1}) =>
-      _build('s|$key|$recommended|${kind.index}|$label|$sub|$scale', badgeSize * scale, Offset(12, 12) * scale, (c) => paintSpotBadge(c, Offset.zero, recommended: recommended, kind: kind, scale: scale), label, sub);
+  Future<MapPin> spot({required String key, required bool recommended, SpotKind kind = SpotKind.other, String? label, String? sub, double scale = 1, bool saved = false}) =>
+      _build('s|$key|$recommended|${kind.index}|$label|$sub|$scale|$saved', badgeSize * scale, Offset(12, 12) * scale, (c) => paintSpotBadge(c, Offset.zero, recommended: recommended, kind: kind, scale: scale, saved: saved), label, sub);
 
   /// Far-zoom marker: a small colour-coded dot with a white ring, like Waze
   /// when you zoom out to the whole city. [ring] swaps the white ring (red = top spot).

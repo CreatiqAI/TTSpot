@@ -108,8 +108,11 @@ class MapToolbar extends ConsumerWidget {
         final places = ref.watch(visibleSpotsProvider).value ?? const [];
         final partners = places.where((p) => p.isPartner).length;
         final spots = places.length - partners;
+        // None in view: point at the nearest instead (the list shows them).
+        final nearest = places.isEmpty ? ref.watch(nearestSpotsProvider).value?.firstOrNull : null;
+        final origin = ref.watch(mapOriginProvider);
         final text = places.isEmpty
-            ? 'No spots here yet'
+            ? (nearest == null ? 'No spots here yet' : 'Nearest spot ${formatDistance(distanceKm(origin, nearest.latLng))} away')
             : [
                 if (spots > 0) '$spots spot${spots == 1 ? '' : 's'}',
                 if (partners > 0) '$partners partner${partners == 1 ? '' : 's'}',

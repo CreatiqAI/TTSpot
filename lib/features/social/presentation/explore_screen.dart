@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/widgets/glass_tab_bar.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_art.dart';
@@ -26,7 +27,7 @@ class ExploreScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return DefaultTabController(
-      length: 3,
+      length: 2,
       child: Scaffold(
         appBar: AppBar(
           centerTitle: false,
@@ -44,91 +45,118 @@ class ExploreScreen extends ConsumerWidget {
             indicatorWeight: 1.5,
             dividerColor: AppColors.border,
             labelStyle: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-            tabs: [Tab(text: 'For you'), Tab(text: 'Following'), Tab(text: 'Garage')],
+            tabs: [Tab(text: 'Feed'), Tab(text: 'Garage')],
           ),
         ),
-        body: const TabBarView(children: [_ForYou(), _Following(), GarageHomeTab()]),
+        body: const TabBarView(children: [_Feed(), GarageHomeTab()]),
       ),
     );
   }
 }
 
-class _ForYou extends ConsumerWidget {
-  const _ForYou();
+/// One feed: stories on top, then a For you / Following switch. For you is
+/// the discovery grid; Following is the people you follow, full width.
+class _Feed extends ConsumerStatefulWidget {
+  const _Feed();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final feed = ref.watch(exploreFeedProvider);
+  ConsumerState<_Feed> createState() => _FeedState();
+}
+
+class _FeedState extends ConsumerState<_Feed> {
+  bool _following = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final forYou = ref.watch(exploreFeedProvider);
+    final following = ref.watch(followingFeedProvider);
+    final feed = _following ? following : forYou;
     return RefreshIndicator(
       onRefresh: () async {
-        ref.invalidate(exploreFeedProvider);
         ref.invalidate(storiesProvider);
-        await ref.read(exploreFeedProvider.future);
+        if (_following) {
+          ref.invalidate(followingFeedProvider);
+          await ref.read(followingFeedProvider.future);
+        } else {
+          ref.invalidate(exploreFeedProvider);
+          await ref.read(exploreFeedProvider.future);
+        }
       },
       child: CustomScrollView(
         slivers: [
           const SliverToBoxAdapter(child: StoriesRow()),
-          const SliverToBoxAdapter(child: Divider()),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
+              child: Row(
+                children: [
+                  _FeedChip(label: 'For you', selected: !_following, onTap: () => setState(() => _following = false)),
+                  const SizedBox(width: 8),
+                  _FeedChip(label: 'Following', selected: _following, onTap: () => setState(() => _following = true)),
+                ],
+              ),
+            ),
+          ),
           feed.when(
             loading: () => const SliverFillRemaining(hasScrollBody: false, child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
             error: (e, _) => SliverFillRemaining(hasScrollBody: false, child: Center(child: Text(friendlyError(e)))),
-            data: (list) => list.isEmpty
-                ? SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: EmptyState(
-                      art: AppArt.camera,
-                      title: 'Nothing here yet',
-                      subtitle: 'Be the first to post your ride or spot one in the wild.',
-                      actionLabel: 'Create a post',
-                      onAction: () => context.push(Routes.createPost(PostKind.post)),
-                    ),
-                  )
-                : SliverToBoxAdapter(child: MasonryGrid(items: list)),
+            data: (list) {
+              if (list.isEmpty) {
+                return SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: _following
+                      ? EmptyState(
+                          art: AppArt.hug,
+                          title: 'Follow some drivers',
+                          subtitle: 'Posts from people you follow show up here.',
+                          actionLabel: 'Find people',
+                          onAction: () => context.push(Routes.search),
+                        )
+                      : EmptyState(
+                          art: AppArt.camera,
+                          title: 'Nothing here yet',
+                          subtitle: 'Be the first to post your ride or spot one in the wild.',
+                          actionLabel: 'Create a post',
+                          onAction: () => context.push(Routes.createPost(PostKind.post)),
+                        ),
+                );
+              }
+              if (!_following) return SliverToBoxAdapter(child: MasonryGrid(items: list));
+              return SliverList.separated(
+                itemCount: list.length,
+                separatorBuilder: (_, _) => const Divider(),
+                itemBuilder: (_, i) => PostCard(feed: list[i], onOpen: () => context.push(Routes.post(list[i].post.id))),
+              );
+            },
           ),
+          // Clear of the floating tab bar.
+          SliverToBoxAdapter(child: SizedBox(height: GlassTabBar.clearance(context))),
         ],
       ),
     );
   }
 }
 
-class _Following extends ConsumerWidget {
-  const _Following();
+class _FeedChip extends StatelessWidget {
+  const _FeedChip({required this.label, required this.selected, required this.onTap});
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final feed = ref.watch(followingFeedProvider);
-    return RefreshIndicator(
-      onRefresh: () async {
-        ref.invalidate(followingFeedProvider);
-        ref.invalidate(storiesProvider);
-        await ref.read(followingFeedProvider.future);
-      },
-      child: CustomScrollView(
-        slivers: [
-          const SliverToBoxAdapter(child: StoriesRow()),
-          const SliverToBoxAdapter(child: Divider()),
-          feed.when(
-            loading: () => const SliverFillRemaining(hasScrollBody: false, child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
-            error: (e, _) => SliverFillRemaining(hasScrollBody: false, child: Center(child: Text(friendlyError(e)))),
-            data: (list) => list.isEmpty
-                ? SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: EmptyState(
-                      art: AppArt.hug,
-                      title: 'Follow some drivers',
-                      subtitle: 'Posts from people you follow show up here.',
-                      actionLabel: 'Find people',
-                      onAction: () => context.push(Routes.search),
-                    ),
-                  )
-                : SliverList.separated(
-                    itemCount: list.length,
-                    separatorBuilder: (_, _) => const Divider(),
-                    itemBuilder: (_, i) => PostCard(feed: list[i], onOpen: () => context.push(Routes.post(list[i].post.id))),
-                  ),
+  Widget build(BuildContext context) => GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+          decoration: BoxDecoration(
+            color: selected ? AppColors.textPrimary : AppColors.surfaceGray,
+            borderRadius: BorderRadius.circular(999),
           ),
-        ],
-      ),
-    );
-  }
+          child: Text(
+            label,
+            style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: selected ? AppColors.bg : AppColors.textPrimary),
+          ),
+        ),
+      );
 }

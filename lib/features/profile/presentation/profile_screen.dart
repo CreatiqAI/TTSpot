@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../core/widgets/glass_tab_bar.dart';
 import '../../../core/config/features.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/supabase/supabase_client.dart';
@@ -194,6 +195,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ),
                   ),
                 ),
+                // The last row of posts or cards scrolls clear of the floating tab bar.
+                SliverToBoxAdapter(child: SizedBox(height: GlassTabBar.clearance(context))),
               ],
             ),
           );

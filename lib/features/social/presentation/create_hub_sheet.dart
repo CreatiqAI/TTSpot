@@ -5,7 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../../core/config/features.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_icons.dart';
-import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/titi.dart';
 import '../../accounts/application/active_account.dart';
 import '../domain/post.dart';
 
@@ -40,7 +41,8 @@ Future<void> showCreateHub(BuildContext context, WidgetRef ref) {
                     icon: organiser ? AppIcons.flagCheckered : AppIcons.coffee,
                     title: organiser ? 'Event' : 'TT session',
                     subtitle: organiser ? 'Meet, convoy, track day' : 'Plan one for later',
-                    dark: true,
+                    accent: AppColors.brand,
+                    titi: TitiPose.rolling,
                     onTap: () => _go(ctx, context, Routes.createEventAs(clubId: clubId, vendorId: vendor?.id, session: !organiser)),
                   ),
                 ),
@@ -50,6 +52,8 @@ Future<void> showCreateHub(BuildContext context, WidgetRef ref) {
                     icon: AppIcons.camera,
                     title: 'Moment',
                     subtitle: asClub ? 'Personal only' : 'Photo, gone in 24 h',
+                    accent: const Color(0xFF3B6FE0),
+                    titi: TitiPose.camera,
                     onTap: asClub ? null : () => _go(ctx, context, Routes.createMoment()),
                   ),
                 ),
@@ -82,41 +86,54 @@ void _go(BuildContext sheet, BuildContext page, String route) {
   page.push(route);
 }
 
+/// A big, friendly tile: a soft tint of [accent] (never a solid block), the
+/// icon in an accent chip, TiTi in the top-right corner, the words along the bottom.
 class _Big extends StatelessWidget {
-  const _Big({required this.icon, required this.title, required this.subtitle, required this.onTap, this.dark = false});
+  const _Big({required this.icon, required this.title, required this.subtitle, required this.onTap, required this.accent, required this.titi});
   final IconData icon;
   final String title;
   final String subtitle;
   final VoidCallback? onTap;
-  final bool dark;
+  final Color accent;
+  final TitiPose titi;
 
   @override
   Widget build(BuildContext context) {
     final off = onTap == null;
-    final fg = dark ? AppColors.onInk : AppColors.textPrimary;
-    return Material(
-      color: dark ? AppColors.textPrimary : AppColors.surfaceGray,
-      borderRadius: BorderRadius.circular(AppRadius.lg),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-        child: Opacity(
-          opacity: off ? 0.45 : 1,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final bg = Color.alphaBlend(accent.withValues(alpha: dark ? 0.20 : 0.08), dark ? AppColors.surfaceGray : Colors.white);
+    final border = accent.withValues(alpha: dark ? 0.35 : 0.18);
+    return Opacity(
+      opacity: off ? 0.45 : 1,
+      child: Material(
+        color: bg,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22), side: BorderSide(color: border)),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: SizedBox(
+            height: 150,
+            child: Stack(
               children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(color: dark ? AppColors.brand : Colors.white, shape: BoxShape.circle),
-                  child: Icon(icon, size: 20, color: dark ? Colors.white : AppColors.brand),
+                Positioned(right: 2, top: 4, child: Titi(titi, height: 86)),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(color: accent, borderRadius: BorderRadius.circular(12)),
+                        child: Icon(icon, size: 19, color: Colors.white),
+                      ),
+                      const Spacer(),
+                      Text(title, style: TextStyle(fontFamily: AppFonts.display, fontSize: 24, height: 1, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
+                      const SizedBox(height: 3),
+                      Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, height: 1.25, color: AppColors.textSecondary)),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 14),
-                Text(title, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: fg)),
-                const SizedBox(height: 2),
-                Text(subtitle, style: TextStyle(fontSize: 12, color: dark ? AppColors.onInk.withValues(alpha: 0.7) : AppColors.textSecondary)),
               ],
             ),
           ),

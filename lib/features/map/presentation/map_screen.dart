@@ -870,32 +870,51 @@ class _MapScreenState extends ConsumerState<MapScreen> with TickerProviderStateM
               },
             ),
 
-            // Mode switch + nearby banner
+            // Mode switch + banners, and the key on the left under them: it
+            // moves down with whichever banners show, and stops short of the
+            // toolbar and the pills above it ("Back to me", "N spots nearby").
             SafeArea(
-              child: Align(
-                alignment: Alignment.topCenter,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(70, 12, 70, 0),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _ModeSwitch(mode: mode, loading: loading, onChanged: (m) => ref.read(mapModeProvider.notifier).set(m)),
-                      if (reduced) ...[
-                        const SizedBox(height: 10),
-                        _PreciseBanner(onTurnOn: _turnOnPrecise),
-                      ],
-                      if (nearby != null) ...[
-                        const SizedBox(height: 10),
-                        _NearbyBanner(
-                          title: nearby.title,
-                          done: nearby.done,
-                          busy: _nearbyBusy,
-                          onCheckIn: () => _checkInNearby(nearby),
-                          onDismiss: () => ref.read(nearbyMeetProvider.notifier).dismiss(),
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Align(
+                      alignment: Alignment.topCenter,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 70),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _ModeSwitch(mode: mode, loading: loading, onChanged: (m) => ref.read(mapModeProvider.notifier).set(m)),
+                            if (reduced) ...[
+                              const SizedBox(height: 10),
+                              _PreciseBanner(onTurnOn: _turnOnPrecise),
+                            ],
+                            if (nearby != null) ...[
+                              const SizedBox(height: 10),
+                              _NearbyBanner(
+                                title: nearby.title,
+                                done: nearby.done,
+                                busy: _nearbyBusy,
+                                onCheckIn: () => _checkInNearby(nearby),
+                                onDismiss: () => ref.read(nearbyMeetProvider.notifier).dismiss(),
+                              ),
+                            ],
+                          ],
                         ),
-                      ],
-                    ],
-                  ),
+                      ),
+                    ),
+                    // The key: what the pins on the map right now mean. Its
+                    // list scrolls in whatever room is left; none left, it hides.
+                    Flexible(
+                      child: Padding(
+                        padding: EdgeInsets.only(top: 12, left: 12, bottom: toolbarBottom + MapToolbar.height + 120),
+                        child: MapLegend(light: !_isNight, present: _present, far: _far),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -924,9 +943,6 @@ class _MapScreenState extends ConsumerState<MapScreen> with TickerProviderStateM
                         onTap: _locateMe,
                         onLongPress: () => showLocationCheckSheet(context),
                       ),
-                      const SizedBox(height: 10),
-                      // The key: opens "What's on the map".
-                      MapLegend(mode: mode, light: !_isNight, present: _present),
                     ],
                   ),
                 ),

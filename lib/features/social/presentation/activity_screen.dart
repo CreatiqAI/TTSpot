@@ -222,7 +222,7 @@ class _Row extends ConsumerWidget {
             else
               GestureDetector(
                 onTap: n.actor == null ? null : () => context.push(Routes.profile(n.actor!.id)),
-                child: UserAvatar(url: n.actor?.avatarUrl, name: n.actor?.displayName ?? actor, size: 44),
+                child: UserAvatar(url: n.actor?.avatarUrl, name: n.actor?.displayName ?? actor, seed: n.actor?.id, size: 44),
               ),
             const SizedBox(width: 12),
             Expanded(

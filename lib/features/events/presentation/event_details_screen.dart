@@ -406,18 +406,18 @@ class _Cover extends StatelessWidget {
     return AspectRatio(
       aspectRatio: 4 / 3,
       child: event.coverUrl == null
-          ? ColoredBox(
-              color: AppColors.surfaceGray,
-              child: Center(child: ArtIcon(event.type.art, size: 110)),
+          ? Image.asset(event.defaultCover,
+              fit: BoxFit.cover,
+              errorBuilder: (_, _, _) => ColoredBox(
+                color: AppColors.surfaceGray,
+                child: Center(child: ArtIcon(event.type.art, size: 110)),
+              ),
             )
           : Image(image: CachedNetworkImageProvider(event.coverUrl!),
               fit: BoxFit.cover,
               loadingBuilder: (_, child, progress) =>
                   progress == null ? child : ColoredBox(color: AppColors.surfaceGray),
-              errorBuilder: (_, _, _) => ColoredBox(
-                color: AppColors.surfaceGray,
-                child: Center(child: ArtIcon(event.type.art, size: 110)),
-              ),
+              errorBuilder: (_, _, _) => Image.asset(event.defaultCover, fit: BoxFit.cover),
             ),
     );
   }
@@ -545,7 +545,7 @@ class _OrganizerTile extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 4),
         child: Row(
           children: [
-            UserAvatar(url: o?.avatarUrl, name: name, size: 40),
+            UserAvatar(url: o?.avatarUrl, name: name, seed: o?.id, size: 40),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -649,7 +649,7 @@ class _Attendees extends StatelessWidget {
                             style: TextStyle(fontSize: 12, color: here ? AppColors.success : AppColors.textSecondary),
                           );
                           return ListTile(
-                            leading: UserAvatar(url: p.avatarUrl, name: p.displayName ?? p.username, size: 42),
+                            leading: UserAvatar(url: p.avatarUrl, name: p.displayName ?? p.username, seed: p.id, size: 42),
                             title: Text(p.displayName ?? '@${p.username}', style: const TextStyle(fontWeight: FontWeight.w600)),
                             subtitle: car?.title == null
                                 ? status
@@ -837,7 +837,7 @@ class _CommentTile extends ConsumerWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            UserAvatar(url: comment.author?.avatarUrl, name: comment.author?.displayName ?? name, size: 32),
+            UserAvatar(url: comment.author?.avatarUrl, name: comment.author?.displayName ?? name, seed: comment.author?.id, size: 32),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -893,7 +893,7 @@ class _CommentComposer extends ConsumerWidget {
           padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
           child: Row(
             children: [
-              UserAvatar(url: me?.avatarUrl, name: me?.displayName ?? me?.username, size: 32),
+              UserAvatar(url: me?.avatarUrl, name: me?.displayName ?? me?.username, seed: me?.id, size: 32),
               const SizedBox(width: 12),
               Expanded(
                 child: TextField(
@@ -1085,7 +1085,7 @@ class _Moments extends ConsumerWidget {
                         fit: StackFit.expand,
                         children: [
                           ThumbImage(m.photoUrl, error: ColoredBox(color: AppColors.surfaceGray)),
-                          Positioned(left: 6, bottom: 6, child: UserAvatar(url: m.author?.avatarUrl, name: m.author?.username, size: 22, borderColor: Colors.white)),
+                          Positioned(left: 6, bottom: 6, child: UserAvatar(url: m.author?.avatarUrl, name: m.author?.username, seed: m.author?.id, size: 22, borderColor: Colors.white)),
                         ],
                       ),
                     ),

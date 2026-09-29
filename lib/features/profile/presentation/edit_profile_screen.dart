@@ -10,6 +10,7 @@ import '../../../core/supabase/supabase_client.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/widgets/picker_field.dart';
 import '../../../core/utils/friendly_error.dart';
+import '../../../core/widgets/titi_avatar_grid.dart';
 import '../../../core/widgets/user_avatar.dart';
 import '../../auth/application/onboarding_controller.dart';
 import '../../auth/presentation/widgets/username_field.dart';
@@ -30,6 +31,8 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   final _bio = TextEditingController();
   String? _homeState;
   XFile? _avatar;
+  /// A picked TiTi default avatar (0..7); saved as its public URL.
+  int? _preset;
   bool _prefilled = false;
 
   @override
@@ -47,14 +50,19 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   }
 
   Future<void> _pickAvatar() async {
-    final source = await showModalBottomSheet<ImageSource>(
+    final current = ref.read(currentProfileProvider).value?.avatarUrl;
+    final selected = _avatar != null ? null : (_preset ?? DefaultAvatars.indexOfUrl(current));
+    final choice = await showModalBottomSheet<Object>(
       useRootNavigator: true, // above the shell tab bar
       context: context,
       showDragHandle: true,
+      isScrollControlled: true,
       builder: (ctx) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            TitiAvatarGrid(selected: selected, onPick: (i) => Navigator.pop(ctx, i)),
+            const Divider(height: 16),
             ListTile(leading: const Icon(AppIcons.images), title: const Text('Choose from library'), onTap: () => Navigator.pop(ctx, ImageSource.gallery)),
             ListTile(leading: const Icon(AppIcons.camera), title: const Text('Take photo'), onTap: () => Navigator.pop(ctx, ImageSource.camera)),
             const SizedBox(height: 8),
@@ -62,10 +70,22 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
         ),
       ),
     );
-    if (source == null) return;
+    if (choice is int) {
+      setState(() {
+        _preset = choice;
+        _avatar = null;
+      });
+      return;
+    }
+    if (choice is! ImageSource) return;
     try {
-      final f = await pickAvatarImage(source);
-      if (f != null) setState(() => _avatar = f);
+      final f = await pickAvatarImage(choice);
+      if (f != null) {
+        setState(() {
+          _avatar = f;
+          _preset = null;
+        });
+      }
     } catch (e) {
       if (mounted) _snack(friendlyError(e));
     }
@@ -79,6 +99,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
           homeState: _homeState ?? '',
           bio: _bio.text,
           avatar: _avatar,
+          presetAvatarUrl: _preset == null ? null : DefaultAvatars.publicUrl(_preset!),
         );
     final state = ref.read(onboardingControllerProvider);
     if (!state.hasError && mounted) {
@@ -134,7 +155,16 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                               image: DecorationImage(image: FileImage(File(_avatar!.path)), fit: BoxFit.cover),
                             ),
                           )
-                        : UserAvatar(url: profile?.avatarUrl, name: profile?.displayName ?? profile?.username, size: 96),
+                        : _preset != null
+                        ? Container(
+                            width: 96,
+                            height: 96,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              image: DecorationImage(image: AssetImage(DefaultAvatars.asset(_preset!)), fit: BoxFit.cover),
+                            ),
+                          )
+                        : UserAvatar(url: profile?.avatarUrl, name: profile?.displayName ?? profile?.username, seed: profile?.id, size: 96),
                   ),
                   TextButton(onPressed: busy ? null : _pickAvatar, child: const Text('Edit picture')),
                 ],

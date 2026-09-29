@@ -119,7 +119,7 @@ class _NewTradeScreenState extends ConsumerState<NewTradeScreen> {
                 itemBuilder: (_, i) {
                   final p = shown[i];
                   return ListTile(
-                    leading: UserAvatar(url: p.avatarUrl, name: p.displayName ?? p.username, size: 40),
+                    leading: UserAvatar(url: p.avatarUrl, name: p.displayName ?? p.username, seed: p.id, size: 40),
                     title: Text(p.displayName ?? '@${p.username}', style: const TextStyle(fontWeight: FontWeight.w700)),
                     subtitle: p.displayName == null ? null : Text('@${p.username}', style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
                     trailing: Icon(AppIcons.caretRight, size: 16, color: AppColors.textMuted),

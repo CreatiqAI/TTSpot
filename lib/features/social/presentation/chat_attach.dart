@@ -140,7 +140,7 @@ class _AttachSheetState extends ConsumerState<_AttachSheet> {
                                 ListTile(
                                   leading: ClipRRect(
                                     borderRadius: BorderRadius.circular(10),
-                                    child: SizedBox(width: 48, height: 48, child: e.coverUrl == null ? ColoredBox(color: AppColors.surfaceGray, child: Center(child: ArtIcon(e.type.art, size: 26))) : ThumbImage(e.coverUrl!)),
+                                    child: SizedBox(width: 48, height: 48, child: e.coverUrl == null ? Image.asset(e.defaultCover, fit: BoxFit.cover, cacheWidth: 150) : ThumbImage(e.coverUrl!)),
                                   ),
                                   title: Text(e.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600)),
                                   subtitle: Text('${formatEventDate(e.startsAt)} · ${e.venueName}', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),

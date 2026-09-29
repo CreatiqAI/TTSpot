@@ -341,7 +341,7 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> with Sing
                               _ctrl.stop();
                               context.push(Routes.profile(_g.author.id));
                             },
-                            child: UserAvatar(url: _g.author.avatarUrl, name: _g.author.displayName ?? _g.author.username, size: 34, borderColor: Colors.white),
+                            child: UserAvatar(url: _g.author.avatarUrl, name: _g.author.displayName ?? _g.author.username, seed: _g.author.id, size: 34, borderColor: Colors.white),
                           ),
                           const SizedBox(width: 10),
                           Expanded(

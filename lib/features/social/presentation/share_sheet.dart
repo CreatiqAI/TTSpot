@@ -101,7 +101,7 @@ class _ShareSheetState extends ConsumerState<_ShareSheet> {
                           final f = list[i];
                           final on = _picked.contains(f.id);
                           return ListTile(
-                            leading: UserAvatar(url: f.avatarUrl, name: f.displayName ?? f.username, size: 44),
+                            leading: UserAvatar(url: f.avatarUrl, name: f.displayName ?? f.username, seed: f.id, size: 44),
                             title: Text(f.displayName ?? '@${f.username}', style: const TextStyle(fontWeight: FontWeight.w600)),
                             subtitle: Text('@${f.username ?? ''}', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                             trailing: Icon(on ? AppIcons.checkCircleFill : AppIcons.checkCircle, color: on ? AppColors.brand : AppColors.textMuted),

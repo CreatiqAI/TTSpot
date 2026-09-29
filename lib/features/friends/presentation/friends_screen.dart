@@ -6,6 +6,7 @@ import '../../../core/router/app_router.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/titi.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/user_avatar.dart';
@@ -167,7 +168,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
                     ? const Padding(
                         padding: EdgeInsets.fromLTRB(24, 24, 24, 8),
                         child: EmptyState(
-                          emoji: '🫂',
+                          titi: TitiPose.heart,
                           title: 'No friends yet',
                           subtitle: 'Friends see each other on the map and get pinged for TT now. Start with the people below.',
                         ),
@@ -238,7 +239,7 @@ class _PersonTile extends StatelessWidget {
     final p = profile;
     return ListTile(
       onTap: () => context.push(Routes.profile(p.id)),
-      leading: UserAvatar(url: p.avatarUrl, name: p.displayName ?? p.username, size: 44),
+      leading: UserAvatar(url: p.avatarUrl, name: p.displayName ?? p.username, seed: p.id, size: 44),
       title: Text(p.displayName ?? '@${p.username}', style: const TextStyle(fontWeight: FontWeight.w600)),
       subtitle: Text(subtitle ?? '@${p.username ?? ''}', style: TextStyle(color: AppColors.textSecondary, fontSize: 12.5)),
       trailing: trailing,

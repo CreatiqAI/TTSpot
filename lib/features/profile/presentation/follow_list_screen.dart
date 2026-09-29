@@ -32,7 +32,7 @@ class FollowListScreen extends ConsumerWidget {
                 itemBuilder: (_, i) {
                   final p = people[i];
                   return ListTile(
-                    leading: UserAvatar(url: p.avatarUrl, name: p.displayName ?? p.username, size: 44),
+                    leading: UserAvatar(url: p.avatarUrl, name: p.displayName ?? p.username, seed: p.id, size: 44),
                     title: Text(p.username ?? '', style: const TextStyle(fontWeight: FontWeight.w600)),
                     subtitle: Text(p.displayName ?? ''),
                     onTap: () => context.push(Routes.profile(p.id)),

@@ -13,6 +13,8 @@ import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../../core/widgets/empty_state.dart';
+import '../../../core/widgets/titi_avatar_grid.dart';
+import '../../../core/widgets/user_avatar.dart' show DefaultAvatars;
 import '../../cards/application/cards_providers.dart';
 import '../../cards/presentation/widgets/box_nudge.dart';
 import '../../cards/presentation/widgets/profile_cards_grid.dart';
@@ -268,10 +270,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       useRootNavigator: true, // above the shell tab bar
       context: context,
       showDragHandle: true,
+      isScrollControlled: true,
       builder: (ctx) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (isMe) ...[
+              TitiAvatarGrid(selected: DefaultAvatars.indexOfUrl(p.avatarUrl), onPick: (i) => Navigator.pop(ctx, 'titi:$i')),
+              const Divider(height: 16),
+            ],
             if (live.isNotEmpty)
               ListTile(leading: const Icon(AppIcons.camera), title: Text('View moments (${live.length})'), onTap: () => Navigator.pop(ctx, 'moments')),
             if (hasPhoto) ListTile(leading: const Icon(AppIcons.eye), title: const Text('View photo'), onTap: () => Navigator.pop(ctx, 'view')),
@@ -297,7 +304,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 tag: 'avatar-${p.id}',
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(AppRadius.lg),
-                  child: InteractiveViewer(child: Image(image: CachedNetworkImageProvider(p.avatarUrl!), fit: BoxFit.contain)),
+                  child: InteractiveViewer(child: Image(image: DefaultAvatars.image(p.avatarUrl) ?? CachedNetworkImageProvider(p.avatarUrl!), fit: BoxFit.contain)),
                 ),
               ),
             ),
@@ -306,6 +313,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       case 'gallery':
       case 'camera':
         await _changeAvatar(p.id, action == 'camera' ? ImageSource.camera : ImageSource.gallery);
+      default:
+        final i = action.startsWith('titi:') ? int.tryParse(action.substring(5)) : null;
+        if (i != null) await _setPresetAvatar(p.id, i);
+    }
+  }
+
+  /// A TiTi default avatar: saved as its public Storage URL, no upload.
+  Future<void> _setPresetAvatar(String me, int index) async {
+    try {
+      await ref.read(authRepositoryProvider).saveProfile(userId: me, avatarUrl: DefaultAvatars.publicUrl(index));
+      ref.invalidate(profileProvider(me));
+      ref.invalidate(currentProfileProvider);
+      if (mounted) _snack('Profile photo updated.');
+    } catch (e) {
+      if (mounted) _snack(friendlyError(e));
     }
   }
 

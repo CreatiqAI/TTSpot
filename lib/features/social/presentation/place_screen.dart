@@ -316,7 +316,7 @@ class _PlaceScreenState extends ConsumerState<PlaceScreen> {
                                 width: 64,
                                 child: Column(
                                   children: [
-                                    UserAvatar(url: r.profile.avatarUrl, name: r.profile.displayName ?? r.profile.username, size: 52),
+                                    UserAvatar(url: r.profile.avatarUrl, name: r.profile.displayName ?? r.profile.username, seed: r.profile.id, size: 52),
                                     const SizedBox(height: 4),
                                     Text(r.profile.username ?? '', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11.5)),
                                     Text('${r.visits}×', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
@@ -411,7 +411,7 @@ class _Album extends StatelessWidget {
             fit: StackFit.expand,
             children: [
               ThumbImage(m.photoUrl, error: ColoredBox(color: AppColors.surfaceGray)),
-              Positioned(left: 6, bottom: 6, child: UserAvatar(url: m.author?.avatarUrl, name: m.author?.username, size: 22, borderColor: Colors.white)),
+              Positioned(left: 6, bottom: 6, child: UserAvatar(url: m.author?.avatarUrl, name: m.author?.username, seed: m.author?.id, size: 22, borderColor: Colors.white)),
             ],
           ),
         );

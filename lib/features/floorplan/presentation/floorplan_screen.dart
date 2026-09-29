@@ -8,6 +8,7 @@ import '../../../core/router/app_router.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/titi.dart';
 import '../../../core/utils/dates.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../../core/widgets/empty_state.dart';
@@ -243,6 +244,7 @@ class _FloorplanScreenState extends ConsumerState<FloorplanScreen> {
           final levels = all.where((l) => l.hasImage).toList();
           if (levels.isEmpty) {
             return EmptyState(
+              titi: TitiPose.clipboard,
               icon: AppIcons.mapTrifold,
               title: 'No floorplan yet',
               subtitle: isHost ? 'Add each level of the venue and pin the booths, stage and zones.' : 'The organiser hasn\'t added a plan for this meet.',

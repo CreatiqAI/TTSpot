@@ -385,7 +385,7 @@ class _TtNowSheetState extends ConsumerState<_TtNowSheet> {
                       ListTile(
                         dense: true,
                         contentPadding: EdgeInsets.zero,
-                        leading: UserAvatar(url: f.avatarUrl, name: f.displayName ?? f.username, size: 36),
+                        leading: UserAvatar(url: f.avatarUrl, name: f.displayName ?? f.username, seed: f.id, size: 36),
                         title: Text(f.displayName ?? '@${f.username}', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5)),
                         subtitle: Text(liveIds.contains(f.id) ? 'On the map now' : '@${f.username ?? ''}', style: TextStyle(fontSize: 11.5, color: liveIds.contains(f.id) ? AppColors.success : AppColors.textSecondary)),
                         trailing: Icon(invited.contains(f.id) ? AppIcons.checkCircleFill : AppIcons.checkCircle, color: invited.contains(f.id) ? AppColors.brand : AppColors.textMuted),

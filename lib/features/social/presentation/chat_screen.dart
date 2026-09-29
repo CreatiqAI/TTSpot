@@ -314,7 +314,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          if (other != null) UserAvatar(url: other.avatarUrl, name: other.displayName ?? other.username, size: 72),
+                          if (other != null) UserAvatar(url: other.avatarUrl, name: other.displayName ?? other.username, seed: other.id, size: 72),
                           const SizedBox(height: 10),
                           Text(conv?.isMeet ?? false ? 'Meet chat is empty' : 'Say hi to $first', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
                           const SizedBox(height: 4),

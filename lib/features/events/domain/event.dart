@@ -22,6 +22,9 @@ enum EventType {
   final String art;
   final Color color;
 
+  /// Bundled 16:9 cover for a meet of this type with no photo.
+  String get defaultCover => 'assets/covers/$db.jpg';
+
   /// What the New meet form offers. TT is the instant "TT now" kind.
   static const pickable = [EventType.meet, EventType.convoy, EventType.trackday];
 
@@ -64,6 +67,14 @@ class Event {
 
   /// Hosted by an official (paid) club: gold badge on the map.
   bool get isOfficialClubEvent => clubTier == 'official';
+
+  /// Bundled cover when [coverUrl] is null: by type, the TT one for instant
+  /// "TT now" meets, the official one for official clubs.
+  String get defaultCover {
+    if (isOfficialClubEvent) return EventType.official.defaultCover;
+    if (isInstant) return EventType.tt.defaultCover;
+    return type.defaultCover;
+  }
 
   final String id;
   final String organizerId;

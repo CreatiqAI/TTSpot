@@ -107,7 +107,7 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                     padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
                     child: Row(
                       children: [
-                        UserAvatar(url: myProfile?.avatarUrl, name: myProfile?.displayName ?? myProfile?.username, size: 32),
+                        UserAvatar(url: myProfile?.avatarUrl, name: myProfile?.displayName ?? myProfile?.username, seed: myProfile?.id, size: 32),
                         const SizedBox(width: 12),
                         Expanded(
                           child: TextField(
@@ -195,7 +195,7 @@ class _CommentTile extends ConsumerWidget {
           children: [
             GestureDetector(
               onTap: () => context.push(Routes.profile(comment.userId)),
-              child: UserAvatar(url: comment.author?.avatarUrl, name: comment.author?.displayName ?? name, size: 32),
+              child: UserAvatar(url: comment.author?.avatarUrl, name: comment.author?.displayName ?? name, seed: comment.author?.id, size: 32),
             ),
             const SizedBox(width: 12),
             Expanded(

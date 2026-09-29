@@ -71,7 +71,7 @@ class _EventTile extends StatelessWidget {
           child: SizedBox(
             width: 52,
             height: 52,
-            child: e.coverUrl == null ? ColoredBox(color: AppColors.surfaceGray, child: Center(child: ArtIcon(e.type.art, size: 28))) : ThumbImage(e.coverUrl!),
+            child: e.coverUrl == null ? Image.asset(e.defaultCover, fit: BoxFit.cover, cacheWidth: 150) : ThumbImage(e.coverUrl!),
           ),
         ),
         title: Text(e.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontWeight: FontWeight.w700, color: past ? AppColors.textSecondary : AppColors.textPrimary)),

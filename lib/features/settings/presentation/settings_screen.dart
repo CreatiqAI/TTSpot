@@ -58,7 +58,7 @@ class SettingsScreen extends ConsumerWidget {
                   padding: const EdgeInsets.all(14),
                   child: Row(
                     children: [
-                      UserAvatar(url: profile?.avatarUrl, name: profile?.displayName ?? profile?.username, size: 52),
+                      UserAvatar(url: profile?.avatarUrl, name: profile?.displayName ?? profile?.username, seed: profile?.id, size: 52),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(

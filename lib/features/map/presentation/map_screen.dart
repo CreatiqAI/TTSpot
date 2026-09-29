@@ -17,6 +17,7 @@ import '../../../core/location/live_position.dart';
 import '../../../core/location/location_gate.dart' show locationGrantedProvider;
 import '../../../core/widgets/glass.dart';
 import '../../../core/widgets/glass_tab_bar.dart';
+import '../../../core/widgets/user_avatar.dart' show DefaultAvatars;
 import '../../../core/utils/friendly_error.dart';
 import '../../../core/utils/geo.dart';
 import '../../events/application/event_providers.dart';
@@ -686,7 +687,7 @@ class _MapScreenState extends ConsumerState<MapScreen> with TickerProviderStateM
                     status: stranger ? null : freshnessLabel(f.updatedAt),
                     statusColor: f.isFresh ? const Color(0xFF22C55E) : const Color(0xFF8A919E),
                     headingDeg: f.heading ?? 0,
-                    faceUrl: f.user.avatarUrl,
+                    faceUrl: (f.user.avatarUrl ?? '').isNotEmpty ? f.user.avatarUrl : DefaultAvatars.forSeed(f.user.id, name),
                     showFace: !stranger,
                     dim: stranger || !f.isFresh,
                     relation: relation,

@@ -6,6 +6,7 @@ import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_art.dart';
 import '../../../../core/theme/app_icons.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/titi.dart';
 import '../../../../core/utils/dates.dart';
 import '../../../../core/utils/geo.dart';
 import '../../../../core/widgets/thumb_image.dart';
@@ -88,6 +89,7 @@ class MapEventSheet extends ConsumerWidget {
                     return SliverToBoxAdapter(
                       child: hasSearch
                           ? const _Message(
+                              titi: TitiPose.binoculars,
                               icon: AppIcons.magnifyingGlass,
                               title: 'No matches',
                               subtitle: 'Try a different name or venue.',
@@ -203,7 +205,7 @@ class EventRow extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            _Cover(url: e.coverUrl, type: e.type),
+            _Cover(url: e.coverUrl, type: e.type, fallback: e.defaultCover),
             const SizedBox(width: 14),
             Expanded(
               child: Column(
@@ -254,9 +256,11 @@ class EventRow extends StatelessWidget {
 }
 
 class _Cover extends StatelessWidget {
-  const _Cover({required this.url, required this.type});
+  const _Cover({required this.url, required this.type, required this.fallback});
   final String? url;
   final EventType type;
+  /// Bundled cover for the event's type ([Event.defaultCover]).
+  final String fallback;
 
   @override
   Widget build(BuildContext context) {
@@ -266,13 +270,10 @@ class _Cover extends StatelessWidget {
         width: 58,
         height: 58,
         child: url == null
-            ? ColoredBox(
-                color: MapPalette.of(context).tile,
-                child: Center(child: ArtIcon(type.art, size: 34)),
-              )
+            ? Image.asset(fallback, fit: BoxFit.cover, cacheWidth: 180)
             : ThumbImage(url!,
                 placeholder: ColoredBox(color: MapPalette.of(context).tile, child: Center(child: ArtIcon(type.art, size: 34))),
-                error: ColoredBox(color: MapPalette.of(context).tile, child: Center(child: ArtIcon(type.art, size: 34))),
+                error: Image.asset(fallback, fit: BoxFit.cover, cacheWidth: 180),
               ),
       ),
     );
@@ -321,6 +322,7 @@ class _Message extends StatelessWidget {
     this.subtitle,
     this.icon,
     this.art,
+    this.titi,
     this.actionLabel,
     this.onAction,
   });
@@ -328,6 +330,7 @@ class _Message extends StatelessWidget {
   final String? subtitle;
   final IconData? icon;
   final String? art;
+  final TitiPose? titi;
   final String? actionLabel;
   final VoidCallback? onAction;
 
@@ -337,7 +340,9 @@ class _Message extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(32, 36, 32, 24),
       child: Column(
         children: [
-          if (art != null)
+          if (titi != null)
+            Titi(titi!, height: 130)
+          else if (art != null)
             ArtIcon(art!, size: 56)
           else
             Icon(icon, size: 40, color: MapPalette.of(context).text2),

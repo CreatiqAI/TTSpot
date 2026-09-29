@@ -10,6 +10,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/titi.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../events/application/event_providers.dart';
@@ -38,6 +39,7 @@ class ZoneQrSheetScreen extends ConsumerWidget {
       backgroundColor: AppColors.surfaceGray,
       body: items.isEmpty
           ? const EmptyState(
+              titi: TitiPose.clipboard,
               icon: AppIcons.qrCode,
               title: 'No zone pins yet',
               subtitle: 'Add Zone, Entrance or Parking pins to the plan. Each one gets a QR to tape on a pillar so members can set their spot in a basement with no GPS.',

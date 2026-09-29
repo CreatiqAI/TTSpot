@@ -229,9 +229,9 @@ class LegendGlyphPainter extends CustomPainter {
     final centre = Offset(s.width / 2, s.height / 2);
     // The map's teardrops, [s.height] tall and centred: the same painter, so
     // the key always matches the pins.
-    void drop({Color color = kEventRed, Color outline = Colors.white, SpotKind? kind, IconData? glyph, bool feather = false}) {
+    void drop({Color color = kEventRed, Color outline = Colors.white, SpotKind? kind, IconData? glyph}) {
       final k = s.height / teardropSize.height;
-      paintTeardrop(c, Offset(centre.dx - teardropTip.dx * k, 0), scale: k, color: color, outline: outline, kind: kind, glyph: glyph, feather: feather);
+      paintTeardrop(c, Offset(centre.dx - teardropTip.dx * k, 0), scale: k, color: color, outline: outline, kind: kind, glyph: glyph);
     }
     void spot(SpotKind k) => drop(color: spotKindColor(k), kind: k);
     switch (glyph) {
@@ -242,7 +242,7 @@ class LegendGlyphPainter extends CustomPainter {
       case LegendGlyph.partnerEvent:
         drop(color: kInk, glyph: AppIcons.storefrontFill);
       case LegendGlyph.flag:
-        drop(feather: true);
+        drop(glyph: AppIcons.flagPennantFill);
       case LegendGlyph.spot:
         spot(SpotKind.other);
       // Top and saved are badges on a spot's pin, whatever its kind: the key

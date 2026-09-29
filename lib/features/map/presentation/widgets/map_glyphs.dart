@@ -12,7 +12,7 @@ import 'map_pins.dart';
 ///   spot         = its kind's colour and silhouette (star = top spot, bookmark = saved)
 ///   partner shop = ink with a red outline and a storefront
 ///   meet         = red with a flag (gold + crown for official clubs, ink + storefront for partners)
-///   TT session   = the feather flag inside
+///   TT session   = a pennant flag instead of the meet flag
 /// Zoomed out, pins that would overlap merge into a round count bubble.
 /// Painters are shared by the markers and the on-map legend. The balloon is
 /// the older event pin, still used by the convoy map and the static previews.
@@ -76,7 +76,7 @@ Path _teardropPath(double r, double tipY) {
 
 /// A teardrop pin: [color] head with a 2.5 px [outline] (white, red for
 /// partner shops), a soft shadow and a white mark inside: the [kind]'s
-/// silhouette, an icon [glyph], or the TT [feather] flag. [recommended] adds
+/// silhouette or an icon [glyph]. [recommended] adds
 /// the red star badge and [saved] the bookmark badge (the star moves left).
 /// [selected] draws a soft halo of its colour around the head; the caller
 /// leaves [teardropHaloMargin] of room for it.
@@ -88,7 +88,6 @@ void paintTeardrop(
   Color outline = Colors.white,
   SpotKind? kind,
   IconData? glyph,
-  bool feather = false,
   bool recommended = false,
   bool saved = false,
   bool selected = false,
@@ -107,8 +106,6 @@ void paintTeardrop(
   c.drawPath(body, Paint()..color = color);
   if (kind != null) {
     paintSpotSilhouette(c, kind, _headCentre, 19);
-  } else if (feather) {
-    _paintFeather(c, _headCentre, 19);
   } else if (glyph != null) {
     final tp = TextPainter(
       text: TextSpan(text: String.fromCharCode(glyph.codePoint), style: TextStyle(fontFamily: glyph.fontFamily, fontSize: 16, color: Colors.white, height: 1)),
@@ -141,27 +138,11 @@ void paintCluster(Canvas c, Offset centre, {required int count, double scale = 1
   c.restore();
 }
 
-/// The TT feather flag in white: a pole and a curved sail, sized to fit [side] px.
-void _paintFeather(Canvas canvas, Offset c, double side) {
-  final u = side / 20; // 20-unit symbol space
-  canvas.save();
-  canvas.translate(c.dx - 10 * u, c.dy - 10 * u);
-  canvas.scale(u);
-  final sail = Path()
-    ..moveTo(6.2, 2.6)
-    ..cubicTo(12.5, 1.6, 16.8, 6, 14.4, 10.8)
-    ..cubicTo(12.9, 13.3, 9, 13.8, 6.2, 14.2)
-    ..close();
-  canvas.drawPath(sail, Paint()..color = Colors.white);
-  canvas.drawLine(const Offset(5.6, 2), const Offset(5.6, 18), Paint()..color = Colors.white..strokeWidth = 1.9..strokeCap = StrokeCap.round);
-  canvas.restore();
-}
-
 // ------------------------------------------------------------------ spots ---
 
 /// One visual language for places: every kind has its own colour and a
 /// simple silhouette, so a cafe never looks like a carpark even when the
-/// badge is only 20 px wide. Partner shops (workshops, accessories…) share
+/// pin is only 22 px wide. Partner shops (workshops, accessories…) share
 /// the slate "tools" family.
 enum SpotKind { cafe, mamak, carpark, route, circuit, mall, workshop, other }
 
@@ -335,7 +316,6 @@ class GlyphMarkerFactory {
     Color outline = Colors.white,
     SpotKind? kind,
     IconData? glyph,
-    bool feather = false,
     bool recommended = false,
     bool saved = false,
     bool selected = false,
@@ -345,10 +325,10 @@ class GlyphMarkerFactory {
   }) {
     final m = selected ? teardropHaloMargin : 0.0;
     return _build(
-      't|${color.toARGB32()}|${outline.toARGB32()}|${kind?.index}|${glyph?.codePoint}|$feather|$recommended|$saved|$selected|$label|$sub|$scale',
+      't|${color.toARGB32()}|${outline.toARGB32()}|${kind?.index}|${glyph?.codePoint}|$recommended|$saved|$selected|$label|$sub|$scale',
       Size(teardropSize.width + m * 2, teardropSize.height + m) * scale,
       (teardropTip + Offset(m, m)) * scale,
-      (c) => paintTeardrop(c, Offset(m, m) * scale, scale: scale, color: color, outline: outline, kind: kind, glyph: glyph, feather: feather, recommended: recommended, saved: saved, selected: selected),
+      (c) => paintTeardrop(c, Offset(m, m) * scale, scale: scale, color: color, outline: outline, kind: kind, glyph: glyph, recommended: recommended, saved: saved, selected: selected),
       label,
       sub,
     );

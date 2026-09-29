@@ -496,7 +496,7 @@ class _MapScreenState extends ConsumerState<MapScreen> with TickerProviderStateM
     if (_map.isReady) _map.animateTo(p.latLng, padding: _cardPadding, ms: 300);
   }
 
-  /// Map tap, the X, a swipe down or Back: the card goes, the toolbar and
+  /// Map tap, the X or a swipe down: the card goes, the toolbar and
   /// the plain pin come back, and the camera padding eases back to the toolbar's.
   void _closeCard() {
     if (!_cardOpen) return;
@@ -578,15 +578,14 @@ class _MapScreenState extends ConsumerState<MapScreen> with TickerProviderStateM
 
   /// Events are teardrops a touch bigger than spots: red with a flag, gold
   /// with a crown for official clubs, ink with a storefront for partners; TT
-  /// sessions carry the feather flag. Label only when close.
+  /// sessions carry a pennant flag. Label only when close.
   Future<MapPin> _eventPin(Event e, {String? sub}) {
     final official = e.isOfficialClubEvent;
     final partner = e.vendorId != null;
     final tt = e.type == EventType.tt || e.isInstant;
     return _glyphFactory.teardrop(
       color: official ? kGold : (partner ? kInk : kEventRed),
-      glyph: official ? AppIcons.crownFill : (partner ? AppIcons.storefrontFill : AppIcons.flagFill),
-      feather: tt,
+      glyph: tt ? AppIcons.flagPennantFill : (official ? AppIcons.crownFill : (partner ? AppIcons.storefrontFill : AppIcons.flagFill)),
       label: _close ? (e.isInstant ? e.venueName : e.title) : null,
       sub: _close ? sub : null,
       scale: _pinScale * 1.1,
@@ -684,6 +683,14 @@ class _MapScreenState extends ConsumerState<MapScreen> with TickerProviderStateM
         built.add(AppMarker(id: 'group:${group.first.id}', position: at, image: bubble.bytes, size: bubble.size, anchor: bubble.anchor, zIndex: 5, onTap: () => _zoomToGroup(group)));
       }
     }
+    // Places and events go up now. People follow (a car photo may still be
+    // downloading, which on a slow network takes many seconds); until then
+    // the people already on the map stay where they are.
+    final withPeople = mode == MapMode.now && !_far && _showPeople;
+    bool person(String id) => id == 'me' || (withPeople && id.startsWith('friend:'));
+    setState(() => _markerSet = [...built, for (final m in _markerSet) if (person(m.id)) m]);
+    _keyed = [...keyed, for (final k in _keyed) if (_peopleGlyphs.contains(k.$2)) k];
+    _updateKey();
     await _addPeople(built, stale, keyed, onlyMe: mode != MapMode.now);
     if (await stale()) return;
     if (kDebugMode) debugPrint('map: ${built.length} markers, tier $_tier, zoom ${_zoom.toStringAsFixed(1)}');
@@ -694,6 +701,7 @@ class _MapScreenState extends ConsumerState<MapScreen> with TickerProviderStateM
 
   /// Every drawn pin's kind and place, from the last rebuild.
   List<(LatLng, LegendGlyph)> _keyed = const [];
+  static const _peopleGlyphs = {LegendGlyph.me, LegendGlyph.friend, LegendGlyph.club, LegendGlyph.nearby};
 
   /// The key lists the kinds of pin in view right now (not the ones off
   /// screen, not the ones folded into a count bubble).
@@ -997,208 +1005,201 @@ class _MapScreenState extends ConsumerState<MapScreen> with TickerProviderStateM
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: _isNight ? _mapOverlay : SystemUiOverlayStyle.dark,
-      // Back closes the card before it leaves the map.
-      child: PopScope(
-        canPop: !_cardOpen,
-        onPopInvokedWithResult: (didPop, _) {
-          if (!didPop) _closeCard();
-        },
-        child: Scaffold(
-          backgroundColor: AppColors.mapBg,
-          body: Stack(
-            children: [
-              if (_initialCamera == null)
-                // A beat (<= 300 ms) while we read the phone's last fix, so the
-                // map is born centred on me instead of flying in from KL.
-                const ColoredBox(color: AppColors.mapBg, child: SizedBox.expand())
-              else
-              AppMap(
-                controller: _map,
-                initialTarget: _initialCamera!.target,
-                initialZoom: _initialCamera!.zoom,
-                night: _isNight,
-                markers: _markerSet,
-                circles: _circles,
-                padding: EdgeInsets.only(bottom: mapPadding),
-                onReady: _onMapReady,
-                onCameraIdle: _onCameraIdle,
-                onCameraMove: _onCameraMove,
-                // Tap the map (not a pin) while the card or the sheet is up: close it.
-                onTap: (_) {
-                  if (_cardOpen) {
-                    _closeCard();
-                  } else if (_sheetOpen) {
-                    _sheet.animateTo(MapSheet.closed, duration: const Duration(milliseconds: 240), curve: Curves.easeOut);
-                  }
-                },
-              ),
+      child: Scaffold(
+        backgroundColor: AppColors.mapBg,
+        body: Stack(
+          children: [
+            if (_initialCamera == null)
+              // A beat (<= 300 ms) while we read the phone's last fix, so the
+              // map is born centred on me instead of flying in from KL.
+              const ColoredBox(color: AppColors.mapBg, child: SizedBox.expand())
+            else
+            AppMap(
+              controller: _map,
+              initialTarget: _initialCamera!.target,
+              initialZoom: _initialCamera!.zoom,
+              night: _isNight,
+              markers: _markerSet,
+              circles: _circles,
+              padding: EdgeInsets.only(bottom: mapPadding),
+              onReady: _onMapReady,
+              onCameraIdle: _onCameraIdle,
+              onCameraMove: _onCameraMove,
+              // Tap the map (not a pin) while the card or the sheet is up: close it.
+              onTap: (_) {
+                if (_cardOpen) {
+                  _closeCard();
+                } else if (_sheetOpen) {
+                  _sheet.animateTo(MapSheet.closed, duration: const Duration(milliseconds: 240), curve: Curves.easeOut);
+                }
+              },
+            ),
 
-              // Mode switch + banners, and the key on the left under them: it
-              // moves down with whichever banners show, and stops short of the
-              // toolbar and the pills above it ("Back to me", "N spots nearby").
-              SafeArea(
-                bottom: false,
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Align(
-                        alignment: Alignment.topCenter,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 70),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              _ModeSwitch(mode: mode, loading: loading, onChanged: (m) => ref.read(mapModeProvider.notifier).set(m)),
-                              if (reduced) ...[
-                                const SizedBox(height: 10),
-                                _PreciseBanner(onTurnOn: _turnOnPrecise),
-                              ],
-                              if (nearby != null) ...[
-                                const SizedBox(height: 10),
-                                _NearbyBanner(
-                                  title: nearby.title,
-                                  done: nearby.done,
-                                  busy: _nearbyBusy,
-                                  onCheckIn: () => _checkInNearby(nearby),
-                                  onDismiss: () => ref.read(nearbyMeetProvider.notifier).dismiss(),
-                                ),
-                              ],
+            // Mode switch + banners, and the key on the left under them: it
+            // moves down with whichever banners show, and stops short of the
+            // toolbar and the pills above it ("Back to me", "N spots nearby").
+            SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Align(
+                      alignment: Alignment.topCenter,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 70),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _ModeSwitch(mode: mode, loading: loading, onChanged: (m) => ref.read(mapModeProvider.notifier).set(m)),
+                            if (reduced) ...[
+                              const SizedBox(height: 10),
+                              _PreciseBanner(onTurnOn: _turnOnPrecise),
                             ],
-                          ),
+                            if (nearby != null) ...[
+                              const SizedBox(height: 10),
+                              _NearbyBanner(
+                                title: nearby.title,
+                                done: nearby.done,
+                                busy: _nearbyBusy,
+                                onCheckIn: () => _checkInNearby(nearby),
+                                onDismiss: () => ref.read(nearbyMeetProvider.notifier).dismiss(),
+                              ),
+                            ],
+                          ],
                         ),
                       ),
-                      // The key: what the pins on the map right now mean. Its
-                      // list scrolls in whatever room is left; none left, it hides.
-                      Flexible(
-                        child: Padding(
-                          padding: EdgeInsets.only(top: 12, left: 12, bottom: toolbarBottom + (_cardOpen ? _cardHeight + 16 : MapToolbar.height + 120)),
-                          child: MapLegend(light: !_isNight, present: _present),
-                        ),
+                    ),
+                    // The key: what the pins on the map right now mean. Its
+                    // list scrolls in whatever room is left; none left, it hides.
+                    Flexible(
+                      child: Padding(
+                        padding: EdgeInsets.only(top: 12, left: 12, bottom: toolbarBottom + (_cardOpen ? _cardHeight + 16 : MapToolbar.height + 120)),
+                        child: MapLegend(light: !_isNight, present: _present),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // Right-side round buttons
+            SafeArea(
+              child: Align(
+                alignment: Alignment.topRight,
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 12, right: 14),
+                  child: Column(
+                    children: [
+                      _RoundButton(
+                        icon: switch (shareMode) { 'nearby' => AppIcons.broadcast, 'public' => AppIcons.globe, 'ghost' => AppIcons.eyeSlash, _ => AppIcons.eye },
+                        tooltip: 'Who can see me',
+                        active: shareMode == 'nearby' || shareMode == 'public',
+                        light: !_isNight,
+                        onTap: () => showVisibilitySheet(context),
+                      ),
+                      const SizedBox(height: 10),
+                      _RoundButton(
+                        icon: hasLocation ? AppIcons.gpsFix : AppIcons.crosshair,
+                        tooltip: 'My location · hold to check',
+                        active: hasLocation && !_awayFromMe,
+                        light: !_isNight,
+                        onTap: _locateMe,
+                        onLongPress: () => showLocationCheckSheet(context),
                       ),
                     ],
                   ),
                 ),
               ),
+            ),
 
-              // Right-side round buttons
-              SafeArea(
-                child: Align(
-                  alignment: Alignment.topRight,
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 12, right: 14),
-                    child: Column(
-                      children: [
-                        _RoundButton(
-                          icon: switch (shareMode) { 'nearby' => AppIcons.broadcast, 'public' => AppIcons.globe, 'ghost' => AppIcons.eyeSlash, _ => AppIcons.eye },
-                          tooltip: 'Who can see me',
-                          active: shareMode == 'nearby' || shareMode == 'public',
-                          light: !_isNight,
-                          onTap: () => showVisibilitySheet(context),
-                        ),
-                        const SizedBox(height: 10),
-                        _RoundButton(
-                          icon: hasLocation ? AppIcons.gpsFix : AppIcons.crosshair,
-                          tooltip: 'My location · hold to check',
-                          active: hasLocation && !_awayFromMe,
-                          light: !_isNight,
-                          onTap: _locateMe,
-                          onLongPress: () => showLocationCheckSheet(context),
-                        ),
-                      ],
-                    ),
-                  ),
+            // "Back to me": only while the camera has wandered off me.
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: toolbarBottom + MapToolbar.height + 12,
+              child: Center(
+                child: _BackToMePill(
+                  visible: backToMe,
+                  onTap: _locateMe,
                 ),
               ),
+            ),
 
-              // "Back to me": only while the camera has wandered off me.
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: toolbarBottom + MapToolbar.height + 12,
+            // "N spots nearby": no spot in view on Now / Upcoming. Tap = the Spots layer, fitted.
+            if (spotsHint != null)
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOut,
+                left: 16,
+                right: 16,
+                bottom: toolbarBottom + MapToolbar.height + 12 + (backToMe ? 50 : 0),
                 child: Center(
-                  child: _BackToMePill(
-                    visible: backToMe,
-                    onTap: _locateMe,
+                  child: _SpotsNearbyPill(
+                    text: spotsHint,
+                    visible: !bottomBusy,
+                    light: !_isNight,
+                    onTap: () => ref.read(mapModeProvider.notifier).set(MapMode.spots),
+                    onDismiss: () => ref.read(spotsHintDismissedProvider.notifier).dismiss(),
                   ),
                 ),
               ),
 
-              // "N spots nearby": no spot in view on Now / Upcoming. Tap = the Spots layer, fitted.
-              if (spotsHint != null)
-                AnimatedPositioned(
-                  duration: const Duration(milliseconds: 200),
-                  curve: Curves.easeOut,
-                  left: 16,
-                  right: 16,
-                  bottom: toolbarBottom + MapToolbar.height + 12 + (backToMe ? 50 : 0),
-                  child: Center(
-                    child: _SpotsNearbyPill(
-                      text: spotsHint,
-                      visible: !bottomBusy,
-                      light: !_isNight,
-                      onTap: () => ref.read(mapModeProvider.notifier).set(MapMode.spots),
-                      onDismiss: () => ref.read(spotsHintDismissedProvider.notifier).dismiss(),
+            // Glass toolbar above the tab bar; fades away while the sheet or the card is up.
+            Positioned(
+              left: 14,
+              right: 14,
+              bottom: toolbarBottom,
+              child: IgnorePointer(
+                ignoring: bottomBusy,
+                child: AnimatedOpacity(
+                  opacity: bottomBusy ? 0 : 1,
+                  duration: const Duration(milliseconds: 160),
+                  child: AnimatedSlide(
+                    offset: bottomBusy ? const Offset(0, 0.3) : Offset.zero,
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeOut,
+                    child: GestureDetector(
+                      onVerticalDragEnd: (d) {
+                        if ((d.primaryVelocity ?? 0) < -200) _openSheet();
+                      },
+                      child: MapToolbar(mode: mode, light: !_isNight, onOpen: _openSheet),
                     ),
                   ),
                 ),
+              ),
+            ),
 
-              // Glass toolbar above the tab bar; fades away while the sheet or the card is up.
+            // The picked place's card, where the toolbar was. Slides up on
+            // open, follows the finger down, and slides away on close.
+            if (_card != null)
               Positioned(
-                left: 14,
-                right: 14,
+                left: 12,
+                right: 12,
                 bottom: toolbarBottom,
                 child: IgnorePointer(
-                  ignoring: bottomBusy,
+                  ignoring: !_cardOpen,
                   child: AnimatedOpacity(
-                    opacity: bottomBusy ? 0 : 1,
-                    duration: const Duration(milliseconds: 160),
+                    opacity: _cardOpen ? 1 : 0,
+                    duration: const Duration(milliseconds: 200),
                     child: AnimatedSlide(
-                      offset: bottomBusy ? const Offset(0, 0.3) : Offset.zero,
-                      duration: const Duration(milliseconds: 200),
-                      curve: Curves.easeOut,
+                      offset: _cardOpen ? Offset(0, _cardHeight <= 0 ? 0 : _cardDrag / _cardHeight) : const Offset(0, 0.6),
+                      duration: _cardDragging ? Duration.zero : const Duration(milliseconds: 260),
+                      curve: Curves.easeOutCubic,
                       child: GestureDetector(
-                        onVerticalDragEnd: (d) {
-                          if ((d.primaryVelocity ?? 0) < -200) _openSheet();
-                        },
-                        child: MapToolbar(mode: mode, light: !_isNight, onOpen: _openSheet),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-
-              // The picked place's card, where the toolbar was. Slides up on
-              // open, follows the finger down, and slides away on close.
-              if (_card != null)
-                Positioned(
-                  left: 12,
-                  right: 12,
-                  bottom: toolbarBottom,
-                  child: IgnorePointer(
-                    ignoring: !_cardOpen,
-                    child: AnimatedOpacity(
-                      opacity: _cardOpen ? 1 : 0,
-                      duration: const Duration(milliseconds: 200),
-                      child: AnimatedSlide(
-                        offset: _cardOpen ? Offset(0, _cardHeight <= 0 ? 0 : _cardDrag / _cardHeight) : const Offset(0, 0.6),
-                        duration: _cardDragging ? Duration.zero : const Duration(milliseconds: 260),
-                        curve: Curves.easeOutCubic,
-                        child: GestureDetector(
-                          onVerticalDragStart: (_) => setState(() => _cardDragging = true),
-                          onVerticalDragUpdate: (d) => setState(() => _cardDrag = math.max(0, _cardDrag + d.delta.dy)),
-                          onVerticalDragEnd: _onCardDragEnd,
-                          child: NotificationListener<SizeChangedLayoutNotification>(
-                            onNotification: (_) {
-                              WidgetsBinding.instance.addPostFrameCallback((_) => _onCardResized());
-                              return true;
-                            },
-                            child: SizeChangedLayoutNotifier(
-                              child: MapPalette(
-                                light: !_isNight,
-                                child: PlacePreviewCard(key: _cardKey, place: _card!, onClose: _closeCard),
-                              ),
+                        onVerticalDragStart: (_) => setState(() => _cardDragging = true),
+                        onVerticalDragUpdate: (d) => setState(() => _cardDrag = math.max(0, _cardDrag + d.delta.dy)),
+                        onVerticalDragEnd: _onCardDragEnd,
+                        child: NotificationListener<SizeChangedLayoutNotification>(
+                          onNotification: (_) {
+                            WidgetsBinding.instance.addPostFrameCallback((_) => _onCardResized());
+                            return true;
+                          },
+                          child: SizeChangedLayoutNotifier(
+                            child: MapPalette(
+                              light: !_isNight,
+                              child: PlacePreviewCard(key: _cardKey, place: _card!, onClose: _closeCard),
                             ),
                           ),
                         ),
@@ -1206,10 +1207,10 @@ class _MapScreenState extends ConsumerState<MapScreen> with TickerProviderStateM
                     ),
                   ),
                 ),
+              ),
 
-              MapPalette(light: !_isNight, child: MapSheet(controller: _sheet, onFocus: _focus, onPlace: _openCard)),
-            ],
-          ),
+            MapPalette(light: !_isNight, child: MapSheet(controller: _sheet, onFocus: _focus, onPlace: _openCard)),
+          ],
         ),
       ),
     );

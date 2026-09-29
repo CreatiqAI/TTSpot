@@ -52,7 +52,7 @@ Expected result: around PEGI 12 / Everyone 10+ with "Users interact" and "Shares
 ## Other App content items
 
 - **Privacy policy:** https://www.ttspot.my/privacy.html
-- **App access:** "All or some functionality is restricted". Give the reviewer the demo login: username `testing`, password `12341234` (has a car, meets, points and a voucher).
+- **App access:** "All or some functionality is restricted". Give the reviewer a dedicated, non-admin demo login (a car, meets, points and a voucher). Type the password into Play Console only; never commit it.
 - **Ads:** No, the app does not contain ads.
 - **Target audience:** 18 and over only.
 - **News app:** No.

@@ -10,6 +10,17 @@ class ReleaseNote {
 
 const kReleaseNotes = <ReleaseNote>[
   ReleaseNote(
+    version: '0.3.38',
+    date: '29 Sep 2026',
+    title: 'Your garage, on Home',
+    points: [
+      'Garage moved to Home (For you, Following, Garage): today\'s car up top with its stats, all your cars in a row, tap one to drive it today.',
+      'Your profile is just you now: photo, stats, bio, and a small strip of your cars.',
+      'Save spots: tap the bookmark on any spot. Saved spots always show on your map.',
+      'The map finds spots for you: switching to Spots zooms out to your nearest ones, and a pill tells you how far the closest spot is.',
+    ],
+  ),
+  ReleaseNote(
     version: '0.3.37',
     date: '29 Sep 2026',
     title: 'Organizer tools',

@@ -18,6 +18,11 @@ import '../../auth/domain/profile.dart';
 import '../application/chat_providers.dart';
 import '../domain/chat.dart';
 import '../application/notification_providers.dart';
+import '../application/social_providers.dart';
+import '../domain/post.dart';
+import '../../auth/data/auth_repository.dart';
+import 'story_viewer_screen.dart';
+import '../../../core/supabase/supabase_client.dart';
 import '../../accounts/application/active_account.dart';
 import 'activity_screen.dart';
 import 'widgets/chat_media.dart' show fmtMs;
@@ -103,6 +108,7 @@ class _ChatList extends ConsumerWidget {
     final live = {for (final p in pins) p.user.id: p};
     // Friends on the map first, then the rest.
     final strip = [...friends]..sort((a, b) => (live.containsKey(b.id) ? 1 : 0) - (live.containsKey(a.id) ? 1 : 0));
+    final moments = entity ? const <StoryGroup>[] : (ref.watch(storiesProvider).value ?? const <StoryGroup>[]);
 
     Future<void> openDm(String userId) async {
       try {
@@ -117,6 +123,7 @@ class _ChatList extends ConsumerWidget {
       onRefresh: () async {
         ref.invalidate(inboxProvider);
         ref.invalidate(friendsProvider);
+        ref.invalidate(storiesProvider);
         await ref.read(inboxProvider.future);
       },
       child: inbox.when(
@@ -130,7 +137,7 @@ class _ChatList extends ConsumerWidget {
           return ListView(
             padding: const EdgeInsets.only(bottom: 24),
             children: [
-              if (strip.isNotEmpty) _FriendStrip(friends: strip, live: live, onTap: openDm),
+              if (!entity) _FriendStrip(friends: strip, live: live, moments: moments, onTap: openDm),
               if (list.isEmpty && friends.isEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 40),
@@ -176,16 +183,32 @@ class _ChatList extends ConsumerWidget {
   }
 }
 
-/// Friends as a row of circles; a green dot means they're on the map right now.
-class _FriendStrip extends StatelessWidget {
-  const _FriendStrip({required this.friends, required this.live, required this.onTap});
+/// Moments and friends in one row of circles, like a status bar:
+/// your moment first (+ to add), then everyone with a live moment in a red
+/// ring (grey once seen; tap to watch), then the rest of your friends (tap to
+/// message). A green dot means they're on the map right now.
+class _FriendStrip extends ConsumerWidget {
+  const _FriendStrip({required this.friends, required this.live, required this.moments, required this.onTap});
   final List<Profile> friends;
   final Map<String, FriendPin> live;
+  final List<StoryGroup> moments;
   final ValueChanged<String> onTap;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final me = ref.watch(currentUserIdProvider);
+    final myProfile = ref.watch(currentProfileProvider).value;
+    final mine = moments.indexWhere((g) => g.author.id == me);
+    // Unseen first, then seen; never me.
+    final withMoment = [for (var i = 0; i < moments.length; i++) if (i != mine) i]
+      ..sort((a, b) => (moments[a].allSeen ? 1 : 0) - (moments[b].allSeen ? 1 : 0));
+    final momentAuthors = {for (final g in moments) g.author.id};
+    final rest = friends.where((f) => !momentAuthors.contains(f.id)).toList();
     final liveCount = friends.where((f) => live.containsKey(f.id)).length;
+    final newMoments = withMoment.where((i) => !moments[i].allSeen).length;
+
+    void watch(int group) => context.push(Routes.stories, extra: StoryViewerArgs(groups: moments, initialGroup: group));
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -193,9 +216,15 @@ class _FriendStrip extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
           child: Row(
             children: [
-              Text('FRIENDS', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textSecondary)),
-              if (liveCount > 0) ...[
+              Text('MOMENTS & FRIENDS', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textSecondary)),
+              if (newMoments > 0) ...[
                 const SizedBox(width: 8),
+                Container(width: 7, height: 7, decoration: const BoxDecoration(color: AppColors.brand, shape: BoxShape.circle)),
+                const SizedBox(width: 4),
+                Text('$newMoments new', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.brand)),
+              ],
+              if (liveCount > 0) ...[
+                const SizedBox(width: 10),
                 Container(width: 7, height: 7, decoration: const BoxDecoration(color: AppColors.success, shape: BoxShape.circle)),
                 const SizedBox(width: 4),
                 Text('$liveCount on the map', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.success)),
@@ -204,49 +233,114 @@ class _FriendStrip extends StatelessWidget {
           ),
         ),
         SizedBox(
-          height: 86,
-          child: ListView.builder(
+          height: 92,
+          child: ListView(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 10),
-            itemCount: friends.length,
-            itemBuilder: (_, i) {
-              final f = friends[i];
-              final on = live.containsKey(f.id);
-              return GestureDetector(
-                onTap: () => onTap(f.id),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 6),
-                  child: SizedBox(
-                    width: 62,
-                    child: Column(
-                      children: [
-                        Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            UserAvatar(url: f.avatarUrl, name: f.displayName ?? f.username, size: 56, borderColor: on ? AppColors.success : null),
-                            if (on)
-                              Positioned(
-                                right: 1,
-                                bottom: 1,
-                                child: Container(
-                                  width: 14,
-                                  height: 14,
-                                  decoration: BoxDecoration(color: AppColors.success, shape: BoxShape.circle, border: Border.all(color: AppColors.bg, width: 2)),
-                                ),
-                              ),
-                          ],
-                        ),
-                        const SizedBox(height: 5),
-                        Text(f.displayName?.split(' ').first ?? f.username ?? '', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600)),
-                      ],
-                    ),
-                  ),
+            children: [
+              _Circle(
+                name: 'You',
+                avatarUrl: myProfile?.avatarUrl,
+                avatarName: myProfile?.displayName ?? myProfile?.username,
+                ring: mine >= 0 ? (moments[mine].allSeen ? _Ring.seen : _Ring.fresh) : _Ring.none,
+                add: true,
+                onTap: mine >= 0 ? () => watch(mine) : () => context.push(Routes.createStory),
+                onAdd: () => context.push(Routes.createStory),
+              ),
+              for (final i in withMoment)
+                _Circle(
+                  name: (moments[i].author.displayName ?? moments[i].author.username ?? '').split(' ').first,
+                  avatarUrl: moments[i].author.avatarUrl,
+                  avatarName: moments[i].author.displayName ?? moments[i].author.username,
+                  ring: moments[i].allSeen ? _Ring.seen : _Ring.fresh,
+                  online: live.containsKey(moments[i].author.id),
+                  onTap: () => watch(i),
                 ),
-              );
-            },
+              for (final f in rest)
+                _Circle(
+                  name: f.displayName?.split(' ').first ?? f.username ?? '',
+                  avatarUrl: f.avatarUrl,
+                  avatarName: f.displayName ?? f.username,
+                  ring: _Ring.none,
+                  online: live.containsKey(f.id),
+                  onTap: () => onTap(f.id),
+                ),
+            ],
           ),
         ),
       ],
+    );
+  }
+}
+
+enum _Ring { none, fresh, seen }
+
+class _Circle extends StatelessWidget {
+  const _Circle({required this.name, required this.avatarUrl, required this.avatarName, required this.ring, required this.onTap, this.online = false, this.add = false, this.onAdd});
+  final String name;
+  final String? avatarUrl;
+  final String? avatarName;
+  final _Ring ring;
+  final bool online;
+  final bool add;
+  final VoidCallback onTap;
+  final VoidCallback? onAdd;
+
+  @override
+  Widget build(BuildContext context) {
+    final ringColor = switch (ring) {
+      _Ring.fresh => AppColors.brand,
+      _Ring.seen => AppColors.border,
+      _Ring.none => Colors.transparent,
+    };
+    return GestureDetector(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6),
+        child: SizedBox(
+          width: 64,
+          child: Column(
+            children: [
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(2.5),
+                    decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: ringColor, width: 2.2)),
+                    child: UserAvatar(url: avatarUrl, name: avatarName, size: 54),
+                  ),
+                  if (add)
+                    Positioned(
+                      right: -1,
+                      bottom: -1,
+                      child: GestureDetector(
+                        onTap: onAdd,
+                        child: Container(
+                          width: 22,
+                          height: 22,
+                          decoration: BoxDecoration(color: AppColors.brand, shape: BoxShape.circle, border: Border.all(color: AppColors.bg, width: 2)),
+                          child: const Icon(AppIcons.plus, size: 12, color: Colors.white),
+                        ),
+                      ),
+                    )
+                  else if (online)
+                    Positioned(
+                      right: 3,
+                      bottom: 3,
+                      child: Container(
+                        width: 14,
+                        height: 14,
+                        decoration: BoxDecoration(color: AppColors.success, shape: BoxShape.circle, border: Border.all(color: AppColors.bg, width: 2)),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 5),
+              Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11.5, fontWeight: ring == _Ring.fresh ? FontWeight.w700 : FontWeight.w600)),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

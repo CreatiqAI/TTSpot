@@ -38,7 +38,7 @@ class ProfileCardsGrid extends ConsumerWidget {
         final owned = active.where((t) => (have[t.id] ?? 0) > 0).length;
         final total = have.values.fold(0, (a, b) => a + b);
         return Padding(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

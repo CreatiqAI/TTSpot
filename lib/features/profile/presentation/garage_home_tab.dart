@@ -67,7 +67,7 @@ class GarageHomeTab extends ConsumerWidget {
           return ListView(
             physics: const AlwaysScrollableScrollPhysics(),
             // Clear of the floating tab bar so the carousel and the hint can scroll into view.
-            padding: EdgeInsets.only(bottom: GlassTabBar.height + GlassTabBar.margin.bottom + MediaQuery.paddingOf(context).bottom + 24),
+            padding: EdgeInsets.only(bottom: GlassTabBar.clearance(context)),
             children: [
               _TodayHero(car: today),
               const SizedBox(height: 28),

@@ -14,7 +14,6 @@ import '../domain/post.dart';
 import 'create_hub_sheet.dart';
 import 'widgets/masonry_grid.dart';
 import 'widgets/post_card.dart';
-import 'widgets/stories_row.dart';
 import '../../../core/widgets/brand_logo.dart';
 import '../../profile/presentation/garage_home_tab.dart';
 
@@ -54,7 +53,7 @@ class ExploreScreen extends ConsumerWidget {
   }
 }
 
-/// One feed: stories on top, then a For you / Following switch. For you is
+/// One feed with a For you / Following switch (moments live in Chats). For you is
 /// the discovery grid; Following is the people you follow, full width.
 class _Feed extends ConsumerStatefulWidget {
   const _Feed();
@@ -73,7 +72,6 @@ class _FeedState extends ConsumerState<_Feed> {
     final feed = _following ? following : forYou;
     return RefreshIndicator(
       onRefresh: () async {
-        ref.invalidate(storiesProvider);
         if (_following) {
           ref.invalidate(followingFeedProvider);
           await ref.read(followingFeedProvider.future);
@@ -84,10 +82,9 @@ class _FeedState extends ConsumerState<_Feed> {
       },
       child: CustomScrollView(
         slivers: [
-          const SliverToBoxAdapter(child: StoriesRow()),
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
               child: Row(
                 children: [
                   _FeedChip(label: 'For you', selected: !_following, onTap: () => setState(() => _following = false)),

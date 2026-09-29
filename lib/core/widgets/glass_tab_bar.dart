@@ -24,9 +24,14 @@ class GlassTabBar extends StatelessWidget {
   static const height = 64.0;
   static const margin = EdgeInsets.fromLTRB(14, 0, 14, 10);
 
-  /// Space a scrolling page needs at its end so the last row can scroll clear
-  /// of this floating bar.
-  static double clearance(BuildContext context) => height + margin.bottom + MediaQuery.paddingOf(context).bottom + 20;
+  /// Space a scrolling page needs at its end so the last row stops 12 px
+  /// above this floating bar. The shell uses `extendBody`, so inside it the
+  /// bottom inset already includes the bar; outside it, add the bar.
+  static double clearance(BuildContext context) {
+    final inset = MediaQuery.paddingOf(context).bottom;
+    final bar = height + margin.bottom;
+    return (inset >= bar ? inset : inset + bar) + 12;
+  }
 
   @override
   Widget build(BuildContext context) {

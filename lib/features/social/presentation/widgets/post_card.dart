@@ -9,6 +9,7 @@ import '../../../../core/theme/app_icons.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/dates.dart';
 import '../../../../core/utils/friendly_error.dart';
+import '../../../../core/widgets/photo_viewer.dart';
 import '../../../../core/widgets/pop_icon.dart';
 import '../../../../core/widgets/user_avatar.dart';
 import '../../../safety/data/safety_repository.dart';
@@ -217,7 +218,17 @@ class _PostCardState extends ConsumerState<PostCard> {
         ),
 
         // ---- media / body
-        if (p.photoUrls.isNotEmpty) _Media(post: p, page: _page, onPage: (i) => setState(() => _page = i), onDoubleTap: _doubleTapLike, burst: _heartBurst, onTap: widget.onOpen),
+        if (p.photoUrls.isNotEmpty)
+          _Media(
+            post: p,
+            page: _page,
+            onPage: (i) => setState(() => _page = i),
+            onDoubleTap: _doubleTapLike,
+            burst: _heartBurst,
+            whole: widget.expanded,
+            // On the post page a tap opens the photos full screen.
+            onTap: widget.expanded ? () => showPhotoViewer(context, p.photoUrls, initial: _page) : widget.onOpen,
+          ),
         if (p.kind == PostKind.poll) Padding(padding: const EdgeInsets.fromLTRB(12, 4, 12, 4), child: PollWidget(feed: f)),
         if (p.kind == PostKind.guide) _GuideStrip(post: p, onTap: widget.onOpen),
         if (p.kind == PostKind.spotted) _SpottedStrip(feed: f, onClaim: () => _guard(() => ref.read(socialActionsProvider).claimSpotted(f))),
@@ -387,18 +398,22 @@ class _Subtitle extends StatelessWidget {
   }
 }
 
+/// The photos. The feed crops them to fill a 0.8 to 1.91 box; [whole] (the
+/// post page) allows a taller box and shows every photo uncropped on a grey
+/// backdrop, so phone screenshots keep their top and bottom.
 class _Media extends StatelessWidget {
-  const _Media({required this.post, required this.page, required this.onPage, required this.onDoubleTap, required this.burst, this.onTap});
+  const _Media({required this.post, required this.page, required this.onPage, required this.onDoubleTap, required this.burst, this.whole = false, this.onTap});
   final Post post;
   final int page;
   final ValueChanged<int> onPage;
   final VoidCallback onDoubleTap;
   final bool burst;
+  final bool whole;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    final aspect = post.coverAspect.clamp(0.8, 1.91);
+    final aspect = whole ? post.coverAspect.clamp(0.56, 1.91) : post.coverAspect.clamp(0.8, 1.91);
     return GestureDetector(
       onDoubleTap: onDoubleTap,
       onTap: onTap,
@@ -407,11 +422,12 @@ class _Media extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
+            if (whole) ColoredBox(color: AppColors.surfaceGray),
             PageView.builder(
               itemCount: post.photoUrls.length,
               onPageChanged: onPage,
               itemBuilder: (_, i) => Image(image: CachedNetworkImageProvider(post.photoUrls[i]),
-                fit: BoxFit.cover,
+                fit: whole ? BoxFit.contain : BoxFit.cover,
                 loadingBuilder: (_, child, prog) => prog == null ? child : ColoredBox(color: AppColors.surfaceGray),
                 errorBuilder: (_, _, _) => ColoredBox(color: AppColors.surfaceGray, child: Icon(AppIcons.imageBroken, color: AppColors.textMuted)),
               ),

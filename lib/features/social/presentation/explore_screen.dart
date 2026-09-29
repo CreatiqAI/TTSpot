@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/widgets/glass_tab_bar.dart';
 import '../../../core/router/app_router.dart';
+import '../../../core/router/tab_reselect.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_art.dart';
 import '../../../core/theme/app_theme.dart';
@@ -60,15 +61,32 @@ class _Feed extends ConsumerStatefulWidget {
   ConsumerState<_Feed> createState() => _FeedState();
 }
 
-class _FeedState extends ConsumerState<_Feed> {
+// Kept alive behind the Garage tab so it keeps its For you / Following choice and its place.
+class _FeedState extends ConsumerState<_Feed> with AutomaticKeepAliveClientMixin {
   bool _following = false;
+  final _refresh = GlobalKey<RefreshIndicatorState>();
+
+  @override
+  bool get wantKeepAlive => true;
+
+  /// Home tapped again: Feed tab, scroll to the top, then pull fresh posts.
+  Future<void> _backToTop() async {
+    final tabs = DefaultTabController.maybeOf(context);
+    if (tabs != null && tabs.index != 0) tabs.animateTo(0);
+    final scroll = PrimaryScrollController.maybeOf(context);
+    if (scroll != null && scroll.hasClients) await scroll.animateTo(0, duration: const Duration(milliseconds: 400), curve: Curves.easeOutCubic);
+    if (mounted) _refresh.currentState?.show();
+  }
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
+    ref.listen(homeReselectProvider, (_, _) => _backToTop());
     final forYou = ref.watch(exploreFeedProvider);
     final following = ref.watch(followingFeedProvider);
     final feed = _following ? following : forYou;
     return RefreshIndicator(
+      key: _refresh,
       onRefresh: () async {
         if (_following) {
           ref.invalidate(followingFeedProvider);
@@ -79,6 +97,7 @@ class _FeedState extends ConsumerState<_Feed> {
         }
       },
       child: CustomScrollView(
+        primary: true, // Home-tap and the iOS status-bar tap both scroll it to the top
         slivers: [
           SliverToBoxAdapter(
             child: Padding(

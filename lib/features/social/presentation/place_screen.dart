@@ -12,6 +12,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/dates.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../../core/utils/geo.dart';
+import '../../../core/utils/open_external.dart';
 import '../../../core/widgets/event_list_tile.dart';
 import '../../../core/widgets/primary_button.dart';
 import '../../../core/widgets/user_avatar.dart';
@@ -228,53 +229,50 @@ class _PlaceScreenState extends ConsumerState<PlaceScreen> {
                             Text('Meets usually on ${days.join(' & ')}', style: TextStyle(fontSize: 13.5, color: AppColors.textSecondary)),
                           ],
                           const SizedBox(height: 14),
+                          // Getting there comes first; checking in is for once you arrive.
                           Row(
                             children: [
                               Expanded(
-                                flex: 3,
+                                child: PrimaryButton(
+                                  label: 'Go now',
+                                  icon: AppIcons.navigationArrow,
+                                  onPressed: () => showDirectionsSheet(context, lat: p.lat, lng: p.lng, label: p.name),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
                                 child: checkedToday
                                     ? ElevatedButton.icon(
                                         onPressed: null,
                                         icon: const Icon(AppIcons.checkCircleFill, size: 18, color: AppColors.success),
-                                        label: Text('Checked in today', style: TextStyle(color: AppColors.textPrimary)),
+                                        label: Text('Checked in', style: TextStyle(color: AppColors.textPrimary)),
                                       )
-                                    : PrimaryButton(label: 'Check in here', loading: _busy, onPressed: _busy ? null : _checkIn),
+                                    : _busy
+                                        ? const ElevatedButton(onPressed: null, child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2.2)))
+                                        : SecondaryButton(label: 'Check in', icon: AppIcons.checkCircle, onPressed: _checkIn),
                               ),
-                              const SizedBox(width: 8),
-                              Expanded(flex: 2, child: SecondaryButton(label: 'Moment', icon: AppIcons.camera, onPressed: () => context.push(Routes.createMoment(placeId: id)))),
                             ],
                           ),
                           const SizedBox(height: 6),
                           Text('Check-ins need your location, within 300 m of the spot.', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
                           const SizedBox(height: 10),
-                          // Saved spots stay on the map on every layer, wherever the camera is.
-                          SecondaryButton(
-                            label: saved ? 'Saved · on your map' : 'Save spot',
-                            icon: saved ? AppIcons.bookmarkSimpleFill : AppIcons.bookmarkSimple,
-                            onPressed: _saving ? null : _toggleSave,
+                          Row(
+                            children: [
+                              Expanded(child: SecondaryButton(label: 'Moment', icon: AppIcons.camera, onPressed: () => context.push(Routes.createMoment(placeId: id)))),
+                              const SizedBox(width: 8),
+                              // Saved spots stay on the map on every layer, wherever the camera is.
+                              Expanded(
+                                child: SecondaryButton(
+                                  label: saved ? 'Saved' : 'Save spot',
+                                  icon: saved ? AppIcons.bookmarkSimpleFill : AppIcons.bookmarkSimple,
+                                  onPressed: _saving ? null : _toggleSave,
+                                ),
+                              ),
+                            ],
                           ),
                           if (p.isPartner) ...[
                             const SizedBox(height: 12),
                             SecondaryButton(label: 'Partner page · ${p.vendorName ?? ''}', icon: AppIcons.storefront, onPressed: () => context.push(Routes.partner(p.vendorId!))),
-                          ],
-                          if (p.recommended) ...[
-                            const SizedBox(height: 12),
-                            InkWell(
-                              onTap: () => context.push(Routes.scan),
-                              borderRadius: BorderRadius.circular(AppRadius.md),
-                              child: Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(color: AppColors.warnColor.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(AppRadius.md)),
-                                child: const Row(
-                                  children: [
-                                    ArtIcon(AppArt.star, size: 28),
-                                    SizedBox(width: 10),
-                                    Expanded(child: Text('Find the TT Spot sticker here and scan it with a photo of your car for a verified check-in worth more points.', style: TextStyle(fontSize: 13, height: 1.35))),
-                                    Icon(AppIcons.scan, size: 20),
-                                  ],
-                                ),
-                              ),
-                            ),
                           ],
                         ],
                       ),

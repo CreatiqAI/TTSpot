@@ -1,10 +1,10 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../features/events/domain/event.dart';
 import '../theme/app_art.dart';
 import '../theme/app_theme.dart';
 import '../utils/dates.dart';
+import 'thumb_image.dart';
 
 /// Light-theme event row: cover thumbnail, title, type · date, venue, badges.
 class EventListTile extends StatelessWidget {
@@ -40,15 +40,9 @@ class EventListTile extends StatelessWidget {
                         color: AppColors.surfaceGray,
                         child: Center(child: ArtIcon(e.type.art, size: 36)),
                       )
-                    : Image(image: CachedNetworkImageProvider(e.coverUrl!),
-                        fit: BoxFit.cover,
-                        frameBuilder: (_, child, frame, sync) => frame == null && !sync
-                            ? ColoredBox(color: AppColors.surfaceGray, child: Center(child: ArtIcon(e.type.art, size: 36)))
-                            : child,
-                        errorBuilder: (_, _, _) => ColoredBox(
-                          color: AppColors.surfaceGray,
-                          child: Center(child: ArtIcon(e.type.art, size: 36)),
-                        ),
+                    : ThumbImage(e.coverUrl!,
+                        placeholder: ColoredBox(color: AppColors.surfaceGray, child: Center(child: ArtIcon(e.type.art, size: 36))),
+                        error: ColoredBox(color: AppColors.surfaceGray, child: Center(child: ArtIcon(e.type.art, size: 36))),
                       ),
               ),
             ),

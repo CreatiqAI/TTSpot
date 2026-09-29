@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -9,6 +8,7 @@ import '../../../../core/theme/app_icons.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/dates.dart';
 import '../../../../core/utils/geo.dart';
+import '../../../../core/widgets/thumb_image.dart';
 import '../../../events/domain/event.dart';
 import '../../application/map_providers.dart';
 
@@ -270,15 +270,9 @@ class _Cover extends StatelessWidget {
                 color: MapPalette.of(context).tile,
                 child: Center(child: ArtIcon(type.art, size: 34)),
               )
-            : Image(image: CachedNetworkImageProvider(url!),
-                fit: BoxFit.cover,
-                frameBuilder: (_, child, frame, sync) => frame == null && !sync
-                    ? ColoredBox(color: MapPalette.of(context).tile, child: Center(child: ArtIcon(type.art, size: 34)))
-                    : child,
-                errorBuilder: (_, _, _) => ColoredBox(
-                  color: MapPalette.of(context).tile,
-                  child: Center(child: ArtIcon(type.art, size: 34)),
-                ),
+            : ThumbImage(url!,
+                placeholder: ColoredBox(color: MapPalette.of(context).tile, child: Center(child: ArtIcon(type.art, size: 34))),
+                error: ColoredBox(color: MapPalette.of(context).tile, child: Center(child: ArtIcon(type.art, size: 34))),
               ),
       ),
     );

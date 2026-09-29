@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/config/media.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/theme/app_icons.dart';
@@ -144,7 +145,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   Future<void> _video(ImageSource source) async {
-    final f = await ImagePicker().pickVideo(source: source, maxDuration: const Duration(seconds: 60));
+    final f = await ImagePicker().pickVideo(source: source, maxDuration: kChatVideoMaxDuration);
     if (f == null) return;
     await _guard(() => ref.read(chatActionsProvider).sendVideo(widget.conversationId, f));
   }
@@ -159,7 +160,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(leading: const Icon(AppIcons.camera), title: const Text('Take a photo'), onTap: () => Navigator.pop(ctx, 'photo')),
-            ListTile(leading: const Icon(AppIcons.record), title: const Text('Record a video'), subtitle: const Text('Up to 60 seconds', style: TextStyle(fontSize: 12)), onTap: () => Navigator.pop(ctx, 'video')),
+            ListTile(leading: const Icon(AppIcons.record), title: const Text('Record a video'), subtitle: Text('Up to ${kChatVideoMaxDuration.inSeconds} seconds', style: const TextStyle(fontSize: 12)), onTap: () => Navigator.pop(ctx, 'video')),
             const SizedBox(height: 8),
           ],
         ),

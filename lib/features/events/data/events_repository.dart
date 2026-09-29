@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/geo/latlng.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/config/media.dart';
 import '../../../core/supabase/supabase_client.dart';
+import '../../../core/utils/thumbnails.dart';
 import '../../auth/domain/profile.dart';
 import '../domain/checkin_row.dart';
 import '../domain/event.dart';
@@ -282,15 +284,16 @@ class EventsRepository {
     return v as String;
   }
 
-  /// Uploads to `event-covers/<userId>/<millis>.jpg` and returns the public URL.
+  /// Uploads to `event-covers/<userId>/<millis>.jpg` (plus its list-tile
+  /// thumbnail) and returns the public URL.
   Future<String> uploadCover({required String userId, required Uint8List bytes}) async {
     final path = '$userId/${DateTime.now().millisecondsSinceEpoch}.jpg';
-    await _client.storage.from('event-covers').uploadBinary(
-          path,
-          bytes,
-          fileOptions: const FileOptions(contentType: 'image/jpeg'),
-        );
-    return _client.storage.from('event-covers').getPublicUrl(path);
+    final bucket = _client.storage.from('event-covers');
+    await Future.wait([
+      bucket.uploadBinary(path, bytes, fileOptions: const FileOptions(contentType: 'image/jpeg', cacheControl: kImmutableCacheControl)),
+      uploadThumb(bucket, path, bytes),
+    ]);
+    return bucket.getPublicUrl(path);
   }
 
   // ------------------------------------------------------------- comments ---

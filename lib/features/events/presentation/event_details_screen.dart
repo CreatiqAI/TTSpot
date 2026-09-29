@@ -38,6 +38,7 @@ import '../../organizer/presentation/widgets/lucky_draw_card.dart';
 import '../../organizer/presentation/widgets/organizer_badge.dart';
 import '../../organizer/presentation/widgets/organizer_tools_entry.dart';
 import '../../../core/utils/share_links.dart';
+import '../../../core/widgets/thumb_image.dart';
 import 'package:share_plus/share_plus.dart';
 
 class EventDetailsScreen extends ConsumerStatefulWidget {
@@ -1083,7 +1084,7 @@ class _Moments extends ConsumerWidget {
                       child: Stack(
                         fit: StackFit.expand,
                         children: [
-                          Image(image: CachedNetworkImageProvider(m.photoUrl), fit: BoxFit.cover, errorBuilder: (_, _, _) => ColoredBox(color: AppColors.surfaceGray)),
+                          ThumbImage(m.photoUrl, error: ColoredBox(color: AppColors.surfaceGray)),
                           Positioned(left: 6, bottom: 6, child: UserAvatar(url: m.author?.avatarUrl, name: m.author?.username, size: 22, borderColor: Colors.white)),
                         ],
                       ),

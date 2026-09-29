@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -9,6 +8,7 @@ import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/dates.dart';
 import '../../../core/widgets/empty_state.dart';
+import '../../../core/widgets/thumb_image.dart';
 import '../../events/domain/event.dart';
 import '../application/community_providers.dart';
 import '../domain/club.dart';
@@ -71,7 +71,7 @@ class _EventTile extends StatelessWidget {
           child: SizedBox(
             width: 52,
             height: 52,
-            child: e.coverUrl == null ? ColoredBox(color: AppColors.surfaceGray, child: Center(child: ArtIcon(e.type.art, size: 28))) : Image(image: CachedNetworkImageProvider(e.coverUrl!), fit: BoxFit.cover),
+            child: e.coverUrl == null ? ColoredBox(color: AppColors.surfaceGray, child: Center(child: ArtIcon(e.type.art, size: 28))) : ThumbImage(e.coverUrl!),
           ),
         ),
         title: Text(e.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontWeight: FontWeight.w700, color: past ? AppColors.textSecondary : AppColors.textPrimary)),

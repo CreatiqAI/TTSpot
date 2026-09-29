@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -23,6 +22,7 @@ import '../domain/post.dart';
 import '../../auth/data/auth_repository.dart';
 import 'story_viewer_screen.dart';
 import '../../../core/supabase/supabase_client.dart';
+import '../../../core/widgets/thumb_image.dart';
 import '../../accounts/application/active_account.dart';
 import 'activity_screen.dart';
 import 'widgets/chat_media.dart' show fmtMs;
@@ -417,7 +417,7 @@ class _ChatTile extends StatelessWidget {
                 height: 48,
                 child: c.eventCover == null
                     ? ColoredBox(color: AppColors.surfaceGray, child: Icon(AppIcons.usersThree, color: AppColors.textSecondary))
-                    : Image(image: CachedNetworkImageProvider(c.eventCover!), fit: BoxFit.cover, errorBuilder: (_, _, _) => ColoredBox(color: AppColors.surfaceGray)),
+                    : ThumbImage(c.eventCover!, error: ColoredBox(color: AppColors.surfaceGray)),
               ),
             )
           : UserAvatar(url: c.avatarUrl, name: c.title, size: 48),

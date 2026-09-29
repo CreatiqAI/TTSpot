@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/geo/latlng.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/config/media.dart';
 import '../../../core/supabase/supabase_client.dart';
+import '../../../core/utils/thumbnails.dart';
 import '../../auth/domain/profile.dart';
 import '../domain/album.dart';
 import '../domain/post.dart';
@@ -115,21 +117,30 @@ class SocialRepository {
   /// Story videos go to the chat-media bucket (it allows mp4 / mov, 50 MB).
   Future<String> uploadStoryVideo({required String userId, required Uint8List bytes, required String ext}) async {
     final path = '$userId/story-${DateTime.now().microsecondsSinceEpoch}.$ext';
-    await _client.storage.from('chat-media').uploadBinary(path, bytes, fileOptions: FileOptions(contentType: ext == 'mov' ? 'video/quicktime' : 'video/mp4'));
+    await _client.storage.from('chat-media').uploadBinary(path, bytes, fileOptions: FileOptions(contentType: ext == 'mov' ? 'video/quicktime' : 'video/mp4', cacheControl: kImmutableCacheControl));
     return _client.storage.from('chat-media').getPublicUrl(path);
   }
 
-  /// PNG poster for a video moment.
+  /// PNG poster for a video moment (plus its JPEG thumbnail).
   Future<String> uploadPoster({required String userId, required Uint8List bytes}) async {
     final path = '$userId/stories/${DateTime.now().microsecondsSinceEpoch}.png';
-    await _client.storage.from('post-photos').uploadBinary(path, bytes, fileOptions: const FileOptions(contentType: 'image/png'));
-    return _client.storage.from('post-photos').getPublicUrl(path);
+    final bucket = _client.storage.from('post-photos');
+    await Future.wait([
+      bucket.uploadBinary(path, bytes, fileOptions: const FileOptions(contentType: 'image/png', cacheControl: kImmutableCacheControl)),
+      uploadThumb(bucket, path, bytes),
+    ]);
+    return bucket.getPublicUrl(path);
   }
 
-  Future<String> uploadPhoto({required String userId, required Uint8List bytes, String folder = 'posts'}) async {
+  /// [thumb]: also upload a grid thumbnail (not for poll options, which are small already).
+  Future<String> uploadPhoto({required String userId, required Uint8List bytes, String folder = 'posts', bool thumb = true}) async {
     final path = '$userId/$folder/${DateTime.now().microsecondsSinceEpoch}.jpg';
-    await _client.storage.from('post-photos').uploadBinary(path, bytes, fileOptions: const FileOptions(contentType: 'image/jpeg'));
-    return _client.storage.from('post-photos').getPublicUrl(path);
+    final bucket = _client.storage.from('post-photos');
+    await Future.wait([
+      bucket.uploadBinary(path, bytes, fileOptions: const FileOptions(contentType: 'image/jpeg', cacheControl: kImmutableCacheControl)),
+      if (thumb) uploadThumb(bucket, path, bytes),
+    ]);
+    return bucket.getPublicUrl(path);
   }
 
   Future<Post> createPost({

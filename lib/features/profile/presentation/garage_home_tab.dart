@@ -13,6 +13,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/titi.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../../core/widgets/glass_tab_bar.dart';
+import '../../../core/widgets/thumb_image.dart';
 import '../../social/application/community_providers.dart';
 import '../../social/application/social_providers.dart';
 import '../application/profile_providers.dart';
@@ -125,7 +126,7 @@ class GarageHomeTab extends ConsumerWidget {
                 children: [
                   ClipRRect(
                     borderRadius: BorderRadius.circular(AppRadius.sm),
-                    child: SizedBox(width: 64, height: 48, child: _Cover(car: car, artSize: 28)),
+                    child: SizedBox(width: 64, height: 48, child: _Cover(car: car, artSize: 28, thumb: true)),
                   ),
                   const SizedBox(width: 14),
                   Expanded(
@@ -315,7 +316,7 @@ class _CarCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(AppRadius.md + 3),
                 border: Border.all(color: isToday ? AppColors.brand : Colors.transparent, width: 2),
               ),
-              child: ClipRRect(borderRadius: BorderRadius.circular(AppRadius.md - 1), child: _Cover(car: car, artSize: 40)),
+              child: ClipRRect(borderRadius: BorderRadius.circular(AppRadius.md - 1), child: _Cover(car: car, artSize: 40, thumb: true)),
             ),
           ),
           const SizedBox(height: 6),
@@ -430,15 +431,19 @@ class _DashedRRect extends CustomPainter {
 
 /// The car's portrait or first photo, or the car art on grey.
 class _Cover extends StatelessWidget {
-  const _Cover({required this.car, required this.artSize});
+  const _Cover({required this.car, required this.artSize, this.thumb = false});
   final Car car;
   final double artSize;
+
+  /// A small tile: load the grid thumbnail.
+  final bool thumb;
 
   @override
   Widget build(BuildContext context) {
     final cover = car.cover;
     final blank = ColoredBox(color: AppColors.surfaceGray, child: Center(child: ArtIcon(AppArt.car, size: artSize)));
     if (cover == null) return blank;
+    if (thumb) return ThumbImage(cover, error: blank);
     return Image(image: CachedNetworkImageProvider(cover), fit: BoxFit.cover, errorBuilder: (_, _, _) => blank);
   }
 }

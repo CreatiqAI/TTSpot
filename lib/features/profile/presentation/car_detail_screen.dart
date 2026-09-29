@@ -11,6 +11,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/dates.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../../core/widgets/primary_button.dart';
+import '../../../core/widgets/thumb_image.dart';
 import '../../../core/widgets/user_avatar.dart';
 import '../../social/application/community_providers.dart';
 import '../../social/application/social_providers.dart';
@@ -287,7 +288,7 @@ class _ModRow extends ConsumerWidget {
                             for (final u in mod.photoUrls)
                               Padding(
                                 padding: const EdgeInsets.only(right: 6),
-                                child: ClipRRect(borderRadius: BorderRadius.circular(8), child: Image(image: CachedNetworkImageProvider(u), width: 72, height: 72, fit: BoxFit.cover, errorBuilder: (_, _, _) => const SizedBox(width: 72))),
+                                child: ClipRRect(borderRadius: BorderRadius.circular(8), child: ThumbImage(u, width: 72, height: 72, error: const SizedBox(width: 72))),
                               ),
                           ],
                         ),

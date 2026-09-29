@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -11,6 +10,7 @@ import '../../../../core/theme/app_icons.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/dates.dart';
 import '../../../../core/utils/geo.dart';
+import '../../../../core/widgets/thumb_image.dart';
 import '../../../../core/widgets/user_avatar.dart';
 import '../../../events/domain/event.dart';
 import '../../../friends/application/friends_providers.dart';
@@ -257,7 +257,7 @@ class _MomentsStrip extends StatelessWidget {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    Image(image: CachedNetworkImageProvider(m.photoUrl), fit: BoxFit.cover, errorBuilder: (_, _, _) => Container(color: Colors.white10)),
+                    ThumbImage(m.photoUrl, error: Container(color: Colors.white10)),
                     Positioned(
                       left: 6,
                       right: 6,
@@ -535,10 +535,9 @@ class SpotRow extends StatelessWidget {
                   fit: StackFit.expand,
                   children: [
                     if (p.coverUrl != null)
-                      Image(image: CachedNetworkImageProvider(p.coverUrl!),
-                        fit: BoxFit.cover,
-                        frameBuilder: (_, child, frame, sync) => frame == null && !sync ? ColoredBox(color: tile, child: Center(child: ArtIcon(p.kindArt, size: 30))) : child,
-                        errorBuilder: (_, _, _) => ColoredBox(color: tile, child: Center(child: ArtIcon(p.kindArt, size: 30))),
+                      ThumbImage(p.coverUrl!,
+                        placeholder: ColoredBox(color: tile, child: Center(child: ArtIcon(p.kindArt, size: 30))),
+                        error: ColoredBox(color: tile, child: Center(child: ArtIcon(p.kindArt, size: 30))),
                       )
                     else
                       ColoredBox(color: tile, child: Center(child: ArtIcon(p.kindArt, size: 34))),

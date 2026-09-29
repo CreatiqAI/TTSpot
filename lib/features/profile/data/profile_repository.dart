@@ -4,8 +4,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/config/media.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/utils/plate_blur.dart';
+import '../../../core/utils/thumbnails.dart';
 import '../domain/car.dart';
 import '../domain/car_recognition.dart';
 
@@ -104,18 +106,19 @@ class ProfileRepository {
 
   Future<void> deleteCar(String id) => _client.from('cars').delete().eq('id', id);
 
-  /// Uploads to `car-photos/<userId>/<millis>_<index>.<ext>`, returns the
-  /// public URL. JPEG straight from the picker; PNG once a plate was blurred.
+  /// Uploads to `car-photos/<userId>/<millis>_<index>.<ext>` (plus its grid
+  /// thumbnail), returns the public URL. JPEG straight from the picker; PNG
+  /// once a plate was blurred.
   Future<String> uploadCarPhoto({required String userId, required Uint8List bytes, required int index}) async {
     final type = imageContentType(bytes);
     final ext = switch (type) { 'image/png' => 'png', 'image/webp' => 'webp', _ => 'jpg' };
     final path = '$userId/${DateTime.now().millisecondsSinceEpoch}_$index.$ext';
-    await _client.storage.from('car-photos').uploadBinary(
-          path,
-          bytes,
-          fileOptions: FileOptions(contentType: type),
-        );
-    return _client.storage.from('car-photos').getPublicUrl(path);
+    final bucket = _client.storage.from('car-photos');
+    await Future.wait([
+      bucket.uploadBinary(path, bytes, fileOptions: FileOptions(contentType: type, cacheControl: kImmutableCacheControl)),
+      uploadThumb(bucket, path, bytes),
+    ]);
+    return bucket.getPublicUrl(path);
   }
 
   /// Asks the `recognize-car` edge function what the photo shows. The bytes go

@@ -126,7 +126,7 @@ class CommunityActions {
     }
     String? avatarUrl;
     if (avatar != null) {
-      avatarUrl = await _repo.uploadPhoto(userId: _me, bytes: await avatar.readAsBytes(), folder: 'clubs');
+      avatarUrl = await _repo.uploadPhoto(userId: _me, bytes: await avatar.readAsBytes(), folder: 'clubs', thumb: false);
     }
     final club = await _repo.createClub(ownerId: _me, name: name, handle: handle, description: description, homeState: homeState, avatarUrl: avatarUrl);
     _ref.invalidate(clubsProvider(''));

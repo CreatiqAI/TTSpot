@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -6,6 +5,7 @@ import '../../../../core/supabase/supabase_client.dart';
 import '../../../../core/theme/app_icons.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/primary_button.dart';
+import '../../../../core/widgets/thumb_image.dart';
 import '../../application/profile_providers.dart';
 import '../../domain/car.dart';
 
@@ -185,7 +185,7 @@ class CarThumb extends StatelessWidget {
         height: height,
         child: url == null
             ? placeholder
-            : Image(image: CachedNetworkImageProvider(url!), fit: BoxFit.cover, errorBuilder: (_, _, _) => placeholder),
+            : ThumbImage(url!, error: placeholder),
       ),
     );
   }

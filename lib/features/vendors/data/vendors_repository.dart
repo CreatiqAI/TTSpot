@@ -2,7 +2,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/config/media.dart';
 import '../../../core/supabase/supabase_client.dart';
+import '../../../core/utils/thumbnails.dart';
 import '../../events/domain/event.dart';
 import '../domain/vendor.dart';
 
@@ -16,11 +18,16 @@ class VendorsRepository {
 
   // ----------------------------------------------------------- partners ---
 
-  /// Uploads a logo / receipt to `post-photos/<uid>/vendor/…` and returns its public URL.
-  Future<String> uploadImage({required String userId, required Uint8List bytes}) async {
+  /// Uploads a logo / receipt / photo to `post-photos/<uid>/vendor/…` and
+  /// returns its public URL. [thumb]: also a grid thumbnail (product photos).
+  Future<String> uploadImage({required String userId, required Uint8List bytes, bool thumb = false}) async {
     final path = '$userId/vendor/${DateTime.now().microsecondsSinceEpoch}.jpg';
-    await _client.storage.from('post-photos').uploadBinary(path, bytes, fileOptions: const FileOptions(contentType: 'image/jpeg'));
-    return _client.storage.from('post-photos').getPublicUrl(path);
+    final bucket = _client.storage.from('post-photos');
+    await Future.wait([
+      bucket.uploadBinary(path, bytes, fileOptions: const FileOptions(contentType: 'image/jpeg', cacheControl: kImmutableCacheControl)),
+      if (thumb) uploadThumb(bucket, path, bytes),
+    ]);
+    return bucket.getPublicUrl(path);
   }
 
   Future<String> applyPartner({

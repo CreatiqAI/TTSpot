@@ -158,7 +158,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
           if (text.isEmpty) continue;
           String? photoUrl;
           final pf = _pollPhotos[i];
-          if (pf != null) photoUrl = await repo.uploadPhoto(userId: me, bytes: await pf.readAsBytes(), folder: 'polls');
+          if (pf != null) photoUrl = await repo.uploadPhoto(userId: me, bytes: await pf.readAsBytes(), folder: 'polls', thumb: false);
           options.add(PollOption(text: text, photoUrl: photoUrl));
         }
       }
@@ -245,7 +245,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                       onTap: _busy
                           ? null
                           : () async {
-                              final files = await pickPhotos(context, max: 1, multi: false);
+                              final files = await pickPhotos(context, max: 1, multi: false, small: true);
                               if (files.isNotEmpty) setState(() => _pollPhotos[i] = files.first);
                             },
                       child: Container(

@@ -7,9 +7,9 @@ import '../../../core/theme/app_art.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/friendly_error.dart';
-import '../../../core/utils/image_source.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/primary_button.dart';
+import '../../../core/widgets/thumb_image.dart';
 import '../application/vendors_providers.dart';
 import '../domain/vendor.dart';
 
@@ -96,7 +96,7 @@ class _ProductRow extends StatelessWidget {
                   height: 72,
                   child: p.photoUrls.isEmpty
                       ? ColoredBox(color: AppColors.surfaceGray, child: Icon(AppIcons.shoppingBag, color: AppColors.textSecondary))
-                      : Opacity(opacity: p.active ? 1 : 0.5, child: Image(image: imageFor(p.photoUrls.first), fit: BoxFit.cover)),
+                      : Opacity(opacity: p.active ? 1 : 0.5, child: ThumbImage(p.photoUrls.first)),
                 ),
               ),
               const SizedBox(width: 12),

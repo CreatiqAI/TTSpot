@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -9,6 +8,7 @@ import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/dates.dart';
 import '../../../core/utils/friendly_error.dart';
+import '../../../core/widgets/thumb_image.dart';
 import '../application/points_providers.dart';
 import 'widgets/referral_code_card.dart';
 import '../domain/points.dart';
@@ -99,7 +99,7 @@ class PointsScreen extends ConsumerWidget {
                   dense: true,
                   leading: ClipRRect(
                     borderRadius: BorderRadius.circular(6),
-                    child: Image(image: CachedNetworkImageProvider(v.photoUrl), width: 40, height: 40, fit: BoxFit.cover, errorBuilder: (_, _, _) => const SizedBox(width: 40, height: 40)),
+                    child: ThumbImage(v.photoUrl, width: 40, height: 40, error: const SizedBox(width: 40, height: 40)),
                   ),
                   title: Text(v.placeName),
                   subtitle: Text(

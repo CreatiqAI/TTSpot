@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../config/media.dart';
 import '../theme/app_icons.dart';
 import '../theme/app_theme.dart';
 
@@ -42,15 +43,17 @@ Future<ImageSource?> showPhotoSourceSheet(BuildContext context, {VoidCallback? o
 
 /// Picks one photo (camera or gallery) or several from the gallery. Pass
 /// [source] to skip the "camera or library" sheet when the button already
-/// says which.
-Future<List<XFile>> pickPhotos(BuildContext context, {int max = 10, bool multi = true, ImageSource? source}) async {
+/// says which. [small]: a logo or other picture that only ever shows small
+/// (see [kSmallPhotoSide]).
+Future<List<XFile>> pickPhotos(BuildContext context, {int max = 10, bool multi = true, ImageSource? source, bool small = false}) async {
   source ??= await showPhotoSourceSheet(context);
   if (source == null) return const [];
   final picker = ImagePicker();
+  final maxSide = small ? kSmallPhotoSide : 1600.0;
   if (source == ImageSource.gallery && multi && max > 1) {
-    final files = await picker.pickMultiImage(maxWidth: 1600, maxHeight: 1600, imageQuality: 85, limit: max);
+    final files = await picker.pickMultiImage(maxWidth: maxSide, maxHeight: maxSide, imageQuality: 85, limit: max);
     return files.take(max).toList();
   }
-  final f = await picker.pickImage(source: source, maxWidth: 1600, maxHeight: 1600, imageQuality: 85);
+  final f = await picker.pickImage(source: source, maxWidth: maxSide, maxHeight: maxSide, imageQuality: 85);
   return f == null ? const [] : [f];
 }

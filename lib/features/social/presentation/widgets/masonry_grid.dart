@@ -1,10 +1,10 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_icons.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/thumb_image.dart';
 import '../../../../core/widgets/user_avatar.dart';
 import '../../domain/post.dart';
 
@@ -89,11 +89,7 @@ class PostTile extends StatelessWidget {
                     : Stack(
                         fit: StackFit.expand,
                         children: [
-                          Image(image: CachedNetworkImageProvider(p.cover!),
-                            fit: BoxFit.cover,
-                            loadingBuilder: (_, child, prog) => prog == null ? child : ColoredBox(color: AppColors.surfaceGray),
-                            errorBuilder: (_, _, _) => ColoredBox(color: AppColors.surfaceGray),
-                          ),
+                          ThumbImage(p.cover!, placeholder: ColoredBox(color: AppColors.surfaceGray), error: ColoredBox(color: AppColors.surfaceGray)),
                           if (p.kind != PostKind.post)
                             Positioned(
                               top: 8,

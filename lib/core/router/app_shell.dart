@@ -9,6 +9,7 @@ import '../../features/social/application/chat_providers.dart';
 import '../../features/social/application/notification_providers.dart';
 import '../theme/app_icons.dart';
 import '../../features/accounts/application/active_account.dart';
+import 'tab_reselect.dart';
 import 'tab_slot.dart';
 import '../widgets/glass_tab_bar.dart';
 import '../../features/admin/application/admin_providers.dart';
@@ -130,6 +131,10 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
           if (account is PersonalAccount && t.branch == 3 && shell.currentIndex == 3) {
             showProfileMenu(context, ref);
             return;
+          }
+          // Home tab tapped while already on it: the feed goes back to the top and refreshes.
+          if (account is PersonalAccount && t.branch == 0 && shell.currentIndex == 0) {
+            ref.read(homeReselectProvider.notifier).fire();
           }
           shell.goBranch(t.branch, initialLocation: t.branch == shell.currentIndex);
         },

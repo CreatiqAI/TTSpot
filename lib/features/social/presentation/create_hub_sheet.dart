@@ -5,9 +5,10 @@ import 'package:go_router/go_router.dart';
 import '../../../core/config/features.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_icons.dart';
-import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/titi.dart';
 import '../../../core/widgets/sheet_header.dart';
+import '../../../core/widgets/swipe_sheet_body.dart';
 import '../../map/presentation/widgets/tt_now_sheet.dart';
 import '../../accounts/application/active_account.dart';
 import '../domain/post.dart';
@@ -27,8 +28,10 @@ Future<void> showCreateHub(BuildContext context, WidgetRef ref) {
     context: context,
     showDragHandle: true,
     isScrollControlled: true,
+    useSafeArea: true, // keep the handle clear of the status bar, where a swipe down opens the system shade
     builder: (ctx) => SafeArea(
-      child: SingleChildScrollView(
+      // Swipe down anywhere (content at the top) to close; the X stays for those who don't.
+      child: SwipeSheetBody(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
         child: Column(
           mainAxisSize: MainAxisSize.min,

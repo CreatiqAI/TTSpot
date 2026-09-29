@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/config/media.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../domain/floorplan.dart';
 
@@ -47,12 +48,13 @@ class FloorplanRepository {
   }
 
   /// Uploads a plan image to `event-floorplans/<event_id>/<level_id>-<ms>.<ext>` and
-  /// points the level at it. Deletes the old file afterwards.
+  /// points the level at it. Deletes the old file afterwards. A new path per
+  /// upload, so it can be cached for a year.
   Future<void> setLevelImage({required FloorLevel level, required Uint8List bytes, required String ext, required int width, required int height}) async {
     final e = switch (ext.toLowerCase()) { 'png' => 'png', 'webp' => 'webp', _ => 'jpg' };
     final mime = switch (e) { 'png' => 'image/png', 'webp' => 'image/webp', _ => 'image/jpeg' };
     final path = '${level.eventId}/${level.id}-${DateTime.now().millisecondsSinceEpoch}.$e';
-    await _client.storage.from(bucket).uploadBinary(path, bytes, fileOptions: FileOptions(contentType: mime, upsert: true));
+    await _client.storage.from(bucket).uploadBinary(path, bytes, fileOptions: FileOptions(contentType: mime, upsert: true, cacheControl: kImmutableCacheControl));
     await _client.from('event_floor_levels').update({'image_path': path, 'image_w': width, 'image_h': height}).eq('id', level.id);
     if (level.imagePath != null && level.imagePath != path) {
       try {

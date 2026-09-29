@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../core/config/media.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../accounts/application/active_account.dart';
@@ -168,8 +169,9 @@ class ChatActions {
   }
 
   Future<void> sendVideo(String conversationId, XFile file) async {
+    // Library picks can skip maxDuration, so check the size before reading it in.
+    if (await file.length() > kChatVideoMaxMb * 1024 * 1024) throw const AppException('That video is too big. Pick one under $kChatVideoMaxMb MB.');
     final bytes = await file.readAsBytes();
-    if (bytes.length > 50 * 1024 * 1024) throw const AppException('Video is too big. Keep it under 50 MB.');
     final repo = _ref.read(chatRepositoryProvider);
     final url = await repo.uploadMedia(me: _me, bytes: bytes, ext: 'mp4', contentType: 'video/mp4');
     await repo.send(asClub: _actor(conversationId).asClub, asVendor: _actor(conversationId).asVendor, conversationId: conversationId, me: _me, body: 'Sent a video', videoUrl: url);

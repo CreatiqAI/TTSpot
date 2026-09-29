@@ -2,7 +2,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/config/media.dart';
 import '../../../core/supabase/supabase_client.dart';
+import '../../../core/utils/thumbnails.dart';
 import '../domain/points.dart';
 import '../domain/verification.dart';
 
@@ -80,11 +82,16 @@ class PointsRepository {
 extension PointsVerificationRepo on PointsRepository {
   // ---------------------------------------------------------- stickers ---
 
-  /// Uploads the proof photo to `post-photos/<uid>/verify/…` and returns its public URL.
+  /// Uploads the proof photo (and its thumbnail) to `post-photos/<uid>/verify/…`
+  /// and returns its public URL.
   Future<String> uploadProof({required String userId, required Uint8List bytes}) async {
     final path = '$userId/verify/${DateTime.now().microsecondsSinceEpoch}.jpg';
-    await _client.storage.from('post-photos').uploadBinary(path, bytes, fileOptions: const FileOptions(contentType: 'image/jpeg'));
-    return _client.storage.from('post-photos').getPublicUrl(path);
+    final bucket = _client.storage.from('post-photos');
+    await Future.wait([
+      bucket.uploadBinary(path, bytes, fileOptions: const FileOptions(contentType: 'image/jpeg', cacheControl: kImmutableCacheControl)),
+      uploadThumb(bucket, path, bytes),
+    ]);
+    return bucket.getPublicUrl(path);
   }
 
   Future<String> submitVerification({required String placeId, required String code, required String photoUrl, double? lat, double? lng}) async {

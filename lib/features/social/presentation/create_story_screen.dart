@@ -10,6 +10,7 @@ import 'package:flutter/rendering.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:video_player/video_player.dart';
 
+import '../../../core/config/media.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/theme/app_art.dart';
 import '../../../core/theme/app_icons.dart';
@@ -67,7 +68,7 @@ class _CreateStoryScreenState extends ConsumerState<CreateStoryScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(leading: const Icon(AppIcons.camera), title: const Text('Take a photo'), onTap: () => Navigator.pop(ctx, (_Kind.photo, ImageSource.camera))),
-            ListTile(leading: const Icon(AppIcons.videoCamera), title: const Text('Record a video'), subtitle: Text('Up to 30 seconds', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)), onTap: () => Navigator.pop(ctx, (_Kind.video, ImageSource.camera))),
+            ListTile(leading: const Icon(AppIcons.videoCamera), title: const Text('Record a video'), subtitle: Text('Up to ${kStoryVideoMaxDuration.inSeconds} seconds', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)), onTap: () => Navigator.pop(ctx, (_Kind.video, ImageSource.camera))),
             ListTile(leading: const Icon(AppIcons.images), title: const Text('Photo from library'), onTap: () => Navigator.pop(ctx, (_Kind.photo, ImageSource.gallery))),
             ListTile(leading: const Icon(AppIcons.play), title: const Text('Video from library'), onTap: () => Navigator.pop(ctx, (_Kind.video, ImageSource.gallery))),
             const SizedBox(height: 8),
@@ -84,8 +85,13 @@ class _CreateStoryScreenState extends ConsumerState<CreateStoryScreen> {
       setState(() { _photo = f; _video = null; _player = null; });
       return;
     }
-    final f = await picker.pickVideo(source: choice.$2, maxDuration: const Duration(seconds: 30));
-    if (f == null) return;
+    final f = await picker.pickVideo(source: choice.$2, maxDuration: kStoryVideoMaxDuration);
+    if (f == null || !mounted) return;
+    // Library picks can skip maxDuration.
+    if (await f.length() > kStoryVideoMaxMb * 1024 * 1024) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('That video is too big. Pick one under $kStoryVideoMaxMb MB.')));
+      return;
+    }
     final c = VideoPlayerController.file(File(f.path));
     try {
       await c.initialize();

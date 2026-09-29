@@ -78,7 +78,7 @@ class _CreateClubScreenState extends ConsumerState<CreateClubScreen> {
               children: [
                 GestureDetector(
                   onTap: () async {
-                    final files = await pickPhotos(context, max: 1, multi: false);
+                    final files = await pickPhotos(context, max: 1, multi: false, small: true);
                     if (files.isNotEmpty) setState(() => _avatar = files.first);
                   },
                   child: _avatar == null
@@ -87,7 +87,7 @@ class _CreateClubScreenState extends ConsumerState<CreateClubScreen> {
                 ),
                 TextButton(
                   onPressed: () async {
-                    final files = await pickPhotos(context, max: 1, multi: false);
+                    final files = await pickPhotos(context, max: 1, multi: false, small: true);
                     if (files.isNotEmpty) setState(() => _avatar = files.first);
                   },
                   child: const Text('Add club logo'),

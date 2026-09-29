@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -11,6 +10,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/dates.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../../core/widgets/empty_state.dart';
+import '../../../core/widgets/thumb_image.dart';
 import '../../../core/widgets/user_avatar.dart';
 import '../../friends/application/friends_providers.dart';
 import '../application/notification_providers.dart';
@@ -255,7 +255,7 @@ class _Row extends ConsumerWidget {
               const SizedBox(width: 12),
               ClipRRect(
                 borderRadius: BorderRadius.circular(4),
-                child: Image(image: CachedNetworkImageProvider(n.postCover!), width: 44, height: 44, fit: BoxFit.cover, errorBuilder: (_, _, _) => const SizedBox(width: 44, height: 44)),
+                child: ThumbImage(n.postCover!, width: 44, height: 44, error: const SizedBox(width: 44, height: 44)),
               ),
             ],
           ],

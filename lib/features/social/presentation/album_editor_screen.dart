@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -9,6 +8,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/theme/app_art.dart';
+import '../../../core/widgets/thumb_image.dart';
 import '../application/social_providers.dart';
 import '../domain/post.dart';
 
@@ -86,7 +86,7 @@ class _AlbumEditorScreenState extends ConsumerState<AlbumEditorScreen> {
                           height: 84,
                           padding: const EdgeInsets.all(2),
                           decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: _cover == s.photoUrl ? AppColors.brand : AppColors.border, width: 2)),
-                          child: ClipOval(child: Image(image: CachedNetworkImageProvider(s.photoUrl), fit: BoxFit.cover)),
+                          child: ClipOval(child: ThumbImage(s.photoUrl)),
                         ),
                       ),
                     ),
@@ -194,7 +194,7 @@ class _AlbumEditorScreenState extends ConsumerState<AlbumEditorScreen> {
                       child: ClipOval(
                         child: _cover == null
                             ? ColoredBox(color: AppColors.surfaceGray, child: Icon(AppIcons.image, size: 28, color: AppColors.textSecondary))
-                            : Image(image: CachedNetworkImageProvider(_cover!), fit: BoxFit.cover),
+                            : ThumbImage(_cover!),
                       ),
                     ),
                     const SizedBox(height: 6),
@@ -240,7 +240,7 @@ class _AlbumEditorScreenState extends ConsumerState<AlbumEditorScreen> {
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
-                        Image(image: CachedNetworkImageProvider(s.photoUrl), fit: BoxFit.cover, errorBuilder: (_, _, _) => ColoredBox(color: AppColors.surfaceGray)),
+                        ThumbImage(s.photoUrl, error: ColoredBox(color: AppColors.surfaceGray)),
                         if (on) const DecoratedBox(decoration: BoxDecoration(color: Color(0x33000000))),
                         Positioned(
                           right: 6,

@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../core/config/media.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../points/data/points_repository.dart';
@@ -78,12 +79,13 @@ class OnboardingController extends AsyncNotifier<void> {
 final onboardingControllerProvider =
     AsyncNotifierProvider<OnboardingController, void>(OnboardingController.new);
 
-/// Shared picker config: downsized + compressed so avatars stay well under the 2 MB bucket limit.
+/// Shared picker config: avatars show in every list at 96 px or less (only
+/// the profile's "View photo" goes bigger), so they go up small.
 Future<XFile?> pickAvatarImage(ImageSource source) {
   return ImagePicker().pickImage(
     source: source,
-    maxWidth: 800,
-    maxHeight: 800,
+    maxWidth: kSmallPhotoSide,
+    maxHeight: kSmallPhotoSide,
     imageQuality: 85,
   );
 }

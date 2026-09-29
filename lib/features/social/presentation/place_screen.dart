@@ -24,6 +24,7 @@ import '../domain/post.dart';
 import 'story_viewer_screen.dart';
 import 'widgets/masonry_grid.dart';
 import '../../../core/utils/share_links.dart';
+import '../../../core/widgets/thumb_image.dart';
 
 /// A spot: cover, what it is, check in (打卡), who has been, the album, meets
 /// held here and posts about it.
@@ -409,7 +410,7 @@ class _Album extends StatelessWidget {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              Image(image: CachedNetworkImageProvider(m.photoUrl), fit: BoxFit.cover, errorBuilder: (_, _, _) => ColoredBox(color: AppColors.surfaceGray)),
+              ThumbImage(m.photoUrl, error: ColoredBox(color: AppColors.surfaceGray)),
               Positioned(left: 6, bottom: 6, child: UserAvatar(url: m.author?.avatarUrl, name: m.author?.username, size: 22, borderColor: Colors.white)),
             ],
           ),

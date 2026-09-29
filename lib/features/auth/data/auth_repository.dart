@@ -142,7 +142,8 @@ class AuthRepository {
   }
 
   /// Uploads to `avatars/<userId>/avatar.jpg` (overwrites) and returns a public URL
-  /// with a cache-buster so the new image shows immediately.
+  /// with a cache-buster so the new image shows immediately. Keeps the default
+  /// 1-hour cache: the path is reused, so a long cache could show an old face.
   Future<String> uploadAvatar({required String userId, required Uint8List bytes}) async {
     final path = '$userId/avatar.jpg';
     await _client.storage.from('avatars').uploadBinary(

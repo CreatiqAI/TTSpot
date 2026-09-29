@@ -38,6 +38,9 @@ dependencies:
   flutter_mapbox:                # in-app navigation (approved 2026-09-28); local copy, see packages/flutter_mapbox/PATCHES.md
     path: packages/flutter_mapbox
 
+  # --- approved 2026-09-29 -------------------------------------------------
+  flutter_image_compress: ^2.5.1 # ~480 px JPEG thumbnails for grid tiles (less storage egress)
+
   # Not added: intl (dates formatted in lib/core/utils/dates.dart instead),
   # cached_network_image (plain NetworkImage is enough for MVP).
 

@@ -92,7 +92,7 @@ class _VendorEditScreenState extends ConsumerState<VendorEditScreen> {
                   children: [
                     GestureDetector(
                       onTap: () async {
-                        final files = await pickPhotos(context, max: 1, multi: false);
+                        final files = await pickPhotos(context, max: 1, multi: false, small: true);
                         if (files.isNotEmpty) setState(() => _logo = files.first);
                       },
                       child: Container(

@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/config/media.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../auth/domain/profile.dart';
 import '../domain/chat.dart';
@@ -185,13 +186,13 @@ class ChatRepository {
 
   Future<String> uploadMedia({required String me, required Uint8List bytes, required String ext, required String contentType}) async {
     final path = '$me/${DateTime.now().millisecondsSinceEpoch}.$ext';
-    await _client.storage.from('chat-media').uploadBinary(path, bytes, fileOptions: FileOptions(contentType: contentType));
+    await _client.storage.from('chat-media').uploadBinary(path, bytes, fileOptions: FileOptions(contentType: contentType, cacheControl: kImmutableCacheControl));
     return _client.storage.from('chat-media').getPublicUrl(path);
   }
 
   Future<String> uploadPhoto({required String me, required Uint8List bytes}) async {
     final path = '$me/${DateTime.now().millisecondsSinceEpoch}.jpg';
-    await _client.storage.from('chat-photos').uploadBinary(path, bytes, fileOptions: const FileOptions(contentType: 'image/jpeg'));
+    await _client.storage.from('chat-photos').uploadBinary(path, bytes, fileOptions: const FileOptions(contentType: 'image/jpeg', cacheControl: kImmutableCacheControl));
     return _client.storage.from('chat-photos').getPublicUrl(path);
   }
 

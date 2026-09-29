@@ -23,6 +23,7 @@ import '../domain/vendor.dart';
 import 'widgets/hours_editor.dart';
 import 'widgets/product_sheet.dart';
 import '../../../core/utils/share_links.dart';
+import '../../../core/widgets/thumb_image.dart';
 
 /// A partner's page for members. Cover + logo on top, then sections you can
 /// jump to from the sticky chip bar: Info · Products · Vouchers · Posts ·
@@ -350,7 +351,7 @@ class _BodyState extends ConsumerState<_Body> {
                                             alignment: Alignment.bottomLeft,
                                             child: Text(f.post.title ?? f.post.caption ?? 'Post', maxLines: 3, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
                                           )
-                                        : Image(image: CachedNetworkImageProvider(f.post.photoUrls.first), fit: BoxFit.cover),
+                                        : ThumbImage(f.post.photoUrls.first),
                                   ),
                                 ),
                               );
@@ -372,7 +373,7 @@ class _BodyState extends ConsumerState<_Body> {
                               _Tile(
                                 leading: ClipRRect(
                                   borderRadius: BorderRadius.circular(12),
-                                  child: SizedBox(width: 44, height: 44, child: e.coverUrl == null ? ColoredBox(color: AppColors.surfaceGray, child: Center(child: ArtIcon(e.type.art, size: 24))) : Image(image: CachedNetworkImageProvider(e.coverUrl!), fit: BoxFit.cover)),
+                                  child: SizedBox(width: 44, height: 44, child: e.coverUrl == null ? ColoredBox(color: AppColors.surfaceGray, child: Center(child: ArtIcon(e.type.art, size: 24))) : ThumbImage(e.coverUrl!)),
                                 ),
                                 title: e.title,
                                 subtitle: '${formatEventDateFriendly(e.startsAt)} · ${e.venueName}',

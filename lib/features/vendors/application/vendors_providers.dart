@@ -118,12 +118,13 @@ class VendorActions {
   /// Upload one picked photo and get its public URL (product / variant photos).
   Future<String?> upload(XFile photo) => _upload(photo);
 
-  Future<String?> _upload(XFile? photo) async {
+  /// [thumb]: also a grid thumbnail (product photos show in the shop grid).
+  Future<String?> _upload(XFile? photo, {bool thumb = false}) async {
     if (photo == null) return null;
     final me = _ref.read(currentUserIdProvider);
     if (me == null) return null;
     final bytes = await photo.readAsBytes();
-    return _repo.uploadImage(userId: me, bytes: bytes);
+    return _repo.uploadImage(userId: me, bytes: bytes, thumb: thumb);
   }
 
   Future<void> apply({
@@ -183,7 +184,7 @@ class VendorActions {
   Future<void> saveProduct({String? id, required String name, String? description, double? price, required List<String> keptPhotos, List<XFile> newPhotos = const [], required List<ProductVariant> variants, required bool active}) async {
     final photos = [...keptPhotos];
     for (final f in newPhotos) {
-      final url = await _upload(f);
+      final url = await _upload(f, thumb: true);
       if (url != null) photos.add(url);
     }
     await _repo.saveProduct(id: id, name: name, description: description, price: price, photoUrls: photos, variants: variants, active: active);

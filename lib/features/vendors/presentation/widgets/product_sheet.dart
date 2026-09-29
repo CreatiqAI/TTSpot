@@ -9,6 +9,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/friendly_error.dart';
 import '../../../../core/utils/image_source.dart';
 import '../../../../core/widgets/primary_button.dart';
+import '../../../../core/widgets/thumb_image.dart';
 import '../../../social/application/chat_providers.dart';
 import '../../application/vendors_providers.dart';
 import '../../domain/vendor.dart';
@@ -35,7 +36,7 @@ class ProductCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(AppRadius.md),
                     child: product.photoUrls.isEmpty
                         ? ColoredBox(color: AppColors.surfaceGray, child: Icon(AppIcons.shoppingBag, color: AppColors.textSecondary))
-                        : Image(image: imageFor(product.photoUrls.first), fit: BoxFit.cover),
+                        : ThumbImage(product.photoUrls.first),
                   ),
                   if (voucherCount > 0)
                     Positioned(

@@ -2,7 +2,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/config/media.dart';
 import '../../../core/supabase/supabase_client.dart';
+import '../../../core/utils/thumbnails.dart';
 import '../../auth/domain/profile.dart';
 import '../../events/domain/event.dart';
 import '../domain/club.dart';
@@ -283,10 +285,15 @@ class CommunityRepository {
 
   Future<void> setShowSpend(String carId, bool show) => _client.from('cars').update({'show_spend': show}).eq('id', carId);
 
-  Future<String> uploadPhoto({required String userId, required Uint8List bytes, String folder = 'mods'}) async {
+  /// [thumb]: also upload a grid thumbnail (not for logos, which are small already).
+  Future<String> uploadPhoto({required String userId, required Uint8List bytes, String folder = 'mods', bool thumb = true}) async {
     final path = '$userId/$folder/${DateTime.now().microsecondsSinceEpoch}.jpg';
-    await _client.storage.from('post-photos').uploadBinary(path, bytes, fileOptions: const FileOptions(contentType: 'image/jpeg'));
-    return _client.storage.from('post-photos').getPublicUrl(path);
+    final bucket = _client.storage.from('post-photos');
+    await Future.wait([
+      bucket.uploadBinary(path, bytes, fileOptions: const FileOptions(contentType: 'image/jpeg', cacheControl: kImmutableCacheControl)),
+      if (thumb) uploadThumb(bucket, path, bytes),
+    ]);
+    return bucket.getPublicUrl(path);
   }
 }
 

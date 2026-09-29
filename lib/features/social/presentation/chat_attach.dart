@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -7,6 +6,7 @@ import '../../../core/theme/app_art.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/dates.dart';
+import '../../../core/widgets/thumb_image.dart';
 import '../../events/application/my_events_provider.dart';
 import '../../profile/application/profile_providers.dart';
 import '../application/community_providers.dart';
@@ -140,7 +140,7 @@ class _AttachSheetState extends ConsumerState<_AttachSheet> {
                                 ListTile(
                                   leading: ClipRRect(
                                     borderRadius: BorderRadius.circular(10),
-                                    child: SizedBox(width: 48, height: 48, child: e.coverUrl == null ? ColoredBox(color: AppColors.surfaceGray, child: Center(child: ArtIcon(e.type.art, size: 26))) : Image(image: CachedNetworkImageProvider(e.coverUrl!), fit: BoxFit.cover)),
+                                    child: SizedBox(width: 48, height: 48, child: e.coverUrl == null ? ColoredBox(color: AppColors.surfaceGray, child: Center(child: ArtIcon(e.type.art, size: 26))) : ThumbImage(e.coverUrl!)),
                                   ),
                                   title: Text(e.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600)),
                                   subtitle: Text('${formatEventDate(e.startsAt)} · ${e.venueName}', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
@@ -156,7 +156,7 @@ class _AttachSheetState extends ConsumerState<_AttachSheet> {
                             ListTile(
                               leading: ClipRRect(
                                 borderRadius: BorderRadius.circular(10),
-                                child: SizedBox(width: 48, height: 48, child: p.coverUrl == null ? ColoredBox(color: AppColors.surfaceGray, child: Center(child: ArtIcon(p.kindArt, size: 26))) : Image(image: CachedNetworkImageProvider(p.coverUrl!), fit: BoxFit.cover)),
+                                child: SizedBox(width: 48, height: 48, child: p.coverUrl == null ? ColoredBox(color: AppColors.surfaceGray, child: Center(child: ArtIcon(p.kindArt, size: 26))) : ThumbImage(p.coverUrl!)),
                               ),
                               title: Text(p.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600)),
                               subtitle: Text(p.kindLabel, style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
@@ -174,7 +174,7 @@ class _AttachSheetState extends ConsumerState<_AttachSheet> {
                                 ListTile(
                                   leading: ClipRRect(
                                     borderRadius: BorderRadius.circular(10),
-                                    child: SizedBox(width: 48, height: 48, child: c.cover == null ? ColoredBox(color: AppColors.surfaceGray, child: Center(child: ArtIcon(AppArt.car, size: 26))) : Image(image: CachedNetworkImageProvider(c.cover!), fit: BoxFit.cover)),
+                                    child: SizedBox(width: 48, height: 48, child: c.cover == null ? ColoredBox(color: AppColors.surfaceGray, child: Center(child: ArtIcon(AppArt.car, size: 26))) : ThumbImage(c.cover!)),
                                   ),
                                   title: Text('${c.make} ${c.model}', style: const TextStyle(fontWeight: FontWeight.w600)),
                                   subtitle: Text(c.year?.toString() ?? 'Garage', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),

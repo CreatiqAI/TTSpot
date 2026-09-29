@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -9,6 +8,7 @@ import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/dates.dart';
 import '../../../core/utils/friendly_error.dart';
+import '../../../core/widgets/thumb_image.dart';
 import '../../../core/widgets/user_avatar.dart';
 import '../application/social_providers.dart';
 import '../domain/album.dart';
@@ -94,7 +94,7 @@ class _AddToAlbum extends ConsumerWidget {
               leading: SizedBox(
                 width: 44,
                 height: 44,
-                child: ClipOval(child: a.coverUrl == null ? ColoredBox(color: AppColors.surfaceGray) : Image(image: CachedNetworkImageProvider(a.coverUrl!), fit: BoxFit.cover)),
+                child: ClipOval(child: a.coverUrl == null ? ColoredBox(color: AppColors.surfaceGray) : ThumbImage(a.coverUrl!)),
               ),
               title: Text(a.name, style: const TextStyle(fontWeight: FontWeight.w600)),
               subtitle: Text('${a.count} moment${a.count == 1 ? '' : 's'}', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),

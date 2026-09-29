@@ -1,8 +1,8 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_icons.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/thumb_image.dart';
 import '../../../social/domain/album.dart';
 
 /// Moment albums as a slim row of circles at the top of the Posts tab.
@@ -57,7 +57,7 @@ class _Circle extends StatelessWidget {
                       ? ColoredBox(color: AppColors.surfaceGray, child: Icon(AppIcons.plus, size: 20, color: AppColors.textSecondary))
                       : a.coverUrl == null
                           ? ColoredBox(color: AppColors.surfaceGray, child: Icon(AppIcons.images, size: 20, color: AppColors.textSecondary))
-                          : Image(image: CachedNetworkImageProvider(a.coverUrl!), fit: BoxFit.cover, errorBuilder: (_, _, _) => ColoredBox(color: AppColors.surfaceGray)),
+                          : ThumbImage(a.coverUrl!, error: ColoredBox(color: AppColors.surfaceGray)),
                 ),
               ),
               const SizedBox(height: 4),

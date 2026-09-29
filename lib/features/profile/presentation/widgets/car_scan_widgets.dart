@@ -220,6 +220,8 @@ List<(String, String)> carSpecTiles(CarRecognition? g, String make, String model
 String _specLabel(String part) {
   final l = part.toLowerCase();
   if (RegExp(r'\bhp\b').hasMatch(l)) return 'HP';
+  if (RegExp(r'\b(ps|kw|bhp|whp)\b').hasMatch(l)) return 'POWER';
+  if (RegExp(r'\b(nm|lb-?ft)\b').hasMatch(l)) return 'TORQUE';
   if (RegExp(r'\b(cvt|at|mt|dct|amt|auto|automatic|manual|e-cvt|ivt)\b').hasMatch(l)) return 'GEARBOX';
   if (part.contains('L')) return 'ENGINE';
   return 'SPEC';

@@ -56,6 +56,7 @@ import '../../features/profile/presentation/car_form_screen.dart';
 import '../../features/profile/presentation/car_mod_form_screen.dart';
 import '../../features/profile/presentation/edit_profile_screen.dart';
 import '../../features/profile/presentation/follow_list_screen.dart';
+import '../../features/profile/presentation/garage_home_tab.dart';
 import 'branch_stack.dart';
 import 'tab_slot.dart';
 import '../../features/settings/presentation/settings_screen.dart';
@@ -153,6 +154,8 @@ abstract final class Routes {
   static const suggestSpot = '/suggest-spot';
   static const editProfile = '/edit-profile';
   static const newCar = '/car/new';
+  /// My garage full-screen (same widget as Home, Garage).
+  static const myGarage = '/garage';
   static const search = '/search';
   static const saved = '/saved';
   static const settings = '/settings';
@@ -320,6 +323,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(path: Routes.editProfile, pageBuilder: (_, s) => page(s, const EditProfileScreen())),
       GoRoute(path: Routes.newCar, pageBuilder: (_, s) => page(s, const CarFormScreen())),
+      GoRoute(path: Routes.myGarage, pageBuilder: (_, s) => page(s, const MyGarageScreen())),
       GoRoute(
         path: '/car/:id',
         pageBuilder: (_, s) => page(s, CarDetailScreen(carId: s.pathParameters['id']!)),

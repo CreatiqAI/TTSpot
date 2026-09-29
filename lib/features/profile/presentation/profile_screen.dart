@@ -38,14 +38,13 @@ import '../application/profile_providers.dart';
 import '../domain/car.dart';
 import 'profile_menu.dart';
 import 'widgets/albums_strip.dart';
-import 'widgets/car_switch_sheet.dart';
-import 'widgets/garage_card.dart';
 import 'widgets/profile_header.dart';
 import '../../../core/utils/share_links.dart';
 
-enum _Tab { posts, garage, cards }
+enum _Tab { posts, cards }
 
-/// Profile: identity on top, moments, then Posts · Garage · Cards.
+/// Profile: about the person. Identity and a small garage strip on top,
+/// then Posts · Cards. The full garage lives on Home, Garage.
 /// On my own page the Posts tab also holds Saved · Liked · Commented.
 /// `userId == null` means "me".
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -80,7 +79,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final points = isMe ? (ref.watch(pointsBalanceProvider).value ?? 0) : null;
     final tabs = [
       (AppIcons.squaresFour, 'Posts'),
-      (AppIcons.garage, 'Garage'),
       (AppIcons.sparkle, 'Cards'),
     ];
 
@@ -134,7 +132,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   child: ProfileHeader(
                     profile: p,
                     isMe: isMe,
-                    cars: cars.value ?? const <Car>[],
+                    cars: blocked ? const <Car>[] : (cars.value ?? const <Car>[]),
                     stats: stats,
                     friendCount: friendCount,
                     points: points,
@@ -147,9 +145,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     onRewards: () => context.push(Routes.rewards),
                     onQr: () => context.push(Routes.myQr),
                     onAvatar: () => _avatarSheet(p, isMe, moments),
-                    onSwitchCar: () => showCarSwitchSheet(context, ref, cars.value ?? const []),
                     onAddCar: () => context.push(Routes.newCar),
                     onCar: (c) => context.push(Routes.car(c.id)),
+                    onManageGarage: () => context.push(Routes.myGarage),
                     onFriendAction: () => _friendAction(id, friendship, p.displayName ?? '@${p.username}'),
                     onMessage: () => _message(id),
                     onCall: () => showCallSheet(context, ref, userId: id, name: p.displayName ?? '@${p.username}'),
@@ -182,11 +180,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       key: ValueKey(blocked ? 'blocked' : '$_tab'),
                       child: blocked
                           ? const _Fill(
-                              child: EmptyState(art: AppArt.prohibited, title: 'You blocked this user', subtitle: 'Unblock from the menu to see their garage.'),
+                              child: EmptyState(art: AppArt.prohibited, title: 'You blocked this user', subtitle: 'Unblock from the menu to see their posts.'),
                             )
                           : switch (_tab) {
                               _Tab.posts => _postsBody(posts, isMe, p, albums),
-                              _Tab.garage => _garageBody(cars, isMe),
                               _Tab.cards => ProfileCardsGrid(
                                   userId: id,
                                   isMe: isMe,
@@ -206,32 +203,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   // ------------------------------------------------------------------ tabs ---
-
-  Widget _garageBody(AsyncValue<List<Car>> cars, bool isMe) {
-    return cars.when(
-      loading: () => const _Fill(child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
-      error: (e, _) => _Fill(child: Center(child: Text(friendlyError(e)))),
-      data: (list) => list.isEmpty
-          ? _Fill(
-              child: EmptyState(
-                art: AppArt.car,
-                title: isMe ? 'Your garage is empty' : 'No cars yet',
-                subtitle: isMe ? 'Add your daily, your project, your weekend toy.' : 'Nothing parked here so far.',
-                actionLabel: isMe ? 'Add your first car' : null,
-                onAction: isMe ? () => context.push(Routes.newCar) : null,
-              ),
-            )
-          : Padding(
-              padding: const EdgeInsets.only(bottom: 24),
-              child: Column(
-                children: [
-                  for (final c in list) GarageCard(car: c, onTap: () => context.push(Routes.car(c.id)), onMore: isMe ? () => showCarActionsSheet(context, ref, c) : null),
-                  if (isMe) AddCarTile(onTap: () => context.push(Routes.newCar)),
-                ],
-              ),
-            ),
-    );
-  }
 
   Widget _postsBody(AsyncValue<List<FeedPost>> posts, bool isMe, Profile p, List<MomentAlbum> albums) {
     if (!kSocialFeed) return const SizedBox.shrink();

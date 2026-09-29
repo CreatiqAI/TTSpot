@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
+import '../../../../core/theme/app_art.dart';
 import '../../../../core/theme/app_icons.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/user_avatar.dart';
@@ -9,9 +10,9 @@ import '../../../friends/domain/friend.dart';
 import '../../../social/domain/post.dart';
 import '../../domain/car.dart';
 
-/// Identity block. The default car is the hero photo, the avatar sits on its
-/// edge, then name, one row of numbers, the actions, the bio. Nothing else:
-/// moments and cars have their own tabs.
+/// Identity block, about the person: avatar beside the numbers, name,
+/// handle, bio, the actions, then a small strip of their cars. The full
+/// garage (and picking today's car) lives on Home, Garage.
 class ProfileHeader extends StatelessWidget {
   const ProfileHeader({
     super.key,
@@ -30,9 +31,9 @@ class ProfileHeader extends StatelessWidget {
     required this.onRewards,
     required this.onQr,
     required this.onAvatar,
-    required this.onSwitchCar,
     required this.onAddCar,
     required this.onCar,
+    required this.onManageGarage,
     required this.onFriendAction,
     required this.onMessage,
     this.onCall,
@@ -53,14 +54,12 @@ class ProfileHeader extends StatelessWidget {
   final VoidCallback onRewards;
   final VoidCallback onQr;
   final VoidCallback onAvatar;
-  final VoidCallback onSwitchCar;
   final VoidCallback onAddCar;
   final ValueChanged<Car> onCar;
+  final VoidCallback onManageGarage;
   final VoidCallback onFriendAction;
   final VoidCallback onMessage;
   final VoidCallback? onCall;
-
-  Car? get _car => cars.where((c) => c.isDefault).firstOrNull ?? cars.firstOrNull;
 
   @override
   Widget build(BuildContext context) {
@@ -68,62 +67,56 @@ class ProfileHeader extends StatelessWidget {
     final name = p.displayName ?? '@${p.username}';
     final where = (p.homeState ?? '').isNotEmpty ? ' · ${p.homeState}' : '';
     final live = moments.any((m) => m.isLive);
-    final car = _car;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ------------------------------------------------------------ hero ---
-        _Hero(car: car, isMe: isMe, canSwitch: isMe && cars.length > 1, onSwitchCar: onSwitchCar, onAddCar: onAddCar, onTap: car == null ? null : () => onCar(car)),
+        // ------------------------------------------------- avatar + stats ---
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 8, 0),
+          child: Row(
+            children: [
+              // 88 across in all: a brand ring when a moment is live.
+              GestureDetector(
+                onTap: onAvatar,
+                child: Container(
+                  padding: const EdgeInsets.all(2.5),
+                  decoration: BoxDecoration(shape: BoxShape.circle, color: live ? AppColors.brand : Colors.transparent),
+                  child: Container(
+                    padding: const EdgeInsets.all(2.5),
+                    decoration: BoxDecoration(shape: BoxShape.circle, color: AppColors.bg),
+                    child: UserAvatar(url: p.avatarUrl, name: name, size: 78),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Row(
+                  children: [
+                    _Stat(value: stats?.went, label: 'Meets', onTap: onMeets),
+                    _Stat(value: friendCount, label: 'Friends', onTap: onFriends),
+                    _Stat(value: stats?.cars ?? cars.length, label: 'Cars'),
+                    if (points != null) _Stat(value: points, label: 'Points', onTap: onPoints, accent: true),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
         // -------------------------------------------------------- identity ---
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Transform.translate(
-                offset: const Offset(0, -28),
-                child: GestureDetector(
-                  onTap: onAvatar,
-                  child: Container(
-                    padding: const EdgeInsets.all(3),
-                    decoration: BoxDecoration(shape: BoxShape.circle, color: live ? AppColors.brand : AppColors.bg),
-                    child: Container(
-                      padding: const EdgeInsets.all(2),
-                      decoration: BoxDecoration(shape: BoxShape.circle, color: AppColors.bg),
-                      child: UserAvatar(url: p.avatarUrl, name: name, size: 78),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: 2),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, height: 1.1)),
-                      const SizedBox(height: 2),
-                      Text('@${p.username}$where', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, color: AppColors.textSecondary, fontWeight: FontWeight.w500)),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          child: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, height: 1.2)),
         ),
-        // ----------------------------------------------------------- stats ---
         Padding(
-          padding: const EdgeInsets.fromLTRB(8, 0, 8, 0),
-          child: Row(
-            children: [
-              _Stat(value: stats?.went, label: 'Meets', onTap: onMeets),
-              _Stat(value: friendCount, label: 'Friends', onTap: onFriends),
-              _Stat(value: stats?.cars ?? cars.length, label: 'Cars'),
-              if (points != null) _Stat(value: points, label: 'Points', onTap: onPoints, accent: true),
-            ],
-          ),
+          padding: const EdgeInsets.fromLTRB(16, 1, 16, 0),
+          child: Text('@${p.username}$where', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, color: AppColors.textSecondary, fontWeight: FontWeight.w500)),
         ),
+        // ------------------------------------------------------------- bio ---
+        if ((p.bio ?? '').trim().isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
+            child: Text(p.bio!.trim(), style: const TextStyle(fontSize: 13.5, height: 1.4)),
+          ),
         // --------------------------------------------------------- actions ---
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
@@ -156,114 +149,128 @@ class ProfileHeader extends StatelessWidget {
                   ],
                 ),
         ),
-        // ------------------------------------------------------------- bio ---
-        if ((p.bio ?? '').trim().isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-            child: Text(p.bio!.trim(), style: const TextStyle(fontSize: 13.5, height: 1.4)),
-          ),
+        // ---------------------------------------------------------- garage ---
+        if (cars.isNotEmpty || isMe) _GarageStrip(cars: cars, isMe: isMe, onCar: onCar, onManage: onManageGarage, onAddCar: onAddCar),
         const SizedBox(height: 14),
       ],
     );
   }
 }
 
-/// The default car, full width. No car: a short quiet band with one prompt.
-class _Hero extends StatelessWidget {
-  const _Hero({required this.car, required this.isMe, required this.canSwitch, required this.onSwitchCar, required this.onAddCar, required this.onTap});
-  final Car? car;
+/// A row of small car thumbnails, the daily first. Labels sit under the
+/// photos, never on them. For me: a Manage chip that opens the garage.
+class _GarageStrip extends StatelessWidget {
+  const _GarageStrip({required this.cars, required this.isMe, required this.onCar, required this.onManage, required this.onAddCar});
+  final List<Car> cars;
   final bool isMe;
-  final bool canSwitch;
-  final VoidCallback onSwitchCar;
+  final ValueChanged<Car> onCar;
+  final VoidCallback onManage;
   final VoidCallback onAddCar;
-  final VoidCallback? onTap;
+
+  static const _w = 96.0;
+  static const _h = 72.0;
 
   @override
   Widget build(BuildContext context) {
-    final c = car;
-    if (c == null) {
-      return Container(
-        height: 132,
-        width: double.infinity,
-        color: AppColors.surfaceGray,
-        alignment: Alignment.center,
-        child: isMe
-            ? FilledButton.tonalIcon(
-                onPressed: onAddCar,
-                style: FilledButton.styleFrom(backgroundColor: AppColors.textPrimary, foregroundColor: AppColors.onInk),
-                icon: const Icon(AppIcons.plus, size: 18),
-                label: const Text('Add your ride'),
-              )
-            : Text('No car in the garage yet', style: TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.w600)),
-      );
-    }
-    final cover = c.cover;
-    return GestureDetector(
-      onTap: onTap,
-      child: SizedBox(
-        height: 210,
-        width: double.infinity,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            if (cover != null)
-              Image(image: CachedNetworkImageProvider(cover), fit: BoxFit.cover, errorBuilder: (_, _, _) => ColoredBox(color: AppColors.surfaceGray))
-            else
-              ColoredBox(color: AppColors.surfaceGray, child: Center(child: Icon(AppIcons.car, size: 48, color: AppColors.textMuted))),
-            DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Colors.black.withValues(alpha: 0.18), Colors.transparent, Colors.black.withValues(alpha: 0.55)],
-                  stops: const [0, 0.45, 1],
-                ),
-              ),
-            ),
-            // car name, bottom right, clear of the avatar on the left
-            Positioned(
-              right: 16,
-              bottom: 12,
-              left: 120,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(c.make.toUpperCase(), style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, letterSpacing: 1.6, color: Colors.white70)),
-                  Text(c.model, maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.right, style: const TextStyle(fontFamily: AppFonts.display, fontSize: 28, fontWeight: FontWeight.w800, color: Colors.white, height: 1)),
-                  if (c.year != null) Text('${c.year}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white70)),
-                ],
-              ),
-            ),
-            if (canSwitch)
-              Positioned(
-                right: 12,
-                top: 12,
-                child: Material(
-                  color: Colors.white.withValues(alpha: 0.92),
-                  borderRadius: BorderRadius.circular(999),
+    final daily = cars.where((c) => c.isDefault).firstOrNull ?? cars.firstOrNull;
+    final ordered = daily == null ? const <Car>[] : [daily, ...cars.where((c) => c.id != daily.id)];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 18, 12, 8),
+          child: Row(
+            children: [
+              Expanded(child: Text('GARAGE', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textSecondary))),
+              if (isMe)
+                Material(
+                  color: AppColors.surfaceGray,
+                  borderRadius: BorderRadius.circular(AppRadius.pill),
                   child: InkWell(
-                    onTap: onSwitchCar,
-                    borderRadius: BorderRadius.circular(999),
-                    child: const Padding(
-                      padding: EdgeInsets.fromLTRB(12, 7, 10, 7),
+                    onTap: onManage,
+                    borderRadius: BorderRadius.circular(AppRadius.pill),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 5, 8, 5),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text('Switch car', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AppColors.ink)),
-                          SizedBox(width: 4),
-                          Icon(AppIcons.caretDown, size: 13, color: AppColors.ink),
+                          Text('Manage', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                          const SizedBox(width: 2),
+                          Icon(AppIcons.caretRight, size: 13, color: AppColors.textPrimary),
                         ],
                       ),
                     ),
                   ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
-      ),
+        SizedBox(
+          height: _h + 38,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: ordered.isEmpty ? 1 : ordered.length,
+            separatorBuilder: (_, _) => const SizedBox(width: 10),
+            itemBuilder: (_, i) {
+              if (ordered.isEmpty) return _addTile();
+              final c = ordered[i];
+              return GestureDetector(
+                onTap: () => onCar(c),
+                child: SizedBox(
+                  width: _w,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(AppRadius.md),
+                        child: SizedBox(width: _w, height: _h, child: _thumb(c)),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(c.model, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, height: 1.2)),
+                      if (i == 0)
+                        const Text('Daily', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.brand, height: 1.3)),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
+
+  Widget _thumb(Car c) {
+    final blank = ColoredBox(color: AppColors.surfaceGray, child: Center(child: ArtIcon(AppArt.car, size: 34)));
+    final cover = c.cover;
+    if (cover == null) return blank;
+    return Image(image: CachedNetworkImageProvider(cover), fit: BoxFit.cover, errorBuilder: (_, _, _) => blank);
+  }
+
+  Widget _addTile() => GestureDetector(
+        onTap: onAddCar,
+        child: SizedBox(
+          width: _w,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: _w,
+                height: _h,
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceGray,
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Icon(AppIcons.plus, size: 20, color: AppColors.textPrimary),
+              ),
+              const SizedBox(height: 5),
+              const Text('Add a car', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, height: 1.2)),
+            ],
+          ),
+        ),
+      );
 }
 
 class _Stat extends StatelessWidget {
@@ -284,7 +291,7 @@ class _Stat extends StatelessWidget {
               children: [
                 Text(
                   value?.toString() ?? '–',
-                  style: TextStyle(fontFamily: AppFonts.display, fontSize: 24, fontWeight: FontWeight.w700, height: 1, color: accent ? AppColors.brand : AppColors.textPrimary),
+                  style: TextStyle(fontFamily: AppFonts.display, fontSize: 22, fontWeight: FontWeight.w700, height: 1, color: accent ? AppColors.brand : AppColors.textPrimary),
                 ),
                 const SizedBox(height: 3),
                 Text(label, style: TextStyle(fontSize: 11.5, color: AppColors.textSecondary, fontWeight: FontWeight.w500)),
@@ -393,5 +400,3 @@ class ProfileTabBar extends SliverPersistentHeaderDelegate {
   @override
   bool shouldRebuild(ProfileTabBar old) => old.selected != selected || old.tabs.length != tabs.length;
 }
-
-/// Garage as a showroom: one wide card per car, photo with a dark fade, the

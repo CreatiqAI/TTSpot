@@ -167,7 +167,7 @@ class _Row extends ConsumerWidget {
           n.clubId == null ? null : Routes.club(n.clubId!)
         ),
       NotificationType.cards => _cardsText(n),
-      NotificationType.portrait => ('Your car portrait is ready. Tap to see it.', n.body == null ? Routes.garage : Routes.car(n.body!)),
+      NotificationType.portrait => ('Your car portrait is ready. Tap to see it.', n.body == null ? Routes.myGarage : Routes.car(n.body!)),
       NotificationType.meetStart => ('${n.eventTitle ?? 'Your meet'} is on. Open TT Spot when you arrive to check in.', n.eventId == null ? null : Routes.event(n.eventId!)),
       NotificationType.announcement => (
           'in ${n.eventTitle ?? 'your meet'}: ${(n.body ?? '').replaceFirst('\n', ' · ')}',

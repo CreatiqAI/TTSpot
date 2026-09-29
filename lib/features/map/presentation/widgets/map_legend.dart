@@ -120,6 +120,7 @@ List<_KeyItem> _items(MapMode mode) => [
       _KeyItem(LegendGlyph.balloon, _Section.events, 'Event', mode == MapMode.now ? 'Red pin. A meet, convoy or track day on right now.' : 'Red pin. A meet, convoy or track day coming up.', _events),
       const _KeyItem(LegendGlyph.officialEvent, _Section.events, 'Official club event', 'Gold pin with a crown. Run by an official club.', _events),
       const _KeyItem(LegendGlyph.partnerEvent, _Section.events, 'Partner event', 'Black pin with a shop. Hosted by a partner shop.', _events),
+      const _KeyItem(LegendGlyph.savedSpot, _Section.spots, 'Saved spot', 'Any badge with a black bookmark. A spot you saved. It stays on your map on every layer, wherever you are.', _all),
       const _KeyItem(LegendGlyph.topSpot, _Section.spots, 'Top spot', 'Any badge with a red star. One of the best places around, like a top car café.', _all),
       const _KeyItem(LegendGlyph.cafe, _Section.spots, 'Car café', 'Orange cup. A café where car people meet.', _all),
       const _KeyItem(LegendGlyph.mamak, _Section.spots, 'Mamak', 'Teal glass. A mamak, the late-night hangout.', _all),
@@ -277,7 +278,7 @@ class _KeyRow extends StatelessWidget {
   }
 }
 
-enum LegendGlyph { balloon, officialEvent, partnerEvent, flag, spot, topSpot, cafe, mamak, carpark, route, circuit, mall, workshop, partner, moment, me, friend, club, nearby }
+enum LegendGlyph { balloon, officialEvent, partnerEvent, flag, spot, topSpot, savedSpot, cafe, mamak, carpark, route, circuit, mall, workshop, partner, moment, me, friend, club, nearby }
 
 /// The key row for a place of this kind.
 LegendGlyph legendGlyphForSpot(SpotKind k) => switch (k) {
@@ -311,6 +312,8 @@ class LegendGlyphPainter extends CustomPainter {
         paintSpotBadge(c, Offset(centre.dx - 12 * 0.75, centre.dy - 12 * 0.75), scale: 0.75);
       case LegendGlyph.topSpot:
         paintSpotBadge(c, Offset(centre.dx - 12 * 0.75, centre.dy - 12 * 0.75), scale: 0.75, recommended: true, kind: SpotKind.cafe);
+      case LegendGlyph.savedSpot:
+        paintSpotBadge(c, Offset(centre.dx - 12 * 0.75, centre.dy - 12 * 0.75), scale: 0.75, saved: true, kind: SpotKind.mamak);
       case LegendGlyph.cafe:
         paintSpotBadge(c, Offset(centre.dx - 12 * 0.75, centre.dy - 12 * 0.75), scale: 0.75, kind: SpotKind.cafe);
       case LegendGlyph.mamak:

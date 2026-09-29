@@ -166,6 +166,21 @@ class CommunityRepository {
     return rows.map(Place.fromMap).toList();
   }
 
+  /// Save a spot, or unsave it if already saved. True = saved now.
+  Future<bool> toggleSavePlace(String placeId) async => await _client.rpc('toggle_place_save', params: {'p_place': placeId}) as bool? ?? false;
+
+  /// My saved spots, newest first, wherever they are.
+  Future<List<Place>> mySavedPlaces() async {
+    final rows = await _client.rpc('my_saved_places') as List;
+    return rows.map((r) => Place.fromMap((r as Map).cast<String, dynamic>())).toList();
+  }
+
+  /// The spots closest to a point, nearest first, however far.
+  Future<List<Place>> nearestSpots({required double lat, required double lng, int limit = 5}) async {
+    final rows = await _client.rpc('nearest_spots', params: {'p_lat': lat, 'p_lng': lng, 'p_limit': limit}) as List;
+    return rows.map((r) => Place.fromMap((r as Map).cast<String, dynamic>())).toList();
+  }
+
   /// Stand-alone check-in; the database enforces the 300 m rule.
   Future<({bool isNew, int total})> checkInPlace({required String placeId, required double lat, required double lng}) async {
     final v = await _client.rpc('checkin_place', params: {'p_place': placeId, 'p_lat': lat, 'p_lng': lng});

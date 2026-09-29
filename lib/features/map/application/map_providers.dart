@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:async';
 
 import 'package:geolocator/geolocator.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
 
 import '../../../core/location/live_position.dart';
 import '../../../core/geo/latlng.dart';
@@ -10,6 +11,7 @@ import '../../../core/utils/geo.dart';
 import '../../events/data/events_repository.dart';
 import '../../events/domain/event.dart';
 import '../../safety/data/safety_repository.dart';
+import '../../social/application/community_providers.dart';
 import '../../social/data/community_repository.dart';
 import '../../social/data/social_repository.dart';
 import '../../social/domain/club.dart';
@@ -238,19 +240,74 @@ final spotsProvider = FutureProvider<List<Place>>((ref) async {
       );
 });
 
-/// Search-filtered spots for the sheet: best first, distance breaks ties.
+/// Whether a spot matches what is typed in the sheet's search.
+bool spotMatches(Place p, String query) {
+  final q = query.trim().toLowerCase();
+  return q.isEmpty || p.name.toLowerCase().contains(q) || p.tags.any((t) => t.toLowerCase().contains(q));
+}
+
+/// Search-filtered spots in the viewport for the sheet: nearest to me first.
 final visibleSpotsProvider = Provider<AsyncValue<List<Place>>>((ref) {
   final origin = ref.watch(mapOriginProvider);
-  final query = ref.watch(mapSearchProvider).trim().toLowerCase();
+  final query = ref.watch(mapSearchProvider);
   return ref.watch(spotsProvider).whenData((places) {
-    var list = places;
-    if (query.isNotEmpty) {
-      list = list.where((p) => p.name.toLowerCase().contains(query) || p.tags.any((t) => t.toLowerCase().contains(query))).toList();
-    }
-    return [...list]..sort((a, b) {
-        final byScore = b.score.compareTo(a.score);
-        if (byScore != 0) return byScore;
-        return distanceKm(origin, a.latLng).compareTo(distanceKm(origin, b.latLng));
-      });
+    final list = places.where((p) => spotMatches(p, query)).toList();
+    return list..sort((a, b) => distanceKm(origin, a.latLng).compareTo(distanceKm(origin, b.latLng)));
   });
 });
+
+/// Where "nearest" is measured from, rounded to ~1 km so a GPS fix every few
+/// metres does not re-query the nearest spots.
+final _nearOriginProvider = Provider<LatLng>((ref) {
+  final o = ref.watch(mapOriginProvider);
+  double r(double v) => (v * 100).roundToDouble() / 100;
+  return LatLng(r(o.latitude), r(o.longitude));
+});
+
+/// The 5 spots nearest to me, however far, nearest first. Feeds the Spots
+/// layer's opening view, the "spots nearby" pill and the list when the
+/// viewport has none. Falls back to the top spots sorted by distance until
+/// the nearest_spots function is deployed.
+final nearestSpotsProvider = FutureProvider<List<Place>>((ref) async {
+  final o = ref.watch(_nearOriginProvider);
+  final repo = ref.watch(communityRepositoryProvider);
+  try {
+    return await repo.nearestSpots(lat: o.latitude, lng: o.longitude, limit: 5);
+  } on PostgrestException catch (e) {
+    if (e.code != 'PGRST202' && e.code != '42883') rethrow;
+    final top = await repo.topSpots(limit: 80);
+    return (top..sort((a, b) => distanceKm(o, a.latLng).compareTo(distanceKm(o, b.latLng)))).take(5).toList();
+  }
+});
+
+/// What the map draws as places: the viewport's spots plus every saved spot
+/// (wherever it is), once each.
+final mapPlacesProvider = Provider<List<Place>>((ref) {
+  final inView = ref.watch(spotsProvider).value ?? const <Place>[];
+  final saved = ref.watch(savedPlacesProvider).value ?? const <Place>[];
+  final seen = <String>{};
+  return [
+    for (final p in [...saved, ...inView])
+      if (seen.add(p.id)) p,
+  ];
+});
+
+/// The member closed the "spots nearby" pill: it stays away for the session.
+class SpotsHintDismissedNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+  void dismiss() => state = true;
+}
+
+final spotsHintDismissedProvider = NotifierProvider<SpotsHintDismissedNotifier, bool>(SpotsHintDismissedNotifier.new);
+
+/// A one-off request for the map to glide to a point (e.g. "Show on map" on
+/// a spot's page). The map clears it once handled.
+class MapFocusNotifier extends Notifier<LatLng?> {
+  @override
+  LatLng? build() => null;
+  void request(LatLng at) => state = at;
+  void clear() => state = null;
+}
+
+final mapFocusProvider = NotifierProvider<MapFocusNotifier, LatLng?>(MapFocusNotifier.new);

@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
 
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/utils/friendly_error.dart';
@@ -86,6 +87,21 @@ final placeRecentVisitorsProvider = FutureProvider.family<List<PlaceVisit>, Stri
 final myPlaceCheckinTodayProvider = FutureProvider.family<bool, String>((ref, id) => ref.watch(communityRepositoryProvider).myPlaceCheckinToday(id));
 final topSpotsProvider = FutureProvider<List<Place>>((ref) => ref.watch(communityRepositoryProvider).topSpots());
 final placeBusyDaysProvider = FutureProvider.family<Map<int, int>, String>((ref, id) => ref.watch(communityRepositoryProvider).placeBusyDays(id));
+
+/// My saved spots, newest first, wherever they are. Empty when signed out,
+/// and (quietly) before the saved-spots migration has landed.
+final savedPlacesProvider = FutureProvider<List<Place>>((ref) async {
+  if (ref.watch(currentUserIdProvider) == null) return const [];
+  try {
+    return await ref.watch(communityRepositoryProvider).mySavedPlaces();
+  } on PostgrestException catch (e) {
+    if (e.code == 'PGRST202' || e.code == '42883') return const []; // function not deployed yet
+    rethrow;
+  }
+});
+
+/// Ids of my saved spots, for bookmark toggles and the map's saved mark.
+final savedPlaceIdsProvider = Provider<Set<String>>((ref) => {for (final p in ref.watch(savedPlacesProvider).value ?? const <Place>[]) p.id});
 
 // --------------------------------------------------------------- car mods ---
 
@@ -213,6 +229,13 @@ class CommunityActions {
     _ref.invalidate(myPlaceCheckinTodayProvider(placeId));
     _ref.invalidate(topSpotsProvider);
     return r;
+  }
+
+  /// Save or unsave a spot. True = saved now.
+  Future<bool> toggleSavePlace(String placeId) async {
+    final saved = await _repo.toggleSavePlace(placeId);
+    _ref.invalidate(savedPlacesProvider);
+    return saved;
   }
 
   Future<Place> createPlace({required String name, required String kind, required double lat, required double lng}) async {

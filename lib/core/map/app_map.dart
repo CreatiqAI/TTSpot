@@ -176,9 +176,61 @@ class AppMapController {
     await _map?.setCamera(mb.CameraOptions(center: _pt(target), zoom: zoom == null ? null : _mbZoom(zoom)));
   }
 
-  Future<void> fitBounds(LatLngBounds b, {double padding = 48, int ms = 600}) async {
+  /// Fit [b] on screen. With [insets], the map's own camera padding (the
+  /// toolbar at the bottom of the home map) is kept as it is and [insets] is
+  /// a margin around the points inside it (room for the mode switch at the
+  /// top and the round buttons at the side); the zoom never goes past
+  /// [maxZoom] (Google-style), so two points close together do not land at
+  /// street level. Without [insets], [padding] applies evenly on every side
+  /// (the static preview maps, which have no camera padding).
+  Future<void> fitBounds(LatLngBounds b, {double padding = 48, EdgeInsets? insets, double maxZoom = 16, int ms = 600}) async {
     final map = _map;
     if (map == null) return;
+    if (insets != null) {
+      final state = await map.getCameraState();
+      final centre = _pt(b.center);
+      final corners = [
+        _pt(b.southwest),
+        _pt(b.northeast),
+        _pt(LatLng(b.southwest.latitude, b.northeast.longitude)),
+        _pt(LatLng(b.northeast.latitude, b.southwest.longitude)),
+      ];
+      mb.Point? at;
+      double? zoom;
+      try {
+        // Keeps the camera's padding (principal point above the toolbar) and
+        // adjusts the zoom so every corner fits inside the margin.
+        final cam = await map.cameraForCoordinatesPadding(
+          corners,
+          mb.CameraOptions(center: centre, padding: state.padding, bearing: 0, pitch: 0),
+          mb.MbxEdgeInsets(top: insets.top, left: insets.left, bottom: insets.bottom, right: insets.right),
+          _mbZoom(maxZoom),
+          null,
+        );
+        at = cam.center;
+        zoom = cam.zoom?.toDouble();
+      } catch (e) {
+        if (kDebugMode) debugPrint('AppMap: cameraForCoordinatesPadding failed: $e');
+      }
+      if (zoom == null) {
+        // Older SDK path: the even-padding fit, re-centred under our padding.
+        final pad = [insets.top, insets.left, insets.bottom + state.padding.bottom, insets.right].reduce(math.max);
+        final cam = await map.cameraForCoordinateBounds(
+          mb.CoordinateBounds(southwest: _pt(b.southwest), northeast: _pt(b.northeast), infiniteBounds: false),
+          mb.MbxEdgeInsets(top: pad, left: pad, bottom: pad, right: pad),
+          0,
+          0,
+          _mbZoom(maxZoom),
+          null,
+        );
+        zoom = cam.zoom?.toDouble();
+      }
+      await map.flyTo(
+        mb.CameraOptions(center: at ?? centre, zoom: zoom == null ? null : math.min(zoom, _mbZoom(maxZoom)), padding: state.padding),
+        mb.MapAnimationOptions(duration: ms),
+      );
+      return;
+    }
     final cam = await map.cameraForCoordinateBounds(
       mb.CoordinateBounds(southwest: _pt(b.southwest), northeast: _pt(b.northeast), infiniteBounds: false),
       mb.MbxEdgeInsets(top: padding, left: padding, bottom: padding, right: padding),

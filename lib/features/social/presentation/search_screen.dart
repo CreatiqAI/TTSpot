@@ -6,6 +6,8 @@ import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_art.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/titi.dart';
+import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/user_avatar.dart';
 import '../../auth/domain/profile.dart';
 import '../application/community_providers.dart';
@@ -86,7 +88,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     const _Section('PEOPLE'),
                     for (final p in list)
                       ListTile(
-                        leading: UserAvatar(url: p.avatarUrl, name: p.displayName ?? p.username, size: 44),
+                        leading: UserAvatar(url: p.avatarUrl, name: p.displayName ?? p.username, seed: p.id, size: 44),
                         title: Text(p.username ?? '', style: const TextStyle(fontWeight: FontWeight.w600)),
                         subtitle: Text([p.displayName, p.homeState].where((s) => (s ?? '').isNotEmpty).join(' · ')),
                         onTap: () => context.push(Routes.profile(p.id)),
@@ -135,9 +137,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               (places.value?.isEmpty ?? true) &&
               !people.isLoading &&
               !clubs.isLoading)
-            Padding(
-              padding: EdgeInsets.all(32),
-              child: Center(child: Text('No results.', style: TextStyle(color: AppColors.textSecondary))),
+            const Padding(
+              padding: EdgeInsets.only(top: 16),
+              child: EmptyState(titi: TitiPose.binoculars, title: 'No results.'),
             ),
         ],
       ),

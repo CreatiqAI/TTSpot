@@ -57,7 +57,7 @@ class MyQrScreen extends ConsumerWidget {
             ),
             child: Column(
               children: [
-                UserAvatar(url: profile?.avatarUrl, name: profile?.displayName ?? profile?.username, size: 64),
+                UserAvatar(url: profile?.avatarUrl, name: profile?.displayName ?? profile?.username, seed: profile?.id, size: 64),
                 const SizedBox(height: 8),
                 Text(profile?.displayName ?? '', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
                 Text('@${profile?.username ?? ''}', style: TextStyle(color: AppColors.textSecondary)),

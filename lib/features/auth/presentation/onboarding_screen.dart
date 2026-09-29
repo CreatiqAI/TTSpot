@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'dart:math' as math;
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -19,6 +18,8 @@ import '../../../core/utils/friendly_error.dart';
 import '../../../core/widgets/glass.dart';
 import '../../../core/widgets/photo_picker_sheet.dart';
 import '../../../core/widgets/primary_button.dart';
+import '../../../core/widgets/titi_avatar_grid.dart';
+import '../../../core/widgets/user_avatar.dart' show DefaultAvatars;
 import '../../cards/application/cards_providers.dart';
 import '../../cards/domain/cards.dart';
 import '../../profile/application/profile_providers.dart';
@@ -61,6 +62,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   bool _acceptedTerms = false;
   String? _homeState;
   XFile? _avatar;
+  /// A picked TiTi default avatar (0..7); saved as its public URL.
+  int? _preset;
   bool _prefilled = false;
   bool _validate = false;
   bool _showReferral = false;
@@ -192,15 +195,19 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     }
   }
 
-  Future<void> _pickAvatar() async {
-    final source = await showModalBottomSheet<ImageSource>(
+  Future<void> _pickAvatar(String? existingUrl) async {
+    final selected = _avatar != null ? null : (_preset ?? DefaultAvatars.indexOfUrl(existingUrl));
+    final choice = await showModalBottomSheet<Object>(
       useRootNavigator: true, // above the shell tab bar
       context: context,
       showDragHandle: true,
+      isScrollControlled: true,
       builder: (ctx) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            TitiAvatarGrid(selected: selected, onPick: (i) => Navigator.pop(ctx, i)),
+            const Divider(height: 16),
             ListTile(
               leading: const Icon(AppIcons.images),
               title: const Text('Choose from library'),
@@ -211,13 +218,16 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               title: const Text('Take photo'),
               onTap: () => Navigator.pop(ctx, ImageSource.camera),
             ),
-            if (_avatar != null)
+            if (_avatar != null || _preset != null)
               ListTile(
                 leading: const Icon(AppIcons.trash, color: AppColors.danger),
                 title: const Text('Remove current picture', style: TextStyle(color: AppColors.danger)),
                 onTap: () {
                   Navigator.pop(ctx);
-                  setState(() => _avatar = null);
+                  setState(() {
+                    _avatar = null;
+                    _preset = null;
+                  });
                 },
               ),
             const SizedBox(height: 8),
@@ -225,10 +235,22 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         ),
       ),
     );
-    if (source == null) return;
+    if (choice is int) {
+      setState(() {
+        _preset = choice;
+        _avatar = null;
+      });
+      return;
+    }
+    if (choice is! ImageSource) return;
     try {
-      final file = await pickAvatarImage(source);
-      if (file != null) setState(() => _avatar = file);
+      final file = await pickAvatarImage(choice);
+      if (file != null) {
+        setState(() {
+          _avatar = file;
+          _preset = null;
+        });
+      }
     } catch (e) {
       if (mounted) _snack(friendlyError(e));
     }
@@ -246,6 +268,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           displayName: _displayName.text,
           homeState: _homeState!,
           avatar: _avatar,
+          presetAvatarUrl: _preset == null ? null : DefaultAvatars.publicUrl(_preset!),
           referralCode: _referral.text,
           phone: _phone.text,
           acceptedTerms: _acceptedTerms,
@@ -625,7 +648,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      _AvatarPicker(file: _avatar, existingUrl: avatarUrl, onTap: busy ? null : _pickAvatar),
+                      _AvatarPicker(file: _avatar, preset: _preset, existingUrl: avatarUrl, onTap: busy ? null : () => _pickAvatar(avatarUrl)),
                       const SizedBox(width: 12),
                       const Flexible(child: TitiBubble('Now you. What do your friends call you?')),
                     ],
@@ -1228,8 +1251,9 @@ class _TermsRow extends StatelessWidget {
 
 /// 72 px dashed circle with a plus; shows the picked (or existing) picture.
 class _AvatarPicker extends StatelessWidget {
-  const _AvatarPicker({required this.file, required this.existingUrl, required this.onTap});
+  const _AvatarPicker({required this.file, required this.preset, required this.existingUrl, required this.onTap});
   final XFile? file;
+  final int? preset;
   final String? existingUrl;
   final VoidCallback? onTap;
 
@@ -1238,8 +1262,10 @@ class _AvatarPicker extends StatelessWidget {
     ImageProvider? image;
     if (file != null) {
       image = FileImage(File(file!.path));
-    } else if (existingUrl != null && existingUrl!.isNotEmpty) {
-      image = CachedNetworkImageProvider(existingUrl!);
+    } else if (preset != null) {
+      image = AssetImage(DefaultAvatars.asset(preset!));
+    } else {
+      image = DefaultAvatars.image(existingUrl);
     }
     return GestureDetector(
       onTap: onTap,

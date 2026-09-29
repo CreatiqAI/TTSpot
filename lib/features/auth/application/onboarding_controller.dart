@@ -23,6 +23,9 @@ class OnboardingController extends AsyncNotifier<void> {
     required String homeState,
     String? bio,
     XFile? avatar,
+    /// A TiTi default avatar's public URL, saved as-is (no upload). Ignored
+    /// when [avatar] is set.
+    String? presetAvatarUrl,
     String? referralCode,
     String? phone,
     bool acceptedTerms = false,
@@ -53,6 +56,8 @@ class OnboardingController extends AsyncNotifier<void> {
       String? avatarUrl;
       if (avatar != null) {
         avatarUrl = await repo.uploadAvatar(userId: userId, bytes: await avatar.readAsBytes());
+      } else if (presetAvatarUrl != null && presetAvatarUrl.isNotEmpty) {
+        avatarUrl = presetAvatarUrl;
       }
 
       await repo.saveProfile(

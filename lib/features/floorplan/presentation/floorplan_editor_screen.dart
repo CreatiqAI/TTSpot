@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/titi.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/photo_picker_sheet.dart';
@@ -423,6 +424,7 @@ class _FloorplanEditorScreenState extends ConsumerState<FloorplanEditorScreen> {
   Widget _body(List<FloorLevel> levels, FloorLevel? level) {
     if (levels.isEmpty || level == null) {
       return EmptyState(
+        titi: TitiPose.clipboard,
         icon: AppIcons.stackSimple,
         title: 'Add the first level',
         subtitle: 'One level per floor or hall: B2, L1, Rooftop, Hall A. Then upload a photo of the venue plan for each and pin the booths, stage and zones.',

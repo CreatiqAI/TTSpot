@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../../core/theme/app_icons.dart';
+import '../../../../core/widgets/user_avatar.dart' show DefaultAvatars;
 
 /// A rendered marker: PNG bytes at device resolution, its anchor (fraction of
 /// the image) and its logical size.
@@ -393,8 +394,24 @@ class MapPinFactory {
     return img;
   }
 
+  /// A network image, or a bundled one when [url] is an asset path
+  /// (assets/…) or one of the TiTi default avatar URLs.
   Future<ui.Image?> _image(String url, {required int targetWidth}) async {
     if (_images.containsKey(url)) return _images[url];
+    final preset = DefaultAvatars.indexOfUrl(url);
+    final assetPath = preset != null ? DefaultAvatars.asset(preset) : (url.startsWith('assets/') ? url : null);
+    if (assetPath != null) {
+      ui.Image? img;
+      try {
+        final data = await rootBundle.load(assetPath);
+        final codec = await ui.instantiateImageCodec(data.buffer.asUint8List(), targetWidth: (targetWidth * devicePixelRatio).round());
+        img = (await codec.getNextFrame()).image;
+      } catch (_) {
+        img = null;
+      }
+      _images[url] = img;
+      return img;
+    }
     ui.Image? img;
     try {
       final client = HttpClient()..connectionTimeout = const Duration(seconds: 8);

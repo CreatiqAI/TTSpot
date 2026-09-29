@@ -84,7 +84,7 @@ class ProfileHeader extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.all(2.5),
                     decoration: BoxDecoration(shape: BoxShape.circle, color: AppColors.bg),
-                    child: UserAvatar(url: p.avatarUrl, name: name, size: 78),
+                    child: UserAvatar(url: p.avatarUrl, name: name, seed: p.id, size: 78),
                   ),
                 ),
               ),

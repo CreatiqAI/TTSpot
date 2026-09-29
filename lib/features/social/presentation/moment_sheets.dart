@@ -42,7 +42,7 @@ Future<void> showMomentViewers(BuildContext context, String storyId) {
                             itemBuilder: (_, i) {
                               final v = list[i];
                               return ListTile(
-                                leading: UserAvatar(url: v.profile.avatarUrl, name: v.profile.displayName ?? v.profile.username, size: 42),
+                                leading: UserAvatar(url: v.profile.avatarUrl, name: v.profile.displayName ?? v.profile.username, seed: v.profile.id, size: 42),
                                 title: Text(v.profile.displayName ?? '@${v.profile.username}', style: const TextStyle(fontWeight: FontWeight.w600)),
                                 subtitle: Text('@${v.profile.username ?? ''} · ${timeAgo(v.viewedAt)}', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                                 onTap: () {

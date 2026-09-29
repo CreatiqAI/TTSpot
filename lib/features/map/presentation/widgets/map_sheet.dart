@@ -8,6 +8,7 @@ import '../../../../core/theme/app_art.dart';
 import '../../../../core/places/places_service.dart';
 import '../../../../core/theme/app_icons.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/titi.dart';
 import '../../../../core/utils/dates.dart';
 import '../../../../core/utils/geo.dart';
 import '../../../../core/widgets/thumb_image.dart';
@@ -164,7 +165,7 @@ class _FriendRow extends ConsumerWidget {
           children: [
             Stack(
               children: [
-                UserAvatar(url: f.user.avatarUrl, name: name, size: 46),
+                UserAvatar(url: f.user.avatarUrl, name: name, seed: f.user.id, size: 46),
                 Positioned(
                   right: 0,
                   bottom: 0,
@@ -272,7 +273,7 @@ class _MomentsStrip extends StatelessWidget {
                     Positioned(
                       left: 6,
                       top: 6,
-                      child: UserAvatar(url: m.author?.avatarUrl, name: m.author?.username, size: 22, borderColor: Colors.white),
+                      child: UserAvatar(url: m.author?.avatarUrl, name: m.author?.username, seed: m.author?.id, size: 22, borderColor: Colors.white),
                     ),
                   ],
                 ),
@@ -320,7 +321,7 @@ class _UpcomingContent extends ConsumerWidget {
           data: (list) => list.isEmpty
               ? SliverToBoxAdapter(
                   child: hasSearch
-                      ? const _Message(title: 'No matches', subtitle: 'Try a different name or venue.')
+                      ? const _Message(titi: TitiPose.binoculars, title: 'No matches', subtitle: 'Try a different name or venue.')
                       : _Message(title: 'No meets planned here yet', subtitle: 'Plan one and your friends will come.', actionLabel: 'Plan a meet', onAction: () => context.push(Routes.createEvent)),
                 )
               : SliverPadding(
@@ -726,9 +727,10 @@ class _FilterChip extends StatelessWidget {
 }
 
 class _Message extends StatelessWidget {
-  const _Message({required this.title, this.subtitle, this.actionLabel, this.onAction});
+  const _Message({required this.title, this.subtitle, this.titi, this.actionLabel, this.onAction});
   final String title;
   final String? subtitle;
+  final TitiPose? titi;
   final String? actionLabel;
   final VoidCallback? onAction;
 
@@ -738,6 +740,10 @@ class _Message extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(32, 28, 32, 24),
       child: Column(
         children: [
+          if (titi != null) ...[
+            Titi(titi!, height: 120),
+            const SizedBox(height: 12),
+          ],
           Text(title, textAlign: TextAlign.center, style: TextStyle(color: MapPalette.of(context).text, fontSize: 17, fontWeight: FontWeight.w700)),
           if (subtitle != null) ...[
             const SizedBox(height: 6),

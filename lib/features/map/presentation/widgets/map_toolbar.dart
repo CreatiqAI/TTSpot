@@ -263,6 +263,7 @@ class _AvatarStack extends StatelessWidget {
               child: UserAvatar(
                 url: pins[i].user.avatarUrl,
                 name: pins[i].user.displayName ?? pins[i].user.username,
+                seed: pins[i].user.id,
                 size: size,
                 borderColor: light ? Colors.white : AppColors.mapSurface,
               ),

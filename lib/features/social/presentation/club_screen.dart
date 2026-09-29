@@ -325,7 +325,7 @@ class _MemberTile extends StatelessWidget {
             Stack(
               clipBehavior: Clip.none,
               children: [
-                UserAvatar(url: m.avatarUrl, name: m.displayName ?? m.username, size: 54),
+                UserAvatar(url: m.avatarUrl, name: m.displayName ?? m.username, seed: m.id, size: 54),
                 if (role == 'owner')
                   const Positioned(right: -2, top: -4, child: Icon(AppIcons.crown, size: 18, color: AppColors.warnColor))
                 else if (role == 'vp' || role == 'secretary')
@@ -364,6 +364,14 @@ class _Header extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF15181E), Color(0xFF2B2F3A)]),
+        // Clubs have no banner of their own yet: the bundled club cover,
+        // darkened so the white text stays readable (the gradient shows if
+        // the asset is missing).
+        image: DecorationImage(
+          image: const AssetImage('assets/covers/club.jpg'),
+          fit: BoxFit.cover,
+          colorFilter: ColorFilter.mode(Colors.black.withValues(alpha: 0.6), BlendMode.darken),
+        ),
         borderRadius: BorderRadius.circular(AppRadius.lg),
       ),
       child: Column(
@@ -557,7 +565,7 @@ class _InviteSheetState extends ConsumerState<_InviteSheet> {
                         final p = candidates[i];
                         final sent = _sent.contains(p.id);
                         return ListTile(
-                          leading: UserAvatar(url: p.avatarUrl, name: p.displayName ?? p.username, size: 40),
+                          leading: UserAvatar(url: p.avatarUrl, name: p.displayName ?? p.username, seed: p.id, size: 40),
                           title: Text(p.displayName ?? '@${p.username}', style: const TextStyle(fontWeight: FontWeight.w600)),
                           subtitle: Text('@${p.username ?? ''}', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                           trailing: SizedBox(

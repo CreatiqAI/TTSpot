@@ -250,7 +250,7 @@ class _ConvoyLiveScreenState extends ConsumerState<ConvoyLiveScreen> {
                                         padding: const EdgeInsets.only(right: 12),
                                         child: Column(
                                           children: [
-                                            UserAvatar(url: m.avatarUrl, name: m.username, size: 40, borderColor: AppColors.accent),
+                                            UserAvatar(url: m.avatarUrl, name: m.username, seed: m.userId, size: 40, borderColor: AppColors.accent),
                                             const SizedBox(height: 4),
                                             SizedBox(width: 56, child: Text(m.username, maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center, style: const TextStyle(color: AppColors.mapText, fontSize: 11))),
                                           ],

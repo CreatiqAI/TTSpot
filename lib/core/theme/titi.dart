@@ -15,7 +15,19 @@ enum TitiPose {
   mapPin('mappin'),
   rolling('rolling'),
   sad('sad'),
-  celebrate('celebrate');
+  celebrate('celebrate'),
+  sleeping('sleeping'),
+  binoculars('binoculars'),
+  chat('chat'),
+  trophy('trophy'),
+  calendar('calendar'),
+  heart('heart'),
+  voucher('voucher'),
+  bell('bell'),
+  flag('flag'),
+  wrench('wrench'),
+  stop('stop'),
+  clipboard('clipboard');
 
   const TitiPose(this.file);
   final String file;

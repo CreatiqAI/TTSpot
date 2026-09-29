@@ -159,7 +159,7 @@ class _ChatList extends ConsumerWidget {
                 _Section(chats.isEmpty ? 'SAY HI' : 'NOT CHATTED YET'),
                 for (final f in unchatted)
                   ListTile(
-                    leading: UserAvatar(url: f.avatarUrl, name: f.displayName ?? f.username, size: 48),
+                    leading: UserAvatar(url: f.avatarUrl, name: f.displayName ?? f.username, seed: f.id, size: 48),
                     title: Text(f.displayName ?? '@${f.username}', style: const TextStyle(fontWeight: FontWeight.w600)),
                     subtitle: Text(
                       live[f.id]?.placeName != null ? 'On the map · ${live[f.id]!.placeName}' : (live.containsKey(f.id) ? 'On the map now' : '@${f.username ?? ''}'),

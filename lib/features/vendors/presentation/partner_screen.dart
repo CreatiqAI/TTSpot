@@ -373,7 +373,7 @@ class _BodyState extends ConsumerState<_Body> {
                               _Tile(
                                 leading: ClipRRect(
                                   borderRadius: BorderRadius.circular(12),
-                                  child: SizedBox(width: 44, height: 44, child: e.coverUrl == null ? ColoredBox(color: AppColors.surfaceGray, child: Center(child: ArtIcon(e.type.art, size: 24))) : ThumbImage(e.coverUrl!)),
+                                  child: SizedBox(width: 44, height: 44, child: e.coverUrl == null ? Image.asset(e.defaultCover, fit: BoxFit.cover, cacheWidth: 150) : ThumbImage(e.coverUrl!)),
                                 ),
                                 title: e.title,
                                 subtitle: '${formatEventDateFriendly(e.startsAt)} · ${e.venueName}',

@@ -80,7 +80,7 @@ class _DmInfo extends ConsumerWidget {
             onTap: () => context.push(Routes.profile(p.id)),
             child: Column(
               children: [
-                UserAvatar(url: p.avatarUrl, name: name, size: 96),
+                UserAvatar(url: p.avatarUrl, name: name, seed: p.id, size: 96),
                 const SizedBox(height: 10),
                 Text(name, style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w800)),
                 Text('@${p.username ?? ''}${(p.homeState ?? '').isEmpty ? '' : ' · ${p.homeState}'}', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
@@ -213,7 +213,7 @@ class _MeetInfo extends ConsumerWidget {
         _Section('MEMBERS · ${members.length}'),
         for (final m in members)
           ListTile(
-            leading: UserAvatar(url: m.avatarUrl, name: m.displayName ?? m.username, size: 40),
+            leading: UserAvatar(url: m.avatarUrl, name: m.displayName ?? m.username, seed: m.id, size: 40),
             title: Text(m.id == me ? 'You' : (m.displayName ?? '@${m.username}'), style: const TextStyle(fontWeight: FontWeight.w600)),
             subtitle: Text(
               m.id == event?.organizerId ? '@${m.username ?? ''} · HOST' : '@${m.username ?? ''}',

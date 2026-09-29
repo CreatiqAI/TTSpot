@@ -186,7 +186,7 @@ class _PostCardState extends ConsumerState<PostCard> {
                 onTap: () => context.push(headRoute),
                 child: club != null
                     ? UserAvatar(url: club.avatarUrl, name: club.name, size: 34, borderColor: AppColors.brand)
-                    : UserAvatar(url: author?.avatarUrl, name: author?.displayName ?? username, size: 34),
+                    : UserAvatar(url: author?.avatarUrl, name: author?.displayName ?? username, seed: author?.id, size: 34),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -330,7 +330,7 @@ class _PostCardState extends ConsumerState<PostCard> {
                   const Padding(padding: EdgeInsets.fromLTRB(16, 0, 16, 8), child: Text('Likes', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16))),
                   for (final p in list)
                     ListTile(
-                      leading: UserAvatar(url: p.avatarUrl, name: p.displayName ?? p.username, size: 40),
+                      leading: UserAvatar(url: p.avatarUrl, name: p.displayName ?? p.username, seed: p.id, size: 40),
                       title: Text(p.username ?? '', style: const TextStyle(fontWeight: FontWeight.w600)),
                       subtitle: Text(p.displayName ?? ''),
                       onTap: () {

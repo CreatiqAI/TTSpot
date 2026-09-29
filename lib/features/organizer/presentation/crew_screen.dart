@@ -8,6 +8,7 @@ import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/titi.dart';
 import '../../../core/utils/friendly_error.dart';
+import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/user_avatar.dart';
 import '../../auth/domain/profile.dart';
 import '../../friends/application/friends_providers.dart';
@@ -234,16 +235,16 @@ class _PeoplePickerState extends ConsumerState<_PeoplePicker> {
             ),
             Expanded(
               child: all.isEmpty
-                  ? Center(
-                      child: Text(q.length < 2 ? 'Type a handle to find someone.' : 'No one found.', style: TextStyle(color: AppColors.textSecondary)),
-                    )
+                  ? q.length < 2
+                      ? Center(child: Text('Type a handle to find someone.', style: TextStyle(color: AppColors.textSecondary)))
+                      : const EmptyState(titi: TitiPose.binoculars, title: 'No one found.')
                   : ListView.builder(
                       itemCount: all.length,
                       itemBuilder: (_, i) {
                         final p = all[i];
                         final friend = ids.contains(p.id);
                         return ListTile(
-                          leading: UserAvatar(url: p.avatarUrl, name: p.displayName ?? p.username, size: 40),
+                          leading: UserAvatar(url: p.avatarUrl, name: p.displayName ?? p.username, seed: p.id, size: 40),
                           title: Text(p.displayName ?? '@${p.username}', style: const TextStyle(fontWeight: FontWeight.w700)),
                           subtitle: Text('@${p.username ?? ''}${friend ? ' · friend' : ''}', style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
                           trailing: Icon(AppIcons.plusCircle, color: AppColors.textPrimary),

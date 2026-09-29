@@ -596,6 +596,14 @@ Connect API with Codemagic CLI tools and uploads to TestFlight; build number = t
 4. `IOS_CERT_PRIVATE_KEY` is already set; the backup is `%USERPROFILE%\.ttspot\ios_distribution_private_key`.
    The distribution certificate the first run creates is tied to it, so if it is lost, revoke that certificate and set a new key.
 
+**Testers.** The internal group "Team" gets every build automatically. Everyone who joined through the public link
+(https://testflight.apple.com/join/gBszVjXv) is in the external group "Beta testers", which only gets builds that are
+added to it and approved in Beta App Review (each new version number is reviewed, usually within a day). The workflow's
+`external` job does that with `tool/testflight_external.js <build number>`: it waits for processing, copies the newest
+`release_notes.dart` block into What to Test, adds the build to "Beta testers" and submits it. To send an older build by
+hand: `ASC_KEY_ID=… ASC_ISSUER_ID=… ASC_KEY_P8_PATH=~/.ttspot/ASC_AuthKey_HYJM5SGL5W.p8 node tool/testflight_external.js 20`.
+Testers install new builds by themselves when TestFlight → TT Spot → Automatic Updates is on.
+
 **Sign in with Apple** (iPhone only; App Store guideline 4.8 requires it because Google sign-in exists). Done via the Management API on 2026-09-24: Supabase
 dashboard → Authentication → Providers → Apple → Enable, **Client IDs** = `my.ttspot.app`, leave the secret empty
 (native sign-in only sends an ID token). The app stores the name Apple shares on first sign-in so onboarding never

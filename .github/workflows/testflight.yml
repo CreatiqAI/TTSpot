@@ -103,3 +103,21 @@ jobs:
           name: TTSpot-ios-appstore
           path: build/ios/ipa/*.ipa
           retention-days: 14
+
+  # Internal testers ("Team") get every build on their own. The public-link
+  # testers ("Beta testers") only get builds added to their group and approved
+  # in Beta App Review, so this waits for processing, sets What to Test from
+  # release_notes.dart, adds the build and submits it. Runs on Linux: it only
+  # waits and calls the API.
+  external:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Send the build to external testers
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: node tool/testflight_external.js ${{ github.run_number }}

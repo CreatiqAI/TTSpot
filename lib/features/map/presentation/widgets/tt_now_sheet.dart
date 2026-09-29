@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/widgets/sheet_header.dart';
 import '../../../../core/places/places_service.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_icons.dart';
@@ -235,7 +236,7 @@ class _TtNowSheetState extends ConsumerState<_TtNowSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('TT now', style: TextStyle(fontFamily: AppFonts.display, fontSize: 28, fontWeight: FontWeight.w700, height: 1)),
+            const SheetHeader(title: 'TT now', style: TextStyle(fontFamily: AppFonts.display, fontSize: 28, fontWeight: FontWeight.w700, height: 1)),
             const SizedBox(height: 12),
             // ---- where
             if (_changing || _venue.text.trim().isEmpty)

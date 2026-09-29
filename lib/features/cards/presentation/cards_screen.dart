@@ -134,7 +134,6 @@ class _CollectionTab extends ConsumerWidget {
     final sealed = ref.watch(sealedBoxesProvider);
     final settings = ref.watch(cardSettingsProvider).value ?? const CardSettings();
     final balance = ref.watch(pointsBalanceProvider).value ?? 0;
-    final canBuy = balance >= settings.boxCost;
 
     return RefreshIndicator(
       onRefresh: () async {
@@ -150,36 +149,20 @@ class _CollectionTab extends ConsumerWidget {
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 40),
           children: [
             // ---- boxes
-            if (sealed.isNotEmpty)
+            if (sealed.isNotEmpty) ...[
               _BoxBanner(
                 count: sealed.length,
                 onOpen: () => context.push(Routes.openBox(sealed.first.id)),
-              )
-            else
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: BoxDecoration(border: Border.all(color: AppColors.border), borderRadius: BorderRadius.circular(AppRadius.lg)),
-                child: Row(
-                  children: [
-                    const ArtIcon(AppArt.gift, size: 36),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('No sealed boxes', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
-                          Text('A box is ${settings.boxCost} points · you have $balance', style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
-                        ],
-                      ),
-                    ),
-                    FilledButton(
-                      style: FilledButton.styleFrom(visualDensity: VisualDensity.compact, minimumSize: const Size(0, 36), padding: const EdgeInsets.symmetric(horizontal: 14)),
-                      onPressed: canBuy ? () => _buy(context, ref, settings, balance) : () => context.push(Routes.points),
-                      child: Text(canBuy ? 'Buy a box' : 'Earn points'),
-                    ),
-                  ],
-                ),
               ),
+              const SizedBox(height: 12),
+            ],
+            _BoxShop(
+              cost: settings.boxCost,
+              balance: balance,
+              odds: '${settings.pct(CardRarity.common).round()}% common · ${settings.pct(CardRarity.rare).round()}% rare · ${settings.pct(CardRarity.legendary).round()}% legendary. Cards never expire.',
+              onBuy: () => _buy(context, ref, settings, balance),
+              onEarn: () => context.push(Routes.points),
+            ),
             const SizedBox(height: 16),
             // ---- tally
             Row(
@@ -223,16 +206,6 @@ class _CollectionTab extends ConsumerWidget {
                 );
               },
             ),
-            const SizedBox(height: 18),
-            Text(
-              'Drop odds: ${settings.pct(CardRarity.common).round()}% common · ${settings.pct(CardRarity.rare).round()}% rare · ${settings.pct(CardRarity.legendary).round()}% legendary. Cards never expire.',
-              style: TextStyle(fontSize: 12, color: AppColors.textMuted, height: 1.4),
-            ),
-            if (sealed.isNotEmpty && canBuy)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: TextButton(onPressed: () => _buy(context, ref, settings, balance), child: Text('Buy another box for ${settings.boxCost} points')),
-              ),
           ],
         ),
       ),
@@ -285,6 +258,123 @@ class _CollectionTab extends ConsumerWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// The box shop: the red box floating on a dark card, what is inside, your
+/// points against the price, and one big button. Dark in both themes on
+/// purpose: it is a product shot, and the red box pops on black.
+class _BoxShop extends StatefulWidget {
+  const _BoxShop({required this.cost, required this.balance, required this.odds, required this.onBuy, required this.onEarn});
+  final int cost;
+  final int balance;
+  final String odds;
+  final VoidCallback onBuy;
+  final VoidCallback onEarn;
+
+  @override
+  State<_BoxShop> createState() => _BoxShopState();
+}
+
+class _BoxShopState extends State<_BoxShop> with SingleTickerProviderStateMixin {
+  late final AnimationController _float = AnimationController(vsync: this, duration: const Duration(milliseconds: 2600))..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _float.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final canBuy = widget.balance >= widget.cost;
+    final short = (widget.cost - widget.balance).clamp(0, widget.cost);
+    final progress = widget.cost <= 0 ? 1.0 : (widget.balance / widget.cost).clamp(0.0, 1.0);
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: const Color(0xFF101114),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppColors.brand.withValues(alpha: 0.35)),
+      ),
+      child: Stack(
+        children: [
+          // soft red glow behind the box
+          Positioned(
+            right: -40,
+            top: -30,
+            child: Container(
+              width: 220,
+              height: 220,
+              decoration: BoxDecoration(shape: BoxShape.circle, gradient: RadialGradient(colors: [AppColors.brand.withValues(alpha: 0.45), AppColors.brand.withValues(alpha: 0)])),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('BLIND BOX · SERIES 01', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1.6, color: Color(0xFFFF7A80))),
+                          const SizedBox(height: 6),
+                          const Text('7 TITI CARDS.\nONE IS LEGENDARY.', style: TextStyle(fontFamily: AppFonts.display, fontSize: 28, height: 0.98, fontWeight: FontWeight.w800, color: Colors.white)),
+                          const SizedBox(height: 8),
+                          Text(widget.odds, style: TextStyle(fontSize: 11.5, height: 1.35, color: Colors.white.withValues(alpha: 0.6))),
+                        ],
+                      ),
+                    ),
+                    AnimatedBuilder(
+                      animation: _float,
+                      builder: (_, child) => Transform.translate(offset: Offset(0, -6 + 12 * Curves.easeInOut.transform(_float.value)), child: child),
+                      child: Image.asset('assets/titi/box_closed.png', width: 128, height: 128, fit: BoxFit.contain, filterQuality: FilterQuality.medium),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    Text('${widget.balance}', style: const TextStyle(fontFamily: AppFonts.display, fontSize: 22, fontWeight: FontWeight.w800, color: Colors.white)),
+                    Text(' / ${widget.cost} pts', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white.withValues(alpha: 0.6))),
+                    const Spacer(),
+                    Text(canBuy ? 'Enough for a box' : '$short more to go', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: canBuy ? const Color(0xFF3ECF6E) : Colors.white.withValues(alpha: 0.7))),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(999),
+                  child: LinearProgressIndicator(
+                    value: progress,
+                    minHeight: 6,
+                    backgroundColor: Colors.white.withValues(alpha: 0.1),
+                    valueColor: AlwaysStoppedAnimation(canBuy ? AppColors.brand : const Color(0xFFFF7A80)),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                SizedBox(
+                  height: 52,
+                  child: FilledButton(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: canBuy ? AppColors.brand : Colors.white,
+                      foregroundColor: canBuy ? Colors.white : AppColors.ink,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                    ),
+                    onPressed: canBuy ? widget.onBuy : widget.onEarn,
+                    child: Text(canBuy ? 'Buy a box · ${widget.cost} pts' : 'Earn $short more points'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

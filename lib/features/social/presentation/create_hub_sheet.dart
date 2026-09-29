@@ -7,6 +7,7 @@ import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/titi.dart';
+import '../../../core/widgets/sheet_header.dart';
 import '../../map/presentation/widgets/tt_now_sheet.dart';
 import '../../accounts/application/active_account.dart';
 import '../domain/post.dart';
@@ -33,7 +34,7 @@ Future<void> showCreateHub(BuildContext context, WidgetRef ref) {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(club != null ? 'Create as ${club.name}' : vendor != null ? 'Create as ${vendor.name}' : 'Create', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+            SheetHeader(title: club != null ? 'Create as ${club.name}' : vendor != null ? 'Create as ${vendor.name}' : 'Create'),
             const SizedBox(height: 14),
             if (!asClub) ...[
               _TtNowHero(onTap: () {

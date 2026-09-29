@@ -10,6 +10,16 @@ class ReleaseNote {
 
 const kReleaseNotes = <ReleaseNote>[
   ReleaseNote(
+    version: '0.3.40',
+    date: '29 Sep 2026',
+    title: 'Box shop',
+    points: [
+      'A proper blind box shop on the Cards page: the box up front, what is inside, your points against the price, one big button.',
+      'The Create sheet and TT now have a close button.',
+      'The map shows the six car cafes (plus partner shops); the old demo spots are gone.',
+    ],
+  ),
+  ReleaseNote(
     version: '0.3.39',
     date: '29 Sep 2026',
     title: 'Create from the middle',

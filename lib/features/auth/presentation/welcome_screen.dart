@@ -47,17 +47,19 @@ class WelcomeScreen extends StatelessWidget {
                   Container(
                     height: 316,
                     decoration: BoxDecoration(color: AppColors.surfaceGray, borderRadius: BorderRadius.circular(28)),
-                    alignment: Alignment.center,
-                    child: const Titi(TitiPose.wave, height: 300),
+                    // TiTi sits left of centre so the bubble never covers him or
+                    // the TT Spot logo on his left foot.
+                    alignment: const Alignment(-0.75, 0.35),
+                    child: const Titi(TitiPose.wave, height: 270),
                   ),
                   const Positioned(
-                    left: 14,
-                    bottom: -22,
-                    child: TitiBubble('Hi, I\'m TiTi. Two minutes and you\'re on the road with us.', maxWidth: 270),
+                    right: 14,
+                    top: 22,
+                    child: TitiBubble('Hi, I\'m TiTi. Two minutes and you\'re on the road with us.', maxWidth: 168, fontSize: 14),
                   ),
                 ],
               ),
-              const SizedBox(height: 44),
+              const SizedBox(height: 28),
               Text.rich(
                 TextSpan(
                   style: display,

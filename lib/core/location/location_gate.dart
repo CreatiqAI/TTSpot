@@ -102,17 +102,19 @@ class _LocationGateScreenState extends ConsumerState<LocationGateScreen> with Wi
                         Container(
                           height: 300,
                           decoration: BoxDecoration(color: AppColors.surfaceGray, borderRadius: BorderRadius.circular(28)),
-                          alignment: Alignment.center,
-                          child: const Titi(TitiPose.mapPin, height: 260),
+                          // Left of centre so the bubble never covers TiTi or the
+                          // TT Spot logo on his left foot.
+                          alignment: const Alignment(-0.75, 0.35),
+                          child: const Titi(TitiPose.mapPin, height: 250),
                         ),
                         const Positioned(
-                          left: 14,
-                          bottom: -22,
-                          child: TitiBubble('Last thing. I need to know where the meet is, and where you are.', maxWidth: 280),
+                          right: 14,
+                          top: 22,
+                          child: TitiBubble('Last thing. I need to know where the meet is, and where you are.', maxWidth: 168, fontSize: 14),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 44),
+                    const SizedBox(height: 28),
                     Text(
                       'TT SPOT IS A MAP.',
                       style: TextStyle(fontFamily: AppFonts.display, fontSize: 40, height: 0.98, fontWeight: FontWeight.w800, letterSpacing: -0.3, color: AppColors.textPrimary),

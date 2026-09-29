@@ -5,11 +5,14 @@ import 'glass.dart';
 
 /// One tab in the floating glass bar.
 class GlassTab {
-  const GlassTab({required this.icon, required this.selectedIcon, required this.label, this.badge = 0});
+  const GlassTab({required this.icon, required this.selectedIcon, required this.label, this.badge = 0, this.action = false});
   final IconData icon;
   final IconData selectedIcon;
   final String label;
   final int badge;
+  /// A button, not a page (the centre Create +): drawn as a red rounded
+  /// square and never selected.
+  final bool action;
 }
 
 /// Floating frosted pill with an ink capsule that slides to the selected tab
@@ -111,6 +114,28 @@ class _TabButtonState extends State<_TabButton> with SingleTickerProviderStateMi
   @override
   Widget build(BuildContext context) {
     final t = widget.tab;
+    if (t.action) {
+      return Semantics(
+        label: t.label,
+        button: true,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: widget.onTap,
+          child: Center(
+            child: Container(
+              width: 50,
+              height: 42,
+              decoration: BoxDecoration(
+                color: AppColors.brand,
+                borderRadius: BorderRadius.circular(15),
+                boxShadow: [BoxShadow(color: AppColors.brand.withValues(alpha: 0.35), blurRadius: 12, offset: const Offset(0, 4))],
+              ),
+              child: Icon(t.icon, size: 24, color: Colors.white),
+            ),
+          ),
+        ),
+      );
+    }
     final icon = Icon(widget.selected ? t.selectedIcon : t.icon, size: 25, color: widget.selected ? AppColors.onInk : AppColors.textPrimary);
     return Semantics(
       label: t.label,

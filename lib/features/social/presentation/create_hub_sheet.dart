@@ -7,6 +7,7 @@ import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/titi.dart';
+import '../../map/presentation/widgets/tt_now_sheet.dart';
 import '../../accounts/application/active_account.dart';
 import '../domain/post.dart';
 
@@ -34,6 +35,13 @@ Future<void> showCreateHub(BuildContext context, WidgetRef ref) {
           children: [
             Text(club != null ? 'Create as ${club.name}' : vendor != null ? 'Create as ${vendor.name}' : 'Create', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
             const SizedBox(height: 14),
+            if (!asClub) ...[
+              _TtNowHero(onTap: () {
+                Navigator.of(ctx).pop();
+                showTtNowSheet(context);
+              }),
+              const SizedBox(height: 10),
+            ],
             Row(
               children: [
                 Expanded(
@@ -42,7 +50,7 @@ Future<void> showCreateHub(BuildContext context, WidgetRef ref) {
                     title: organiser ? 'Event' : 'TT session',
                     subtitle: organiser ? 'Meet, convoy, track day' : 'Plan one for later',
                     accent: AppColors.brand,
-                    titi: TitiPose.rolling,
+                    titi: TitiPose.phone,
                     onTap: () => _go(ctx, context, Routes.createEventAs(clubId: clubId, vendorId: vendor?.id, session: !organiser)),
                   ),
                 ),
@@ -84,6 +92,44 @@ Future<void> showCreateHub(BuildContext context, WidgetRef ref) {
 void _go(BuildContext sheet, BuildContext page, String route) {
   Navigator.of(sheet).pop();
   page.push(route);
+}
+
+/// The first thing on the sheet: start a TT right now. Full width, the
+/// brand red at full strength (it is the app's signature action), TiTi
+/// rolling in from the right.
+class _TtNowHero extends StatelessWidget {
+  const _TtNowHero({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Material(
+        color: AppColors.brand,
+        borderRadius: BorderRadius.circular(22),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: SizedBox(
+            height: 96,
+            child: Stack(
+              children: [
+                Positioned(right: 6, top: -4, bottom: -4, child: Titi(TitiPose.rolling, height: 104)),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 14, 120, 14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text('TT NOW', style: TextStyle(fontFamily: AppFonts.display, fontSize: 30, height: 1, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: 0.5)),
+                      const SizedBox(height: 4),
+                      Text('Out right now? Tell friends where you are.', maxLines: 2, style: TextStyle(fontSize: 12.5, height: 1.3, color: Colors.white.withValues(alpha: 0.88))),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
 }
 
 /// A big, friendly tile: a soft tint of [accent] (never a solid block), the

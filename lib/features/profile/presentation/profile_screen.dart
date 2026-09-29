@@ -114,7 +114,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         actions: [
           if (isMe) ...[
             IconButton(tooltip: 'Scan', icon: const Icon(AppIcons.scan), onPressed: () => context.push(Routes.scan)),
-            IconButton(tooltip: 'Create', icon: const Icon(AppIcons.plusCircle), onPressed: () => showCreateHub(context, ref)),
             IconButton(tooltip: 'Menu', icon: const Icon(AppIcons.list), onPressed: () => showProfileMenu(context, ref)),
           ] else if (profile.value != null)
             IconButton(icon: const Icon(AppIcons.dotsThreeVertical), onPressed: () => _otherMenu(context, profile.value!, blocked)),

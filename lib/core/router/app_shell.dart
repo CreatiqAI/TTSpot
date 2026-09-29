@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/friends/application/friends_providers.dart';
 import '../../features/profile/presentation/profile_menu.dart';
+import '../../features/social/presentation/create_hub_sheet.dart';
 import '../../features/social/application/chat_providers.dart';
 import '../../features/social/application/notification_providers.dart';
 import '../theme/app_icons.dart';
@@ -54,15 +55,20 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
     ref.invalidate(accountBasicsProvider);
   }
 
+  /// Not a branch: the centre + opens the Create sheet.
+  static const _create = -1;
+
   static const _personal = [
     TabSpec(0, AppIcons.house, AppIcons.houseFill, 'Posts'),
     TabSpec(1, AppIcons.mapTrifold, AppIcons.mapTrifoldFill, 'Map'),
+    TabSpec(_create, AppIcons.plus, AppIcons.plus, 'Create'),
     TabSpec(2, AppIcons.chatCircleDots, AppIcons.chatCircleDotsFill, 'Chats'),
     TabSpec(3, AppIcons.user, AppIcons.userFill, 'Me'),
   ];
   static const _club = [
     TabSpec(0, AppIcons.shield, AppIcons.shieldFill, 'Club'),
     TabSpec(1, AppIcons.flagCheckered, AppIcons.flagCheckeredFill, 'Events'),
+    TabSpec(_create, AppIcons.plus, AppIcons.plus, 'Create'),
     TabSpec(2, AppIcons.chatCircleDots, AppIcons.chatCircleDotsFill, 'Chats'),
     TabSpec(3, AppIcons.gear, AppIcons.gear, 'Account'),
   ];
@@ -111,11 +117,15 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
       extendBody: true,
       bottomNavigationBar: GlassTabBar(
         tabs: [
-          for (final t in tabs) GlassTab(icon: t.icon, selectedIcon: t.selectedIcon, label: t.label, badge: t.branch == 2 ? unread : 0),
+          for (final t in tabs) GlassTab(icon: t.icon, selectedIcon: t.selectedIcon, label: t.label, badge: t.branch == 2 ? unread : 0, action: t.branch == _create),
         ],
         selected: selected,
         onTap: (i) {
           final t = tabs[i];
+          if (t.branch == _create) {
+            showCreateHub(context, ref);
+            return;
+          }
           // Me tab tapped while already on it: open the menu, no hamburger needed.
           if (account is PersonalAccount && t.branch == 3 && shell.currentIndex == 3) {
             showProfileMenu(context, ref);

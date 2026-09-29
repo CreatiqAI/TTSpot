@@ -11,7 +11,6 @@ import '../../../core/utils/friendly_error.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../application/social_providers.dart';
 import '../domain/post.dart';
-import 'create_hub_sheet.dart';
 import 'widgets/masonry_grid.dart';
 import 'widgets/post_card.dart';
 import '../../../core/widgets/brand_logo.dart';
@@ -33,7 +32,6 @@ class ExploreScreen extends ConsumerWidget {
           title: const BrandLogo(height: 56),
           actions: [
             IconButton(tooltip: 'Search', icon: const Icon(AppIcons.magnifyingGlass, size: 26), onPressed: () => context.push(Routes.search)),
-            IconButton(tooltip: 'Create', icon: const Icon(AppIcons.plusCircle, size: 26), onPressed: () => showCreateHub(context, ref)),
             const SizedBox(width: 4),
           ],
           bottom: TabBar(

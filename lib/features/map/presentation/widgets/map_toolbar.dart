@@ -15,7 +15,6 @@ import '../../../friends/domain/friend.dart';
 import '../../../social/domain/post.dart';
 import '../../application/map_providers.dart';
 import 'map_filter_sheet.dart';
-import 'tt_now_sheet.dart';
 
 /// Solid panel above the tab bar while the map sheet is closed: the red TT
 /// button (car over "TT now"), a search-style status pill that opens the
@@ -48,8 +47,7 @@ class MapToolbar extends ConsumerWidget {
       ),
       child: Row(
         children: [
-          _ttButton(context, ref),
-          const SizedBox(width: 8),
+          ?_ttButton(context, ref),
           Expanded(child: _statusPill(context, ref)),
           const SizedBox(width: 8),
           _filterButton(context, ref),
@@ -58,8 +56,9 @@ class MapToolbar extends ConsumerWidget {
     );
   }
 
-  /// Red to start a TT, black while mine is live, white when a friend's is on.
-  Widget _ttButton(BuildContext context, WidgetRef ref) {
+  /// Black while my TT is live, white when a friend's is on; nothing
+  /// otherwise (starting a TT lives in the centre Create button).
+  Widget? _ttButton(BuildContext context, WidgetRef ref) {
     final me = ref.watch(currentUserIdProvider);
     final live = ref.watch(liveEventsProvider).value ?? const <Event>[];
     final pins = ref.watch(friendPinsProvider).value ?? const <FriendPin>[];
@@ -70,13 +69,13 @@ class MapToolbar extends ConsumerWidget {
           ..sort((a, b) => distanceKm(origin, a.latLng).compareTo(distanceKm(origin, b.latLng))))
         .firstOrNull;
     if (mine != null) {
-      return _TtButton(style: _Style.live, label: '${_minsLeft(mine)} min', onTap: () => context.push(Routes.event(mine.id)));
+      return Padding(padding: const EdgeInsets.only(right: 8), child: _TtButton(style: _Style.live, label: '${_minsLeft(mine)} min', onTap: () => context.push(Routes.event(mine.id))));
     }
     if (friendTt != null) {
       final who = _firstName(friendTt.organizerId, pins);
-      return _TtButton(style: _Style.friend, label: "$who's TT", onTap: () => context.push(Routes.event(friendTt.id)));
+      return Padding(padding: const EdgeInsets.only(right: 8), child: _TtButton(style: _Style.friend, label: "$who's TT", onTap: () => context.push(Routes.event(friendTt.id))));
     }
-    return _TtButton(style: _Style.start, label: 'TT now', onTap: () => showTtNowSheet(context));
+    return null;
   }
 
   Widget _statusPill(BuildContext context, WidgetRef ref) {

@@ -10,6 +10,22 @@ class ReleaseNote {
 
 const kReleaseNotes = <ReleaseNote>[
   ReleaseNote(
+    version: '0.3.41',
+    date: '30 Sep 2026',
+    title: 'A clearer map',
+    points: [
+      'New map pins: a teardrop for every spot, shop and meet, coloured by kind. Crowded areas show a number; tap it to zoom in.',
+      'Tap a spot or a shop and the map zooms in with a small card: Go now, TT here, or View more for the full page. Search and the lists open the same card.',
+      'The key is back on the left and only lists what is on your screen. Tap it to fold it away.',
+      'A list of every meet, club and spot: tap the list button next to the filters on the map.',
+      'Spot pages have a big Go now button (in-app, Waze or Google Maps).',
+      'Photos on a post show whole now. Tap one to see it full screen and pinch to zoom.',
+      'Tap Home again to jump to the top of the feed and load new posts.',
+      'Swipe Create down to close it.',
+      'TiTi keeps you company on empty pages, new default avatars and covers, badges you can earn, and share cards for your card pulls.',
+    ],
+  ),
+  ReleaseNote(
     version: '0.3.40',
     date: '29 Sep 2026',
     title: 'Box shop',

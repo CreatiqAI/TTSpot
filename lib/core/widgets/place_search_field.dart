@@ -41,6 +41,7 @@ class _PlaceSearchFieldState extends ConsumerState<PlaceSearchField> {
   late final TextEditingController _ctrl = widget.controller ?? TextEditingController();
   final _focus = FocusNode();
   Timer? _debounce;
+  final _session = PlaceSession(); // one token from first keystroke to the pick
   List<PlaceSuggestion> _items = const [];
   bool _loading = false;
   int _seq = 0;
@@ -67,7 +68,7 @@ class _PlaceSearchFieldState extends ConsumerState<PlaceSearchField> {
     final my = ++_seq;
     setState(() => _loading = true);
     try {
-      final r = await ref.read(placesServiceProvider).autocomplete(q, lat: widget.near?.$1, lng: widget.near?.$2);
+      final r = await ref.read(placesServiceProvider).autocomplete(q, lat: widget.near?.$1, lng: widget.near?.$2, sessionToken: _session.token);
       if (mounted && my == _seq) setState(() => _items = r);
     } catch (_) {
       if (mounted && my == _seq) setState(() => _items = const []);
@@ -77,6 +78,7 @@ class _PlaceSearchFieldState extends ConsumerState<PlaceSearchField> {
   }
 
   Future<void> _pick(PlaceSuggestion s) async {
+    _debounce?.cancel(); // a late keystroke would open a new session after the pick
     setState(() {
       _loading = true;
       _items = const [];
@@ -84,11 +86,12 @@ class _PlaceSearchFieldState extends ConsumerState<PlaceSearchField> {
     });
     _focus.unfocus();
     try {
-      final d = await ref.read(placesServiceProvider).details(s.placeId);
+      final d = await ref.read(placesServiceProvider).details(s.placeId, sessionToken: _session.token);
       widget.onPicked(d);
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Couldn\'t load that place. Try another.')));
     } finally {
+      _session.end();
       if (mounted) setState(() => _loading = false);
     }
   }

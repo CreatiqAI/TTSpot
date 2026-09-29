@@ -6,12 +6,16 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_icons.dart';
 import 'map_pins.dart';
 
-/// The three things people put on the map, each with its own small shape so
-/// the map stays readable even when many sit close together:
-///   balloon  = an event (meet, convoy, track day, official…)
-///   flag     = a TT session (the feather flag outside a mamak)
-///   badge    = a spot (rounded square; star = top spot)
-/// Painters are shared by the markers and the on-map legend.
+/// Places and events on the home map are all teardrop pins: a round head in
+/// the kind's colour on a point that sits on the spot, with a white icon
+/// inside. The colour and the icon say what it is:
+///   spot         = its kind's colour and silhouette (star = top spot, bookmark = saved)
+///   partner shop = ink with a red outline and a storefront
+///   meet         = red with a flag (gold + crown for official clubs, ink + storefront for partners)
+///   TT session   = a pennant flag instead of the meet flag
+/// Zoomed out, pins that would overlap merge into a round count bubble.
+/// Painters are shared by the markers and the on-map legend. The balloon is
+/// the older event pin, still used by the convoy map and the static previews.
 const kEventRed = Color(0xFFE00008);
 const kInk = Color(0xFF101010);
 const kSpotGrey = Color(0xFF4B4F58);
@@ -46,23 +50,91 @@ void paintBalloon(Canvas c, Offset o, {double scale = 1, Color color = kEventRed
   c.restore();
 }
 
-/// Feather flag: 30 × 36 logical px, pole foot at (8, 35).
-const flagSize = Size(30, 36);
-void paintFlag(Canvas c, Offset o, {double scale = 1, Color color = kEventRed}) {
+// --------------------------------------------------------------- teardrop ---
+
+/// Teardrop pin: 32 × 40 logical px at scale 1 (the head is 32 across, white
+/// outline included), the point at [teardropTip] on the location.
+const teardropSize = Size(32, 40);
+const teardropTip = Offset(16, 40);
+const _headCentre = Offset(16, 16);
+
+/// Room a picked pin's halo needs around the teardrop, at scale 1.
+const teardropHaloMargin = 11.0;
+
+/// The fill: a circle of [r] around the head centre with straight sides
+/// down to the point at [tipY]. The outline is a stroke around it.
+Path _teardropPath(double r, double tipY) {
+  final d = tipY - _headCentre.dy;
+  final phi = math.acos(r / d); // tangent points, measured from straight down
+  final head = Rect.fromCircle(center: _headCentre, radius: r);
+  return Path()
+    ..moveTo(_headCentre.dx, tipY)
+    ..lineTo(_headCentre.dx + r * math.sin(phi), _headCentre.dy + r * math.cos(phi))
+    ..arcTo(head, math.pi / 2 - phi, -(2 * math.pi - 2 * phi), false)
+    ..close();
+}
+
+/// A teardrop pin: [color] head with a 2.5 px [outline] (white, red for
+/// partner shops), a soft shadow and a white mark inside: the [kind]'s
+/// silhouette or an icon [glyph]. [recommended] adds
+/// the red star badge and [saved] the bookmark badge (the star moves left).
+/// [selected] draws a soft halo of its colour around the head; the caller
+/// leaves [teardropHaloMargin] of room for it.
+void paintTeardrop(
+  Canvas c,
+  Offset o, {
+  double scale = 1,
+  Color color = kEventRed,
+  Color outline = Colors.white,
+  SpotKind? kind,
+  IconData? glyph,
+  bool recommended = false,
+  bool saved = false,
+  bool selected = false,
+}) {
   c.save();
   c.translate(o.dx, o.dy);
   c.scale(scale);
-  final sail = Path()
-    ..moveTo(8, 3)
-    ..cubicTo(21, 1, 29, 10, 24, 20)
-    ..cubicTo(21, 25, 13, 26, 8, 27)
-    ..close();
-  c.drawPath(sail.shift(const Offset(0, 1.5)), Paint()..color = Colors.black.withValues(alpha: 0.2)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2));
-  final pole = Paint()..color = kInk..strokeWidth = 2.6..strokeCap = StrokeCap.round;
-  c.drawLine(const Offset(8, 2), const Offset(8, 35), Paint()..color = Colors.white..strokeWidth = 5..strokeCap = StrokeCap.round);
-  c.drawPath(sail, Paint()..color = Colors.white..style = PaintingStyle.stroke..strokeWidth = 3..strokeJoin = StrokeJoin.round);
-  c.drawPath(sail, Paint()..color = color);
-  c.drawLine(const Offset(8, 2), const Offset(8, 35), pole);
+  const outlineW = 2.5;
+  final body = _teardropPath(16 - outlineW, teardropTip.dy - outlineW);
+  if (selected) {
+    c.drawCircle(_headCentre, 16 + teardropHaloMargin - 3, Paint()..color = color.withValues(alpha: 0.30)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3));
+  }
+  // Shadow: the outer shape (outline included), a little lower and blurred.
+  c.drawPath(_teardropPath(16, teardropTip.dy).shift(const Offset(0, 1.5)), Paint()..color = Colors.black.withValues(alpha: 0.28)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.2));
+  c.drawPath(body, Paint()..color = outline..style = PaintingStyle.stroke..strokeWidth = outlineW * 2..strokeJoin = StrokeJoin.round);
+  c.drawPath(body, Paint()..color = color);
+  if (kind != null) {
+    paintSpotSilhouette(c, kind, _headCentre, 19);
+  } else if (glyph != null) {
+    final tp = TextPainter(
+      text: TextSpan(text: String.fromCharCode(glyph.codePoint), style: TextStyle(fontFamily: glyph.fontFamily, fontSize: 16, color: Colors.white, height: 1)),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    tp.paint(c, _headCentre - Offset(tp.width / 2, tp.height / 2));
+  }
+  if (recommended) paintStarBadge(c, saved ? const Offset(4.5, 4.5) : const Offset(27.5, 4.5));
+  if (saved) paintSavedBadge(c, const Offset(27.5, 4.5));
+  c.restore();
+}
+
+/// Count bubble: pins too close to tell apart when zoomed out, as one round
+/// chip with the number. 33 px across at scale 1 (white outline included),
+/// about as wide as a small teardrop.
+const clusterRadius = 14.0;
+void paintCluster(Canvas c, Offset centre, {required int count, double scale = 1, Color color = kInk}) {
+  c.save();
+  c.translate(centre.dx, centre.dy);
+  c.scale(scale);
+  const outlineW = 2.5;
+  c.drawCircle(const Offset(0, 1.5), clusterRadius + outlineW, Paint()..color = Colors.black.withValues(alpha: 0.28)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.2));
+  c.drawCircle(Offset.zero, clusterRadius + outlineW, Paint()..color = Colors.white);
+  c.drawCircle(Offset.zero, clusterRadius, Paint()..color = color);
+  final tp = TextPainter(
+    text: TextSpan(text: count > 99 ? '99+' : '$count', style: TextStyle(fontSize: count > 99 ? 10.5 : 14, fontWeight: FontWeight.w800, color: Colors.white, height: 1)),
+    textDirection: TextDirection.ltr,
+  )..layout();
+  tp.paint(c, Offset(-tp.width / 2, -tp.height / 2));
   c.restore();
 }
 
@@ -70,7 +142,7 @@ void paintFlag(Canvas c, Offset o, {double scale = 1, Color color = kEventRed}) 
 
 /// One visual language for places: every kind has its own colour and a
 /// simple silhouette, so a cafe never looks like a carpark even when the
-/// badge is only 20 px wide. Partner shops (workshops, accessories…) share
+/// pin is only 22 px wide. Partner shops (workshops, accessories…) share
 /// the slate "tools" family.
 enum SpotKind { cafe, mamak, carpark, route, circuit, mall, workshop, other }
 
@@ -196,26 +268,7 @@ Offset _pointOn(Offset p0, Offset p1, Offset p2, Offset p3, double t) {
   return p0 * (mt * mt * mt) + p1 * (3 * mt * mt * t) + p2 * (3 * mt * t * t) + p3 * (t * t * t);
 }
 
-/// Spot badge: 24 × 24 logical px, centred: a rounded square in the kind's
-/// colour with its silhouette; top spots get a small red star in the corner.
-/// [saved] = one of my saved spots: an ink disc with a white bookmark takes
-/// the top-right corner (the star, if any, moves to the top-left).
-const badgeSize = Size(24, 24);
-void paintSpotBadge(Canvas c, Offset o, {double scale = 1, bool recommended = false, SpotKind kind = SpotKind.other, bool saved = false}) {
-  c.save();
-  c.translate(o.dx, o.dy);
-  c.scale(scale);
-  final rect = RRect.fromRectAndRadius(const Rect.fromLTWH(1.5, 1.5, 21, 21), const Radius.circular(7));
-  c.drawRRect(rect.shift(const Offset(0, 1.5)), Paint()..color = Colors.black.withValues(alpha: 0.22)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2));
-  c.drawRRect(rect, Paint()..color = Colors.white..style = PaintingStyle.stroke..strokeWidth = 3);
-  c.drawRRect(rect, Paint()..color = spotKindColor(kind));
-  paintSpotSilhouette(c, kind, const Offset(12, 12), 19);
-  if (recommended) paintStarBadge(c, saved ? const Offset(3, 3.5) : const Offset(21, 3.5));
-  if (saved) paintSavedBadge(c, const Offset(21, 3.5));
-  c.restore();
-}
-
-/// Small white bookmark on an ink disc: "saved by me", pinned to a badge corner.
+/// Small white bookmark on an ink disc: "saved by me", pinned to a pin's corner.
 void paintSavedBadge(Canvas c, Offset centre, {double r = 5.2}) {
   c.drawCircle(centre, r + 1.4, Paint()..color = Colors.white);
   c.drawCircle(centre, r, Paint()..color = kInk);
@@ -226,7 +279,7 @@ void paintSavedBadge(Canvas c, Offset centre, {double r = 5.2}) {
   tp.paint(c, centre - Offset(tp.width / 2, tp.height / 2));
 }
 
-/// Small red star on a white disc: "top spot", pinned to a badge corner.
+/// Small red star on a white disc: "top spot", pinned to a pin's corner.
 void paintStarBadge(Canvas c, Offset centre, {double r = 5.2}) {
   c.drawCircle(centre, r + 1.4, Paint()..color = Colors.white);
   c.drawCircle(centre, r, Paint()..color = kEventRed);
@@ -237,8 +290,7 @@ void paintStarBadge(Canvas c, Offset centre, {double r = 5.2}) {
   tp.paint(c, centre - Offset(tp.width / 2, tp.height / 2));
 }
 
-/// Small dot for a person or a far-away place (legend + far zoom). [ring]
-/// replaces the white ring, e.g. red for a top spot.
+/// Small dot for a person (the legend's people rows).
 void paintDot(Canvas c, Offset centre, {double r = 5, required Color color, Color ring = Colors.white}) {
   c.drawCircle(centre, r + 2, Paint()..color = ring);
   c.drawCircle(centre, r, Paint()..color = color);
@@ -250,23 +302,43 @@ class GlyphMarkerFactory {
   final double devicePixelRatio;
   final _cache = <String, MapPin>{};
 
-  /// [scale] shrinks the shape when the map is zoomed out (Waze-style: full
-  /// size up close, smaller mid-way, plain dots far out).
+  /// [scale] shrinks the shape when the map is zoomed out.
   Future<MapPin> balloon({required String key, Color color = kEventRed, String? label, String? sub, double scale = 1, IconData? glyph}) =>
       _build('b|$key|${color.toARGB32()}|$label|$sub|$scale|${glyph?.codePoint}', balloonSize * scale, Offset(13, 33) * scale, (c) => paintBalloon(c, Offset.zero, color: color, scale: scale, glyph: glyph), label, sub);
 
-  Future<MapPin> flag({required String key, Color color = kEventRed, String? label, String? sub, double scale = 1}) =>
-      _build('f|$key|${color.toARGB32()}|$label|$sub|$scale', flagSize * scale, Offset(8, 35) * scale, (c) => paintFlag(c, Offset.zero, color: color, scale: scale), label, sub);
+  /// A teardrop pin (see [paintTeardrop]), its point on the location.
+  /// [label] / [sub] add the name chip under it when zoomed in; [scale] grows
+  /// it with the zoom. The cache key is every visual input and nothing else,
+  /// so pins that look the same share one bitmap and a new size or state
+  /// never reuses an old one.
+  Future<MapPin> teardrop({
+    required Color color,
+    Color outline = Colors.white,
+    SpotKind? kind,
+    IconData? glyph,
+    bool recommended = false,
+    bool saved = false,
+    bool selected = false,
+    String? label,
+    String? sub,
+    double scale = 1,
+  }) {
+    final m = selected ? teardropHaloMargin : 0.0;
+    return _build(
+      't|${color.toARGB32()}|${outline.toARGB32()}|${kind?.index}|${glyph?.codePoint}|$recommended|$saved|$selected|$label|$sub|$scale',
+      Size(teardropSize.width + m * 2, teardropSize.height + m) * scale,
+      (teardropTip + Offset(m, m)) * scale,
+      (c) => paintTeardrop(c, Offset(m, m) * scale, scale: scale, color: color, outline: outline, kind: kind, glyph: glyph, recommended: recommended, saved: saved, selected: selected),
+      label,
+      sub,
+    );
+  }
 
-  /// A place, in its kind's colour and silhouette. [label] / [sub] add the
-  /// name chip when zoomed in; [scale] grows the badge with the zoom.
-  Future<MapPin> spot({required String key, required bool recommended, SpotKind kind = SpotKind.other, String? label, String? sub, double scale = 1, bool saved = false}) =>
-      _build('s|$key|$recommended|${kind.index}|$label|$sub|$scale|$saved', badgeSize * scale, Offset(12, 12) * scale, (c) => paintSpotBadge(c, Offset.zero, recommended: recommended, kind: kind, scale: scale, saved: saved), label, sub);
-
-  /// Far-zoom marker: a small colour-coded dot with a white ring, like Waze
-  /// when you zoom out to the whole city. [ring] swaps the white ring (red = top spot).
-  Future<MapPin> dot({required String key, required Color color, double r = 4.5, Color ring = Colors.white}) =>
-      _build('d|$key|${color.toARGB32()}|$r|${ring.toARGB32()}', Size((r + 2) * 2, (r + 2) * 2), Offset(r + 2, r + 2), (c) => paintDot(c, Offset(r + 2, r + 2), r: r, color: color, ring: ring), null, null);
+  /// A count bubble (see [paintCluster]), centred on the group.
+  Future<MapPin> cluster({required int count, Color color = kInk, double scale = 1}) {
+    final r = (clusterRadius + 2.5) * scale;
+    return _build('c|$count|${color.toARGB32()}|$scale', Size(r * 2, r * 2), Offset(r, r), (c) => paintCluster(c, Offset(r, r), count: count, scale: scale, color: color), null, null);
+  }
 
   Future<MapPin> _build(String k, Size icon, Offset anchorPx, void Function(Canvas) paint, String? label, String? sub) async {
     final cached = _cache[k];

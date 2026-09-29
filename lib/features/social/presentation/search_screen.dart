@@ -11,6 +11,7 @@ import '../../../core/theme/titi.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/user_avatar.dart';
 import '../../auth/domain/profile.dart';
+import '../../map/presentation/widgets/place_card.dart' show showPlaceOnMap;
 import '../application/community_providers.dart';
 import '../data/social_repository.dart';
 import '../domain/club.dart';
@@ -127,7 +128,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                         leading: CircleAvatar(backgroundColor: AppColors.surfaceGray, child: ArtIcon(p.kindIcon, size: 26)),
                         title: Text(p.name, style: const TextStyle(fontWeight: FontWeight.w600)),
                         subtitle: Text(p.kindLabel),
-                        onTap: () => context.push(Routes.place(p.id)),
+                        // The map, zoomed in on it with its card up; the card links to the page.
+                        onTap: () => showPlaceOnMap(context, ref, p),
                       ),
                   ],
             orElse: () => const [],

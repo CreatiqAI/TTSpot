@@ -31,10 +31,13 @@ import '../domain/event.dart';
 ///   it). No type, no cover. Shows as a feather flag on the map.
 /// * otherwise an event hosted by a club (`clubId`) or a partner (`vendorId`).
 class CreateEventScreen extends ConsumerStatefulWidget {
-  const CreateEventScreen({super.key, this.clubId, this.vendorId, this.session = false});
+  const CreateEventScreen({super.key, this.clubId, this.vendorId, this.session = false, this.at, this.venue});
   final String? clubId;
   final String? vendorId;
   final bool session;
+  /// Start on this place (the pin and the venue name), e.g. "TT here" from a map card.
+  final LatLng? at;
+  final String? venue;
 
   @override
   ConsumerState<CreateEventScreen> createState() => _CreateEventScreenState();
@@ -55,6 +58,8 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
   @override
   void initState() {
     super.initState();
+    _pin = widget.at;
+    if (widget.venue != null) _venue.text = widget.venue!;
     final now = DateTime.now();
     if (widget.session) {
       // TT sessions: tonight 9 pm (or in an hour if it's already late).
@@ -196,7 +201,8 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
       if (next.hasError && !next.isLoading) _snack(friendlyError(next.error!));
     });
     final busy = ref.watch(createEventControllerProvider).isLoading;
-    final start = ref.watch(userLocationProvider).value ?? kualaLumpur;
+    // The pin map opens on the given place, else on me.
+    final start = widget.at ?? ref.watch(userLocationProvider).value ?? kualaLumpur;
     final club = widget.clubId == null ? null : ref.watch(clubProvider(widget.clubId!)).value;
     final vendor = widget.vendorId == null ? null : ref.watch(myVendorProvider).value;
     final session = widget.session;

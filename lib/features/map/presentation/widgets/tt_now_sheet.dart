@@ -35,19 +35,21 @@ final ttPlaceProvider = NotifierProvider<TtPlaceNotifier, PlaceDetails?>(TtPlace
 
 /// "TT now": where (prefilled), how long (1 h default), who (all friends
 /// ticked). Start makes the meet and drops an invite card in each ticked
-/// friend's chat.
-Future<void> showTtNowSheet(BuildContext context) {
+/// friend's chat. [at] opens it on that place ("TT here" on a map card, only
+/// offered within 1 km of it).
+Future<void> showTtNowSheet(BuildContext context, {PlaceDetails? at}) {
   return showModalBottomSheet<void>(
     useRootNavigator: true, // above the shell tab bar
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
-    builder: (_) => const _TtNowSheet(),
+    builder: (_) => _TtNowSheet(at: at),
   );
 }
 
 class _TtNowSheet extends ConsumerStatefulWidget {
-  const _TtNowSheet();
+  const _TtNowSheet({this.at});
+  final PlaceDetails? at;
 
   @override
   ConsumerState<_TtNowSheet> createState() => _TtNowSheetState();
@@ -207,7 +209,13 @@ class _TtNowSheetState extends ConsumerState<_TtNowSheet> {
     // Auto-fill with the nearest named place + street address from GPS.
     final nearby = here == null ? null : ref.watch(nearbyPlacesProvider(placeKey(here.latitude, here.longitude))).value;
     final remembered = ref.read(ttPlaceProvider);
-    if (!_prefilled && remembered != null && here != null && distanceKm(here, LatLng(remembered.lat, remembered.lng)) < 1.0) {
+    final at = widget.at;
+    if (!_prefilled && at != null) {
+      // Opened on a place (the caller checked it is within 1 km).
+      _picked = at;
+      _venue.text = at.name;
+      _prefilled = true;
+    } else if (!_prefilled && remembered != null && here != null && distanceKm(here, LatLng(remembered.lat, remembered.lng)) < 1.0) {
       _picked = remembered;
       _venue.text = remembered.name;
       _around = nearby ?? const [];
@@ -272,7 +280,7 @@ class _TtNowSheetState extends ConsumerState<_TtNowSheet> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(_venue.text, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
-                          if (_picked?.address != null) Text(_picked!.address, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11.5, color: AppColors.textSecondary)),
+                          if ((_picked?.address ?? '').isNotEmpty) Text(_picked!.address, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11.5, color: AppColors.textSecondary)),
                         ],
                       ),
                     ),

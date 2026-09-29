@@ -301,13 +301,23 @@ class SpotsHintDismissedNotifier extends Notifier<bool> {
 
 final spotsHintDismissedProvider = NotifierProvider<SpotsHintDismissedNotifier, bool>(SpotsHintDismissedNotifier.new);
 
-/// A one-off request for the map to glide to a point (e.g. "Show on map" on
-/// a spot's page). The map clears it once handled.
-class MapFocusNotifier extends Notifier<LatLng?> {
+/// Where another screen asked the map to go. With [place], the map also
+/// opens that place's preview card (Search, "Show on map" on a spot).
+class MapFocus {
+  const MapFocus(this.at, {this.place});
+  final LatLng at;
+  final Place? place;
+}
+
+/// A one-off request for the map to glide somewhere. The map clears it once
+/// handled.
+class MapFocusNotifier extends Notifier<MapFocus?> {
   @override
-  LatLng? build() => null;
-  void request(LatLng at) => state = at;
+  MapFocus? build() => null;
+  void request(LatLng at) => state = MapFocus(at);
+  /// Glide to [p] and open its preview card.
+  void preview(Place p) => state = MapFocus(p.latLng, place: p);
   void clear() => state = null;
 }
 
-final mapFocusProvider = NotifierProvider<MapFocusNotifier, LatLng?>(MapFocusNotifier.new);
+final mapFocusProvider = NotifierProvider<MapFocusNotifier, MapFocus?>(MapFocusNotifier.new);

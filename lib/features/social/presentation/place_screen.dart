@@ -18,6 +18,7 @@ import '../../../core/widgets/primary_button.dart';
 import '../../../core/widgets/user_avatar.dart';
 import '../../events/application/event_providers.dart';
 import '../../map/application/map_providers.dart';
+import '../../map/presentation/widgets/place_card.dart' show showPlaceOnMap;
 import '../application/community_providers.dart';
 import '../application/social_providers.dart';
 import '../domain/club.dart';
@@ -143,13 +144,7 @@ class _PlaceScreenState extends ConsumerState<PlaceScreen> {
                         child: IconButton(
                           tooltip: 'Show on map',
                           icon: const Icon(AppIcons.mapTrifold, color: Colors.white),
-                          onPressed: () {
-                            // Focus first: the Spots layer then skips its "nearest spots" view.
-                            ref.read(mapFocusProvider.notifier).request(p.latLng);
-                            ref.read(mapModeProvider.notifier).set(MapMode.spots);
-                            ref.read(mapListViewProvider.notifier).set(false);
-                            context.go(Routes.map);
-                          },
+                          onPressed: () => showPlaceOnMap(context, ref, p),
                         ),
                       ),
                     ),

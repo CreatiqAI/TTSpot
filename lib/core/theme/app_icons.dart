@@ -199,4 +199,8 @@ abstract final class AppIcons {
   static const IconData ghostFill = IconData(0xe62a, fontFamily: _fill);
   static const IconData fireFill = IconData(0xe242, fontFamily: _fill);
   static const IconData shieldFill = IconData(0xe40a, fontFamily: _fill);
+  static const IconData flagFill = IconData(0xe244, fontFamily: _fill);
+  static const IconData crownFill = IconData(0xe614, fontFamily: _fill);
+  static const IconData storefrontFill = IconData(0xe470, fontFamily: _fill);
+  static const IconData flagPennantFill = IconData(0xecf0, fontFamily: _fill);
 }

@@ -64,10 +64,11 @@ class _MapListViewState extends ConsumerState<MapListView> with SingleTickerProv
     if (widget.standalone) context.go(Routes.map);
   }
 
-  /// Fly the map to a spot. Focus first, so the Spots layer skips its
-  /// "nearest spots" view (same order as "Show on map" on a spot's page).
+  /// Fly the map to a spot and open its preview card. Focus first, so the
+  /// Spots layer skips its "nearest spots" view (same order as "Show on map"
+  /// on a spot's page).
   void _showSpot(Place p) {
-    ref.read(mapFocusProvider.notifier).request(p.latLng);
+    ref.read(mapFocusProvider.notifier).preview(p);
     ref.read(mapModeProvider.notifier).set(MapMode.spots);
     _showMap();
   }

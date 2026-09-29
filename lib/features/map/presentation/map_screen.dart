@@ -23,7 +23,7 @@ import '../../../core/utils/geo.dart';
 import '../../events/application/event_providers.dart';
 import '../../events/domain/event.dart';
 import '../../events/presentation/event_car_widgets.dart';
-import '../../events/presentation/my_events_screen.dart';
+import 'map_list_view.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../profile/application/profile_providers.dart';
 import '../../friends/application/friends_providers.dart';
@@ -839,10 +839,6 @@ class _MapScreenState extends ConsumerState<MapScreen> with TickerProviderStateM
     final spotsHint = mode == MapMode.spots ? null : _spotsHint();
     final backToMe = hasLocation && _awayFromMe && !_sheetOpen;
 
-    if (listView) {
-      return MyEventsScreen(embedded: true, onShowMap: () => ref.read(mapListViewProvider.notifier).set(false));
-    }
-
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: _isNight ? _mapOverlay : SystemUiOverlayStyle.dark,
       child: Scaffold(
@@ -1008,6 +1004,9 @@ class _MapScreenState extends ConsumerState<MapScreen> with TickerProviderStateM
             ),
 
             MapPalette(light: !_isNight, child: MapSheet(controller: _sheet, onFocus: _focus)),
+
+            // List view (the toolbar's list button) covers the map, which stays live underneath.
+            if (listView) const Positioned.fill(child: MapListView()),
           ],
         ),
       ),

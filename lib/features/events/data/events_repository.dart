@@ -64,6 +64,35 @@ class EventsRepository {
     return rows.map(Event.fromMap).where((e) => e.isLive).toList();
   }
 
+  // ------------------------------------------------------------ list view ---
+
+  /// Every active meet starting from [from], anywhere, soonest first. The
+  /// map's list view passes a few hours back so meets under way still show,
+  /// then drops the ones already over.
+  Future<List<Event>> fetchUpcoming({required DateTime from, int limit = 300}) async {
+    final rows = await _client
+        .from('events_with_counts')
+        .select()
+        .eq('status', 'active')
+        .gte('starts_at', from.toUtc().toIso8601String())
+        .order('starts_at', ascending: true)
+        .limit(limit);
+    return rows.map(Event.fromMap).toList();
+  }
+
+  /// Display name (else username) by user id: who hosts a meet that has no
+  /// club or partner on it.
+  Future<Map<String, String>> hostNames(Iterable<String> ids) async {
+    final list = ids.toSet().toList();
+    if (list.isEmpty) return const {};
+    final rows = await _client.from('profiles').select('id, username, display_name').inFilter('id', list);
+    String name(Map<String, dynamic> r) {
+      final shown = (r['display_name'] as String?)?.trim() ?? '';
+      return shown.isNotEmpty ? shown : r['username'] as String? ?? '';
+    }
+    return {for (final r in rows) r['id'] as String: name(r)};
+  }
+
   // ------------------------------------------------------------ check-ins ---
 
   Future<Set<String>> myCheckinEventIds(String userId) async {

@@ -18,7 +18,8 @@ import 'map_filter_sheet.dart';
 
 /// Solid panel above the tab bar while the map sheet is closed: the red TT
 /// button (car over "TT now"), a search-style status pill that opens the
-/// lists, and a round filter button. Dark panel on the night map, white by day.
+/// lists, a round filter button and a round list button (every meet, club
+/// and spot as a full-screen list). Dark panel on the night map, white by day.
 class MapToolbar extends ConsumerWidget {
   const MapToolbar({super.key, required this.mode, required this.light, required this.onOpen});
   final MapMode mode;
@@ -51,6 +52,13 @@ class MapToolbar extends ConsumerWidget {
           Expanded(child: _statusPill(context, ref)),
           const SizedBox(width: 8),
           _filterButton(context, ref),
+          const SizedBox(width: 8),
+          _ToolButton(
+            light: light,
+            icon: AppIcons.list,
+            tooltip: 'List view',
+            onTap: () => ref.read(mapListViewProvider.notifier).set(true),
+          ),
         ],
       ),
     );
@@ -125,30 +133,50 @@ class MapToolbar extends ConsumerWidget {
     }
   }
 
-  Widget _filterButton(BuildContext context, WidgetRef ref) {
-    final active = !ref.watch(mapFiltersProvider).isDefault;
-    final fg = _fg(light);
-    return PressScale(
-      child: Material(
-        color: light ? Colors.black.withValues(alpha: 0.05) : Colors.white.withValues(alpha: 0.08),
-        shape: CircleBorder(side: BorderSide(color: light ? Colors.black.withValues(alpha: 0.06) : Colors.white.withValues(alpha: 0.10))),
-        child: InkWell(
-          onTap: () => showMapFilterSheet(context),
-          customBorder: const CircleBorder(),
-          child: SizedBox(
-            width: _button,
-            height: _button,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                Icon(AppIcons.slidersHorizontal, size: 20, color: fg),
-                if (active)
-                  Positioned(
-                    right: 11,
-                    top: 11,
-                    child: Container(width: 8, height: 8, decoration: const BoxDecoration(color: AppColors.brand, shape: BoxShape.circle)),
-                  ),
-              ],
+  Widget _filterButton(BuildContext context, WidgetRef ref) => _ToolButton(
+        light: light,
+        icon: AppIcons.slidersHorizontal,
+        tooltip: 'Filters',
+        dot: !ref.watch(mapFiltersProvider).isDefault,
+        onTap: () => showMapFilterSheet(context),
+      );
+}
+
+/// Round button at the end of the toolbar. [dot] = a red dot (filters on).
+class _ToolButton extends StatelessWidget {
+  const _ToolButton({required this.light, required this.icon, required this.tooltip, required this.onTap, this.dot = false});
+  final bool light;
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onTap;
+  final bool dot;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: PressScale(
+        child: Material(
+          color: light ? Colors.black.withValues(alpha: 0.05) : Colors.white.withValues(alpha: 0.08),
+          shape: CircleBorder(side: BorderSide(color: light ? Colors.black.withValues(alpha: 0.06) : Colors.white.withValues(alpha: 0.10))),
+          child: InkWell(
+            onTap: onTap,
+            customBorder: const CircleBorder(),
+            child: SizedBox(
+              width: MapToolbar._button,
+              height: MapToolbar._button,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Icon(icon, size: 20, color: _fg(light)),
+                  if (dot)
+                    Positioned(
+                      right: 11,
+                      top: 11,
+                      child: Container(width: 8, height: 8, decoration: const BoxDecoration(color: AppColors.brand, shape: BoxShape.circle)),
+                    ),
+                ],
+              ),
             ),
           ),
         ),

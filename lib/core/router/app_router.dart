@@ -18,6 +18,8 @@ import '../../features/floorplan/presentation/event_invite_screen.dart';
 import '../../features/floorplan/presentation/floorplan_editor_screen.dart';
 import '../../features/floorplan/presentation/floorplan_screen.dart';
 import '../../features/events/presentation/my_events_screen.dart';
+import '../../features/map/application/map_list_providers.dart' show MapListTab;
+import '../../features/map/presentation/map_list_view.dart';
 import '../../features/friends/presentation/friends_screen.dart';
 import '../../features/organizer/presentation/announcements_screen.dart';
 import '../../features/organizer/presentation/crew_screen.dart';
@@ -294,6 +296,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       // Full-screen routes (no bottom nav)
       GoRoute(path: Routes.meets, pageBuilder: (_, s) => page(s, const MyEventsScreen())),
+      GoRoute(path: Routes.clubs, pageBuilder: (_, s) => page(s, const MapListView(initialTab: MapListTab.clubs, standalone: true))),
       GoRoute(
         path: Routes.createEvent,
         pageBuilder: (_, s) => page(s, CreateEventScreen(clubId: s.uri.queryParameters['club'], vendorId: s.uri.queryParameters['vendor'], session: s.uri.queryParameters['session'] == '1')),

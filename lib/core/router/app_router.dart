@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show AuthChangeEvent;
 
+import '../geo/latlng.dart';
 import '../../features/auth/data/auth_repository.dart';
 import '../../features/auth/presentation/onboarding_screen.dart';
 import '../../features/auth/presentation/welcome_screen.dart';
@@ -147,8 +148,16 @@ abstract final class Routes {
 
   // Full-screen
   static const createEvent = '/create-event';
-  static String createEventAs({String? clubId, String? vendorId, bool session = false}) {
-    final q = <String>[if (clubId != null) 'club=$clubId', if (vendorId != null) 'vendor=$vendorId', if (session) 'session=1'];
+  /// [at] + [venue] start the form on that place ("TT here" from a map card
+  /// when you are too far away for TT now).
+  static String createEventAs({String? clubId, String? vendorId, bool session = false, LatLng? at, String? venue}) {
+    final q = <String>[
+      if (clubId != null) 'club=$clubId',
+      if (vendorId != null) 'vendor=$vendorId',
+      if (session) 'session=1',
+      if (at != null) 'lat=${at.latitude}&lng=${at.longitude}',
+      if (venue != null) 'venue=${Uri.encodeQueryComponent(venue)}',
+    ];
     return q.isEmpty ? createEvent : '$createEvent?${q.join('&')}';
   }
   static const suggestSpot = '/suggest-spot';
@@ -296,7 +305,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: Routes.meets, pageBuilder: (_, s) => page(s, const MyEventsScreen())),
       GoRoute(
         path: Routes.createEvent,
-        pageBuilder: (_, s) => page(s, CreateEventScreen(clubId: s.uri.queryParameters['club'], vendorId: s.uri.queryParameters['vendor'], session: s.uri.queryParameters['session'] == '1')),
+        pageBuilder: (_, s) {
+          final q = s.uri.queryParameters;
+          final lat = double.tryParse(q['lat'] ?? ''), lng = double.tryParse(q['lng'] ?? '');
+          return page(s, CreateEventScreen(clubId: q['club'], vendorId: q['vendor'], session: q['session'] == '1', at: lat == null || lng == null ? null : LatLng(lat, lng), venue: q['venue']));
+        },
       ),
       GoRoute(path: Routes.suggestSpot, pageBuilder: (_, s) => page(s, const SuggestSpotScreen())),
       GoRoute(path: '/partner/:id', pageBuilder: (_, s) => page(s, PartnerScreen(vendorId: s.pathParameters['id']!))),

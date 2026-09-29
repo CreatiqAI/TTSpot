@@ -31,9 +31,12 @@ import 'map_filter_sheet.dart';
 /// stands in for it); a chip or a pull opens it. Content follows the map mode:
 /// Now → friends, live meets, moments · Upcoming → meets · Spots → places to check in.
 class MapSheet extends ConsumerWidget {
-  const MapSheet({super.key, required this.controller, required this.onFocus});
+  const MapSheet({super.key, required this.controller, required this.onFocus, required this.onPlace});
   final DraggableScrollableController controller;
   final void Function(LatLng target) onFocus;
+  /// A spot or partner shop picked from the list: the map closes the sheet,
+  /// glides there and opens its card.
+  final void Function(Place place) onPlace;
 
   static const closed = 0.0;
   static const half = 0.5;
@@ -63,7 +66,7 @@ class MapSheet extends ConsumerWidget {
               switch (mode) {
                 MapMode.now => _NowContent(onFocus: onFocus, expand: () => _expand(controller)),
                 MapMode.upcoming => _UpcomingContent(expand: () => _expand(controller)),
-                MapMode.spots => _SpotsContent(expand: () => _expand(controller), onFocus: onFocus),
+                MapMode.spots => _SpotsContent(expand: () => _expand(controller), onFocus: onFocus, onPlace: onPlace),
               },
               // The glass tab bar floats over the sheet: leave room under the last row.
               SliverToBoxAdapter(child: SizedBox(height: MediaQuery.paddingOf(context).bottom + 8)),
@@ -341,9 +344,10 @@ class _UpcomingContent extends ConsumerWidget {
 // -------------------------------------------------------------------- spots ---
 
 class _SpotsContent extends ConsumerWidget {
-  const _SpotsContent({required this.expand, required this.onFocus});
+  const _SpotsContent({required this.expand, required this.onFocus, required this.onPlace});
   final VoidCallback expand;
   final void Function(LatLng) onFocus;
+  final void Function(Place) onPlace;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -358,13 +362,13 @@ class _SpotsContent extends ConsumerWidget {
     final saved = savedAll.where((p) => spotMatches(p, query)).toList()..sort(byDistance);
     final nearest = ref.watch(nearestSpotsProvider).value ?? const <Place>[];
 
+    // Tap: the map, zoomed in on it, with its card (the card links to the page).
     Widget row(Place p) => SpotRow(
           place: p,
           distanceKm: distanceKm(origin, p.latLng),
           dark: !MapPalette.of(context).light,
           saved: savedIds.contains(p.id),
-          onTap: () => context.push(Routes.place(p.id)),
-          onLongPress: () => onFocus(p.latLng),
+          onTap: () => onPlace(p),
         );
 
     Widget header(String text, {Widget? trailing}) => Padding(

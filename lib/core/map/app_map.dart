@@ -166,11 +166,22 @@ class AppMapController {
 
   // -------------------------------------------------------------- camera ---
 
-  Future<void> animateTo(LatLng target, {double? zoom, int ms = 600}) async {
+  /// Glide to [target]. With [padding], the camera's padding changes in the
+  /// same flight: [target] lands in the middle of what the padding leaves
+  /// (e.g. the map above a card), with no jump before or after.
+  Future<void> animateTo(LatLng target, {double? zoom, EdgeInsets? padding, int ms = 600}) async {
     final map = _map;
     if (map == null) return;
-    await map.flyTo(mb.CameraOptions(center: _pt(target), zoom: zoom == null ? null : _mbZoom(zoom)), mb.MapAnimationOptions(duration: ms));
+    await map.flyTo(mb.CameraOptions(center: _pt(target), zoom: zoom == null ? null : _mbZoom(zoom), padding: padding == null ? null : _insets(padding)), mb.MapAnimationOptions(duration: ms));
   }
+
+  /// Ease the camera's padding to [p] without moving the target, e.g. back
+  /// to the toolbar's when a card closes.
+  Future<void> animatePadding(EdgeInsets p, {int ms = 300}) async {
+    await _map?.easeTo(mb.CameraOptions(padding: _insets(p)), mb.MapAnimationOptions(duration: ms));
+  }
+
+  static mb.MbxEdgeInsets _insets(EdgeInsets p) => mb.MbxEdgeInsets(top: p.top, left: p.left, bottom: p.bottom, right: p.right);
 
   Future<void> moveTo(LatLng target, {double? zoom}) async {
     await _map?.setCamera(mb.CameraOptions(center: _pt(target), zoom: zoom == null ? null : _mbZoom(zoom)));

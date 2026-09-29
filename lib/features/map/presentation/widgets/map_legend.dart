@@ -11,17 +11,15 @@ import 'car_marker.dart';
 import 'map_glyphs.dart';
 
 /// The map key: a small glass panel on the left of the map that lists the
-/// kinds of pin drawn right now ([present]), grouped, each as the map draws
-/// it with its name. Open the first time you see the map; folded to a "KEY"
+/// kinds of pin in view right now ([present]), each drawn exactly as on the
+/// map with its name; group headings only when there are three or more. Open the first time you see the map; folded to a "KEY"
 /// pill after that. Tap it to fold or unfold; the choice holds for the session.
 class MapLegend extends ConsumerStatefulWidget {
-  const MapLegend({super.key, required this.light, required this.present, this.far = false});
+  const MapLegend({super.key, required this.light, required this.present});
   /// White glass on the day map.
   final bool light;
   /// Pin kinds currently on the map. Empty = nothing to explain, key hidden.
   final Set<LegendGlyph> present;
-  /// Zoomed far out: pins are plain dots, so say the shapes come back up close.
-  final bool far;
 
   @override
   ConsumerState<MapLegend> createState() => _MapLegendState();
@@ -73,6 +71,7 @@ class _MapLegendState extends ConsumerState<MapLegend> {
   }
 
   Widget _panel(bool open, List<_KeyItem> rows, MapPalette p, Size screen) {
+    final sections = [for (final s in _Section.values) if (rows.any((i) => i.section == s)) s];
     return ConstrainedBox(
       // Compact: under half the width. The map screen also stops it above the bottom chrome.
       constraints: BoxConstraints(maxWidth: screen.width * 0.45, maxHeight: screen.height * 0.6),
@@ -93,13 +92,13 @@ class _MapLegendState extends ConsumerState<MapLegend> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Padding(
-                    padding: EdgeInsets.fromLTRB(10, 9, 12, open ? 2 : 9),
+                    padding: EdgeInsets.fromLTRB(10, 7, 12, open ? 3 : 7),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(open ? AppIcons.caretDown : AppIcons.caretRight, size: 13, color: p.text2),
                         const SizedBox(width: 5),
-                        Text('KEY', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 1.2, color: p.text)),
+                        Text('KEY', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, letterSpacing: 1.2, color: p.text)),
                       ],
                     ),
                   ),
@@ -107,20 +106,20 @@ class _MapLegendState extends ConsumerState<MapLegend> {
                     // A long list (a busy Now layer) scrolls inside the panel.
                     Flexible(
                       child: SingleChildScrollView(
-                        padding: const EdgeInsets.fromLTRB(10, 0, 12, 10),
+                        padding: const EdgeInsets.fromLTRB(10, 0, 12, 8),
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            if (widget.far) Text('Zoom in for shapes', style: TextStyle(fontSize: 11.5, color: p.text2)),
-                            for (final s in _Section.values)
-                              if (rows.any((i) => i.section == s)) ...[
+                            for (final s in sections) ...[
+                              // Headings only once there is enough to sort.
+                              if (sections.length > 2)
                                 Padding(
-                                  padding: const EdgeInsets.only(top: 8, bottom: 3),
-                                  child: Text(s.title.toUpperCase(), style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: p.text2)),
+                                  padding: const EdgeInsets.only(top: 5, bottom: 1),
+                                  child: Text(s.title.toUpperCase(), style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, letterSpacing: 0.6, color: p.text2.withValues(alpha: 0.8))),
                                 ),
-                                for (final i in rows.where((i) => i.section == s)) _KeyRow(item: i, palette: p),
-                              ],
+                              for (final i in rows.where((i) => i.section == s)) _KeyRow(item: i, palette: p),
+                            ],
                           ],
                         ),
                       ),
@@ -139,7 +138,8 @@ enum _Section {
   people('You and friends'),
   events('Events'),
   spots('Spots'),
-  partners('Partners');
+  partners('Partners'),
+  groups('Grouped');
 
   const _Section(this.title);
   final String title;
@@ -174,6 +174,7 @@ const _items = [
   _KeyItem(LegendGlyph.workshop, _Section.spots, 'Workshop'),
   _KeyItem(LegendGlyph.spot, _Section.spots, 'Other spot'),
   _KeyItem(LegendGlyph.partner, _Section.partners, 'Partner shop'),
+  _KeyItem(LegendGlyph.cluster, _Section.groups, 'Group · tap to zoom'),
 ];
 
 class _KeyRow extends StatelessWidget {
@@ -184,29 +185,19 @@ class _KeyRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
+      padding: const EdgeInsets.symmetric(vertical: 1),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // The glyph as the map draws it, on a map-grey tile so its white
-          // outline reads on the day glass the way it does over the streets.
-          Container(
-            width: 28,
-            height: 28,
-            decoration: BoxDecoration(color: palette.tile, borderRadius: BorderRadius.circular(8)),
-            alignment: Alignment.center,
-            child: Transform.scale(
-              scale: 1.1,
-              child: SizedBox(width: 22, height: 22, child: CustomPaint(painter: LegendGlyphPainter(item.glyph))),
-            ),
-          ),
-          const SizedBox(width: 8),
+          // The glyph exactly as the map draws it, 18 px wide.
+          SizedBox(width: 18, height: 23, child: CustomPaint(painter: LegendGlyphPainter(item.glyph))),
+          const SizedBox(width: 7),
           Flexible(
             child: Text(
               item.label,
-              maxLines: 2,
+              maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, height: 1.15, color: palette.text),
+              style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, height: 1.1, color: palette.text),
             ),
           ),
         ],
@@ -215,7 +206,7 @@ class _KeyRow extends StatelessWidget {
   }
 }
 
-enum LegendGlyph { balloon, officialEvent, partnerEvent, flag, spot, topSpot, savedSpot, cafe, mamak, carpark, route, circuit, mall, workshop, partner, moment, me, friend, club, nearby }
+enum LegendGlyph { balloon, officialEvent, partnerEvent, flag, spot, topSpot, savedSpot, cafe, mamak, carpark, route, circuit, mall, workshop, partner, cluster, moment, me, friend, club, nearby }
 
 /// The key row for a place of this kind.
 LegendGlyph legendGlyphForSpot(SpotKind k) => switch (k) {
@@ -236,42 +227,48 @@ class LegendGlyphPainter extends CustomPainter {
   @override
   void paint(Canvas c, Size s) {
     final centre = Offset(s.width / 2, s.height / 2);
+    // The map's teardrops, [s.height] tall and centred: the same painter, so
+    // the key always matches the pins.
+    void drop({Color color = kEventRed, Color outline = Colors.white, SpotKind? kind, IconData? glyph, bool feather = false}) {
+      final k = s.height / teardropSize.height;
+      paintTeardrop(c, Offset(centre.dx - teardropTip.dx * k, 0), scale: k, color: color, outline: outline, kind: kind, glyph: glyph, feather: feather);
+    }
+    void spot(SpotKind k) => drop(color: spotKindColor(k), kind: k);
     switch (glyph) {
       case LegendGlyph.balloon:
-        paintBalloon(c, Offset(centre.dx - 13 * 0.6, 1), scale: 0.6);
+        drop(glyph: AppIcons.flagFill);
       case LegendGlyph.officialEvent:
-        paintBalloon(c, Offset(centre.dx - 13 * 0.6, 1), scale: 0.6, color: kGold, glyph: AppIcons.crown);
+        drop(color: kGold, glyph: AppIcons.crownFill);
       case LegendGlyph.partnerEvent:
-        paintBalloon(c, Offset(centre.dx - 13 * 0.6, 1), scale: 0.6, color: kInk, glyph: AppIcons.storefront);
+        drop(color: kInk, glyph: AppIcons.storefrontFill);
       case LegendGlyph.flag:
-        paintFlag(c, Offset(centre.dx - 12 * 0.6, 0), scale: 0.6);
+        drop(feather: true);
       case LegendGlyph.spot:
-        paintSpotBadge(c, Offset(centre.dx - 12 * 0.75, centre.dy - 12 * 0.75), scale: 0.75);
+        spot(SpotKind.other);
+      // Top and saved are badges on a spot's pin, whatever its kind: the key
+      // shows the badge itself.
       case LegendGlyph.topSpot:
-        paintSpotBadge(c, Offset(centre.dx - 12 * 0.75, centre.dy - 12 * 0.75), scale: 0.75, recommended: true, kind: SpotKind.cafe);
+        paintStarBadge(c, centre, r: 6);
       case LegendGlyph.savedSpot:
-        paintSpotBadge(c, Offset(centre.dx - 12 * 0.75, centre.dy - 12 * 0.75), scale: 0.75, saved: true, kind: SpotKind.mamak);
+        paintSavedBadge(c, centre, r: 6);
+      case LegendGlyph.cluster:
+        paintCluster(c, centre, count: 3, scale: s.width / ((clusterRadius + 2.5) * 2));
       case LegendGlyph.cafe:
-        paintSpotBadge(c, Offset(centre.dx - 12 * 0.75, centre.dy - 12 * 0.75), scale: 0.75, kind: SpotKind.cafe);
+        spot(SpotKind.cafe);
       case LegendGlyph.mamak:
-        paintSpotBadge(c, Offset(centre.dx - 12 * 0.75, centre.dy - 12 * 0.75), scale: 0.75, kind: SpotKind.mamak);
+        spot(SpotKind.mamak);
       case LegendGlyph.carpark:
-        paintSpotBadge(c, Offset(centre.dx - 12 * 0.75, centre.dy - 12 * 0.75), scale: 0.75, kind: SpotKind.carpark);
+        spot(SpotKind.carpark);
       case LegendGlyph.route:
-        paintSpotBadge(c, Offset(centre.dx - 12 * 0.75, centre.dy - 12 * 0.75), scale: 0.75, kind: SpotKind.route);
+        spot(SpotKind.route);
       case LegendGlyph.circuit:
-        paintSpotBadge(c, Offset(centre.dx - 12 * 0.75, centre.dy - 12 * 0.75), scale: 0.75, kind: SpotKind.circuit);
+        spot(SpotKind.circuit);
       case LegendGlyph.mall:
-        paintSpotBadge(c, Offset(centre.dx - 12 * 0.75, centre.dy - 12 * 0.75), scale: 0.75, kind: SpotKind.mall);
+        spot(SpotKind.mall);
       case LegendGlyph.workshop:
-        paintSpotBadge(c, Offset(centre.dx - 12 * 0.75, centre.dy - 12 * 0.75), scale: 0.75, kind: SpotKind.workshop);
+        spot(SpotKind.workshop);
       case LegendGlyph.partner:
-        final box = Rect.fromCenter(center: centre.translate(0, -1), width: 15, height: 15);
-        c.drawRRect(RRect.fromRectAndRadius(box.inflate(1.5), const Radius.circular(5)), Paint()..color = Colors.white);
-        c.drawRRect(RRect.fromRectAndRadius(box, const Radius.circular(4)), Paint()..color = const Color(0xFF101010));
-        c.drawPath(Path()..moveTo(centre.dx - 3, box.bottom + 1)..lineTo(centre.dx + 3, box.bottom + 1)..lineTo(centre.dx, box.bottom + 4.5)..close(), Paint()..color = Colors.white);
-        c.drawCircle(Offset(box.right - 2, box.bottom - 2), 4, Paint()..color = Colors.white);
-        c.drawCircle(Offset(box.right - 2, box.bottom - 2), 3, Paint()..color = const Color(0xFFE00008));
+        drop(color: kInk, outline: kEventRed, glyph: AppIcons.storefrontFill);
       case LegendGlyph.moment:
         c.save();
         c.translate(centre.dx, centre.dy);

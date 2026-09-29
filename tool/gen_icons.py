@@ -28,7 +28,7 @@ chart-bar ticket receipt gift percent coins hand-coins wallet shopping-bag crown
 
 FILL = """
 map-trifold flag-checkered chat-circle chat-circle-dots user heart bookmark-simple check-circle map-pin paper-plane-tilt bell eye eye-slash
-star camera calendar-blank house users car trophy ghost fire shield
+star camera calendar-blank house users car trophy ghost fire shield flag crown storefront
 """.split()
 
 

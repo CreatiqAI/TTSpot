@@ -6,7 +6,6 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../../../core/theme/app_icons.dart';
 import '../../../../core/widgets/user_avatar.dart' show DefaultAvatars;
 
 /// A rendered marker: PNG bytes at device resolution, its anchor (fraction of
@@ -201,87 +200,6 @@ class MapPinFactory {
     return _cache[k] = pin;
   }
 
-  // ------------------------------------------------------------ partners ---
-
-  /// A partner's shop: round logo with a white ring and a small red tag, so
-  /// it reads as "a business" next to the plain spot badges.
-  Future<MapPin> partner({required String key, required String? logoUrl, double scale = 1, String? name}) async {
-    final k = 'v|$key|$logoUrl|$scale|$name';
-    final cached = _cache[k];
-    if (cached != null) return cached;
-    final image = logoUrl == null ? null : await _image(logoUrl, targetWidth: 140);
-    // A shop signboard: rounded square with the logo, a pointer underneath,
-    // and a small red storefront badge so it never reads as a person. With
-    // [name], the shop's name sits on a chip under the pointer.
-    final size = 42.0 * scale, ring = 3.0 * scale, tail = 8.0 * scale, badge = 15.0 * scale;
-    final label = name == null || name.isEmpty ? null : _text(_short(name, 16), 11.5, FontWeight.w700, Colors.white);
-    final chipW = label == null ? 0.0 : label.width + 16, chipH = label == null ? 0.0 : label.height + 8;
-    const gap = 3.0;
-    final boardW = size + ring * 2 + badge * 0.6;
-    final totalW = math.max(boardW, chipW + 4);
-    final totalH = size + ring * 2 + tail + 2 + (label == null ? 0 : gap + chipH);
-    final left = (totalW - boardW) / 2 + ring, top = ring;
-    final box = Rect.fromLTWH(left, top, size, size);
-    final outer = RRect.fromRectAndRadius(box.inflate(ring), Radius.circular(11 * scale));
-    final inner = RRect.fromRectAndRadius(box, Radius.circular(8.5 * scale));
-    final cx = box.center.dx;
-    final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder)..scale(devicePixelRatio);
-    final shadow = Paint()..color = Colors.black.withValues(alpha: 0.22)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.5);
-    canvas.drawRRect(outer.shift(Offset(0, 1.5)), shadow);
-    final white = Paint()..color = Colors.white;
-    canvas.drawRRect(outer, white);
-    canvas.drawPath(
-      Path()
-        ..moveTo(cx - 6 * scale, box.bottom + ring - 1)
-        ..lineTo(cx + 6 * scale, box.bottom + ring - 1)
-        ..lineTo(cx, box.bottom + ring + tail)
-        ..close(),
-      white,
-    );
-    canvas.save();
-    canvas.clipRRect(inner);
-    if (image != null) {
-      _drawCover(canvas, image, box);
-    } else {
-      canvas.drawRect(box, Paint()..color = const Color(0xFF101010));
-      final tp = _icon(AppIcons.storefront, 17 * scale, Colors.white);
-      tp.paint(canvas, box.center - Offset(tp.width / 2, tp.height / 2));
-    }
-    canvas.restore();
-    // red storefront badge, bottom-right corner
-    final bc = Offset(box.right - badge * 0.2, box.bottom - badge * 0.2);
-    canvas.drawCircle(bc, badge / 2 + 1.5 * scale, white);
-    canvas.drawCircle(bc, badge / 2, Paint()..color = const Color(0xFFE00008));
-    final ic = _icon(AppIcons.storefront, badge * 0.62, Colors.white);
-    ic.paint(canvas, bc - Offset(ic.width / 2, ic.height / 2));
-    if (label != null) {
-      final chipTop = box.bottom + ring + tail + gap;
-      _chip(canvas, Rect.fromLTWH(totalW / 2 - chipW / 2, chipTop, chipW, chipH), label);
-    }
-    final pin = await _finish(recorder, totalW, totalH, anchorY: (box.bottom + ring + tail) / totalH, anchorX: cx / totalW);
-    return _cache[k] = pin;
-  }
-
-  /// Far-zoom partner marker: a small red rounded square with a storefront
-  /// glyph (people are the round dots).
-  Future<MapPin> partnerMini({required String key, double scale = 1}) async {
-    final k = 'vm|$key|$scale';
-    final cached = _cache[k];
-    if (cached != null) return cached;
-    final size = 18.0 * scale, ring = 2.0;
-    final totalW = size + ring * 2 + 2, totalH = size + ring * 2 + 2;
-    final box = Rect.fromLTWH(ring + 1, ring + 1, size, size);
-    final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder)..scale(devicePixelRatio);
-    canvas.drawRRect(RRect.fromRectAndRadius(box.inflate(ring), Radius.circular(6 * scale)), Paint()..color = Colors.white);
-    canvas.drawRRect(RRect.fromRectAndRadius(box, Radius.circular(4.5 * scale)), Paint()..color = const Color(0xFFE00008));
-    final ic = _icon(AppIcons.storefront, 11.5 * scale, Colors.white);
-    ic.paint(canvas, box.center - Offset(ic.width / 2, ic.height / 2));
-    final pin = await _finish(recorder, totalW, totalH, anchorY: 0.5);
-    return _cache[k] = pin;
-  }
-
   // ------------------------------------------------------------- moments ---
 
   /// A tilted polaroid: photo in a white frame with a thicker bottom edge
@@ -340,11 +258,6 @@ class MapPinFactory {
   Future<MapPin> finish(ui.PictureRecorder recorder, double w, double h, {required double anchorY, double anchorX = 0.5}) => _finish(recorder, w, h, anchorY: anchorY, anchorX: anchorX);
 
   static String _short(String s, int max) => s.length <= max ? s : '${s.substring(0, max - 1)}…';
-
-  static TextPainter _icon(IconData icon, double size, Color color) => TextPainter(
-        text: TextSpan(text: String.fromCharCode(icon.codePoint), style: TextStyle(fontFamily: icon.fontFamily, fontSize: size, color: color, height: 1)),
-        textDirection: TextDirection.ltr,
-      )..layout();
 
   static TextPainter _text(String text, double size, FontWeight weight, Color color) => TextPainter(
         text: TextSpan(text: text, style: TextStyle(fontSize: size, fontWeight: weight, color: color, height: 1.1)),

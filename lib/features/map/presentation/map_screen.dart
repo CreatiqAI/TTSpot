@@ -291,6 +291,14 @@ class _MapScreenState extends ConsumerState<MapScreen> with TickerProviderStateM
       final bounds = await _map.visibleRegion();
       final zoom = await _map.zoom();
       if (!mounted || bounds == null) return;
+      if (!_hadFirstIdle) {
+        // Safety net: one full redraw a few seconds after the map first settles,
+        // once location, spots and car photos have had time to arrive. A cold
+        // start once ended with only the meet pin until the next layer switch.
+        Timer(const Duration(seconds: 3), () {
+          if (mounted) _rebuild();
+        });
+      }
       _hadFirstIdle = true;
       ref.read(mapViewportProvider.notifier).set(bounds);
       final tier = _tierFor(zoom);

@@ -10,6 +10,20 @@ class ReleaseNote {
 
 const kReleaseNotes = <ReleaseNote>[
   ReleaseNote(
+    version: '0.3.39',
+    date: '29 Sep 2026',
+    title: 'Create from the middle',
+    points: [
+      'The + in the middle of the tab bar opens Create, for your own account and for a club. The + buttons on Home and your profile are gone.',
+      'TT NOW is the red button at the top of Create. The map bar only shows a TT chip while one is running.',
+      'Moments moved to Chats: one row at the top with you and your friends, new moments in red rings.',
+      'Home starts on the For you / Following switch.',
+      'Grids load faster and use less data: new posts, cars and moments get a small preview picture.',
+      'TT NOW finds the places around you from a new map source. If a place looks wrong, pin it on the map.',
+      'Videos over 40 MB in chat or 25 MB in moments get a clear message instead of a failed upload.',
+    ],
+  ),
+  ReleaseNote(
     version: '0.3.38',
     date: '29 Sep 2026',
     title: 'Your garage, on Home',

@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../supabase/supabase_client.dart';
@@ -26,16 +28,45 @@ class PlaceDetails {
   bool get isHere => distanceM != null && distanceM! <= atRadiusM;
 }
 
+/// One search, as Google bills it: every keystroke plus the details call that
+/// ends it share a token, so the keystrokes are free and only the pick is paid.
+class PlaceSession {
+  String? _token;
+  DateTime _started = DateTime(0);
+
+  /// The open session's token; starts a new one when none is open or it went stale.
+  String get token {
+    if (_token == null || DateTime.now().difference(_started) > const Duration(minutes: 3)) {
+      _token = _uuidV4();
+      _started = DateTime.now();
+    }
+    return _token!;
+  }
+
+  /// After the details call: the next keystroke starts a new session.
+  void end() => _token = null;
+
+  static String _uuidV4() {
+    final r = Random.secure();
+    final b = List<int>.generate(16, (_) => r.nextInt(256));
+    b[6] = (b[6] & 0x0f) | 0x40; // version 4
+    b[8] = (b[8] & 0x3f) | 0x80; // RFC 4122 variant
+    final h = b.map((x) => x.toRadixString(16).padLeft(2, '0')).join();
+    return '${h.substring(0, 8)}-${h.substring(8, 12)}-${h.substring(12, 16)}-${h.substring(16, 20)}-${h.substring(20)}';
+  }
+}
+
 class PlacesService {
   PlacesService(this._ref);
   final Ref _ref;
 
-  Future<List<PlaceSuggestion>> autocomplete(String input, {double? lat, double? lng}) async {
+  Future<List<PlaceSuggestion>> autocomplete(String input, {double? lat, double? lng, String? sessionToken}) async {
     final res = await _ref.read(supabaseProvider).functions.invoke('places', body: {
       'action': 'autocomplete',
       'input': input,
       'lat': ?lat,
       'lng': ?lng,
+      'sessionToken': ?sessionToken,
     });
     final data = res.data as Map?;
     if (data == null || data['error'] != null) throw Exception(data?['error'] ?? 'Search failed');
@@ -45,6 +76,8 @@ class PlacesService {
   }
 
   /// The closest named places around a point (for "use my location").
+  /// Most come from Mapbox (`placeId` starts with `mbx:`): they already carry
+  /// coordinates, so never pass one to [details].
   Future<List<PlaceDetails>> nearby(double lat, double lng) async {
     final res = await _ref.read(supabaseProvider).functions.invoke('places', body: {'action': 'nearby', 'lat': lat, 'lng': lng});
     final data = res.data as Map?;
@@ -62,8 +95,9 @@ class PlacesService {
         .toList();
   }
 
-  Future<PlaceDetails> details(String placeId) async {
-    final res = await _ref.read(supabaseProvider).functions.invoke('places', body: {'action': 'details', 'placeId': placeId});
+  /// Pass the [PlaceSession] token the suggestion came from; it closes that session.
+  Future<PlaceDetails> details(String placeId, {String? sessionToken}) async {
+    final res = await _ref.read(supabaseProvider).functions.invoke('places', body: {'action': 'details', 'placeId': placeId, 'sessionToken': ?sessionToken});
     final d = res.data as Map?;
     if (d == null || d['error'] != null || d['lat'] == null) throw Exception(d?['error'] ?? 'Place lookup failed');
     return PlaceDetails(
@@ -78,12 +112,16 @@ class PlacesService {
 
 final placesServiceProvider = Provider<PlacesService>((ref) => PlacesService(ref));
 
+/// The search session behind [placeSuggestionsProvider]. Whoever resolves one
+/// of its suggestions passes this token to `details`, then calls `end()`.
+final placeSessionProvider = Provider<PlaceSession>((ref) => PlaceSession());
+
 /// Live Google suggestions for a typed query (debounced inside), for lists
 /// that can't host a [PlaceSearchField]. Keyed by query + rough position.
 final placeSuggestionsProvider = FutureProvider.autoDispose.family<List<PlaceSuggestion>, PlaceQuery>((ref, q) async {
   if (q.text.trim().length < 2) return const [];
   await Future<void>.delayed(const Duration(milliseconds: 350));
-  return ref.read(placesServiceProvider).autocomplete(q.text.trim(), lat: q.lat, lng: q.lng);
+  return ref.read(placesServiceProvider).autocomplete(q.text.trim(), lat: q.lat, lng: q.lng, sessionToken: ref.read(placeSessionProvider).token);
 });
 
 /// Nearest named places around a point, cached per ~100 m cell. Used by the

@@ -484,11 +484,15 @@ class _GoogleSuggestions extends ConsumerWidget {
             trailing: Icon(AppIcons.navigationArrow, size: 16, color: MapPalette.of(context).text2),
             onTap: () async {
               FocusManager.instance.primaryFocus?.unfocus();
+              // Same session as the suggestions: closes it, so the keystrokes cost nothing.
+              final session = ref.read(placeSessionProvider);
               try {
-                final d = await ref.read(placesServiceProvider).details(s.placeId);
+                final d = await ref.read(placesServiceProvider).details(s.placeId, sessionToken: session.token);
                 onFocus(LatLng(d.lat, d.lng));
               } catch (_) {
                 if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Couldn\'t open that place.')));
+              } finally {
+                session.end();
               }
             },
           );

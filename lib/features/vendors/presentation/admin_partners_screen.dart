@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_icons.dart';
+import '../../../core/theme/app_images.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/dates.dart';
 import '../../../core/utils/friendly_error.dart';
@@ -94,7 +95,7 @@ class _OfficialRow extends ConsumerWidget {
     final isOfficial = c.tier == 'official';
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-      leading: UserAvatar(url: c.avatarUrl, name: c.name, size: 40),
+      leading: UserAvatar(url: c.avatarUrl, name: c.name, size: 40, fallbackAsset: crestAsset(c.id)),
       title: Text(c.name, style: const TextStyle(fontWeight: FontWeight.w700)),
       subtitle: Text(
         isOfficial

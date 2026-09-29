@@ -21,6 +21,7 @@ import 'widgets/chat_media.dart';
 import 'widgets/chat_composer.dart';
 
 import '../../../core/theme/app_art.dart';
+import '../../../core/theme/app_images.dart';
 import '../../events/application/create_event_controller.dart' show pickCoverImage;
 import '../../events/application/event_providers.dart';
 import '../../profile/application/profile_providers.dart';
@@ -262,7 +263,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           child: Row(
             children: [
               if (conv != null && !conv.isMeet) ...[
-                UserAvatar(url: conv.avatarUrl, name: conv.title, size: 32),
+                UserAvatar(url: conv.avatarUrl, name: conv.title, size: 32, fallbackAsset: conv.showEntity && conv.clubId != null ? crestAsset(conv.clubId!) : null),
                 const SizedBox(width: 10),
               ],
               Expanded(
@@ -638,9 +639,11 @@ class _Photo extends StatelessWidget {
 
 /// Small card shared for a meet, a spot or a car. Same shape for all three.
 class _Card extends StatelessWidget {
-  const _Card({required this.image, required this.fallback, required this.eyebrow, required this.title, required this.subtitle, required this.onTap});
+  const _Card({required this.image, required this.fallback, required this.eyebrow, required this.title, required this.subtitle, required this.onTap, this.placeholder});
   final String? image;
   final String fallback;
+  /// Drawn instead of the [fallback] art when there's no image (car renders).
+  final Widget? placeholder;
   final String eyebrow;
   final String title;
   final String? subtitle;
@@ -659,7 +662,7 @@ class _Card extends StatelessWidget {
               SizedBox(
                 width: 72,
                 height: 72,
-                child: image == null ? ColoredBox(color: AppColors.surfaceGray, child: Center(child: ArtIcon(fallback, size: 34))) : Image(image: CachedNetworkImageProvider(image!), fit: BoxFit.cover),
+                child: image == null ? (placeholder ?? ColoredBox(color: AppColors.surfaceGray, child: Center(child: ArtIcon(fallback, size: 34)))) : Image(image: CachedNetworkImageProvider(image!), fit: BoxFit.cover),
               ),
               Expanded(
                 child: Padding(
@@ -706,7 +709,7 @@ class _SharedPlace extends ConsumerWidget {
     final p = ref.watch(placeProvider(placeId)).value;
     return _Card(
       image: p?.coverUrl,
-      fallback: p?.kindArt ?? AppArt.pin,
+      fallback: p?.kindIcon ?? kindIconAsset('other'),
       eyebrow: 'SPOT',
       title: p?.name ?? 'Spot',
       subtitle: p == null ? null : '${p.kindLabel} · ${p.totalCheckins} check-ins',
@@ -724,6 +727,7 @@ class _SharedCar extends ConsumerWidget {
     return _Card(
       image: c?.cover,
       fallback: AppArt.car,
+      placeholder: CarPlaceholder(bodyStyle: c?.bodyStyle),
       eyebrow: 'CAR',
       title: c == null ? 'Car' : '${c.make} ${c.model}',
       subtitle: c?.year?.toString(),

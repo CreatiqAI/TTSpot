@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_art.dart';
 import '../../../core/theme/app_icons.dart';
+import '../../../core/theme/app_images.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/titi.dart';
 import '../../../core/widgets/empty_state.dart';
@@ -101,7 +102,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               if (_q.isNotEmpty && list.isNotEmpty) const _Section('CLUBS'),
               for (final c in list)
                 ListTile(
-                  leading: UserAvatar(url: c.avatarUrl, name: c.name, size: 44),
+                  leading: UserAvatar(url: c.avatarUrl, name: c.name, size: 44, fallbackAsset: crestAsset(c.id)),
                   title: Text(c.name, style: const TextStyle(fontWeight: FontWeight.w600)),
                   subtitle: Text('@${c.handle} · ${c.memberCount} member${c.memberCount == 1 ? '' : 's'}'),
                   onTap: () => context.push(Routes.club(c.id)),
@@ -123,7 +124,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     const _Section('PLACES'),
                     for (final p in list)
                       ListTile(
-                        leading: CircleAvatar(backgroundColor: AppColors.surfaceGray, child: ArtIcon(p.kindArt, size: 24)),
+                        leading: CircleAvatar(backgroundColor: AppColors.surfaceGray, child: ArtIcon(p.kindIcon, size: 26)),
                         title: Text(p.name, style: const TextStyle(fontWeight: FontWeight.w600)),
                         subtitle: Text(p.kindLabel),
                         onTap: () => context.push(Routes.place(p.id)),

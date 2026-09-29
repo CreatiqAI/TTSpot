@@ -7,8 +7,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/router/app_router.dart';
 import '../../../core/supabase/supabase_client.dart';
-import '../../../core/theme/app_art.dart';
 import '../../../core/theme/app_icons.dart';
+import '../../../core/theme/app_images.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/titi.dart';
 import '../../../core/utils/friendly_error.dart';
@@ -429,7 +429,7 @@ class _DashedRRect extends CustomPainter {
 
 // ------------------------------------------------------------------ bits ---
 
-/// The car's portrait or first photo, or the car art on grey.
+/// The car's portrait or first photo, or the body-style render on grey.
 class _Cover extends StatelessWidget {
   const _Cover({required this.car, required this.artSize, this.thumb = false});
   final Car car;
@@ -441,7 +441,7 @@ class _Cover extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cover = car.cover;
-    final blank = ColoredBox(color: AppColors.surfaceGray, child: Center(child: ArtIcon(AppArt.car, size: artSize)));
+    final blank = CarPlaceholder(bodyStyle: car.bodyStyle);
     if (cover == null) return blank;
     if (thumb) return ThumbImage(cover, error: blank);
     return Image(image: CachedNetworkImageProvider(cover), fit: BoxFit.cover, errorBuilder: (_, _, _) => blank);

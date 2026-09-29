@@ -65,12 +65,15 @@ final adminReviewQueueProvider = FutureProvider<List<SpotVerification>>((ref) {
 /// Result of handling a scanned code, for the scanner screen to show.
 /// [silent] = don't show a dialog, just go to [route].
 class ScanOutcome {
-  const ScanOutcome({required this.title, this.subtitle, this.route, this.points = 0, this.silent = false});
+  const ScanOutcome({required this.title, this.subtitle, this.route, this.points = 0, this.silent = false, this.checkinEventId});
   final String title;
   final String? subtitle;
   final String? route;
   final int points;
   final bool silent;
+
+  /// Set on a fresh meet check-in, so the result can offer a share card.
+  final String? checkinEventId;
 }
 
 class PointsActions {
@@ -126,6 +129,7 @@ class PointsActions {
           subtitle: r.isNew ? 'You\'re on the record for this meet.' : 'You were already counted for this meet.',
           route: '/event/$eventId',
           points: r.isNew ? r.points : 0,
+          checkinEventId: r.isNew ? eventId : null,
         );
       case SpotCode(:final placeId, :final code):
         return ScanOutcome(title: 'Spot sticker', route: '/spot/$placeId/verify?code=$code', silent: true);

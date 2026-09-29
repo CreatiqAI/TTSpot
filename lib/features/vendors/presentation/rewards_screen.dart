@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_art.dart';
 import '../../../core/theme/app_icons.dart';
+import '../../../core/theme/app_images.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/dates.dart';
 import '../../../core/utils/friendly_error.dart';
@@ -134,9 +135,11 @@ class _PartnerCard extends StatelessWidget {
           child: SizedBox(
             width: 56,
             height: 56,
-            child: v.logoUrl == null
-                ? ColoredBox(color: AppColors.surfaceGray, child: Icon(AppIcons.storefront, color: AppColors.textSecondary))
-                : Image(image: CachedNetworkImageProvider(v.logoUrl!), fit: BoxFit.cover),
+            child: v.logoUrl != null
+                ? Image(image: CachedNetworkImageProvider(v.logoUrl!), fit: BoxFit.cover)
+                : v.photoUrls.isNotEmpty
+                    ? Image(image: CachedNetworkImageProvider(v.photoUrls.first), fit: BoxFit.cover)
+                    : Image.asset(partnerCoverAsset(v.type), fit: BoxFit.cover, cacheWidth: 200),
           ),
         ),
         title: Text(v.name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
@@ -189,7 +192,7 @@ class _ShopTab extends ConsumerWidget {
                 decoration: BoxDecoration(color: AppColors.warnColor, borderRadius: BorderRadius.circular(AppRadius.lg)),
                 child: Row(
                   children: [
-                    const ArtIcon(AppArt.star, size: 32),
+                    const PointsCoin(size: 32),
                     const SizedBox(width: 10),
                     Expanded(child: Text('$balance points to spend', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: Colors.white))),
                     TextButton(onPressed: () => context.push(Routes.points), child: const Text('Earn more', style: TextStyle(color: Colors.white))),
@@ -371,7 +374,16 @@ class _VoucherCardState extends ConsumerState<_VoucherCard> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(color: v.pointsCost == 0 ? AppColors.success : AppColors.warnColor, borderRadius: BorderRadius.circular(999)),
-                  child: Text(v.pointsCost == 0 ? 'FREE' : '${v.pointsCost} pts', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Colors.white)),
+                  child: v.pointsCost == 0
+                      ? const Text('FREE', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Colors.white))
+                      : Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const PointsCoin(size: 16),
+                            const SizedBox(width: 4),
+                            Text('${v.pointsCost} pts', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Colors.white)),
+                          ],
+                        ),
                 ),
               ],
             ),

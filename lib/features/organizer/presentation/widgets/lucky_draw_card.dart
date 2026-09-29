@@ -5,11 +5,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../../../core/theme/app_icons.dart';
+import '../../../../core/theme/app_images.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/titi.dart';
 import '../../../../core/utils/dates.dart';
 import '../../../../core/utils/friendly_error.dart';
 import '../../../../core/widgets/user_avatar.dart';
+import '../../../events/application/event_providers.dart';
+import '../../../share/share_card_renderer.dart';
 import '../../application/organizer_providers.dart';
 import '../../domain/organizer_models.dart';
 
@@ -56,15 +59,16 @@ class _LuckyDrawCardState extends ConsumerState<LuckyDrawCard> {
     return Column(
       children: [
         for (final d in draws)
-          Padding(padding: const EdgeInsets.only(bottom: 8), child: _DrawCard(draw: d)),
+          Padding(padding: const EdgeInsets.only(bottom: 8), child: _DrawCard(draw: d, eventId: widget.eventId)),
       ],
     );
   }
 }
 
 class _DrawCard extends StatelessWidget {
-  const _DrawCard({required this.draw});
+  const _DrawCard({required this.draw, required this.eventId});
   final MyDraw draw;
+  final String eventId;
 
   @override
   Widget build(BuildContext context) {
@@ -150,7 +154,7 @@ class _DrawCard extends StatelessWidget {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(AppIcons.gift, size: 14, color: AppColors.textSecondary),
+                        Image.asset(prizeAsset(p.name), width: 18, height: 18, filterQuality: FilterQuality.medium),
                         const SizedBox(width: 4),
                         Text('${p.quantity > 1 ? '${p.quantity}× ' : ''}${p.name}', style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
                       ],
@@ -174,6 +178,18 @@ class _DrawCard extends StatelessWidget {
                   onPressed: () => showDrawWinnersSheet(context, drawId: d.id, title: d.title),
                   icon: const Icon(AppIcons.trophy, size: 16),
                   label: const Text('Winners'),
+                ),
+              if (d.status == DrawStatus.drawn && w != null && w.hasPrize && !w.isClosed)
+                Consumer(
+                  builder: (context, ref, _) => TextButton.icon(
+                    style: TextButton.styleFrom(visualDensity: VisualDensity.compact, foregroundColor: fg, padding: const EdgeInsets.symmetric(horizontal: 6)),
+                    onPressed: () => showShareCardSheet(
+                      context,
+                      DrawWinShareSpec(prize: w.prize ?? 'A prize', eventName: ref.read(eventDetailProvider(eventId)).value?.event.title ?? d.title),
+                    ),
+                    icon: const Icon(AppIcons.shareFat, size: 16),
+                    label: const Text('Share'),
+                  ),
                 ),
             ],
           ),

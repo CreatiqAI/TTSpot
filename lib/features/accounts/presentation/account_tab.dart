@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_icons.dart';
+import '../../../core/theme/app_images.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/user_avatar.dart';
 import '../../auth/presentation/widgets/confirm_logout.dart';
@@ -24,7 +25,7 @@ class AccountTab extends ConsumerWidget {
           club.name,
           'Car club · @${club.handle}',
           club.avatarUrl,
-          const Icon(AppIcons.shield, color: AppColors.brand),
+          Padding(padding: const EdgeInsets.all(4), child: Image.asset(crestAsset(club.id), fit: BoxFit.contain)),
           [
             _Row(AppIcons.flagCheckered, 'New event', 'Meet, convoy or track day as ${club.name}', () => context.push(Routes.createEventAs(clubId: club.id))),
             _Row(AppIcons.image, 'Post as club', 'Photos and updates for members', () => context.push(Routes.createPost(PostKind.post, clubId: club.id, asClub: true))),
@@ -35,7 +36,7 @@ class AccountTab extends ConsumerWidget {
           vendor.name,
           'Partner business',
           vendor.logoUrl,
-          const Icon(AppIcons.storefront, color: AppColors.brand),
+          Padding(padding: const EdgeInsets.all(8), child: Image.asset(kindIconAsset(vendor.type), fit: BoxFit.contain)),
           [
             _Row(AppIcons.scan, 'Redeem a voucher', 'Scan a member\'s voucher QR', () => context.push(Routes.scan)),
             _Row(AppIcons.shoppingBag, 'Products', 'Up to 5, with variants', () => context.go(Routes.map)),

@@ -6,6 +6,7 @@ import '../../../core/router/app_router.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/theme/app_art.dart';
 import '../../../core/theme/app_icons.dart';
+import '../../../core/theme/app_images.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/dates.dart';
 import '../../../core/utils/friendly_error.dart';
@@ -128,7 +129,10 @@ class _Row extends ConsumerWidget {
       NotificationType.eventReminder => ('${n.eventTitle ?? 'A meet you joined'} is within 24 hours. See you there!', n.eventId == null ? null : Routes.event(n.eventId!)),
       NotificationType.eventCancelled => ('cancelled ${n.eventTitle ?? 'a meet you joined'}.', n.eventId == null ? null : Routes.event(n.eventId!)),
       NotificationType.spottedClaim => ('claimed the car you spotted.', n.postId == null ? null : Routes.post(n.postId!)),
-      NotificationType.badge => ('You earned the ${badge?.name ?? 'a new'} badge ${badge?.emoji ?? '🏅'}', me == null ? null : Routes.badges(me!)),
+      NotificationType.badge => (
+          badgeAsset(n.badgeId) != null ? 'You earned the ${badge?.name ?? 'a new'} badge.' : 'You earned the ${badge?.name ?? 'a new'} badge ${badge?.emoji ?? '🏅'}',
+          me == null ? null : Routes.badges(me!)
+        ),
       NotificationType.carOfWeek => (n.body ?? 'Your build is Car of the Week!', n.postId == null ? null : Routes.post(n.postId!)),
       NotificationType.clubJoin => (n.body == null ? 'joined ${n.clubName ?? 'your club'}.' : 'is now ${n.body == 'vp' ? 'Vice President' : n.body == 'secretary' ? 'Secretary' : 'an officer'} of ${n.clubName ?? 'your club'}.', n.clubId == null ? null : Routes.club(n.clubId!)),
       NotificationType.friendRequest => ('wants to be friends.', Routes.friends),
@@ -202,7 +206,11 @@ class _Row extends ConsumerWidget {
                 height: 44,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(color: AppColors.surfaceGray, shape: BoxShape.circle),
-                child: ArtIcon.emoji(
+                child: n.type == NotificationType.badge && badgeAsset(n.badgeId) != null
+                    ? BadgeImage(id: n.badgeId!, size: 36)
+                    : n.type == NotificationType.points
+                    ? const PointsCoin(size: 28)
+                    : ArtIcon.emoji(
                   switch (n.type) {
                     NotificationType.badge => badge?.emoji ?? '🏅',
                     NotificationType.carOfWeek => '🏆',

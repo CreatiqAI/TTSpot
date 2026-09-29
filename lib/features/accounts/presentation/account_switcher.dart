@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/theme/app_icons.dart';
+import '../../../core/theme/app_images.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/user_avatar.dart';
 import '../../auth/data/auth_repository.dart';
@@ -60,7 +61,7 @@ Future<void> showAccountSwitcher(BuildContext context, WidgetRef ref) async {
           ),
           for (final c in clubs)
             _Row(
-              avatar: UserAvatar(url: c.avatarUrl, name: c.name, size: 44),
+              avatar: UserAvatar(url: c.avatarUrl, name: c.name, size: 44, fallbackAsset: crestAsset(c.id)),
               title: c.name,
               subtitle: 'Car club · ${clubRoleLabel(c.ownerId == me ? 'owner' : (roles[c.id] ?? 'member'))}',
               selected: active is ClubAccount && active.club.id == c.id,
@@ -81,7 +82,7 @@ Future<void> showAccountSwitcher(BuildContext context, WidgetRef ref) async {
             ),
           if (vendor != null)
             _Row(
-              avatar: UserAvatar(url: vendor.logoUrl, name: vendor.name, size: 44),
+              avatar: UserAvatar(url: vendor.logoUrl, name: vendor.name, size: 44, fallbackAsset: kindIconAsset(vendor.type)),
               title: vendor.name,
               subtitle: 'Partner',
               selected: active is PartnerAccount,

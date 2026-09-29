@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/supabase/supabase_client.dart';
 import '../../../../core/theme/app_icons.dart';
+import '../../../../core/theme/app_images.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/primary_button.dart';
 import '../../../../core/widgets/thumb_image.dart';
@@ -127,7 +128,7 @@ class _CarOption extends StatelessWidget {
           padding: const EdgeInsets.all(10),
           child: Row(
             children: [
-              CarThumb(url: car.cover, width: 64, height: 44),
+              CarThumb(url: car.cover, bodyStyle: car.bodyStyle, width: 64, height: 44),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -167,17 +168,18 @@ class _CarOption extends StatelessWidget {
   }
 }
 
-/// Rounded car cover, or a car glyph on grey when there's no photo yet.
+/// Rounded car cover, or the body-style render on grey when there's no photo yet.
 class CarThumb extends StatelessWidget {
-  const CarThumb({super.key, required this.url, this.width = 64, this.height = 44, this.radius = 8});
+  const CarThumb({super.key, required this.url, this.bodyStyle, this.width = 64, this.height = 44, this.radius = 8});
   final String? url;
+  final String? bodyStyle;
   final double width;
   final double height;
   final double radius;
 
   @override
   Widget build(BuildContext context) {
-    final placeholder = ColoredBox(color: AppColors.surfaceGray, child: Center(child: Icon(AppIcons.car, size: height * 0.42, color: AppColors.textSecondary)));
+    final placeholder = CarPlaceholder(bodyStyle: bodyStyle, padding: 0.04);
     return ClipRRect(
       borderRadius: BorderRadius.circular(radius),
       child: SizedBox(

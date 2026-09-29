@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/theme/app_icons.dart';
+import '../../../core/theme/app_images.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/dates.dart';
 import '../../../core/utils/friendly_error.dart';
@@ -121,7 +122,7 @@ class _DmInfo extends ConsumerWidget {
           _Section('CLUBS IN COMMON · ${common.length}'),
           for (final c in common)
             ListTile(
-              leading: UserAvatar(url: c.avatarUrl, name: c.name, size: 40),
+              leading: UserAvatar(url: c.avatarUrl, name: c.name, size: 40, fallbackAsset: crestAsset(c.id)),
               title: Text(c.name, style: const TextStyle(fontWeight: FontWeight.w600)),
               subtitle: Text('@${c.handle} · ${c.memberCount} members', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
               trailing: Icon(AppIcons.caretRight, size: 16, color: AppColors.textMuted),

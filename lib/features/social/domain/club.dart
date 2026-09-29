@@ -1,6 +1,7 @@
 import '../../../core/geo/latlng.dart';
 
 import '../../../core/theme/app_art.dart';
+import '../../../core/theme/app_images.dart';
 import '../../auth/domain/profile.dart';
 
 /// Someone asking to join a club (owner / admins review it).
@@ -189,6 +190,8 @@ class Place {
         'cafe' => AppArt.coffee,
         _ => AppArt.pin,
       };
+  /// 3D category icon (assets/kinds/), see [kindIconAsset].
+  String get kindIcon => kindIconAsset(kind);
   String get kindEmoji => switch (kind) {
         'mamak' => '☕',
         'carpark' => '🅿️',

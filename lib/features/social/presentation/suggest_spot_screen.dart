@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../core/places/places_service.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/theme/app_icons.dart';
+import '../../../core/theme/app_images.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../../core/widgets/photo_picker_sheet.dart';
@@ -139,7 +140,13 @@ class _SuggestSpotScreenState extends ConsumerState<SuggestSpotScreen> {
               runSpacing: 8,
               children: [
                 for (final k in _kinds)
-                  ChoiceChip(label: Text(k.$2), selected: _kind == k.$1, showCheckmark: false, onSelected: _busy ? null : (_) => setState(() => _kind = k.$1)),
+                  ChoiceChip(
+                    avatar: Image.asset(kindIconAsset(k.$1), width: 22, height: 22, filterQuality: FilterQuality.medium),
+                    label: Text(k.$2),
+                    selected: _kind == k.$1,
+                    showCheckmark: false,
+                    onSelected: _busy ? null : (_) => setState(() => _kind = k.$1),
+                  ),
               ],
             ),
             const SizedBox(height: 18),

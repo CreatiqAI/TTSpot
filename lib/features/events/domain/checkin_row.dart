@@ -14,6 +14,7 @@ class CheckinRow {
     required this.rejected,
     this.carId,
     this.carCover,
+    this.carBodyStyle,
   });
 
   final String userId;
@@ -25,6 +26,8 @@ class CheckinRow {
   final String? carId;
   /// That car's portrait / first photo.
   final String? carCover;
+  /// Body style for the placeholder render (when the RPC returns it).
+  final String? carBodyStyle;
   final DateTime checkedInAt;
   /// 'manual' | 'auto' | 'organizer' | 'qr'
   final String source;
@@ -53,6 +56,7 @@ class CheckinRow {
         rejected: m['rejected'] == true,
         carId: m['car_id'] as String?,
         carCover: m['car_cover'] as String?,
+        carBodyStyle: m['car_body_style'] as String?,
       );
 }
 

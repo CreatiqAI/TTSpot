@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_art.dart';
 import '../../../core/theme/app_icons.dart';
+import '../../../core/theme/app_images.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/dates.dart';
 import '../../../core/utils/friendly_error.dart';
@@ -26,7 +27,7 @@ class PointsScreen extends ConsumerWidget {
         'badge' => AppArt.medal,
         'redeem' => AppArt.coffee,
         'box' => AppArt.gift,
-        _ => AppArt.star,
+        _ => kCoinAsset,
       };
 
   @override
@@ -56,7 +57,7 @@ class PointsScreen extends ConsumerWidget {
               decoration: BoxDecoration(color: AppColors.warnColor, borderRadius: BorderRadius.circular(AppRadius.lg)),
               child: Row(
                 children: [
-                  const ArtIcon(AppArt.star, size: 52),
+                  const PointsCoin(size: 52),
                   const SizedBox(width: 14),
                   Expanded(
                     child: Column(

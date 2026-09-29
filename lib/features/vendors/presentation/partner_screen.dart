@@ -9,6 +9,7 @@ import '../../../core/router/app_router.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/theme/app_art.dart';
 import '../../../core/theme/app_icons.dart';
+import '../../../core/theme/app_images.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/dates.dart';
 import '../../../core/utils/friendly_error.dart';
@@ -172,7 +173,7 @@ class _BodyState extends ConsumerState<_Body> {
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(17),
                         child: v.logoUrl == null
-                            ? ColoredBox(color: AppColors.surfaceGray, child: Icon(AppIcons.storefront, size: 30, color: AppColors.textSecondary))
+                            ? ColoredBox(color: AppColors.surfaceGray, child: Padding(padding: const EdgeInsets.all(10), child: Image.asset(kindIconAsset(v.type), fit: BoxFit.contain)))
                             : Image(image: CachedNetworkImageProvider(v.logoUrl!), fit: BoxFit.cover),
                       ),
                     ),
@@ -393,8 +394,8 @@ class _BodyState extends ConsumerState<_Body> {
   }
 }
 
-/// Cover: shop photos as a swipeable strip; without photos, the logo blurred
-/// big behind a dark wash so the top never looks empty.
+/// Cover: shop photos as a swipeable strip; without photos, a stock photo for
+/// the partner's type so the top never looks empty.
 class _Cover extends StatelessWidget {
   const _Cover({required this.v});
   final PublicVendor v;
@@ -416,10 +417,19 @@ class _Cover extends StatelessWidget {
     return Stack(
       fit: StackFit.expand,
       children: [
-        if (v.logoUrl != null) ImageFiltered(imageFilter: ImageFilter.blur(sigmaX: 22, sigmaY: 22), child: Image(image: CachedNetworkImageProvider(v.logoUrl!), fit: BoxFit.cover))
-        else const ColoredBox(color: AppColors.ink),
-        const DecoratedBox(decoration: BoxDecoration(color: Color(0x66000000))),
-        Center(child: Icon(AppIcons.storefront, size: 44, color: Colors.white.withValues(alpha: 0.35))),
+        Image.asset(
+          partnerCoverAsset(v.type),
+          fit: BoxFit.cover,
+          cacheWidth: 1200,
+          errorBuilder: (_, _, _) => v.logoUrl != null
+              ? ImageFiltered(imageFilter: ImageFilter.blur(sigmaX: 22, sigmaY: 22), child: Image(image: CachedNetworkImageProvider(v.logoUrl!), fit: BoxFit.cover))
+              : const ColoredBox(color: AppColors.ink),
+        ),
+        const IgnorePointer(
+          child: DecoratedBox(
+            decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0x55000000), Color(0x00000000), Color(0x22000000)])),
+          ),
+        ),
       ],
     );
   }

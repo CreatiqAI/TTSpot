@@ -606,7 +606,7 @@ class _TagRow extends ConsumerWidget {
                         children: [
                           for (final p in results)
                             ListTile(
-                              leading: ArtIcon(p.kindArt, size: 26),
+                              leading: ArtIcon(p.kindIcon, size: 30),
                               title: Text(p.name),
                               subtitle: Text(p.kindLabel),
                               onTap: () => Navigator.pop(ctx, p),

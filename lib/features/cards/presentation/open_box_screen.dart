@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:share_plus/share_plus.dart';
 
 import '../../../core/motion/motion.dart';
 import '../../../core/router/app_router.dart';
@@ -14,6 +13,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/titi.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../auth/data/auth_repository.dart';
+import '../../share/share_card_renderer.dart';
 import '../application/cards_providers.dart';
 import '../domain/cards.dart';
 import 'widgets/card_face.dart';
@@ -210,7 +210,7 @@ class _OpenBoxScreenState extends ConsumerState<OpenBoxScreen> with TickerProvid
   void _share() {
     final c = _result?.card;
     if (c == null) return;
-    SharePlus.instance.share(ShareParams(text: 'I just pulled ${c.name} (${c.rarity.label}) from a TT Spot blind box'));
+    showShareCardSheet(context, CardPullShareSpec(card: c));
   }
 
   // ----------------------------------------------------------------- helpers ---

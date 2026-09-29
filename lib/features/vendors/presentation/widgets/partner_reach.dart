@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_icons.dart';
+import '../../../../core/theme/app_images.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/dates.dart';
 import '../../../../core/utils/friendly_error.dart';
@@ -129,7 +130,7 @@ class ClubInsightsSection extends ConsumerWidget {
           ListTile(
             dense: true,
             contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-            leading: UserAvatar(url: c.avatarUrl, name: c.name, size: 40),
+            leading: UserAvatar(url: c.avatarUrl, name: c.name, size: 40, fallbackAsset: crestAsset(c.id)),
             title: Row(
               children: [
                 Flexible(child: Text(c.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14))),

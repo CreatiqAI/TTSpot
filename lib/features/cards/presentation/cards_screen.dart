@@ -7,6 +7,7 @@ import '../../../core/router/app_router.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/theme/app_art.dart';
 import '../../../core/theme/app_icons.dart';
+import '../../../core/theme/app_images.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/dates.dart';
 import '../../../core/utils/friendly_error.dart';
@@ -341,6 +342,8 @@ class _BoxShopState extends State<_BoxShop> with SingleTickerProviderStateMixin 
                 const SizedBox(height: 14),
                 Row(
                   children: [
+                    const PointsCoin(size: 20),
+                    const SizedBox(width: 6),
                     Text('${widget.balance}', style: const TextStyle(fontFamily: AppFonts.display, fontSize: 22, fontWeight: FontWeight.w800, color: Colors.white)),
                     Text(' / ${widget.cost} pts', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white.withValues(alpha: 0.6))),
                     const Spacer(),
@@ -786,8 +789,27 @@ class _RewardCardState extends ConsumerState<_RewardCard> {
                   ],
                 ),
                 const SizedBox(height: 10),
-                Text(r.title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-                if (r.description != null) Padding(padding: const EdgeInsets.only(top: 2), child: Text(r.description!, style: TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.35))),
+                if (r.imageUrl == null)
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      AssetThumb(prizeAsset(r.title)),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(r.title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                            if (r.description != null) Padding(padding: const EdgeInsets.only(top: 2), child: Text(r.description!, style: TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.35))),
+                          ],
+                        ),
+                      ),
+                    ],
+                  )
+                else ...[
+                  Text(r.title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                  if (r.description != null) Padding(padding: const EdgeInsets.only(top: 2), child: Text(r.description!, style: TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.35))),
+                ],
                 const SizedBox(height: 4),
                 Text(
                   [if (r.left != null) '${r.left} left', if (r.endsAt != null) 'till ${formatDate(r.endsAt!)}', if (r.terms != null) r.terms!].join(' · '),

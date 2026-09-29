@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_art.dart';
+import '../../../core/theme/app_images.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/friendly_error.dart';
@@ -122,7 +123,7 @@ class _SpotVerifyScreenState extends ConsumerState<SpotVerifyScreen> {
         children: [
           Row(
             children: [
-              ArtIcon(place?.kindArt ?? AppArt.pin, size: 40),
+              ArtIcon(kindIconAsset(place?.kind), size: 44),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(

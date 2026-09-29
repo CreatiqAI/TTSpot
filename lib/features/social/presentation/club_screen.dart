@@ -6,6 +6,7 @@ import '../../../core/router/app_router.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/theme/app_art.dart';
 import '../../../core/theme/app_icons.dart';
+import '../../../core/theme/app_images.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../../core/widgets/event_list_tile.dart';
@@ -380,7 +381,7 @@ class _Header extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              UserAvatar(url: club.avatarUrl, name: club.name, size: 72, borderColor: AppColors.warnColor),
+              UserAvatar(url: club.avatarUrl, name: club.name, size: 72, borderColor: AppColors.warnColor, fallbackAsset: crestAsset(club.id)),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(

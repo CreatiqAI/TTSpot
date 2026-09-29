@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_icons.dart';
+import '../../../core/theme/app_images.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/titi.dart';
 import '../../../core/utils/dates.dart';
@@ -98,7 +99,10 @@ class _DrawTile extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           ListTile(
-            leading: Icon(AppIcons.gift, color: d.status == DrawStatus.cancelled ? AppColors.textMuted : AppColors.textPrimary),
+            leading: Opacity(
+              opacity: d.status == DrawStatus.cancelled ? 0.45 : 1,
+              child: AssetThumb(prizeAsset(d.prizes.isEmpty ? '' : d.prizes.first.name), radius: 10),
+            ),
             title: Text(d.title, style: const TextStyle(fontWeight: FontWeight.w800)),
             subtitle: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

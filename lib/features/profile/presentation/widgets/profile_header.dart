@@ -1,8 +1,8 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/app_art.dart';
 import '../../../../core/theme/app_icons.dart';
+import '../../../../core/theme/app_images.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/user_avatar.dart';
 import '../../../auth/domain/profile.dart';
@@ -95,7 +95,7 @@ class ProfileHeader extends StatelessWidget {
                     _Stat(value: stats?.went, label: 'Meets', onTap: onMeets),
                     _Stat(value: friendCount, label: 'Friends', onTap: onFriends),
                     _Stat(value: stats?.cars ?? cars.length, label: 'Cars'),
-                    if (points != null) _Stat(value: points, label: 'Points', onTap: onPoints, accent: true),
+                    if (points != null) _Stat(value: points, label: 'Points', onTap: onPoints, accent: true, coin: true),
                   ],
                 ),
               ),
@@ -242,7 +242,7 @@ class _GarageStrip extends StatelessWidget {
   }
 
   Widget _thumb(Car c) {
-    final blank = ColoredBox(color: AppColors.surfaceGray, child: Center(child: ArtIcon(AppArt.car, size: 34)));
+    final blank = CarPlaceholder(bodyStyle: c.bodyStyle);
     final cover = c.cover;
     if (cover == null) return blank;
     return Image(image: CachedNetworkImageProvider(cover), fit: BoxFit.cover, errorBuilder: (_, _, _) => blank);
@@ -274,11 +274,14 @@ class _GarageStrip extends StatelessWidget {
 }
 
 class _Stat extends StatelessWidget {
-  const _Stat({required this.value, required this.label, this.onTap, this.accent = false});
+  const _Stat({required this.value, required this.label, this.onTap, this.accent = false, this.coin = false});
   final int? value;
   final String label;
   final VoidCallback? onTap;
   final bool accent;
+
+  /// Show the points coin before the number.
+  final bool coin;
 
   @override
   Widget build(BuildContext context) => Expanded(
@@ -289,9 +292,15 @@ class _Stat extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: 4),
             child: Column(
               children: [
-                Text(
-                  value?.toString() ?? '–',
-                  style: TextStyle(fontFamily: AppFonts.display, fontSize: 22, fontWeight: FontWeight.w700, height: 1, color: accent ? AppColors.brand : AppColors.textPrimary),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (coin) ...[const PointsCoin(size: 18), const SizedBox(width: 3)],
+                    Text(
+                      value?.toString() ?? '–',
+                      style: TextStyle(fontFamily: AppFonts.display, fontSize: 22, fontWeight: FontWeight.w700, height: 1, color: accent ? AppColors.brand : AppColors.textPrimary),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 3),
                 Text(label, style: TextStyle(fontSize: 11.5, color: AppColors.textSecondary, fontWeight: FontWeight.w500)),

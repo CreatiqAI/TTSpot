@@ -192,7 +192,7 @@ class _Row extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // the car they brought (their pick, else their default car)
-          if (row.car != null) EventCarLine(title: row.car!, cover: row.carCover),
+          if (row.car != null) EventCarLine(title: row.car!, cover: row.carCover, bodyStyle: row.carBodyStyle),
           Text(detail, maxLines: 2, style: TextStyle(fontSize: 12, color: row.stayed ? AppColors.success : AppColors.textSecondary)),
         ],
       ),

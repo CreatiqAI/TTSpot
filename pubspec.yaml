@@ -60,6 +60,12 @@ flutter:
     - assets/titi/
     - assets/avatars/
     - assets/covers/
+    - assets/cars/
+    - assets/badges/
+    - assets/kinds/
+    - assets/crests/
+    - assets/partner_covers/
+    - assets/prizes/
   fonts:
     - family: Phosphor
       fonts:

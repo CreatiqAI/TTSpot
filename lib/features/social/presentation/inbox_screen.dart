@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_icons.dart';
+import '../../../core/theme/app_images.dart';
 import '../../../core/theme/app_art.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/dates.dart';
@@ -420,7 +421,7 @@ class _ChatTile extends StatelessWidget {
                     : ThumbImage(c.eventCover!, error: ColoredBox(color: AppColors.surfaceGray)),
               ),
             )
-          : UserAvatar(url: c.avatarUrl, name: c.title, size: 48),
+          : UserAvatar(url: c.avatarUrl, name: c.title, size: 48, fallbackAsset: c.showEntity && c.clubId != null ? crestAsset(c.clubId!) : null),
       title: Row(
         children: [
           Flexible(child: Text(c.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontWeight: c.unread > 0 ? FontWeight.w700 : FontWeight.w600))),

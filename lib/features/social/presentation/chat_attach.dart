@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/theme/app_art.dart';
+import '../../../core/theme/app_images.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/dates.dart';
@@ -156,7 +157,7 @@ class _AttachSheetState extends ConsumerState<_AttachSheet> {
                             ListTile(
                               leading: ClipRRect(
                                 borderRadius: BorderRadius.circular(10),
-                                child: SizedBox(width: 48, height: 48, child: p.coverUrl == null ? ColoredBox(color: AppColors.surfaceGray, child: Center(child: ArtIcon(p.kindArt, size: 26))) : ThumbImage(p.coverUrl!)),
+                                child: SizedBox(width: 48, height: 48, child: p.coverUrl == null ? ColoredBox(color: AppColors.surfaceGray, child: Center(child: ArtIcon(p.kindIcon, size: 30))) : ThumbImage(p.coverUrl!)),
                               ),
                               title: Text(p.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600)),
                               subtitle: Text(p.kindLabel, style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
@@ -174,7 +175,7 @@ class _AttachSheetState extends ConsumerState<_AttachSheet> {
                                 ListTile(
                                   leading: ClipRRect(
                                     borderRadius: BorderRadius.circular(10),
-                                    child: SizedBox(width: 48, height: 48, child: c.cover == null ? ColoredBox(color: AppColors.surfaceGray, child: Center(child: ArtIcon(AppArt.car, size: 26))) : ThumbImage(c.cover!)),
+                                    child: SizedBox(width: 48, height: 48, child: c.cover == null ? CarPlaceholder(bodyStyle: c.bodyStyle, padding: 0.04) : ThumbImage(c.cover!)),
                                   ),
                                   title: Text('${c.make} ${c.model}', style: const TextStyle(fontWeight: FontWeight.w600)),
                                   subtitle: Text(c.year?.toString() ?? 'Garage', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),

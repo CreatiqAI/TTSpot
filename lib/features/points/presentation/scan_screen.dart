@@ -7,9 +7,13 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_art.dart';
 import '../../../core/theme/app_icons.dart';
+import '../../../core/theme/app_images.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/friendly_error.dart';
+import '../../../core/supabase/supabase_client.dart';
+import '../../events/application/event_providers.dart';
 import '../../events/presentation/event_car_widgets.dart';
+import '../../share/share_card_renderer.dart';
 import '../../organizer/domain/organizer_models.dart' show parseDrawClaimCode;
 import '../../organizer/presentation/widgets/prize_claim_dialog.dart';
 import '../application/points_providers.dart';
@@ -90,7 +94,10 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
       }
       final outcome = await ref.read(pointsActionsProvider).handle(code, carId: carId);
       if (!mounted) return;
-      if (!outcome.silent) await _showResult(outcome);
+      if (!outcome.silent) {
+        final share = await _showResult(outcome);
+        if (share == true && outcome.checkinEventId != null && mounted) await _shareCheckin(outcome.checkinEventId!);
+      }
       if (mounted) {
         if (outcome.route != null) {
           context.pushReplacement(outcome.route!);
@@ -123,14 +130,40 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
       ..showSnackBar(SnackBar(content: Text(msg)));
   }
 
-  Future<void> _showResult(ScanOutcome o) {
-    return showDialog<void>(
+  /// The "CHECKED IN" story card for the meet just scanned, with the car
+  /// brought (else my default car).
+  Future<void> _shareCheckin(String eventId) async {
+    final me = ref.read(currentUserIdProvider);
+    String placeName = 'a TT Spot meet';
+    String? cover, bodyStyle, carTitle;
+    try {
+      final detail = await ref.read(eventDetailProvider(eventId).future);
+      if (detail != null) placeName = detail.event.title;
+      final brought = me == null ? null : (await ref.read(eventCarsProvider(eventId).future))[me];
+      if (brought != null) {
+        cover = brought.cover;
+        bodyStyle = brought.bodyStyle;
+        carTitle = brought.title;
+      } else {
+        final car = myShareCar(ref);
+        cover = car?.cover;
+        bodyStyle = car?.bodyStyle;
+        carTitle = car?.title;
+      }
+    } catch (_) {/* share with what we have */}
+    if (!mounted) return;
+    await showShareCardSheet(context, CheckinShareSpec(placeName: placeName, at: DateTime.now(), carCover: cover, carBodyStyle: bodyStyle, carTitle: carTitle));
+  }
+
+  /// True when they tapped Share (fresh meet check-ins only).
+  Future<bool?> _showResult(ScanOutcome o) {
+    return showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ArtIcon(o.points > 0 ? AppArt.star : AppArt.check, size: 64),
+            ArtIcon(o.points > 0 ? kCoinAsset : AppArt.check, size: 64),
             const SizedBox(height: 12),
             Text(o.title, textAlign: TextAlign.center, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
             if (o.subtitle != null) ...[
@@ -147,7 +180,11 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
             ],
           ],
         ),
-        actions: [FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('Nice'))],
+        actions: [
+          if (o.checkinEventId != null)
+            TextButton.icon(onPressed: () => Navigator.pop(ctx, true), icon: const Icon(AppIcons.shareFat, size: 18), label: const Text('Share')),
+          FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('Nice')),
+        ],
       ),
     );
   }

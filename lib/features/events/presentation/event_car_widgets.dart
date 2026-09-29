@@ -63,7 +63,7 @@ class _BringingCarRowState extends ConsumerState<BringingCarRow> {
       padding: const EdgeInsets.only(top: 8),
       child: Row(
         children: [
-          CarThumb(url: mine.cover, width: 40, height: 28, radius: 6),
+          CarThumb(url: mine.cover, bodyStyle: mine.bodyStyle, width: 40, height: 28, radius: 6),
           const SizedBox(width: 10),
           Expanded(
             child: Text.rich(
@@ -97,9 +97,10 @@ class _BringingCarRowState extends ConsumerState<BringingCarRow> {
 
 /// Small car thumbnail + "Make Model" for attendee and check-in lists.
 class EventCarLine extends StatelessWidget {
-  const EventCarLine({super.key, required this.title, this.cover});
+  const EventCarLine({super.key, required this.title, this.cover, this.bodyStyle});
   final String title;
   final String? cover;
+  final String? bodyStyle;
 
   @override
   Widget build(BuildContext context) {
@@ -107,7 +108,7 @@ class EventCarLine extends StatelessWidget {
       padding: const EdgeInsets.only(top: 3),
       child: Row(
         children: [
-          CarThumb(url: cover, width: 30, height: 20, radius: 4),
+          CarThumb(url: cover, bodyStyle: bodyStyle, width: 30, height: 20, radius: 4),
           const SizedBox(width: 6),
           Flexible(
             child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),

@@ -5,8 +5,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/router/app_router.dart';
 import '../../../core/supabase/supabase_client.dart';
-import '../../../core/theme/app_art.dart';
 import '../../../core/theme/app_icons.dart';
+import '../../../core/theme/app_images.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/dates.dart';
 import '../../../core/utils/friendly_error.dart';
@@ -91,7 +91,7 @@ class _CarDetailScreenState extends ConsumerState<CarDetailScreen> {
               AspectRatio(
                 aspectRatio: 4 / 3,
                 child: pages.isEmpty
-                    ? ColoredBox(color: AppColors.surfaceGray, child: Center(child: ArtIcon(AppArt.car, size: 120)))
+                    ? CarPlaceholder(bodyStyle: c.bodyStyle, padding: 0.12)
                     : Stack(
                         children: [
                           PageView.builder(

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_art.dart';
 import '../../../core/theme/app_icons.dart';
+import '../../../core/theme/app_images.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/dates.dart';
 import '../../../core/utils/friendly_error.dart';
@@ -73,18 +74,29 @@ class BadgesScreen extends ConsumerWidget {
                     borderRadius: BorderRadius.circular(AppRadius.md),
                     border: Border.all(color: got != null ? AppColors.textPrimary : AppColors.border, width: got != null ? 1.2 : 1),
                   ),
-                  child: Opacity(
-                    opacity: got != null ? 1 : 0.45,
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        ArtIcon.emoji(b.emoji, size: 40),
-                        const SizedBox(height: 6),
-                        Text(b.name, textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
-                        const SizedBox(height: 3),
-                        Text(got != null ? formatDate(got.awardedAt) : b.description, textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10.5, color: AppColors.textSecondary, height: 1.2)),
-                      ],
-                    ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // The pin art greys itself when not earned; the emoji
+                      // fallback (unknown ids) keeps the old fade.
+                      BadgeImage(
+                        id: b.id,
+                        size: 52,
+                        earned: got != null,
+                        fallback: ArtIcon.emoji(b.emoji, size: 40),
+                      ),
+                      const SizedBox(height: 6),
+                      Opacity(
+                        opacity: got != null ? 1 : 0.55,
+                        child: Column(
+                          children: [
+                            Text(b.name, textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
+                            const SizedBox(height: 3),
+                            Text(got != null ? formatDate(got.awardedAt) : b.description, textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10.5, color: AppColors.textSecondary, height: 1.2)),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 );
               },

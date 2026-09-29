@@ -56,7 +56,7 @@ abstract final class DefaultAvatars {
 /// Round avatar with a network image, else one of the TiTi defaults picked
 /// from [seed] (the user id) or the name, else the initial on gray.
 class UserAvatar extends StatelessWidget {
-  const UserAvatar({super.key, this.url, this.name, this.seed, this.size = 36, this.borderColor});
+  const UserAvatar({super.key, this.url, this.name, this.seed, this.size = 36, this.borderColor, this.fallbackAsset});
 
   final String? url;
   final String? name;
@@ -66,10 +66,15 @@ class UserAvatar extends StatelessWidget {
   final double size;
   final Color? borderColor;
 
+  /// Bundled art drawn (contained, not cropped) when there's no [url], in
+  /// place of the TiTi default. Clubs pass their crest here.
+  final String? fallbackAsset;
+
   @override
   Widget build(BuildContext context) {
     final initial = (name ?? '').trim().isEmpty ? '?' : name!.trim()[0].toUpperCase();
-    final image = DefaultAvatars.image(url, seed: seed, name: name);
+    final useFallback = fallbackAsset != null && (url == null || url!.isEmpty);
+    final image = useFallback ? AssetImage(fallbackAsset!) : DefaultAvatars.image(url, seed: seed, name: name);
     return Container(
       width: size,
       height: size,
@@ -77,7 +82,7 @@ class UserAvatar extends StatelessWidget {
         shape: BoxShape.circle,
         color: AppColors.surfaceGray,
         border: Border.all(color: borderColor ?? AppColors.border, width: borderColor == null ? 0.5 : 2),
-        image: image != null ? DecorationImage(image: image, fit: BoxFit.cover) : null,
+        image: image != null ? DecorationImage(image: image, fit: useFallback ? BoxFit.contain : BoxFit.cover, scale: 1) : null,
       ),
       alignment: Alignment.center,
       child: image != null

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_icons.dart';
+import '../../../core/theme/app_images.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/dates.dart';
 import '../../../core/utils/friendly_error.dart';
@@ -210,10 +211,24 @@ class _LuckyDrawEditScreenState extends ConsumerState<LuckyDrawEditScreen> {
               padding: const EdgeInsets.only(bottom: 8),
               child: Row(
                 children: [
-                  SizedBox(
-                    width: 26,
-                    child: Text('${i + 1}.', style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.textSecondary)),
+                  Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      AssetThumb(prizeAsset(_prizes[i].name.text)),
+                      Positioned(
+                        left: -4,
+                        top: -4,
+                        child: Container(
+                          width: 18,
+                          height: 18,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(color: AppColors.textPrimary, shape: BoxShape.circle, border: Border.all(color: AppColors.bg, width: 1.5)),
+                          child: Text('${i + 1}', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: AppColors.bg)),
+                        ),
+                      ),
+                    ],
                   ),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: TextField(
                       controller: _prizes[i].name,

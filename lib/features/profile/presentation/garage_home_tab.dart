@@ -12,6 +12,7 @@ import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/titi.dart';
 import '../../../core/utils/friendly_error.dart';
+import '../../../core/widgets/glass_tab_bar.dart';
 import '../../social/application/community_providers.dart';
 import '../../social/application/social_providers.dart';
 import '../application/profile_providers.dart';
@@ -65,7 +66,8 @@ class GarageHomeTab extends ConsumerWidget {
           final ordered = [today, ...list.where((c) => c.id != today.id)];
           return ListView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.only(bottom: 32),
+            // Clear of the floating tab bar so the carousel and the hint can scroll into view.
+            padding: EdgeInsets.only(bottom: GlassTabBar.height + GlassTabBar.margin.bottom + MediaQuery.paddingOf(context).bottom + 24),
             children: [
               _TodayHero(car: today),
               const SizedBox(height: 28),

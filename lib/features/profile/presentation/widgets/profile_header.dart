@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_icons.dart';
@@ -9,11 +8,12 @@ import '../../../auth/domain/profile.dart';
 import '../../../friends/domain/friend.dart';
 import '../../../social/domain/post.dart';
 import '../../domain/car.dart';
+import '../user_garage_screen.dart' show garageTitle;
 
 /// Identity block, about the person: avatar beside the numbers (my points
-/// get their own card under them), name, handle, bio, the actions. On my
-/// page one My garage button opens the garage; on someone else's, a small
-/// strip of their cars.
+/// get their own card under them), name, handle, bio, the actions. Under
+/// them one garage row: My garage on my page, "Keith's garage" on someone
+/// else's (hidden when they have no cars).
 class ProfileHeader extends StatelessWidget {
   const ProfileHeader({
     super.key,
@@ -32,8 +32,7 @@ class ProfileHeader extends StatelessWidget {
     required this.onRewards,
     required this.onQr,
     required this.onAvatar,
-    required this.onCar,
-    required this.onManageGarage,
+    required this.onGarage,
     required this.onFriendAction,
     required this.onMessage,
     this.onCall,
@@ -54,8 +53,8 @@ class ProfileHeader extends StatelessWidget {
   final VoidCallback onRewards;
   final VoidCallback onQr;
   final VoidCallback onAvatar;
-  final ValueChanged<Car> onCar;
-  final VoidCallback onManageGarage;
+  /// My garage on my page, their read-only garage on someone else's.
+  final VoidCallback onGarage;
   final VoidCallback onFriendAction;
   final VoidCallback onMessage;
   final VoidCallback? onCall;
@@ -157,13 +156,15 @@ class ProfileHeader extends StatelessWidget {
                 ),
         ),
         // ---------------------------------------------------------- garage ---
-        if (isMe)
+        if (isMe || cars.isNotEmpty)
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-            child: _GarageButton(count: stats?.cars ?? cars.length, onTap: onManageGarage),
-          )
-        else if (cars.isNotEmpty)
-          _GarageStrip(cars: cars, onCar: onCar),
+            child: _GarageButton(
+              label: isMe ? 'My garage' : garageTitle(p),
+              count: isMe ? stats?.cars ?? cars.length : cars.length,
+              onTap: onGarage,
+            ),
+          ),
         const SizedBox(height: 14),
       ],
     );
@@ -210,10 +211,11 @@ class _PointsCard extends StatelessWidget {
       );
 }
 
-/// My page: one full-width button into the garage, where cars are added,
-/// switched and opened.
+/// One full-width button into a garage: mine, where cars are added,
+/// switched and opened, or someone else's to look through.
 class _GarageButton extends StatelessWidget {
-  const _GarageButton({required this.count, required this.onTap});
+  const _GarageButton({required this.label, required this.count, required this.onTap});
+  final String label;
   final int count;
   final VoidCallback onTap;
 
@@ -232,8 +234,10 @@ class _GarageButton extends StatelessWidget {
                 children: [
                   Icon(AppIcons.garage, size: 18, color: AppColors.textPrimary),
                   const SizedBox(width: 8),
-                  Text('My garage', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
-                  const Spacer(),
+                  Expanded(
+                    child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                  ),
+                  const SizedBox(width: 8),
                   Text(count == 0 ? 'Add your first car' : '$count ${count == 1 ? 'car' : 'cars'}', style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
                   const SizedBox(width: 4),
                   Icon(AppIcons.caretRight, size: 14, color: AppColors.textMuted),
@@ -243,70 +247,6 @@ class _GarageButton extends StatelessWidget {
           ),
         ),
       );
-}
-
-/// Someone else's cars: a row of small thumbnails, the daily first. Labels
-/// sit under the photos, never on them.
-class _GarageStrip extends StatelessWidget {
-  const _GarageStrip({required this.cars, required this.onCar});
-  final List<Car> cars;
-  final ValueChanged<Car> onCar;
-
-  static const _w = 96.0;
-  static const _h = 72.0;
-
-  @override
-  Widget build(BuildContext context) {
-    final daily = cars.where((c) => c.isDefault).firstOrNull ?? cars.firstOrNull;
-    final ordered = daily == null ? const <Car>[] : [daily, ...cars.where((c) => c.id != daily.id)];
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 18, 12, 8),
-          child: Text('GARAGE', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textSecondary)),
-        ),
-        SizedBox(
-          height: _h + 38,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            itemCount: ordered.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 10),
-            itemBuilder: (_, i) {
-              final c = ordered[i];
-              return GestureDetector(
-                onTap: () => onCar(c),
-                child: SizedBox(
-                  width: _w,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(AppRadius.md),
-                        child: SizedBox(width: _w, height: _h, child: _thumb(c)),
-                      ),
-                      const SizedBox(height: 5),
-                      Text(c.model, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, height: 1.2)),
-                      if (i == 0)
-                        const Text('Daily', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.brand, height: 1.3)),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _thumb(Car c) {
-    final blank = CarPlaceholder(bodyStyle: c.bodyStyle);
-    final cover = c.cover;
-    if (cover == null) return blank;
-    return Image(image: CachedNetworkImageProvider(cover), fit: BoxFit.cover, errorBuilder: (_, _, _) => blank);
-  }
 }
 
 class _Stat extends StatelessWidget {

@@ -23,7 +23,7 @@ import 'widgets/car_documents_section.dart';
 
 /// The signed-in member's garage: today's car up top, every car in a row
 /// below, tap one to drive it today. Lives on Home (Garage tab) and at
-/// [Routes.myGarage] (from the profile's garage strip).
+/// [Routes.myGarage] (from My garage on the profile).
 class GarageHomeTab extends ConsumerWidget {
   const GarageHomeTab({super.key});
 
@@ -167,7 +167,7 @@ class GarageHomeTab extends ConsumerWidget {
   }
 }
 
-/// Full-screen garage, opened from "Manage" on the profile's garage strip.
+/// Full-screen garage, opened from My garage on the profile.
 class MyGarageScreen extends StatelessWidget {
   const MyGarageScreen({super.key});
 

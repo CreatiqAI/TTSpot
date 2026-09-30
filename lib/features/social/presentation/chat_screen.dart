@@ -10,6 +10,7 @@ import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/dates.dart';
 import '../../../core/utils/friendly_error.dart';
+import '../../../core/widgets/photo_viewer.dart';
 import '../../../core/widgets/user_avatar.dart';
 import 'dart:async';
 import 'dart:io';
@@ -622,11 +623,7 @@ class _Photo extends StatelessWidget {
   final String url;
   @override
   Widget build(BuildContext context) => GestureDetector(
-        onTap: () => showDialog<void>(
-          context: context,
-          barrierColor: Colors.black,
-          builder: (ctx) => GestureDetector(onTap: () => Navigator.pop(ctx), child: InteractiveViewer(child: Center(child: Image(image: CachedNetworkImageProvider(url))))),
-        ),
+        onTap: () => showPhotoViewer(context, [url]),
         child: Container(
           margin: const EdgeInsets.only(bottom: 4),
           constraints: const BoxConstraints(maxWidth: 240, maxHeight: 320),

@@ -50,6 +50,9 @@ class CardFace extends StatelessWidget {
     final rarity = card.rarity;
     final s = width / 120; // scale factor for text
     final art = cardArt(card);
+    // The printed art carries its own tier frame (white, silver foil, gold foil),
+    // so only the placeholder gets the rarity-coloured border.
+    final tierBorder = art == null && rarity != CardRarity.common;
 
     Widget face = Container(
       width: width,
@@ -62,7 +65,7 @@ class CardFace extends StatelessWidget {
           colors: [Color.lerp(card.color, Colors.white, 0.18)!, card.color, Color.lerp(card.color, Colors.black, 0.45)!],
           stops: const [0, 0.45, 1],
         ),
-        border: Border.all(color: rarity == CardRarity.common ? Colors.white.withValues(alpha: 0.35) : rarity.color, width: rarity == CardRarity.common ? 1 : 2 * s),
+        border: Border.all(color: tierBorder ? rarity.color : Colors.white.withValues(alpha: 0.35), width: tierBorder ? 2 * s : 1),
         boxShadow: [
           BoxShadow(color: Colors.black.withValues(alpha: 0.18), blurRadius: 10 * s, offset: Offset(0, 4 * s)),
           if (rarity != CardRarity.common) BoxShadow(color: rarity.color.withValues(alpha: 0.35), blurRadius: 14 * s),

@@ -55,7 +55,7 @@ class MapScreen extends ConsumerStatefulWidget {
   ConsumerState<MapScreen> createState() => _MapScreenState();
 }
 
-class _MapScreenState extends ConsumerState<MapScreen> with TickerProviderStateMixin {
+class _MapScreenState extends ConsumerState<MapScreen> {
   final _map = AppMapController();
   GlyphMarkerFactory? _glyphs;
   MapPinFactory? _pins;
@@ -64,17 +64,24 @@ class _MapScreenState extends ConsumerState<MapScreen> with TickerProviderStateM
   /// What kinds of pin are on the map right now; feeds the key.
   Set<LegendGlyph> _present = const {};
   List<AppCircle> _circles = const [];
-  // Radar: one pulse every 5 s on live meets (and a static ring for nearby mode).
-  late final AnimationController _radar = AnimationController(vsync: this, duration: const Duration(milliseconds: 1400))..addListener(_onRadar);
-  int _radarStep = -1;
-  Timer? _radarTimer;
-  // The pulse around me: one soft ring every 2 s, ~14 frames each, so the
-  // polygon layer is not rebuilt at 60 fps.
-  late final AnimationController _pulse = AnimationController(vsync: this, duration: const Duration(milliseconds: 1300))..addListener(_onPulse);
-  Timer? _pulseTimer;
-  int _pulseStep = -1;
-  Timer? _idleDebounce;
+  /// What the accuracy / nearby circles were last drawn from, so a GPS fix
+  /// that changes nothing visible never touches the map.
+  String _circlesKey = '';
+  /// The camera stopped moving a moment ago: time to fetch the view's data.
+  Timer? _settle;
+  /// The camera moved since the last settle (the map's idle event is only a
+  /// fallback for the very first view).
+  bool _cameraDirty = false;
+  /// When pins were last redrawn for a new zoom while the camera was still
+  /// moving (at most a few times a second).
+  DateTime _liveRedrawAt = DateTime(0);
+  /// The zoom the viewport (and so the spots query) was last set at, and
+  /// when: zooming out well past it fetches the wider view before the
+  /// gesture ends.
+  double _viewportZoom = 99;
+  DateTime _viewportAt = DateTime(0);
   int _generation = 0;
+  bool _rebuildQueued = false;
   bool _movedToUser = false;
   /// Where the map opens. Resolved before the map is built (a quick read of
   /// the phone's last fix) so the first frame is already "here", not KL.
@@ -113,12 +120,6 @@ class _MapScreenState extends ConsumerState<MapScreen> with TickerProviderStateM
   @override
   void initState() {
     super.initState();
-    _radarTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-      if (mounted && ref.read(mapModeProvider) == MapMode.now) _radar.forward(from: 0);
-    });
-    _pulseTimer = Timer.periodic(const Duration(seconds: 2), (_) {
-      if (mounted && _map.isReady && _lastHere != null && !_pulse.isAnimating) _pulse.forward(from: 0);
-    });
     _sheet.addListener(_onSheetMoved);
     _resolveInitialCamera();
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -149,50 +150,70 @@ class _MapScreenState extends ConsumerState<MapScreen> with TickerProviderStateM
   bool get _close => _tier == 2;
 
   /// Pins grow and shrink with the zoom, not in three fixed jumps. Quantised
-  /// to 0.05 so a small pan never re-renders every marker. 0.4 at zoom 10 or
-  /// less, ~0.8 at 13, 1.0 around 14.7, 1.3 from zoom 17 up.
+  /// to steps of 0.1 (ten sizes in all), so a zoom of less than ~0.8 of a
+  /// level usually keeps every bitmap, and the few sizes that exist stay in
+  /// the cache. 0.4 at zoom 10 or less, 0.8 at 13, 1.0 around 14.7, 1.3 from
+  /// zoom 17 up.
   double _zoom = 12;
-  double get _glyphScale {
-    final t = ((_zoom - 10) / 7).clamp(0.0, 1.0);
-    return ((0.4 + t * 0.9) / 0.05).round() * 0.05;
+  double get _glyphScale => _scaleAt(_zoom);
+  static double _scaleAt(double zoom) {
+    final t = ((zoom - 10) / 7).clamp(0.0, 1.0);
+    return ((0.4 + t * 0.9) * 10).round() / 10;
   }
 
   /// Teardrop pins (places, events) follow [_glyphScale] but never go under
   /// 0.7 (22 × 28 px), so nothing shrinks to a hard-to-see dot far out.
   double get _pinScale => math.max(_glyphScale, 0.7);
 
-  /// Count bubbles are regrouped every quarter zoom step while zoomed out
-  /// (below zoom 10 the pin size stops changing, the grouping must not).
-  int get _groupStep => _zoom >= _closeZoom ? -1 : (_zoom * 4).round();
   /// Last position we drew myself at, so a location refresh never blinks me away.
   LatLng? _lastHere;
   bool get _showPeople => _zoom >= _peopleZoom;
 
-  /// Repaint the radar rings a dozen times per sweep, not every frame.
-  void _onRadar() {
-    final step = (_radar.value * 12).floor();
-    if (step == _radarStep) return;
-    _radarStep = step;
-    _paintCircles();
-  }
-
-  void _onPulse() {
-    final step = (_pulse.value * 14).floor();
-    if (step == _pulseStep) return;
-    _pulseStep = step;
-    _paintCircles();
-  }
-
-  /// Metres per logical pixel at the current zoom, so ground-anchored rings
-  /// can be sized in screen terms (the pulse should look the same at any zoom).
+  /// Metres per logical pixel at the current zoom, so a ring of so many
+  /// metres (the radar around a live meet) can be sized in screen px.
   double get _metresPerPx {
     final lat = (_lastHere ?? kualaLumpur).latitude * math.pi / 180;
     return 156543.03392 * math.cos(lat) / math.pow(2, _zoom);
   }
 
+  /// The animated rings: one around me every 2 s, and a radar sweep every
+  /// 5 s on each live meet (Now layer). The map draws and eases them itself
+  /// (see [AppMapController.setPulse]); this only says where and how big,
+  /// and is called when I move, the zoom tier changes or the meets change.
+  void _syncPulses() {
+    if (!mounted || !_map.isReady) return;
+    final here = _lastHere;
+    // Out from under my marker: the dot far out, the car badge up close.
+    _map.setPulse(
+      'me',
+      here == null
+          ? null
+          : AppPulse(points: [here], color: kRelationMe, fromPx: _close ? 26 : 9, toPx: _close ? 62 : 36),
+    );
+    final live = ref.read(mapModeProvider) == MapMode.now ? (ref.read(liveEventsProvider).value ?? const <Event>[]) : const <Event>[];
+    // 350 m of ground at the current zoom (re-sized when the zoom settles).
+    final radarPx = (350 / _metresPerPx).clamp(24.0, 400.0);
+    _map.setPulse(
+      'radar',
+      live.isEmpty
+          ? null
+          : AppPulse(
+              points: [for (final e in live) e.latLng],
+              color: kEventRed,
+              fromPx: radarPx * 0.15,
+              toPx: radarPx,
+              period: const Duration(seconds: 5),
+              duration: const Duration(milliseconds: 1400),
+              fill: 0.18,
+              stroke: 0.8,
+            ),
+    );
+  }
+
+  /// The still circles under the pins: how sure the phone is of my position,
+  /// and the "nearby" sharing radius. Only redrawn when one of them changes.
   void _paintCircles() {
     if (!mounted) return;
-    final t = _radar.value;
     final circles = <AppCircle>[];
     final here = ref.read(userLocationProvider).value ?? _lastHere;
     final live = ref.read(livePositionProvider);
@@ -208,16 +229,7 @@ class _MapScreenState extends ConsumerState<MapScreen> with TickerProviderStateM
         zIndex: 1,
       ));
     }
-    // The pulse: ~36 px of ground around me, whatever the zoom.
-    if (here != null && _pulse.isAnimating) {
-      circles.add(pulseCircle(at: here, radiusM: (36 * _metresPerPx).clamp(8.0, 5000.0), t: _pulse.value));
-    }
     if (ref.read(mapModeProvider) == MapMode.now) {
-      if (_radar.isAnimating) {
-        for (final e in ref.read(liveEventsProvider).value ?? const <Event>[]) {
-          circles.add(radarCircle(id: 'radar:${e.id}', at: e.latLng, radiusM: 350, t: t));
-        }
-      }
       final my = ref.read(myLocationProvider).value;
       if (my != null && my.shareMode == 'nearby' && here != null) {
         circles.add(AppCircle(
@@ -230,16 +242,15 @@ class _MapScreenState extends ConsumerState<MapScreen> with TickerProviderStateM
         ));
       }
     }
+    final key = [for (final c in circles) '${c.id}|${c.center.latitude}|${c.center.longitude}|${c.radiusM}|${c.fill.toARGB32()}'].join(';');
+    if (key == _circlesKey) return;
+    _circlesKey = key;
     setState(() => _circles = circles);
   }
 
   @override
   void dispose() {
-    _radarTimer?.cancel();
-    _radar.dispose();
-    _pulseTimer?.cancel();
-    _pulse.dispose();
-    _idleDebounce?.cancel();
+    _settle?.cancel();
     _homingTimer?.cancel();
     _glyphs?.dispose();
     _pins?.dispose();
@@ -292,7 +303,9 @@ class _MapScreenState extends ConsumerState<MapScreen> with TickerProviderStateM
     if (ref.read(mapModeProvider) == MapMode.spots && _pendingFocus == null) _fitNearestSpots();
     // Data that loaded before the map was live (spots from the home tab,
     // a location fix) fires no listener again: draw it now.
-    _rebuild();
+    _scheduleRebuild();
+    _paintCircles();
+    _syncPulses();
   }
 
   /// The first real fix: jump there straight away if the map has not settled
@@ -310,40 +323,103 @@ class _MapScreenState extends ConsumerState<MapScreen> with TickerProviderStateM
 
   bool _hadFirstIdle = false;
 
-  void _onCameraIdle() {
-    _idleDebounce?.cancel();
-    _idleDebounce = Timer(const Duration(milliseconds: 350), () async {
-      if (!_map.isReady || !mounted) return;
-      final bounds = await _map.visibleRegion();
-      final zoom = await _map.zoom();
-      if (!mounted || bounds == null) return;
-      if (!_hadFirstIdle) {
-        // Safety net: one full redraw a few seconds after the map first settles,
-        // once location, spots and car photos have had time to arrive. A cold
-        // start once ended with only the meet pin until the next layer switch.
-        Timer(const Duration(seconds: 3), () {
-          if (mounted) _rebuild();
-        });
-      }
-      _hadFirstIdle = true;
-      ref.read(mapViewportProvider.notifier).set(bounds);
-      final tier = _tierFor(zoom);
-      final before = (_tier, _glyphScale, _showPeople, _groupStep);
-      _zoom = zoom;
-      _tier = tier;
-      if (before != (_tier, _glyphScale, _showPeople, _groupStep)) {
-        _rebuild();
-      } else {
-        _updateKey(); // same pins, new view: the key follows what is in it
-      }
-      // Off-screen counts as "away" even when the centre is within 150 m (very close zooms).
-      final here = _lastHere;
-      if (here != null) {
-        // The camera centre respects the toolbar padding; the bounds' centre does not.
-        final centre = await _map.center() ?? bounds.center;
-        if (mounted) _setAway(!bounds.contains(here) || distanceKm(centre, here) > 0.15);
-      }
-    });
+  /// The map's idle event. Only the first one matters (the opening view,
+  /// where the camera may never have moved). After that the camera's own
+  /// events say when it has settled: the idle event also waits for every
+  /// tile to load and for any animation on the map to end, which held new
+  /// pins back by a second or two after a zoom.
+  void _onMapIdle() {
+    if (!_hadFirstIdle || _cameraDirty) _scheduleSettle(Duration.zero);
+  }
+
+  /// Every camera frame. Restarts the settle timer; while zooming, redraws
+  /// the pins for the new zoom a few times a second (sizes and count bubbles
+  /// follow the fingers), and zooming out well past the fetched view asks
+  /// for the wider view's spots and meets before the gesture ends.
+  void _onCameraChanged(AppCameraView view) {
+    final zoom = view.zoom;
+    _cameraDirty = true;
+    _view = view;
+    _onCameraMove(view.centre);
+    _scheduleSettle(const Duration(milliseconds: 150));
+    if (!_hadFirstIdle) return;
+    final now = DateTime.now();
+    if (_looksAt(zoom) != _looksAt(_zoom) && now.difference(_liveRedrawAt) >= const Duration(milliseconds: 250)) {
+      _liveRedrawAt = now;
+      _applyZoom(zoom);
+      _scheduleRebuild();
+    }
+    if (zoom < _viewportZoom - 0.6 && now.difference(_viewportAt) >= const Duration(milliseconds: 500)) {
+      _viewportAt = now;
+      _setViewport(view);
+    }
+  }
+
+  /// Everything about the pins that depends on the zoom: tier, size, whether
+  /// people show, and the count-bubble grouping, redone every quarter zoom
+  /// step below street zoom (below zoom 10 the pin size stops changing, the
+  /// grouping must not).
+  static (int, double, bool, int) _looksAt(double zoom) =>
+      (_tierFor(zoom), _scaleAt(zoom), zoom >= _peopleZoom, zoom >= _closeZoom ? -1 : (zoom * 4).round());
+
+  void _applyZoom(double zoom) {
+    final tier = _tierFor(zoom);
+    final tierChanged = tier != _tier;
+    _zoom = zoom;
+    _tier = tier;
+    if (tierChanged) _syncPulses(); // my ring starts at the dot or at the badge
+  }
+
+  void _scheduleSettle(Duration after) {
+    _settle?.cancel();
+    _settle = Timer(after, _onCameraSettled);
+  }
+
+  /// The camera's view from its last event (no platform round trip).
+  AppCameraView? _view;
+
+  /// [view] (or, before any camera event, the one read from the map)
+  /// becomes the viewport: the spots, meets and moments queries follow it.
+  /// Null when the map is not live.
+  Future<AppCameraView?> _setViewport([AppCameraView? known]) async {
+    final view = known ?? await _map.cameraView();
+    if (!mounted || view == null) return null;
+    _viewportZoom = view.zoom;
+    _viewportAt = DateTime.now();
+    ref.read(mapViewportProvider.notifier).set(view.bounds);
+    return view;
+  }
+
+  /// The camera stopped (150 ms without a camera event): fetch for this view,
+  /// redraw if the zoom changed what the pins look like, re-check "away".
+  Future<void> _onCameraSettled() async {
+    if (!_map.isReady || !mounted) return;
+    _cameraDirty = false;
+    final view = await _setViewport(_view);
+    if (!mounted || view == null) return;
+    if (!_hadFirstIdle) {
+      // Safety net: one full redraw a few seconds after the map first settles,
+      // once location, spots and car photos have had time to arrive. A cold
+      // start once ended with only the meet pin until the next layer switch.
+      Timer(const Duration(seconds: 3), () {
+        if (mounted) _scheduleRebuild();
+      });
+    }
+    _hadFirstIdle = true;
+    final before = _looksAt(_zoom);
+    _applyZoom(view.zoom);
+    if (before != _looksAt(_zoom)) {
+      _scheduleRebuild();
+    } else {
+      _updateKey(); // same pins, new view: the key follows what is in it
+    }
+    _syncPulses(); // the radar's 350 m in px at this zoom
+    _prewarm();
+    // Off-screen counts as "away" even when the centre is within 150 m (very
+    // close zooms). The camera centre respects the toolbar padding; the
+    // bounds' centre does not.
+    final here = _lastHere;
+    if (here != null) _setAway(!view.bounds.contains(here) || distanceKm(view.centre, here) > 0.15);
   }
 
   /// Every camera frame: cheap distance check, state changes only on a flip.
@@ -479,7 +555,7 @@ class _MapScreenState extends ConsumerState<MapScreen> with TickerProviderStateM
       _cardOpen = true;
       _cardDrag = 0;
     });
-    _rebuild();
+    _scheduleRebuild();
     // One frame so the card has a size to centre above.
     await WidgetsBinding.instance.endOfFrame;
     if (!mounted || !_cardOpen || _card?.id != p.id) return;
@@ -505,7 +581,7 @@ class _MapScreenState extends ConsumerState<MapScreen> with TickerProviderStateM
       _cardDragging = false;
       _cardDrag = 0;
     });
-    _rebuild();
+    _scheduleRebuild();
     _map.animatePadding(EdgeInsets.only(bottom: _mapPadding));
   }
 
@@ -579,7 +655,7 @@ class _MapScreenState extends ConsumerState<MapScreen> with TickerProviderStateM
   /// Events are teardrops a touch bigger than spots: red with a flag, gold
   /// with a crown for official clubs, ink with a storefront for partners; TT
   /// sessions carry a pennant flag. Label only when close.
-  Future<MapPin> _eventPin(Event e, {String? sub}) {
+  Future<MapPin> _eventPin(Event e, {String? sub, required double pinScale}) {
     final official = e.isOfficialClubEvent;
     final partner = e.vendorId != null;
     final tt = e.type == EventType.tt || e.isInstant;
@@ -588,7 +664,7 @@ class _MapScreenState extends ConsumerState<MapScreen> with TickerProviderStateM
       glyph: tt ? AppIcons.flagPennantFill : (official ? AppIcons.crownFill : (partner ? AppIcons.storefrontFill : AppIcons.flagFill)),
       label: _close ? (e.isInstant ? e.venueName : e.title) : null,
       sub: _close ? sub : null,
-      scale: _pinScale * 1.1,
+      scale: pinScale * 1.1,
     );
   }
   CarMarkerFactory get _carFactory => _cars ??= CarMarkerFactory(devicePixelRatio: MediaQuery.devicePixelRatioOf(context), pins: _pinFactory);
@@ -603,6 +679,26 @@ class _MapScreenState extends ConsumerState<MapScreen> with TickerProviderStateM
     }
     open();
   }
+
+  /// Coalesces redraw requests that arrive together (a new viewport
+  /// refreshes four providers at once, each with a loading and a data
+  /// event) into one redraw on the next microtask.
+  void _scheduleRebuild() {
+    if (_rebuildQueued) return;
+    _rebuildQueued = true;
+    scheduleMicrotask(() {
+      _rebuildQueued = false;
+      if (mounted) _rebuild();
+    });
+  }
+
+  /// An async value's data changed (not just its loading flag, which keeps
+  /// the old list while a new viewport's query runs).
+  static bool _newData<T>(AsyncValue<T>? prev, AsyncValue<T> next) => !identical(prev?.value, next.value);
+
+  /// The teardrops of the last redraw, for [_prewarm].
+  List<_Drop> _lastDrops = const [];
+  List<List<_Drop>> _lastGroups = const [];
 
   Future<void> _rebuild() async {
     final generation = ++_generation;
@@ -628,7 +724,7 @@ class _MapScreenState extends ConsumerState<MapScreen> with TickerProviderStateM
           glyphs: {eventGlyph(e)},
           z: 3, // above the spots underneath
           event: true,
-          pin: () => _eventPin(e, sub: sub),
+          pin: (scale) => _eventPin(e, sub: sub, pinScale: scale),
           onTap: () => _openAt(e.latLng, () => context.push(Routes.event(e.id))),
         );
 
@@ -636,21 +732,6 @@ class _MapScreenState extends ConsumerState<MapScreen> with TickerProviderStateM
       case MapMode.now:
         for (final e in ref.read(liveEventsProvider).value ?? const <Event>[]) {
           drops.add(eventDrop(e, e.checkinCount > 0 ? 'LIVE · ${e.checkinCount} here' : 'LIVE'));
-        }
-        for (final m in _far ? const <Story>[] : (ref.read(liveMomentsProvider).value ?? const <Story>[])) {
-          final at = m.latLng;
-          if (at == null) continue;
-          final pin = await _pinFactory.moment(key: m.id, imageUrl: m.photoUrl, scale: _glyphScale);
-          if (await stale()) return;
-          keyed.add((at, LegendGlyph.moment));
-          built.add(AppMarker(
-            id: 'moment:${m.id}',
-            position: at,
-            image: pin.bytes, size: pin.size,
-            anchor: pin.anchor,
-            zIndex: 1,
-            onTap: () => _openAt(at, () => _openMoment(m)),
-          ));
         }
         _addPlaces(drops, focused: false);
       case MapMode.upcoming:
@@ -662,46 +743,118 @@ class _MapScreenState extends ConsumerState<MapScreen> with TickerProviderStateM
       case MapMode.spots:
         _addPlaces(drops, focused: true);
     }
-    for (final group in _groups(drops)) {
+    // Every pin at once: bitmaps already in the cache come straight back,
+    // the rest paint side by side instead of one after another.
+    final pinScale = _pinScale;
+    final groups = _groups(drops);
+    final pins = await Future.wait([
+      for (final group in groups)
+        group.length == 1
+            ? group.first.pin(pinScale)
+            // Red when a meet is in it, ink for places only.
+            : _glyphFactory.cluster(count: group.length, color: group.any((d) => d.event) ? kEventRed : kInk, scale: pinScale),
+    ]);
+    if (await stale()) return;
+    _lastDrops = drops;
+    _lastGroups = groups;
+    for (var i = 0; i < groups.length; i++) {
+      final group = groups[i];
+      final pin = pins[i];
       if (group.length == 1) {
         final d = group.first;
-        final pin = await d.pin();
-        if (await stale()) return;
         for (final g in d.glyphs) {
           keyed.add((d.at, g));
         }
         built.add(AppMarker(id: d.id, position: d.at, image: pin.bytes, size: pin.size, anchor: pin.anchor, zIndex: d.z, onTap: d.onTap));
       } else {
-        // Red when a meet is in it, ink for places only.
-        final bubble = await _glyphFactory.cluster(count: group.length, color: group.any((d) => d.event) ? kEventRed : kInk, scale: _pinScale);
-        if (await stale()) return;
         final at = LatLng(
           group.map((d) => d.at.latitude).reduce((a, b) => a + b) / group.length,
           group.map((d) => d.at.longitude).reduce((a, b) => a + b) / group.length,
         );
         keyed.add((at, LegendGlyph.cluster));
-        built.add(AppMarker(id: 'group:${group.first.id}', position: at, image: bubble.bytes, size: bubble.size, anchor: bubble.anchor, zIndex: 5, onTap: () => _zoomToGroup(group)));
+        built.add(AppMarker(id: 'group:${group.first.id}', position: at, image: pin.bytes, size: pin.size, anchor: pin.anchor, zIndex: 5, onTap: () => _zoomToGroup(group)));
       }
     }
-    // Places and events go up now. People follow (a car photo may still be
-    // downloading, which on a slow network takes many seconds); until then
-    // the people already on the map stay where they are.
+    // Places and events go up now. Moments and people follow (a moment's
+    // photo or a car photo may still be downloading, which on a slow
+    // network takes many seconds); until then the ones already on the map
+    // stay where they are.
     final withPeople = mode == MapMode.now && !_far && _showPeople;
-    bool person(String id) => id == 'me' || (withPeople && id.startsWith('friend:'));
-    setState(() => _markerSet = [...built, for (final m in _markerSet) if (person(m.id)) m]);
-    _keyed = [...keyed, for (final k in _keyed) if (_peopleGlyphs.contains(k.$2)) k];
+    final withMoments = mode == MapMode.now && !_far;
+    bool slow(String id) => id == 'me' || (withPeople && id.startsWith('friend:')) || (withMoments && id.startsWith('moment:'));
+    setState(() => _markerSet = [...built, for (final m in _markerSet) if (slow(m.id)) m]);
+    _keyed = [...keyed, for (final k in _keyed) if (_slowGlyphs.contains(k.$2)) k];
     _updateKey();
+    if (withMoments) {
+      final moments = [for (final m in ref.read(liveMomentsProvider).value ?? const <Story>[]) if (m.latLng != null) m];
+      final momentPins = await Future.wait([for (final m in moments) _pinFactory.moment(key: m.id, imageUrl: m.photoUrl, scale: _glyphScale)]);
+      if (await stale()) return;
+      for (var i = 0; i < moments.length; i++) {
+        final m = moments[i];
+        final at = m.latLng!;
+        final pin = momentPins[i];
+        keyed.add((at, LegendGlyph.moment));
+        built.add(AppMarker(
+          id: 'moment:${m.id}',
+          position: at,
+          image: pin.bytes,
+          size: pin.size,
+          anchor: pin.anchor,
+          zIndex: 1,
+          onTap: () => _openAt(at, () => _openMoment(m)),
+        ));
+      }
+    }
     await _addPeople(built, stale, keyed, onlyMe: mode != MapMode.now);
     if (await stale()) return;
     if (kDebugMode) debugPrint('map: ${built.length} markers, tier $_tier, zoom ${_zoom.toStringAsFixed(1)}');
     setState(() => _markerSet = built);
     _keyed = keyed;
     _updateKey();
+    _syncPulses();
+  }
+
+  bool _prewarming = false;
+
+  /// While the map is still, paints the pins on it at the next size up and
+  /// down in the background, so the next zoom finds its bitmaps in the cache
+  /// and the pins change size at once. One at a time: never a burst of work.
+  Future<void> _prewarm() async {
+    if (_prewarming || !mounted) return;
+    _prewarming = true;
+    final generation = _generation;
+    try {
+      final here = _glyphScale;
+      final sizes = {
+        for (final g in [here - 0.1, here + 0.1])
+          if (g >= 0.4 - 1e-9 && g <= 1.3 + 1e-9) math.max((g * 10).round() / 10, 0.7),
+      }..remove(_pinScale);
+      // A bound on the work: with many labelled pins up close, the ones that
+      // do not fit in it simply paint on demand.
+      var budget = 80;
+      for (final scale in sizes) {
+        for (final group in _lastGroups) {
+          if (!mounted || generation != _generation || _cameraDirty || --budget < 0) return; // the view moved on
+          if (group.length == 1) {
+            await group.first.pin(scale);
+          } else {
+            await _glyphFactory.cluster(count: group.length, color: group.any((d) => d.event) ? kEventRed : kInk, scale: scale);
+          }
+        }
+        for (final d in _lastDrops) {
+          if (!mounted || generation != _generation || _cameraDirty || --budget < 0) return;
+          await d.pin(scale); // the ones inside bubbles now may stand alone next
+        }
+      }
+    } finally {
+      _prewarming = false;
+    }
   }
 
   /// Every drawn pin's kind and place, from the last rebuild.
   List<(LatLng, LegendGlyph)> _keyed = const [];
-  static const _peopleGlyphs = {LegendGlyph.me, LegendGlyph.friend, LegendGlyph.club, LegendGlyph.nearby};
+  /// Pins drawn in the second, slower phase of a redraw.
+  static const _slowGlyphs = {LegendGlyph.me, LegendGlyph.friend, LegendGlyph.club, LegendGlyph.nearby, LegendGlyph.moment};
 
   /// The key lists the kinds of pin in view right now (not the ones off
   /// screen, not the ones folded into a count bubble).
@@ -777,7 +930,7 @@ class _MapScreenState extends ConsumerState<MapScreen> with TickerProviderStateM
       final kind = spotKindOf(p.kind);
       final saved = savedIds.contains(p.id);
       final selected = p.id == picked?.id;
-      final scale = (p.isPartner || focused || saved ? _pinScale : math.max(_pinScale * 0.85, 0.7)) * (selected ? 1.4 : 1);
+      double scaleFor(double pinScale) => (p.isPartner || focused || saved ? pinScale : math.max(pinScale * 0.85, 0.7)) * (selected ? 1.4 : 1);
       drops.add(_Drop(
         id: 'place:${p.id}',
         at: p.latLng,
@@ -785,14 +938,14 @@ class _MapScreenState extends ConsumerState<MapScreen> with TickerProviderStateM
         // The picked pin sits over everything but me.
         z: selected ? _meZ - 1 : p.isPartner ? (focused ? 3 : 2) : saved ? (focused ? 3 : 1) : (focused ? (p.recommended ? 2 : 1) : 0),
         alone: selected,
-        pin: () => p.isPartner
+        pin: (pinScale) => p.isPartner
             ? _glyphFactory.teardrop(
                 color: kInk,
                 outline: kEventRed,
                 glyph: AppIcons.storefrontFill,
                 selected: selected,
                 label: _close ? (p.vendorName ?? p.name) : null,
-                scale: scale,
+                scale: scaleFor(pinScale),
               )
             : _glyphFactory.teardrop(
                 color: spotKindColor(kind),
@@ -802,7 +955,7 @@ class _MapScreenState extends ConsumerState<MapScreen> with TickerProviderStateM
                 selected: selected,
                 label: (focused || saved) && _close ? p.name : null,
                 sub: focused && _close && p.totalCheckins > 0 ? '${p.totalCheckins} ✓' : null,
-                scale: scale,
+                scale: scaleFor(pinScale),
               ),
         onTap: () => _openCard(p),
       ));
@@ -893,9 +1046,10 @@ class _MapScreenState extends ConsumerState<MapScreen> with TickerProviderStateM
     final me = ref.read(currentUserIdProvider);
     if (here == null || me == null) return;
     _lastHere = here;
+    _syncPulses(); // the ring follows me
     // Not drawn yet (first fix, or a map with nothing else on it): full rebuild.
     if (_markerSet.indexWhere((m) => m.id == 'me') < 0) {
-      _rebuild();
+      _scheduleRebuild();
       return;
     }
     final pin = await _mePin(me);
@@ -947,24 +1101,39 @@ class _MapScreenState extends ConsumerState<MapScreen> with TickerProviderStateM
   @override
   Widget build(BuildContext context) {
     ref.listen(mapModeProvider, (prev, next) {
-      _rebuild();
+      _scheduleRebuild();
       _paintCircles();
+      _syncPulses();
       if (next == MapMode.spots && prev != MapMode.spots && _pendingFocus == null) _fitNearestSpots();
     });
-    ref.listen(savedPlacesProvider, (_, _) => _rebuild());
+    ref.listen(savedPlacesProvider, (p, n) {
+      if (_newData(p, n)) _scheduleRebuild();
+    });
     ref.listen(mapFocusProvider, (_, next) {
       if (next != null) _handleFocus();
     });
-    ref.listen(mapEventsProvider, (_, _) => _rebuild());
-    ref.listen(liveEventsProvider, (_, _) => _rebuild());
-    ref.listen(liveMomentsProvider, (_, _) => _rebuild());
-    ref.listen(friendPinsProvider, (_, _) => _rebuild());
-    ref.listen(spotsProvider, (_, _) => _rebuild());
+    ref.listen(mapEventsProvider, (p, n) {
+      if (_newData(p, n)) _scheduleRebuild();
+    });
+    ref.listen(liveEventsProvider, (p, n) {
+      if (!_newData(p, n)) return;
+      _scheduleRebuild();
+      _syncPulses();
+    });
+    ref.listen(liveMomentsProvider, (p, n) {
+      if (_newData(p, n)) _scheduleRebuild();
+    });
+    ref.listen(friendPinsProvider, (p, n) {
+      if (_newData(p, n)) _scheduleRebuild();
+    });
+    ref.listen(spotsProvider, (p, n) {
+      if (_newData(p, n)) _scheduleRebuild();
+    });
     ref.listen(userLocationProvider, (prev, next) {
       _moveToUserIfKnown();
       // First fix (or lost/regained): everything re-sorts. Afterwards just move my pin.
       if (prev?.value == null || next.value == null) {
-        _rebuild();
+        _scheduleRebuild();
       } else {
         _updateMe();
       }
@@ -972,7 +1141,9 @@ class _MapScreenState extends ConsumerState<MapScreen> with TickerProviderStateM
     });
     ref.listen(livePositionProvider, (_, _) => _paintCircles());
     ref.listen(myLocationProvider, (_, _) => _paintCircles());
-    ref.listen(friendTagsProvider, (_, _) => _rebuild());
+    ref.listen(friendTagsProvider, (p, n) {
+      if (_newData(p, n)) _scheduleRebuild();
+    });
     MapPalette.defaultLight = !_isNight;
 
     final mode = ref.watch(mapModeProvider);
@@ -1019,8 +1190,8 @@ class _MapScreenState extends ConsumerState<MapScreen> with TickerProviderStateM
               circles: _circles,
               padding: EdgeInsets.only(bottom: mapPadding),
               onReady: _onMapReady,
-              onCameraIdle: _onCameraIdle,
-              onCameraMove: _onCameraMove,
+              onCameraIdle: _onMapIdle,
+              onCameraChanged: _onCameraChanged,
               // Tap the map (not a pin) while the card or the sheet is up: close it.
               onTap: (_) {
                 if (_cardOpen) {
@@ -1217,15 +1388,16 @@ class _MapScreenState extends ConsumerState<MapScreen> with TickerProviderStateM
 }
 
 /// A teardrop waiting to be drawn: an event, a spot or a partner shop.
-/// [pin] renders it (only if it ends up on its own, not in a bubble);
-/// [glyphs] are the key rows it stands for.
+/// [pin] renders it at a given pin scale (only if it ends up on its own, not
+/// in a bubble; [_MapScreenState._prewarm] also calls it for the sizes next
+/// to the current one); [glyphs] are the key rows it stands for.
 class _Drop {
   const _Drop({required this.id, required this.at, required this.glyphs, required this.z, required this.pin, required this.onTap, this.event = false, this.alone = false});
   final String id;
   final LatLng at;
   final Set<LegendGlyph> glyphs;
   final int z;
-  final Future<MapPin> Function() pin;
+  final Future<MapPin> Function(double pinScale) pin;
   final VoidCallback onTap;
   final bool event;
   /// Never merged into a bubble (the place whose card is open).

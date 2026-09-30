@@ -10,6 +10,9 @@ public class SwiftFlutterMapboxPlugin: NavigationFactory, FlutterPlugin {
     public static func register(with registrar: FlutterPluginRegistrar) {
         let channel = FlutterMethodChannel(name: "flutter_mapbox", binaryMessenger: registrar.messenger())
         let eventChannel = FlutterEventChannel(name: "flutter_mapbox/events", binaryMessenger: registrar.messenger())
+        // TT Spot patch: full-screen navigation presents from this registrar's
+        // view controller (see NavigationHost in NavigationFactory.swift).
+        NavigationHost.registrar = registrar
         let instance = SwiftFlutterMapboxPlugin()
         registrar.addMethodCallDelegate(instance, channel: channel)
         eventChannel.setStreamHandler(instance)

@@ -2,8 +2,6 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
-import '../../../../core/geo/latlng.dart';
-import '../../../../core/map/app_map.dart';
 
 import 'map_pins.dart';
 
@@ -193,12 +191,15 @@ class CarMarkerFactory {
     if (cached != null) return cached;
 
     final image = await pins.image(coverUrl, targetWidth: 160);
-    const side = 44.0, ringW = 3.0, radius = 12.0, pad = 12.0, gap = 4.0;
+    const side = 44.0, ringW = 3.0, radius = 12.0, gap = 4.0;
     final label = pins.text(name.length > 14 ? '${name.substring(0, 13)}…' : name, 11, FontWeight.w800, me ? Colors.white : const Color(0xFF101010));
     final st = status == null ? null : pins.text(status, 10.5, FontWeight.w700, statusColor);
     final chipW = label.width + (st == null ? 0 : st.width + 5) + 16;
     final chipH = label.height + 7;
     final outer = side + ringW * 2;
+    // My halo needs room to fade out inside the bitmap; friends have none.
+    final haloR = outer / 2 + 6;
+    final pad = me ? (haloReach(haloR) - outer / 2 + 1).ceilToDouble() : 12.0;
     final totalW = math.max(outer + pad * 2, chipW + 4);
     final totalH = pad + outer + gap + chipH + 6;
     final cx = totalW / 2;
@@ -207,7 +208,7 @@ class CarMarkerFactory {
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder)..scale(devicePixelRatio);
     final ringPaint = Paint()..color = dim ? Color.lerp(ring, const Color(0xFFBFC3CA), 0.5)! : ring;
-    if (me) paintHalo(canvas, centre, outer / 2 + 6);
+    if (me) paintHalo(canvas, centre, haloR);
     if (headingDeg != null) paintHeadingCone(canvas, centre, headingDeg, length: outer / 2 + 12, color: ringPaint.color);
     // shadow + ring
     final outerRect = RRect.fromRectAndRadius(Rect.fromCenter(center: centre, width: outer, height: outer), const Radius.circular(radius + ringW));
@@ -262,7 +263,9 @@ class CarMarkerFactory {
     final k = 'mecar|$colorKey|$h';
     final cached = _cache[k];
     if (cached != null) return cached;
-    const carSize = 58.0, pad = 14.0, gap = 2.0;
+    const carSize = 58.0, gap = 2.0, haloR = carSize / 2 + 4;
+    // Room for the halo to fade out inside the bitmap (see [haloReach]).
+    final pad = (haloReach(haloR) - carSize / 2 + 1).ceilToDouble();
     final label = pins.text('Me', 11, FontWeight.w800, Colors.white);
     final st = pins.text('now', 10.5, FontWeight.w700, const Color(0xFF22C55E));
     final chipW = label.width + st.width + 5 + 16;
@@ -273,7 +276,7 @@ class CarMarkerFactory {
     final centre = Offset(cx, pad + carSize / 2);
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder)..scale(devicePixelRatio);
-    paintHalo(canvas, centre, carSize / 2 + 4);
+    paintHalo(canvas, centre, haloR);
     if (headingDeg != null) paintHeadingCone(canvas, centre, headingDeg, length: carSize / 2 + 14, color: kRelationMe);
     paintCar(canvas, centre: centre, size: carSize, color: carColor(colorKey), headingDeg: headingDeg ?? 0);
     final chipTop = pad + carSize + gap;
@@ -290,16 +293,20 @@ class CarMarkerFactory {
   /// heading chevron when known. Always findable, whatever the zoom.
   Future<MapPin> meDot({double? headingDeg, double scale = 1}) async {
     final h = headingDeg == null ? null : ((headingDeg % 360) / 15).round() * 15;
-    final k = 'medot|$h|$scale';
+    final size = 18.0 * scale.clamp(0.8, 1.2);
+    // Keyed by the size drawn, not the scale asked for: every scale past the
+    // clamp shares one bitmap.
+    final k = 'medot|$h|${size.toStringAsFixed(2)}';
     final cached = _cache[k];
     if (cached != null) return cached;
-    final size = 18.0 * scale.clamp(0.8, 1.2);
-    const pad = 14.0;
+    final haloR = size / 2 + 8;
+    // Room for the halo to fade out inside the bitmap (see [haloReach]).
+    final pad = (haloReach(haloR) - size / 2 + 1).ceilToDouble();
     final total = size + pad * 2;
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder)..scale(devicePixelRatio);
     final c = Offset(total / 2, total / 2);
-    paintHalo(canvas, c, size / 2 + 8);
+    paintHalo(canvas, c, haloR);
     if (headingDeg != null) paintHeadingCone(canvas, c, headingDeg, length: size / 2 + 12, color: kRelationMe);
     canvas.drawCircle(c.translate(0, 1), size / 2 + 1, Paint()..color = Colors.black.withValues(alpha: 0.25)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2));
     canvas.drawCircle(c, size / 2 + 2.5, Paint()..color = Colors.white);
@@ -353,10 +360,31 @@ String freshnessLabel(DateTime updatedAt) {
   return '${d.inDays}d';
 }
 
-/// Soft red glow under my marker, so the eye lands on me first.
+/// How far [paintHalo] reaches from its centre for a halo of radius [r]: the
+/// glow is fully transparent there. A bitmap that draws a halo keeps at least
+/// this much room (plus a pixel) around the centre, so the glow fades out
+/// inside the image instead of being cut off square at its edge.
+double haloReach(double r) => r * 1.6;
+
+/// Soft red glow under my marker, so the eye lands on me first. A radial
+/// gradient that reaches zero at exactly [haloReach] (a blur mask filter
+/// has no hard edge, so it always spilled past the bitmap and was clipped).
 void paintHalo(Canvas canvas, Offset centre, double r, {Color color = kRelationMe}) {
-  canvas.drawCircle(centre, r, Paint()..color = color.withValues(alpha: 0.30)..maskFilter = MaskFilter.blur(BlurStyle.normal, r * 0.35));
-  canvas.drawCircle(centre, r * 0.8, Paint()..color = color.withValues(alpha: 0.16));
+  final reach = haloReach(r);
+  canvas.drawCircle(
+    centre,
+    reach,
+    Paint()
+      ..shader = ui.Gradient.radial(
+        centre,
+        reach,
+        [
+          for (final a in const [0.42, 0.38, 0.28, 0.16, 0.07, 0.02, 0.0]) color.withValues(alpha: a),
+        ],
+        // 0.625 of the reach is the halo's nominal radius r.
+        const [0.0, 0.3, 0.5, 0.64, 0.78, 0.9, 1.0],
+      ),
+  );
 }
 
 /// Translucent wedge (±28°) from [centre] along [headingDeg] (0 = north),
@@ -372,31 +400,5 @@ void paintHeadingCone(Canvas canvas, Offset centre, double headingDeg, {required
     path,
     Paint()
       ..shader = ui.Gradient.radial(centre, length, [color.withValues(alpha: 0.55), color.withValues(alpha: 0.0)]),
-  );
-}
-
-/// The pulse ring around me, in metres so it stays glued to the ground. [t]
-/// 0..1: grows from the marker's edge out to [radiusM] and fades away.
-AppCircle pulseCircle({required LatLng at, required double radiusM, required double t}) => AppCircle(
-      id: 'me-pulse',
-      center: at,
-      radiusM: radiusM * (0.25 + 0.75 * t),
-      strokeWidth: 2,
-      stroke: kRelationMe.withValues(alpha: (1 - t) * 0.7),
-      fill: kRelationMe.withValues(alpha: (1 - t) * 0.14),
-      zIndex: 2,
-    );
-
-/// A circle with the radar look, used for live meets and the nearby ring.
-AppCircle radarCircle({required String id, required LatLng at, required double radiusM, required double t, Color color = const Color(0xFFE00008)}) {
-  // t 0..1: ring grows and fades out.
-  return AppCircle(
-    id: id,
-    center: at,
-    radiusM: radiusM * (0.15 + 0.85 * t),
-    strokeWidth: 2,
-    stroke: color.withValues(alpha: (1 - t) * 0.8),
-    fill: color.withValues(alpha: (1 - t) * 0.18),
-    zIndex: 1,
   );
 }

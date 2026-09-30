@@ -24,3 +24,19 @@ When upstream ships a fix, drop this folder and go back to the pub.dev dependenc
 4. `ios/flutter_mapbox/Package.swift`: mapbox-navigation-ios pinned exactly to
    3.31.1 (it pins mapbox-maps-ios 11.31.1, the same exact version the map
    plugin requires; 3.24.x wanted an older maps version and SwiftPM failed).
+
+5. iOS full-screen navigation (`NavigationFactory.swift` and
+   `SwiftFlutterMapboxPlugin.swift`; `ios/flutter_mapbox/Sources/flutter_mapbox/`
+   is what SwiftPM compiles, `ios/Classes/` is kept identical for the podspec).
+   Upstream presented from
+   `UIApplication.shared.delegate?.window??.rootViewController as! FlutterViewController`.
+   TT Spot runs the UIScene lifecycle (`FlutterSceneDelegate`), where the app
+   delegate has no window, so that force-cast of nil trapped as soon as the
+   route came back: "Navigate in TT Spot" crashed the app on iPhone (0.3.33 to
+   0.3.41). Now `NavigationHost.presenter()` uses the plugin registrar's view
+   controller, else the foreground scene's key window, else the old delegate
+   window, and presents from the topmost controller. Also: a fresh
+   NavigationViewController per trip (never re-presents a stale or visible
+   one), every early return answers Dart with a FlutterError, a route failure
+   is a `ROUTE_FAILED` error instead of a success string, success answers `true`
+   once the screen is up, and the multi-leg `_lastKnownLocation!` unwrap is gone.

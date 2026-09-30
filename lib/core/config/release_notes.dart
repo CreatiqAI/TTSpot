@@ -10,6 +10,23 @@ class ReleaseNote {
 
 const kReleaseNotes = <ReleaseNote>[
   ReleaseNote(
+    version: '0.3.43',
+    date: '1 Oct 2026',
+    title: 'TiTi knows your stuff',
+    points: [
+      'TiTi now sees your points, vouchers, cards, meets and car papers, and tells you what matters, like road tax running out.',
+      'Ask TiTi for this week's fuel prices or a road tax estimate.',
+      'TiTi can do things for you with one tap: join a meet, save a spot, get directions, claim a voucher.',
+      'Send TiTi a photo: what car is this, is this tyre worn, what is this warning light.',
+      'Several chats with TiTi, and smoother typing.',
+      'Every chat message shows its time, with Today and Yesterday dividers.',
+      'Blind box odds are in the shop, Rare or better is guaranteed within 10 boxes, and only 100 Legendary cards will ever exist, each numbered.',
+      'Tall photos fit on the post page; swipe down or sideways to close a full-screen photo.',
+      'See other people's garage from their profile.',
+      'Message notifications work again, and the logo no longer turns dark in dark mode.',
+    ],
+  ),
+  ReleaseNote(
     version: '0.3.42',
     date: '30 Sep 2026',
     title: 'Meet TiTi',

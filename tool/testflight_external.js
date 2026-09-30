@@ -68,10 +68,16 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 /// Title and points of the newest ReleaseNote, as TestFlight's "What to Test".
 function whatsNew() {
   const src = fs.readFileSync(path.join(__dirname, '..', 'lib', 'core', 'config', 'release_notes.dart'), 'utf8');
-  const first = src.slice(src.indexOf('ReleaseNote('), src.indexOf('),', src.indexOf('points:')));
-  const title = (first.match(/title:\s*'((?:\\'|[^'])*)'/) || [])[1] || '';
-  const points = [...first.slice(first.indexOf('points:')).matchAll(/'((?:\\'|[^'])*)'/g)].map((m) => m[1]);
-  const text = [title, ...points.map((p) => `• ${p}`)].join('\n').replace(/\\'/g, "'");
+  // Dart strings here are 'single' or "double" quoted (double when the text
+  // has an apostrophe), so read both kinds.
+  const str = String.raw`'((?:\\.|[^'\\])*)'|"((?:\\.|[^"\\])*)"`;
+  const start = src.indexOf('ReleaseNote(', src.indexOf('kReleaseNotes'));
+  const pointsAt = src.indexOf('points:', start);
+  const first = src.slice(start, src.indexOf('],', pointsAt));
+  const t = first.match(new RegExp(String.raw`title:\s*(?:${str})`));
+  const title = t ? t[1] ?? t[2] : '';
+  const points = [...first.slice(first.indexOf('points:')).matchAll(new RegExp(str, 'g'))].map((m) => m[1] ?? m[2]);
+  const text = [title, ...points.map((p) => `• ${p}`)].join('\n').replace(/\\(['"$\\])/g, '$1');
   return text.slice(0, 3900) || 'Bug fixes and improvements.';
 }
 

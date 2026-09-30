@@ -10,6 +10,22 @@ class ReleaseNote {
 
 const kReleaseNotes = <ReleaseNote>[
   ReleaseNote(
+    version: '0.3.44',
+    date: '1 Oct 2026',
+    title: 'New cards, tidier profile',
+    points: [
+      'All seven cards are redrawn: TiTi sits on every one, with a cleaner frame and softer backgrounds.',
+      'Rare cards have a silver frame, and the top card is now called Secret. Only 100 will ever exist, each numbered.',
+      'The count on duplicate cards sits on the corner, clear of the art.',
+      'New when adding a car: Hide my number plate. It is off unless you turn it on, and you can tap a photo to move the blur onto the plate.',
+      "Message owner on someone's car now opens your chat with them.",
+      'Your points sit in a neat pill under your numbers.',
+      'People without a profile photo show the same TiTi everywhere in the app.',
+      'Chats with someone who deleted their account now say Deleted account.',
+      'Your glow on the map is round and smooth.',
+    ],
+  ),
+  ReleaseNote(
     version: '0.3.43',
     date: '1 Oct 2026',
     title: 'TiTi knows your stuff',

@@ -178,6 +178,8 @@ class _Row extends ConsumerWidget {
           n.eventId == null ? null : Routes.event(n.eventId!)
         ),
       NotificationType.luckyDraw => (n.body ?? 'Lucky draw update.', n.eventId == null ? null : Routes.event(n.eventId!)),
+      // Road tax / insurance running out; the body is the whole sentence.
+      NotificationType.carDoc => (n.body ?? 'A car document runs out soon.', Routes.myGarage),
       NotificationType.unknown => ('did something.', null),
     };
     final systemMessage = n.type == NotificationType.badge ||
@@ -191,7 +193,8 @@ class _Row extends ConsumerWidget {
         (n.type == NotificationType.clubOfficial && n.actor == null) ||
         n.type == NotificationType.voucher ||
         (n.type == NotificationType.cards && n.actor == null) ||
-        n.type == NotificationType.portrait;
+        n.type == NotificationType.portrait ||
+        n.type == NotificationType.carDoc;
 
     return InkWell(
       onTap: route == null ? null : () => context.push(route),
@@ -222,6 +225,7 @@ class _Row extends ConsumerWidget {
                     NotificationType.meetStart => '🏁',
                     NotificationType.luckyDraw => '🎉',
                     NotificationType.announcement => '📣',
+                    NotificationType.carDoc => '📅',
                     _ => '⏰',
                   },
                   size: 26,

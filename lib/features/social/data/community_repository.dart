@@ -276,33 +276,6 @@ class CommunityRepository {
     return rows.map(Event.fromMap).toList();
   }
 
-  // ------------------------------------------------------------- car mods ---
-
-  Future<List<CarMod>> carMods(String carId) async {
-    final rows = await _client.from('car_mods').select().eq('car_id', carId).order('done_on', ascending: false);
-    return rows.map(CarMod.fromMap).toList();
-  }
-
-  Future<CarMod> addMod({required String carId, required String title, String? description, double? cost, required DateTime doneOn, required List<String> photoUrls}) async {
-    final row = await _client
-        .from('car_mods')
-        .insert({
-          'car_id': carId,
-          'title': title.trim(),
-          'description': ?description?.trim(),
-          'cost': ?cost,
-          'done_on': doneOn.toIso8601String().substring(0, 10),
-          'photo_urls': photoUrls,
-        })
-        .select()
-        .single();
-    return CarMod.fromMap(row);
-  }
-
-  Future<void> deleteMod(String id) => _client.from('car_mods').delete().eq('id', id);
-
-  Future<void> setShowSpend(String carId, bool show) => _client.from('cars').update({'show_spend': show}).eq('id', carId);
-
   /// [thumb]: also upload a grid thumbnail (not for logos, which are small already).
   Future<String> uploadPhoto({required String userId, required Uint8List bytes, String folder = 'mods', bool thumb = true}) async {
     final path = '$userId/$folder/${DateTime.now().microsecondsSinceEpoch}.jpg';

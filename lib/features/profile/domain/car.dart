@@ -9,7 +9,6 @@ class Car {
     this.description,
     required this.photoUrls,
     required this.createdAt,
-    this.showSpend = true,
     this.color,
     this.isDefault = false,
     this.portraitUrl,
@@ -25,7 +24,6 @@ class Car {
   final String? description;
   final List<String> photoUrls;
   final DateTime createdAt;
-  final bool showSpend;
   /// One of kCarColors keys (red, black, white, grey, silver, blue, yellow, green, orange).
   final String? color;
   /// Fronts the profile, drives on the map, goes with me to meets.
@@ -51,7 +49,6 @@ class Car {
         description: m['description'] as String?,
         photoUrls: ((m['photo_urls'] as List?) ?? const []).cast<String>(),
         createdAt: DateTime.parse(m['created_at'] as String).toLocal(),
-        showSpend: (m['show_spend'] as bool?) ?? true,
         color: m['color'] as String?,
         isDefault: m['is_default'] as bool? ?? false,
         portraitUrl: m['portrait_url'] as String?,

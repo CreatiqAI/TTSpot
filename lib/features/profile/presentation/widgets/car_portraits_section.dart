@@ -20,6 +20,7 @@ class CarPortraitsSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final portraits = ref.watch(carPortraitsProvider(car.id)).value ?? const <CarPortrait>[];
+    final cost = ref.watch(portraitSettingsProvider).value?.cost ?? kDefaultPortraitCost;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -61,7 +62,10 @@ class CarPortraitsSection extends ConsumerWidget {
                         children: [
                           const Text('Turn a photo into artwork', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
                           const SizedBox(height: 2),
-                          Text('${kPortraitStyles.length} looks, plate blanked, ready in about a minute.', style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
+                          Text(
+                            '${kPortraitStyles.length} looks, plate blanked, ready in about a minute.${cost > 0 ? ' $cost points each.' : ''}',
+                            style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
+                          ),
                         ],
                       ),
                     ),
@@ -114,7 +118,12 @@ class _PortraitTile extends ConsumerWidget {
               Icon(AppIcons.warning, size: 20, color: AppColors.danger),
               const Spacer(),
               Text('Didn\'t come out', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
-              Text(portrait.error ?? 'Try another style.', maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+              Text(
+                portrait.refunded ? 'Your ${portrait.pointsSpent} points are back. Try again.' : (portrait.error ?? 'Try another style.'),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
+              ),
             ],
           ),
         ),

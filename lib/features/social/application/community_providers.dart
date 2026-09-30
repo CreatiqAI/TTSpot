@@ -7,7 +7,6 @@ import '../../../core/supabase/supabase_client.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../auth/domain/profile.dart';
 import '../../events/domain/event.dart';
-import '../../profile/application/profile_providers.dart';
 import '../data/community_repository.dart';
 import '../domain/club.dart';
 
@@ -102,10 +101,6 @@ final savedPlacesProvider = FutureProvider<List<Place>>((ref) async {
 
 /// Ids of my saved spots, for bookmark toggles and the map's saved mark.
 final savedPlaceIdsProvider = Provider<Set<String>>((ref) => {for (final p in ref.watch(savedPlacesProvider).value ?? const <Place>[]) p.id});
-
-// --------------------------------------------------------------- car mods ---
-
-final carModsProvider = FutureProvider.family<List<CarMod>, String>((ref, carId) => ref.watch(communityRepositoryProvider).carMods(carId));
 
 class CommunityActions {
   CommunityActions(this._ref);
@@ -241,26 +236,6 @@ class CommunityActions {
   Future<Place> createPlace({required String name, required String kind, required double lat, required double lng}) async {
     if (name.trim().length < 2) throw const AppException('Give the place a name.');
     return _repo.createPlace(me: _me, name: name, kind: kind, lat: lat, lng: lng);
-  }
-
-  Future<void> addMod({required String carId, required String title, String? description, double? cost, required DateTime doneOn, List<XFile> photos = const []}) async {
-    if (title.trim().length < 2) throw const AppException('What did you change? e.g. Coilovers.');
-    final urls = <String>[];
-    for (final f in photos.take(5)) {
-      urls.add(await _repo.uploadPhoto(userId: _me, bytes: await f.readAsBytes()));
-    }
-    await _repo.addMod(carId: carId, title: title, description: description, cost: cost, doneOn: doneOn, photoUrls: urls);
-    _ref.invalidate(carModsProvider(carId));
-  }
-
-  Future<void> deleteMod(String carId, String modId) async {
-    await _repo.deleteMod(modId);
-    _ref.invalidate(carModsProvider(carId));
-  }
-
-  Future<void> setShowSpend(String carId, bool show) async {
-    await _repo.setShowSpend(carId, show);
-    _ref.invalidate(carProvider(carId));
   }
 }
 

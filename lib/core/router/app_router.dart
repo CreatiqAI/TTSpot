@@ -55,6 +55,7 @@ import '../../features/cards/presentation/new_trade_screen.dart';
 import '../../features/cards/presentation/open_box_screen.dart';
 import '../../features/profile/presentation/badges_screen.dart';
 import '../../features/profile/presentation/car_detail_screen.dart';
+import '../../features/profile/presentation/car_documents_screen.dart';
 import '../../features/profile/presentation/car_form_screen.dart';
 import '../../features/profile/presentation/car_mod_form_screen.dart';
 import '../../features/profile/presentation/edit_profile_screen.dart';
@@ -196,6 +197,8 @@ abstract final class Routes {
   static String car(String id) => '/car/$id';
   static String editCar(String id) => '/car/$id/edit';
   static String newCarMod(String carId) => '/car/$carId/mods/new';
+  static String editCarMod(String carId, String modId) => '/car/$carId/mods/$modId/edit';
+  static String carDocuments(String carId) => '/car/$carId/documents';
   static String post(String id) => '/post/$id';
   static String createPost(PostKind kind, {String? eventId, String? carId, String? placeId, String? clubId, bool asClub = false, String? vendorId}) {
     final q = <String, String>{
@@ -349,6 +352,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         routes: [
           GoRoute(path: 'edit', pageBuilder: (_, s) => page(s, CarFormScreen(carId: s.pathParameters['id']!))),
           GoRoute(path: 'mods/new', pageBuilder: (_, s) => page(s, CarModFormScreen(carId: s.pathParameters['id']!))),
+          GoRoute(path: 'mods/:modId/edit', pageBuilder: (_, s) => page(s, CarModFormScreen(carId: s.pathParameters['id']!, modId: s.pathParameters['modId']))),
+          GoRoute(path: 'documents', pageBuilder: (_, s) => page(s, CarDocumentsScreen(carId: s.pathParameters['id']!))),
         ],
       ),
       GoRoute(path: '/post/:id', pageBuilder: (_, s) => page(s, PostDetailScreen(postId: s.pathParameters['id']!))),

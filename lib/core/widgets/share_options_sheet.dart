@@ -195,8 +195,9 @@ class _SendSheetState extends ConsumerState<_SendSheet> {
   Widget build(BuildContext context) {
     final inbox = ref.watch(inboxProvider).value ?? const <Conversation>[];
     final friends = ref.watch(friendsProvider).value ?? const <Profile>[];
-    // Chats with something in them; an empty DM counts as "not chatted yet".
-    final chats = inbox.where((c) => c.isMeet || c.lastMessage != null).toList();
+    // Chats with something in them (an empty DM counts as "not chatted yet"),
+    // and only ones we can name: a DM whose other side is gone just says "Chat".
+    final chats = inbox.where((c) => (c.isMeet || c.lastMessage != null) && (c.isMeet || c.showEntity || c.other != null)).toList();
     final dmWith = {for (final c in chats) if (!c.isMeet && !c.hasEntity && c.other != null) c.other!.id};
     final shownChats = chats.where((c) => _matches(c.title, c.other?.username)).toList();
     final shownFriends = friends.where((f) => !dmWith.contains(f.id) && _matches(f.displayName, f.username)).toList();
@@ -236,7 +237,11 @@ class _SendSheetState extends ConsumerState<_SendSheet> {
                               leading: UserAvatar(url: c.avatarUrl, name: c.title, seed: c.other?.id ?? c.id, size: 44),
                               title: Text(c.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600)),
                               subtitle: Text(
-                                c.isMeet ? 'Meet chat · ${c.members.length} people' : (c.other?.username == null ? 'Chat' : '@${c.other!.username}'),
+                                c.isMeet
+                                    ? 'Meet chat · ${c.members.length} ${c.members.length == 1 ? 'person' : 'people'}'
+                                    : c.showEntity
+                                        ? (c.clubId != null ? 'Club chat' : 'Partner chat')
+                                        : '@${c.other?.username ?? ''}',
                                 style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
                               ),
                               trailing: tick('c:${c.id}'),

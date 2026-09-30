@@ -104,6 +104,15 @@ class Conversation {
   /// Personal view of a "message the club" chat shows the club; the club's
   /// managers see the person instead.
   bool get showEntity => !isMeet && hasEntity && !viewAsEntity;
-  String get title => isMeet ? (eventTitle ?? 'Meet chat') : showEntity ? (entityName ?? 'Chat') : (other?.displayName ?? other?.username ?? 'Chat');
+  /// A one-to-one chat whose other person has since deleted their account:
+  /// only the viewer is left in it.
+  bool get otherGone => !isMeet && !showEntity && other == null;
+  String get title => isMeet
+      ? (eventTitle ?? 'Meet chat')
+      : showEntity
+          ? (entityName ?? 'Chat')
+          : otherGone
+              ? 'Deleted account'
+              : (other!.displayName ?? other!.username ?? 'Chat');
   String? get avatarUrl => showEntity ? entityLogo : other?.avatarUrl;
 }

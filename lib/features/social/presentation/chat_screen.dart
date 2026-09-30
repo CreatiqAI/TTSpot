@@ -264,7 +264,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           child: Row(
             children: [
               if (conv != null && !conv.isMeet) ...[
-                UserAvatar(url: conv.avatarUrl, name: conv.title, seed: conv.showEntity ? null : conv.other?.id, size: 32, fallbackAsset: conv.showEntity && conv.clubId != null ? crestAsset(conv.clubId!) : null),
+                UserAvatar(url: conv.avatarUrl, name: conv.otherGone ? null : conv.title, seed: conv.showEntity ? null : conv.other?.id, size: 32, fallbackAsset: conv.showEntity && conv.clubId != null ? crestAsset(conv.clubId!) : null),
                 const SizedBox(width: 10),
               ],
               Expanded(
@@ -272,7 +272,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(conv?.title ?? 'Chat', maxLines: 1, overflow: TextOverflow.ellipsis, style: AppText.screenTitle),
-                    if (conv != null)
+                    if (conv != null && !conv.otherGone)
                       Text(
                         conv.isMeet
                             ? '${conv.members.length} going'
@@ -304,6 +304,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               error: (e, _) => Center(child: Text(friendlyError(e))),
               data: (all) {
                 final list = all.where((m) => !blocked.contains(m.senderId)).toList();
+                if (list.isEmpty && (conv?.otherGone ?? false)) return const SizedBox.shrink();
                 if (list.isEmpty) {
                   final other = conv?.other;
                   final first = (other?.displayName ?? other?.username ?? '').split(' ').first;
@@ -379,23 +380,36 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               },
             ),
           ),
-          ChatComposer(
-            controller: _text,
-            sending: _sending,
-            onSend: _send,
-            onPlus: _plus,
-            onCamera: _cameraMenu,
-            recording: _recording,
-            cancelling: _cancelling,
-            elapsed: _elapsed,
-            onRecordStart: _startRecording,
-            onRecordMove: (dx) {
-              _dragX = dx;
-              final c = _dragX < -80;
-              if (c != _cancelling) setState(() => _cancelling = c);
-            },
-            onRecordEnd: ({required bool send}) => _stopRecording(send: send),
-          ),
+          if (conv?.otherGone ?? false)
+            SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 12, 24, 14),
+                child: Text(
+                  'This account was deleted, so messages can no longer be sent here.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                ),
+              ),
+            )
+          else
+            ChatComposer(
+              controller: _text,
+              sending: _sending,
+              onSend: _send,
+              onPlus: _plus,
+              onCamera: _cameraMenu,
+              recording: _recording,
+              cancelling: _cancelling,
+              elapsed: _elapsed,
+              onRecordStart: _startRecording,
+              onRecordMove: (dx) {
+                _dragX = dx;
+                final c = _dragX < -80;
+                if (c != _cancelling) setState(() => _cancelling = c);
+              },
+              onRecordEnd: ({required bool send}) => _stopRecording(send: send),
+            ),
         ],
       ),
     );

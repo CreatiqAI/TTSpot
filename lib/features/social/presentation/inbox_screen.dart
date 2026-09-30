@@ -428,7 +428,7 @@ class _ChatTile extends StatelessWidget {
                     : ThumbImage(c.eventCover!, error: ColoredBox(color: AppColors.surfaceGray)),
               ),
             )
-          : UserAvatar(url: c.avatarUrl, name: c.title, seed: c.showEntity ? null : c.other?.id, size: 48, fallbackAsset: c.showEntity && c.clubId != null ? crestAsset(c.clubId!) : null),
+          : UserAvatar(url: c.avatarUrl, name: c.otherGone ? null : c.title, seed: c.showEntity ? null : c.other?.id, size: 48, fallbackAsset: c.showEntity && c.clubId != null ? crestAsset(c.clubId!) : null),
       title: Row(
         children: [
           Flexible(child: Text(c.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontWeight: c.unread > 0 ? FontWeight.w700 : FontWeight.w600))),

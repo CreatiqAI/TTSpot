@@ -667,7 +667,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       scale: pinScale * 1.1,
     );
   }
-  CarMarkerFactory get _carFactory => _cars ??= CarMarkerFactory(devicePixelRatio: MediaQuery.devicePixelRatioOf(context), pins: _pinFactory);
+  /// Dropped by [build] when the map switches between day and night (my halo differs).
+  CarMarkerFactory get _carFactory => _cars ??= CarMarkerFactory(devicePixelRatio: MediaQuery.devicePixelRatioOf(context), pins: _pinFactory, night: _isNight);
 
   /// From a zoomed-out view, glide in to the pin first, then open its page.
   /// Up close, open straight away.
@@ -1145,6 +1146,12 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       if (_newData(p, n)) _scheduleRebuild();
     });
     MapPalette.defaultLight = !_isNight;
+    // Day <-> night keeps this screen (the shell's navigator keeps its
+    // state), but my halo is painted per map style: redraw the pins.
+    if (_cars != null && _cars!.night != _isNight) {
+      _cars = null;
+      _scheduleRebuild();
+    }
 
     final mode = ref.watch(mapModeProvider);
     final hasLocation = ref.watch(userLocationProvider).value != null;

@@ -14,8 +14,9 @@ import '../application/cards_providers.dart';
 import '../domain/cards.dart';
 import 'widgets/card_face.dart';
 
-/// Admin · Cards: numbers, odds and box price, the 7 designs (swap in the
-/// final art by URL), prizes, claims waiting to be handed over, giveaways.
+/// Admin · Cards: numbers, odds, the legendary run and box price, the 7
+/// designs (swap in the final art by URL), prizes, claims waiting to be
+/// handed over, giveaways.
 class AdminCardsScreen extends ConsumerWidget {
   const AdminCardsScreen({super.key});
 
@@ -26,11 +27,13 @@ class AdminCardsScreen extends ConsumerWidget {
     final types = ref.watch(cardTypesProvider).value ?? const <CardType>[];
     final rewards = ref.watch(adminCardRewardsProvider).value ?? const <CardReward>[];
     final claims = ref.watch(adminCardClaimsProvider).value ?? const <AdminCardClaim>[];
+    final odds = ref.watch(boxOddsProvider).value;
     final byRarity = (stats['by_rarity'] as Map?)?.cast<String, dynamic>() ?? const {};
 
     Future<void> refresh() async {
       ref.invalidate(adminCardStatsProvider);
       ref.invalidate(cardSettingsProvider);
+      ref.invalidate(boxOddsProvider);
       ref.invalidate(cardTypesProvider);
       ref.invalidate(adminCardRewardsProvider);
       ref.invalidate(adminCardClaimsProvider);
@@ -78,7 +81,11 @@ class AdminCardsScreen extends ConsumerWidget {
                   const SizedBox(width: 8),
                   AdminStat(label: 'Prizes waiting', value: '${stats['claims_waiting'] ?? '–'}', delta: '${stats['claims_30d'] ?? 0} claimed · 30 d'),
                   const SizedBox(width: 8),
-                  AdminStat(label: 'Legendary out', value: '${byRarity['legendary'] ?? 0}', delta: '${byRarity['rare'] ?? 0} rare · ${byRarity['common'] ?? 0} common'),
+                  AdminStat(
+                    label: 'Legendary issued',
+                    value: odds == null ? '–' : '${odds.legendaryIssued}/${odds.legendaryTotal}',
+                    delta: '${byRarity['rare'] ?? 0} rare · ${byRarity['common'] ?? 0} common',
+                  ),
                 ],
               ),
             ),
@@ -86,9 +93,21 @@ class AdminCardsScreen extends ConsumerWidget {
             const AdminHead('SETTINGS'),
             ListTile(
               title: const Text('Drop odds', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14.5)),
-              subtitle: Text('${settings.pct(CardRarity.common).round()}% common · ${settings.pct(CardRarity.rare).round()}% rare · ${settings.pct(CardRarity.legendary).round()}% legendary', style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
+              subtitle: Text(
+                '${settings.summary}${odds != null && odds.soldOut ? '\nLegendary is sold out: boxes drop ${odds.summary}' : ''}',
+                style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
+              ),
               trailing: Icon(AppIcons.caretRight, size: 16, color: AppColors.textMuted),
               onTap: () => _editOdds(context, ref, settings),
+            ),
+            ListTile(
+              title: const Text('Legendary run', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14.5)),
+              subtitle: Text(
+                odds == null ? '–' : '${odds.legendaryIssued} of ${odds.legendaryTotal} issued · ${odds.soldOut ? 'sold out' : '${odds.legendaryLeft} left'}',
+                style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
+              ),
+              trailing: Icon(AppIcons.caretRight, size: 16, color: AppColors.textMuted),
+              onTap: odds == null ? null : () => _editLegendaryTotal(context, ref, odds),
             ),
             ListTile(
               title: const Text('Box price', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14.5)),
@@ -197,13 +216,13 @@ class AdminCardsScreen extends ConsumerWidget {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(controller: c, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Common')),
+            TextField(controller: c, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'Common')),
             const SizedBox(height: 8),
-            TextField(controller: r, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Rare')),
+            TextField(controller: r, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'Rare')),
             const SizedBox(height: 8),
-            TextField(controller: l, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Legendary')),
+            TextField(controller: l, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'Legendary')),
             const SizedBox(height: 8),
-            Text('Shown to members as-is. Make them add up to 100.', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+            Text('Shown to members as-is. Make them add up to 100. Decimals are fine (0.5).', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
           ],
         ),
         actions: [
@@ -220,6 +239,22 @@ class AdminCardsScreen extends ConsumerWidget {
     }
     try {
       await ref.read(cardsActionsProvider).setOdds(common: vc, rare: vr, legendary: vl);
+    } catch (e) {
+      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
+    }
+  }
+
+  /// Copies that will ever exist. Can't go below what is already out.
+  Future<void> _editLegendaryTotal(BuildContext context, WidgetRef ref, BoxOdds odds) async {
+    final v = await _askNumber(context, 'Legendary copies in total', odds.legendaryTotal.toDouble());
+    if (v == null || !context.mounted) return;
+    final total = v.round();
+    if (total < odds.legendaryIssued) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${odds.legendaryIssued} are already out. Pick ${odds.legendaryIssued} or more.')));
+      return;
+    }
+    try {
+      await ref.read(cardsActionsProvider).setLegendaryTotal(total);
     } catch (e) {
       if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
     }

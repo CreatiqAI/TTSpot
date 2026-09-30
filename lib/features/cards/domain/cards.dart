@@ -82,13 +82,15 @@ class CardType {
 
 /// One copy I own (or owned: `redeemed` rows were spent on a prize).
 class UserCard {
-  const UserCard({required this.id, required this.cardId, required this.status, required this.source, required this.acquiredAt, this.redeemedAt});
+  const UserCard({required this.id, required this.cardId, required this.status, required this.source, required this.acquiredAt, this.redeemedAt, this.serial});
   final String id;
   final String cardId;
   final String status; // held | redeemed
   final String source; // box | trade | admin
   final DateTime acquiredAt;
   final DateTime? redeemedAt;
+  /// Legendary copies only: which of the limited run this is ("No. 37 of 100").
+  final int? serial;
 
   bool get held => status == 'held';
 
@@ -99,6 +101,7 @@ class UserCard {
         source: m['source'] as String? ?? 'box',
         acquiredAt: DateTime.parse(m['acquired_at'] as String).toLocal(),
         redeemedAt: m['redeemed_at'] == null ? null : DateTime.parse(m['redeemed_at'] as String).toLocal(),
+        serial: (m['serial'] as num?)?.toInt(),
       );
 }
 
@@ -168,6 +171,9 @@ class CardCollection {
 
   /// Held copies of a card, oldest first (what a trade offers first).
   List<UserCard> copiesOf(String cardId) => held.where((c) => c.cardId == cardId).toList()..sort((a, b) => a.acquiredAt.compareTo(b.acquiredAt));
+
+  /// Serial numbers of the held copies of a limited card, lowest first.
+  List<int> serialsOf(String cardId) => [for (final c in held) if (c.cardId == cardId && c.serial != null) c.serial!]..sort();
 
   /// Null when I can claim [r]; otherwise the one-line reason I can't.
   String? shortfall(CardReward r) {
@@ -528,6 +534,9 @@ class CardSettings {
   num get total => common + rare + legendary;
   double pct(CardRarity r) => total == 0 ? 0 : 100 * (switch (r) { CardRarity.common => common, CardRarity.rare => rare, CardRarity.legendary => legendary }) / total;
 
+  /// The odds as set, e.g. "89.5% common · 10% rare · 0.5% legendary".
+  String get summary => [for (final r in CardRarity.values) '${fmtPct(pct(r))}% ${r.label.toLowerCase()}'].join(' · ');
+
   factory CardSettings.fromSettings(Map<String, dynamic> s) {
     final odds = (s['card_odds'] as Map?)?.cast<String, dynamic>() ?? const {};
     return CardSettings(
@@ -538,4 +547,82 @@ class CardSettings {
       tradeMax: (s['trade_max_cards'] as num?)?.toInt() ?? 9,
     );
   }
+}
+
+/// What a box can drop right now (`box_odds`), computed on the server from
+/// the same weights the roll uses: the legendary run already counted, cards
+/// of one rarity sharing its slice. `pity*` = the odds on a guaranteed box.
+class BoxOdds {
+  const BoxOdds({
+    required this.rarity,
+    required this.pityRarity,
+    required this.cards,
+    required this.pityCards,
+    required this.legendaryTotal,
+    required this.legendaryIssued,
+    required this.pityEvery,
+    this.pityStreak,
+  });
+
+  /// Percent per rarity and per card id, for a plain box.
+  final Map<CardRarity, double> rarity;
+  final Map<CardRarity, double> pityRarity;
+  final Map<String, double> cards;
+  final Map<String, double> pityCards;
+  /// The limited legendary run: copies that will ever exist, and how many are out.
+  final int legendaryTotal;
+  final int legendaryIssued;
+  /// A rare or better is guaranteed at least once in this many boxes.
+  final int pityEvery;
+  /// My boxes since my last rare or better. Null when signed out.
+  final int? pityStreak;
+
+  int get legendaryLeft => (legendaryTotal - legendaryIssued).clamp(0, legendaryTotal);
+  bool get soldOut => legendaryLeft <= 0;
+  /// The guarantee lands within this many more boxes (1 = the next one).
+  int get pityLeft => (pityEvery - (pityStreak ?? 0)).clamp(1, pityEvery);
+  bool get pityNext => pityLeft == 1;
+
+  double pct(CardRarity r) => rarity[r] ?? 0;
+  double cardPct(String id) => cards[id] ?? 0;
+
+  /// "89.5% common · 10% rare · 0.5% legendary", skipping what can't drop.
+  String get summary => [
+        for (final r in CardRarity.values)
+          if (pct(r) > 0) '${fmtPct(pct(r))}% ${r.label.toLowerCase()}',
+      ].join(' · ');
+
+  /// "Only 100 exist · 99 left", or "Sold out" once the run is gone.
+  String get limitedLine => soldOut ? 'Sold out' : 'Only $legendaryTotal exist · $legendaryLeft left';
+
+  String get pityLine => pityNext ? 'Your next box is guaranteed Rare or better' : 'Rare or better guaranteed within $pityLeft more boxes';
+
+  factory BoxOdds.fromMap(Map<String, dynamic> m) {
+    Map<CardRarity, double> rarities(Object? v) {
+      final o = (v as Map?)?.cast<String, dynamic>() ?? const {};
+      return {for (final r in CardRarity.values) r: (o[r.db] as num?)?.toDouble() ?? 0};
+    }
+
+    final list = ((m['cards'] as List?) ?? const []).map((e) => (e as Map).cast<String, dynamic>()).toList();
+    return BoxOdds(
+      rarity: rarities(m['odds']),
+      pityRarity: rarities(m['pity_odds']),
+      cards: {for (final c in list) c['card_id'] as String: (c['percent'] as num?)?.toDouble() ?? 0},
+      pityCards: {for (final c in list) c['card_id'] as String: (c['pity_percent'] as num?)?.toDouble() ?? 0},
+      legendaryTotal: (m['legendary_total'] as num?)?.toInt() ?? 0,
+      legendaryIssued: (m['legendary_issued'] as num?)?.toInt() ?? 0,
+      pityEvery: (m['pity_every'] as num?)?.toInt() ?? 10,
+      pityStreak: (m['pity_streak'] as num?)?.toInt(),
+    );
+  }
+}
+
+/// A percentage without noise: 89.5 → "89.5", 10 → "10", 22.375 → "22.4",
+/// 4.7619 → "4.76", 0.5 → "0.5". Anything above 0 that would round to 0
+/// reads "<0.01".
+String fmtPct(num v) {
+  if (v <= 0) return '0';
+  final s = v.toStringAsFixed(v >= 10 ? 1 : 2);
+  final trimmed = s.contains('.') ? s.replaceFirst(RegExp(r'\.?0+$'), '') : s;
+  return trimmed == '0' ? '<0.01' : trimmed;
 }

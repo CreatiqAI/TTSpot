@@ -242,6 +242,15 @@ class _OpenBoxScreenState extends ConsumerState<OpenBoxScreen> with TickerProvid
     return n == null || n < 2 ? name : '$name · 1 IN $n';
   }
 
+  /// "NO. 37 OF 100" for a legendary pull, once the collection refetch lands.
+  String? _serialLabel(BoxResult r) {
+    if (r.card.rarity != CardRarity.legendary) return null;
+    final serial = ref.watch(myCardsProvider).value?.where((c) => c.id == r.userCardId).firstOrNull?.serial;
+    if (serial == null) return null;
+    final total = ref.watch(boxOddsProvider).value?.legendaryTotal;
+    return total == null ? 'NO. $serial' : 'NO. $serial OF $total';
+  }
+
   // ------------------------------------------------------------------- build ---
 
   @override
@@ -590,6 +599,10 @@ class _OpenBoxScreenState extends ConsumerState<OpenBoxScreen> with TickerProvid
                       r.isNew ? 'NEW · first one in your collection' : 'You now have ${r.held} of these',
                       style: TextStyle(color: r.isNew ? AppColors.brand : Colors.white70, fontSize: 13.5, fontWeight: FontWeight.w700),
                     ),
+                    if (_serialLabel(r) case final no?) ...[
+                      const SizedBox(height: 6),
+                      Text(no, style: const TextStyle(fontFamily: AppFonts.display, fontSize: 22, fontWeight: FontWeight.w800, letterSpacing: 1, color: _legendaryGold)),
+                    ],
                     const SizedBox(height: 18),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 24),

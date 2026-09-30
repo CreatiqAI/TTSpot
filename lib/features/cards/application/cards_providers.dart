@@ -18,6 +18,13 @@ final cardSettingsProvider = FutureProvider<CardSettings>((ref) {
   return ref.watch(cardsRepositoryProvider).settings();
 });
 
+/// What a box drops right now, the legendary run and my pity count.
+/// Refetched after every box I open and every odds edit.
+final boxOddsProvider = FutureProvider<BoxOdds>((ref) {
+  ref.watch(currentUserIdProvider);
+  return ref.watch(cardsRepositoryProvider).boxOdds();
+});
+
 final myCardsProvider = FutureProvider<List<UserCard>>((ref) {
   if (ref.watch(currentUserIdProvider) == null) return Future.value(const []);
   return ref.watch(cardsRepositoryProvider).myCards();
@@ -93,6 +100,7 @@ class CardsActions {
   void refreshCollection() {
     _ref.invalidate(myCardsProvider);
     _ref.invalidate(myBoxesProvider);
+    _ref.invalidate(boxOddsProvider); // pity count and legendary stock move with every box
   }
 
   /// Server rolls the card. The caller animates the reveal.
@@ -188,6 +196,13 @@ class CardsActions {
   Future<void> setOdds({required num common, required num rare, required num legendary}) async {
     await _ref.read(adminActionsProvider).setSetting('card_odds', {'common': common, 'rare': rare, 'legendary': legendary});
     _ref.invalidate(cardSettingsProvider);
+    _ref.invalidate(boxOddsProvider);
+  }
+
+  /// How many legendary copies will ever exist.
+  Future<void> setLegendaryTotal(int total) async {
+    await _ref.read(adminActionsProvider).setSetting('legendary_stock_total', total);
+    _ref.invalidate(boxOddsProvider);
   }
 
   Future<void> setBoxCost(int cost) async {

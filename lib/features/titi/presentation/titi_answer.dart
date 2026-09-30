@@ -281,23 +281,23 @@ class _Bubble extends StatelessWidget {
 
 // ----------------------------------------------------------------- time ---
 
-TextStyle _timeStyle(Color? color) => TextStyle(fontSize: 11, height: 1.2, color: color ?? AppColors.textSecondary);
+/// 11 pt secondary grey, like the times in friend chats.
+TextStyle _timeStyle() => TextStyle(fontSize: 11, height: 1.2, color: AppColors.textSecondary);
 
 /// A message's time, WhatsApp style: small, secondary, one line.
 class TitiTime extends StatelessWidget {
-  const TitiTime(this.time, {super.key, this.color});
+  const TitiTime(this.time, {super.key});
   final String time;
-  final Color? color;
 
   @override
-  Widget build(BuildContext context) => Text(time, maxLines: 1, softWrap: false, style: _timeStyle(color));
+  Widget build(BuildContext context) => Text(time, maxLines: 1, softWrap: false, style: _timeStyle());
 }
 
 /// The room a [TitiTime] needs at the end of a bubble's last line (at the
 /// phone's text size), plus a gap before it.
 Size titiTimeRoom(BuildContext context, String time) {
   final p = TextPainter(
-    text: TextSpan(text: time, style: _timeStyle(null)),
+    text: TextSpan(text: time, style: _timeStyle()),
     textDirection: TextDirection.ltr,
     textScaler: MediaQuery.textScalerOf(context),
     maxLines: 1,
@@ -307,27 +307,21 @@ Size titiTimeRoom(BuildContext context, String time) {
   return size;
 }
 
-/// "Today", "Yesterday" or "Mon, 28 Sep", in a small centred pill between days.
+/// "Today", "Yesterday", "Monday", "28 Sep": a small centred pill between
+/// days, the same as in friend chats.
 class TitiDayPill extends StatelessWidget {
   const TitiDayPill(this.day, {super.key});
   final DateTime day;
 
   @override
-  Widget build(BuildContext context) {
-    final now = DateTime.now();
-    final diff = DateUtils.dateOnly(now).difference(DateUtils.dateOnly(day)).inDays;
-    final label = diff == 0 ? 'Today' : diff == 1 ? 'Yesterday' : formatDate(day);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      child: Center(
+  Widget build(BuildContext context) => Center(
         child: Container(
+          margin: const EdgeInsets.fromLTRB(0, 8, 0, 12),
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(color: AppColors.surfaceGray, borderRadius: BorderRadius.circular(999)),
-          child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
+          decoration: BoxDecoration(color: AppColors.surfaceGray, borderRadius: BorderRadius.circular(AppRadius.pill)),
+          child: Text(formatDayLabel(day), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
         ),
-      ),
-    );
-  }
+      );
 }
 
 /// Fades and slides a new piece in once, on its first build.

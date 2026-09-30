@@ -13,6 +13,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/titi.dart';
 import '../../../core/utils/dates.dart';
 import '../../../core/widgets/photo_picker_sheet.dart';
+import '../../social/presentation/widgets/chat_media.dart' show ChatTimePill;
 import '../application/titi_controller.dart';
 import '../domain/titi_message.dart';
 import 'titi_answer.dart';
@@ -308,11 +309,10 @@ class _TitiScreenState extends ConsumerState<TitiScreen> {
     for (var i = 0; i < s.messages.length; i++) {
       final part = i < base ? loaded : fresh;
       final at = s.messages[i].at;
-      final d = at == null ? null : DateUtils.dateOnly(at);
-      if (d != null && d != day) {
-        final pill = TitiDayPill(d, key: ValueKey('day-$d'));
-        part.add(i < base ? pill : TitiAppear(key: ValueKey('day-$d'), child: TitiDayPill(d)));
-        day = d;
+      if (at != null && (day == null || !isSameDay(day, at))) {
+        final key = ValueKey('day-${DateUtils.dateOnly(at)}');
+        part.add(i < base ? TitiDayPill(at, key: key) : TitiAppear(key: key, child: TitiDayPill(at)));
+        day = at;
       }
       part.add(row(i));
     }
@@ -490,16 +490,8 @@ class _Photo extends StatelessWidget {
                 gaplessPlayback: true,
                 errorBuilder: (_, _, _) => Icon(AppIcons.imageBroken, color: AppColors.textMuted),
               ),
-            if (t != null)
-              Positioned(
-                right: 6,
-                bottom: 6,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.45), borderRadius: BorderRadius.circular(999)),
-                  child: TitiTime(t, color: Colors.white),
-                ),
-              ),
+            // The same pill friend chats put on photos.
+            if (t != null) Positioned(right: 8, bottom: 8, child: ChatTimePill(t)),
           ],
         ),
       ),

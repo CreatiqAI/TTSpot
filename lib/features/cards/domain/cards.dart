@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
 /// Blind box cards: 7 per set, 4 common · 2 rare · 1 legendary.
+///
+/// Members see the top tier as "Secret" (the name printed on the art); the
+/// enum and the database keep `legendary`.
 enum CardRarity {
   common,
   rare,
@@ -17,13 +20,14 @@ enum CardRarity {
   String get label => switch (this) {
         common => 'Common',
         rare => 'Rare',
-        legendary => 'Legendary',
+        legendary => 'Secret',
       };
 
-  /// Accent used for the ribbon, glow and reveal backdrop.
+  /// Accent used for the ribbon, glow and reveal backdrop. Rare is the silver
+  /// of its holographic frame; see `RarityLook` for the pill fill and text tones.
   Color get color => switch (this) {
         common => const Color(0xFF9AA0A8),
-        rare => const Color(0xFF2B7CFF),
+        rare => const Color(0xFFAFB6C0),
         legendary => const Color(0xFFF5B301),
       };
 }
@@ -340,7 +344,7 @@ class CardReward {
       if (needFullSet) 'Full set',
       if (needCommon > 0) '$needCommon common',
       if (needRare > 0) '$needRare rare',
-      if (needLegendary > 0) '$needLegendary legendary',
+      if (needLegendary > 0) '$needLegendary ${CardRarity.legendary.label.toLowerCase()}',
     ];
     return parts.join(' + ');
   }
@@ -534,7 +538,7 @@ class CardSettings {
   num get total => common + rare + legendary;
   double pct(CardRarity r) => total == 0 ? 0 : 100 * (switch (r) { CardRarity.common => common, CardRarity.rare => rare, CardRarity.legendary => legendary }) / total;
 
-  /// The odds as set, e.g. "89.5% common · 10% rare · 0.5% legendary".
+  /// The odds as set, e.g. "89.5% common · 10% rare · 0.5% secret".
   String get summary => [for (final r in CardRarity.values) '${fmtPct(pct(r))}% ${r.label.toLowerCase()}'].join(' · ');
 
   factory CardSettings.fromSettings(Map<String, dynamic> s) {
@@ -586,14 +590,19 @@ class BoxOdds {
   double pct(CardRarity r) => rarity[r] ?? 0;
   double cardPct(String id) => cards[id] ?? 0;
 
-  /// "89.5% common · 10% rare · 0.5% legendary", skipping what can't drop.
+  /// "89.5% common · 10% rare · 0.5% secret", skipping what can't drop.
   String get summary => [
         for (final r in CardRarity.values)
           if (pct(r) > 0) '${fmtPct(pct(r))}% ${r.label.toLowerCase()}',
       ].join(' · ');
 
-  /// "Only 100 exist · 99 left", or "Sold out" once the run is gone.
+  /// "Only 100 exist · 99 left", or "Sold out" once the run is gone. Short:
+  /// for next to a Secret pill.
   String get limitedLine => soldOut ? 'Sold out' : 'Only $legendaryTotal exist · $legendaryLeft left';
+
+  /// "Only 100 Secret cards exist · 99 left": the same, where nothing else
+  /// names the tier. "N left" never splits across lines.
+  String get secretLine => soldOut ? 'Secret cards sold out' : 'Only $legendaryTotal Secret cards exist · $legendaryLeft left';
 
   String get pityLine => pityNext ? 'Your next box is guaranteed Rare or better' : 'Rare or better guaranteed within $pityLeft more boxes';
 

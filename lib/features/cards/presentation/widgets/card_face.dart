@@ -24,6 +24,38 @@ const kCardAssets = <String, String>{
   'c7': 'assets/cards/c7.jpg',
 };
 
+/// Rare is silver, like the holographic frame on its art.
+const kSilverLight = Color(0xFFC9CED6);
+const kSilverDark = Color(0xFF8E96A3);
+
+/// Brushed silver: a light sheen band across the metal.
+const kSilverGradient = LinearGradient(
+  begin: Alignment.topLeft,
+  end: Alignment.bottomRight,
+  colors: [kSilverLight, Color(0xFFEEF0F3), Color(0xFFAFB6C0), kSilverDark],
+  stops: [0, 0.3, 0.68, 1],
+);
+
+/// How each rarity looks in the UI: grey, silver, gold.
+extension RarityLook on CardRarity {
+  /// Fill for a pill or chip that names the rarity.
+  BoxDecoration pill({double radius = 999}) => BoxDecoration(
+        color: this == CardRarity.rare ? null : color,
+        gradient: this == CardRarity.rare ? kSilverGradient : null,
+        borderRadius: BorderRadius.circular(radius),
+      );
+
+  /// Text and icons on [pill]: ink on silver and gold, white on grey.
+  Color get onPill => this == CardRarity.common ? Colors.white : AppColors.ink;
+
+  /// The rarity as text or an icon straight on the page: silver turns to
+  /// steel on white so it stays readable, and stays silver at night.
+  Color get textColor => switch (this) {
+        CardRarity.rare => AppColors.dark ? kSilverLight : const Color(0xFF5E6672),
+        _ => color,
+      };
+}
+
 /// The image for a card, or null when only the placeholder exists.
 ImageProvider? cardArt(CardType card) {
   if (card.artUrl != null) return CachedNetworkImageProvider(card.artUrl!);
@@ -38,7 +70,10 @@ class CardFace extends StatelessWidget {
 
   final CardType card;
   final double width;
-  /// Copies held; shows a ×N badge when above 1.
+  /// Copies held; shows a ×N badge when above 1. The badge hangs off the
+  /// bottom edge, centred, so it never sits on the logos (top corners), the
+  /// title (bottom left) or the series box (bottom right). It spills about
+  /// half its height below the card: leave ~10 px under it.
   final int? count;
   /// Not owned yet: greyed out with a "?" instead of the art.
   final bool locked;
@@ -111,19 +146,27 @@ class CardFace extends StatelessWidget {
             top: 7 * s,
             child: Text('No. ${card.number}', style: TextStyle(fontFamily: AppFonts.display, fontSize: 11 * s, fontWeight: FontWeight.w700, color: Colors.white.withValues(alpha: 0.85), letterSpacing: 0.5)),
           ),
-          if (count != null && count! > 1)
-            Positioned(
-              right: 7 * s,
-              top: 7 * s,
-              child: Container(
-                padding: EdgeInsets.symmetric(horizontal: 6 * s, vertical: 2 * s),
-                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(999)),
-                child: Text('×$count', style: TextStyle(fontSize: 11 * s, fontWeight: FontWeight.w800, color: AppColors.ink)),
-              ),
-            ),
         ],
       ),
     );
+
+    if (!locked && count != null && count! > 1) {
+      face = Stack(
+        clipBehavior: Clip.none,
+        children: [
+          face,
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: FractionalTranslation(
+              translation: const Offset(0, 0.5),
+              child: Center(child: _CountBadge(count: count!, scale: s)),
+            ),
+          ),
+        ],
+      );
+    }
 
     if (locked) {
       face = Stack(
@@ -154,12 +197,41 @@ class RarityPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
         padding: EdgeInsets.symmetric(horizontal: 7 * scale, vertical: 2.5 * scale),
-        decoration: BoxDecoration(color: rarity.color, borderRadius: BorderRadius.circular(999)),
+        decoration: rarity.pill(),
         child: Text(
           rarity.label.toUpperCase(),
-          style: TextStyle(fontSize: 9 * scale, fontWeight: FontWeight.w800, letterSpacing: 1, color: rarity == CardRarity.legendary ? AppColors.ink : Colors.white),
+          style: TextStyle(fontSize: 9 * scale, fontWeight: FontWeight.w800, letterSpacing: 1, color: rarity.onPill),
         ),
       );
+}
+
+/// "×3" under a card: page-coloured ring so it reads as a tab hanging off
+/// the card, not a sticker on the art.
+class _CountBadge extends StatelessWidget {
+  const _CountBadge({required this.count, required this.scale});
+  final int count;
+  final double scale;
+
+  @override
+  Widget build(BuildContext context) {
+    // never smaller than 9 pt, even on the 46 px trade thumbnails
+    final size = math.max(11 * scale, 9.0);
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: size * 0.55, vertical: size * 0.12),
+      decoration: BoxDecoration(
+        color: AppColors.textPrimary,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: AppColors.bg, width: math.max(1.5 * scale, 1.2)),
+      ),
+      child: Text(
+        '×$count',
+        maxLines: 1,
+        // a touch of growth with the system font size, not enough to reach the next row
+        textScaler: MediaQuery.textScalerOf(context).clamp(maxScaleFactor: 1.2),
+        style: TextStyle(fontSize: size, height: 1.15, fontWeight: FontWeight.w800, color: AppColors.onInk),
+      ),
+    );
+  }
 }
 
 /// Until the real art lands: a huge ghosted number, speed lines, a chequered

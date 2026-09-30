@@ -84,7 +84,7 @@ class _CardsScreenState extends ConsumerState<CardsScreen> with SingleTickerProv
               _rule(AppArt.sparkles, 'Each box holds one of 7 cards. Odds: ${odds?.summary ?? s.summary}.'),
               _rule(
                 AppArt.shield,
-                'Every ${odds?.pityEvery ?? 10} boxes hold at least one Rare or better. Only ${odds?.legendaryTotal ?? 100} legendary cards will ever exist, each with its own number.',
+                'Every ${odds?.pityEvery ?? 10} boxes hold at least one Rare or better. Only ${odds?.legendaryTotal ?? 100} Secret cards will ever exist, each with its own number.',
               ),
               _rule(AppArt.handshake, 'Trade with friends, up to ${s.tradeMax} cards a side. Cards never expire.'),
               _rule(AppArt.trophy, 'Spend cards on prizes. Spent cards leave your collection, so the full set is worth keeping until you want the big one.'),
@@ -180,9 +180,9 @@ class _CollectionTab extends ConsumerWidget {
                 const SizedBox(width: 8),
                 _Tally(label: 'Cards', value: '${col.heldCount}'),
                 const SizedBox(width: 8),
-                _Tally(label: 'Rare', value: '${col.heldOfRarity(CardRarity.rare)}', color: CardRarity.rare.color),
+                _Tally(label: CardRarity.rare.label, value: '${col.heldOfRarity(CardRarity.rare)}', color: CardRarity.rare.textColor),
                 const SizedBox(width: 8),
-                _Tally(label: 'Legendary', value: '${col.heldOfRarity(CardRarity.legendary)}', color: CardRarity.legendary.color),
+                _Tally(label: CardRarity.legendary.label, value: '${col.heldOfRarity(CardRarity.legendary)}', color: CardRarity.legendary.textColor),
               ],
             ),
             if (col.hasFullSet)
@@ -204,7 +204,7 @@ class _CollectionTab extends ConsumerWidget {
                 final w = (c.maxWidth - gap * 2) / 3;
                 return Wrap(
                   spacing: gap,
-                  runSpacing: gap,
+                  runSpacing: gap + 6, // room for the ×N badge hanging off each card
                   children: [
                     for (final t in col.types.where((t) => t.active))
                       GestureDetector(
@@ -262,7 +262,7 @@ class _CollectionTab extends ConsumerWidget {
               ],
               if (t.rarity == CardRarity.legendary && odds != null) ...[
                 const SizedBox(height: 8),
-                Text(odds.limitedLine, textAlign: TextAlign.center, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
+                Text(odds.secretLine, textAlign: TextAlign.center, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
               ],
               const SizedBox(height: 16),
               SizedBox(
@@ -285,7 +285,7 @@ class _CollectionTab extends ConsumerWidget {
 }
 
 /// The box shop: the red box floating on a dark card, what is inside, the
-/// limited legendary run, your points against the price, the pity promise
+/// limited Secret run, your points against the price, the pity promise
 /// and one big button. Dark in both themes on purpose: it is a product shot,
 /// and the red box pops on black.
 class _BoxShop extends StatefulWidget {
@@ -358,7 +358,7 @@ class _BoxShopState extends State<_BoxShop> with SingleTickerProviderStateMixin 
                         children: [
                           const Text('BLIND BOX · SERIES 01', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1.6, color: Color(0xFFFF7A80))),
                           const SizedBox(height: 6),
-                          const Text('7 TITI CARDS.\nONE IS LEGENDARY.', style: TextStyle(fontFamily: AppFonts.display, fontSize: 28, height: 0.98, fontWeight: FontWeight.w800, color: Colors.white)),
+                          const Text('7 TITI CARDS.\nONE IS A SECRET.', style: TextStyle(fontFamily: AppFonts.display, fontSize: 28, height: 0.98, fontWeight: FontWeight.w800, color: Colors.white)),
                           if (widget.odds case final o?) ...[
                             const SizedBox(height: 8),
                             _LimitedBadge(odds: o),
@@ -400,7 +400,7 @@ class _BoxShopState extends State<_BoxShop> with SingleTickerProviderStateMixin 
                 // pity promise + the full odds
                 Row(
                   children: [
-                    Icon(AppIcons.shieldCheck, size: 18, color: widget.odds?.pityNext == true ? CardRarity.legendary.color : const Color(0xFF7FB2FF)),
+                    Icon(AppIcons.shieldCheck, size: 18, color: widget.odds?.pityNext == true ? CardRarity.legendary.color : kSilverLight),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
@@ -448,7 +448,8 @@ class _BoxShopState extends State<_BoxShop> with SingleTickerProviderStateMixin 
   }
 }
 
-/// "Only 100 exist · 99 left" under the headline, gold while any are left.
+/// "Only 100 Secret cards exist · 99 left" under the headline, gold while
+/// any are left.
 class _LimitedBadge extends StatelessWidget {
   const _LimitedBadge({required this.odds});
   final BoxOdds odds;
@@ -471,7 +472,7 @@ class _LimitedBadge extends StatelessWidget {
           const SizedBox(width: 5),
           Flexible(
             child: Text(
-              out ? 'Legendary sold out' : odds.limitedLine,
+              odds.secretLine,
               style: TextStyle(fontSize: 11.5, height: 1.25, fontWeight: FontWeight.w800, color: out ? Colors.white70 : gold),
             ),
           ),
@@ -481,7 +482,7 @@ class _LimitedBadge extends StatelessWidget {
   }
 }
 
-/// "No. 1 of 100" on my copies of a limited card.
+/// "Secret · No. 1 of 100" on my copies of a limited card.
 class _SerialBadge extends StatelessWidget {
   const _SerialBadge({required this.serials, this.total});
   final List<int> serials;
@@ -489,7 +490,7 @@ class _SerialBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final numbers = serials.map((s) => 'No. $s').join(' · ');
+    final numbers = '${CardRarity.legendary.label} · ${serials.map((s) => 'No. $s').join(' · ')}';
     return Container(
       padding: const EdgeInsets.fromLTRB(10, 6, 14, 6),
       decoration: BoxDecoration(color: CardRarity.legendary.color, borderRadius: BorderRadius.circular(999)),
@@ -511,7 +512,7 @@ class _SerialBadge extends StatelessWidget {
   }
 }
 
-/// Every rarity and card with its chance right now, the limited legendary
+/// Every rarity and card with its chance right now, the limited Secret
 /// run and my pity count. Read from `box_odds`, the numbers the roll uses.
 void showBoxOdds(BuildContext context, List<CardType> types) {
   showModalBottomSheet<void>(
@@ -552,7 +553,7 @@ class _OddsSheet extends ConsumerWidget {
               _pity(o),
               const SizedBox(height: 14),
               Text(
-                'Cards of one rarity share its odds equally. When the legendary run sells out, boxes stop dropping it and the other cards share its odds.',
+                'Cards of one rarity share its odds equally. When the Secret cards run out, boxes stop dropping them and the other cards share their odds.',
                 style: TextStyle(fontSize: 12, height: 1.4, color: AppColors.textMuted),
               ),
             ],
@@ -603,7 +604,7 @@ class _OddsSheet extends ConsumerWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(AppIcons.shieldCheck, size: 22, color: o.pityNext ? CardRarity.legendary.color : CardRarity.rare.color),
+          Icon(AppIcons.shieldCheck, size: 22, color: o.pityNext ? CardRarity.legendary.color : CardRarity.rare.textColor),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -619,7 +620,7 @@ class _OddsSheet extends ConsumerWidget {
                 if (o.pityNext) ...[
                   const SizedBox(height: 4),
                   Text(
-                    'Your next box: ${fmtPct(o.pityRarity[CardRarity.rare] ?? 0)}% rare · ${fmtPct(o.pityRarity[CardRarity.legendary] ?? 0)}% legendary',
+                    'Your next box: ${fmtPct(o.pityRarity[CardRarity.rare] ?? 0)}% rare · ${fmtPct(o.pityRarity[CardRarity.legendary] ?? 0)}% secret',
                     style: TextStyle(fontSize: 12.5, height: 1.4, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
                   ),
                 ],
@@ -911,7 +912,7 @@ class _Side extends StatelessWidget {
               ? Text('nothing', style: TextStyle(fontSize: 13, color: AppColors.textMuted))
               : Wrap(
                   spacing: 6,
-                  runSpacing: 6,
+                  runSpacing: 12, // the ×N badge hangs below each card
                   children: [
                     for (final e in counts.entries)
                       if (types.where((t) => t.id == e.key).firstOrNull case final t?) CardFace(card: t, width: 46, count: e.value),

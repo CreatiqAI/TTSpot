@@ -32,7 +32,8 @@ import 'widgets/card_face.dart';
 ///
 /// Stage C (revealed): rarity glow, the card in a TiltCard you can still swipe
 /// to flip, name and description, TiTi's verdict, and the footer actions.
-/// Legendary pulls get a longer rumble, golden sparkles and a bigger glow.
+/// Rare glows silver. Secret (legendary) pulls get a longer rumble, golden
+/// sparkles and a bigger gold glow.
 ///
 /// This screen is also the last onboarding step, so leaving it may need to
 /// refresh the profile provider before the router notices we are onboarded.
@@ -51,7 +52,6 @@ const _boxOpen = 'assets/titi/box_open.png';
 const _crackColor = Color(0xFFFFF5C2);
 const _seamGold = Color(0xFFFFD54A);
 const _legendaryGold = Color(0xFFF4C542);
-const _rarePurple = Color(0xFF9B5CFF);
 
 class _OpenBoxScreenState extends ConsumerState<OpenBoxScreen> with TickerProviderStateMixin {
   static const _stepsToOpen = 3;
@@ -217,12 +217,20 @@ class _OpenBoxScreenState extends ConsumerState<OpenBoxScreen> with TickerProvid
 
   static Color _glowFor(CardRarity? r) => switch (r) {
         CardRarity.legendary => _legendaryGold,
-        CardRarity.rare => _rarePurple,
+        CardRarity.rare => kSilverLight,
         _ => Colors.white,
       };
 
+  /// Confetti in the rarity's metal; common gets the party mix (no blue or
+  /// silver, so it never reads as a rare).
+  static List<Color> _confettiFor(CardRarity r) => switch (r) {
+        CardRarity.legendary => const [_legendaryGold, Color(0xFFFFD866), Colors.white, AppColors.brand, Color(0xFFFFB020)],
+        CardRarity.rare => const [kSilverLight, Color(0xFFEEF0F3), kSilverDark, Colors.white, AppColors.brand],
+        CardRarity.common => const [AppColors.brand, Color(0xFFFFC532), Colors.white, Color(0xFF4CC38A)],
+      };
+
   static String _verdict(CardRarity r) => switch (r) {
-        CardRarity.legendary => 'First pull and you get the legendary. Show-off.',
+        CardRarity.legendary => 'SECRET! One of the numbered few. Show-off.',
         CardRarity.rare => 'Nice pull. Not many of these around.',
         CardRarity.common => 'Solid. Trade doubles with friends for the ones you\'re missing.',
       };
@@ -233,7 +241,7 @@ class _OpenBoxScreenState extends ConsumerState<OpenBoxScreen> with TickerProvid
         _ => 'One more!',
       };
 
-  /// "LEGENDARY · 1 IN 20" from the admin odds; just the rarity when the
+  /// "SECRET · 1 IN 200" from the admin odds; just the rarity when the
   /// odds are missing or round to 1 in 1.
   String _rarityLabel(CardRarity r) {
     final pct = ref.watch(cardSettingsProvider).value?.pct(r);
@@ -242,7 +250,7 @@ class _OpenBoxScreenState extends ConsumerState<OpenBoxScreen> with TickerProvid
     return n == null || n < 2 ? name : '$name · 1 IN $n';
   }
 
-  /// "NO. 37 OF 100" for a legendary pull, once the collection refetch lands.
+  /// "NO. 37 OF 100" for a Secret pull, once the collection refetch lands.
   String? _serialLabel(BoxResult r) {
     if (r.card.rarity != CardRarity.legendary) return null;
     final serial = ref.watch(myCardsProvider).value?.where((c) => c.id == r.userCardId).firstOrNull?.serial;
@@ -262,12 +270,13 @@ class _OpenBoxScreenState extends ConsumerState<OpenBoxScreen> with TickerProvid
     final moreBoxes = ref.watch(sealedBoxesProvider).where((b) => b.id != widget.boxId).length;
     final revealed = _stage == _Stage.revealed;
     final legendary = rarity == CardRarity.legendary;
+    final rare = rarity == CardRarity.rare;
 
     return Scaffold(
       backgroundColor: AppColors.ink,
       body: Stack(
         children: [
-          // rarity glow once revealed (longer + brighter for legendary)
+          // rarity glow once revealed (silver for rare; bigger + gold for the Secret)
           Positioned.fill(
             child: AnimatedBuilder(
               animation: Listenable.merge([_reveal, _sparkle]),
@@ -278,8 +287,8 @@ class _OpenBoxScreenState extends ConsumerState<OpenBoxScreen> with TickerProvid
                   decoration: BoxDecoration(
                     gradient: RadialGradient(
                       center: const Alignment(0, -0.2),
-                      radius: (legendary ? 1.15 : 0.85) * pulse,
-                      colors: [_glowFor(rarity).withValues(alpha: (legendary ? 0.6 : 0.45) * t), AppColors.ink.withValues(alpha: 0)],
+                      radius: (legendary ? 1.15 : (rare ? 0.95 : 0.85)) * pulse,
+                      colors: [_glowFor(rarity).withValues(alpha: (legendary ? 0.6 : (rare ? 0.5 : 0.45)) * t), AppColors.ink.withValues(alpha: 0)],
                     ),
                   ),
                 );
@@ -542,7 +551,7 @@ class _OpenBoxScreenState extends ConsumerState<OpenBoxScreen> with TickerProvid
                   maxHeight: cardH * 1.6,
                   child: AnimatedBuilder(
                     animation: _burst,
-                    builder: (_, _) => CustomPaint(painter: _BurstPainter(_burst.value, _particles, _glowFor(r.card.rarity))),
+                    builder: (_, _) => CustomPaint(painter: _BurstPainter(_burst.value, _particles, _glowFor(r.card.rarity), _confettiFor(r.card.rarity))),
                   ),
                 ),
               ),
@@ -759,23 +768,24 @@ class _CrackPainter extends CustomPainter {
 }
 
 class _Particle {
-  _Particle(this.angle, this.speed, this.size, this.color, this.spin);
+  _Particle(this.angle, this.speed, this.size, this.slot, this.spin);
   final double angle, speed, size, spin;
-  final Color color;
+  /// Which colour of the burst's palette.
+  final int slot;
 
   static _Particle random(int i) {
     final r = math.Random(i * 31 + 3);
-    const palette = [AppColors.brand, Color(0xFFFFC532), Colors.white, Color(0xFF2B7CFF), Color(0xFF4CC38A)];
-    return _Particle(r.nextDouble() * 2 * math.pi, 140 + r.nextDouble() * 260, 5 + r.nextDouble() * 9, palette[i % palette.length], r.nextDouble() * 6);
+    return _Particle(r.nextDouble() * 2 * math.pi, 140 + r.nextDouble() * 260, 5 + r.nextDouble() * 9, i, r.nextDouble() * 6);
   }
 }
 
 /// Confetti and a flash ring in the rarity colour, flying out of the box.
 class _BurstPainter extends CustomPainter {
-  const _BurstPainter(this.t, this.particles, this.accent);
+  const _BurstPainter(this.t, this.particles, this.accent, this.palette);
   final double t;
   final List<_Particle> particles;
   final Color accent;
+  final List<Color> palette;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -791,7 +801,7 @@ class _BurstPainter extends CustomPainter {
     for (final p in particles) {
       final d = p.speed * e;
       final pos = c + Offset(math.cos(p.angle) * d, math.sin(p.angle) * d + 160 * t * t); // gravity
-      final paint = Paint()..color = p.color.withValues(alpha: (1 - t).clamp(0, 1));
+      final paint = Paint()..color = palette[p.slot % palette.length].withValues(alpha: (1 - t).clamp(0, 1));
       canvas.save();
       canvas.translate(pos.dx, pos.dy);
       canvas.rotate(p.spin * t * 3);
@@ -804,7 +814,7 @@ class _BurstPainter extends CustomPainter {
   bool shouldRepaint(_BurstPainter old) => old.t != t;
 }
 
-/// Slow golden sparkles for the legendary reveal.
+/// Slow golden sparkles for the Secret reveal.
 class _SparklePainter extends CustomPainter {
   _SparklePainter(this.anim) : super(repaint: anim);
   final Animation<double> anim;

@@ -14,7 +14,7 @@ import '../application/cards_providers.dart';
 import '../domain/cards.dart';
 import 'widgets/card_face.dart';
 
-/// Admin · Cards: numbers, odds, the legendary run and box price, the 7
+/// Admin · Cards: numbers, odds, the Secret run and box price, the 7
 /// designs (swap in the final art by URL), prizes, claims waiting to be
 /// handed over, giveaways.
 class AdminCardsScreen extends ConsumerWidget {
@@ -82,7 +82,7 @@ class AdminCardsScreen extends ConsumerWidget {
                   AdminStat(label: 'Prizes waiting', value: '${stats['claims_waiting'] ?? '–'}', delta: '${stats['claims_30d'] ?? 0} claimed · 30 d'),
                   const SizedBox(width: 8),
                   AdminStat(
-                    label: 'Legendary issued',
+                    label: 'Secret issued',
                     value: odds == null ? '–' : '${odds.legendaryIssued}/${odds.legendaryTotal}',
                     delta: '${byRarity['rare'] ?? 0} rare · ${byRarity['common'] ?? 0} common',
                   ),
@@ -94,14 +94,14 @@ class AdminCardsScreen extends ConsumerWidget {
             ListTile(
               title: const Text('Drop odds', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14.5)),
               subtitle: Text(
-                '${settings.summary}${odds != null && odds.soldOut ? '\nLegendary is sold out: boxes drop ${odds.summary}' : ''}',
+                '${settings.summary}${odds != null && odds.soldOut ? '\nSecret cards are sold out: boxes drop ${odds.summary}' : ''}',
                 style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
               ),
               trailing: Icon(AppIcons.caretRight, size: 16, color: AppColors.textMuted),
               onTap: () => _editOdds(context, ref, settings),
             ),
             ListTile(
-              title: const Text('Legendary run', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14.5)),
+              title: const Text('Secret run', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14.5)),
               subtitle: Text(
                 odds == null ? '–' : '${odds.legendaryIssued} of ${odds.legendaryTotal} issued · ${odds.soldOut ? 'sold out' : '${odds.legendaryLeft} left'}',
                 style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
@@ -220,7 +220,7 @@ class AdminCardsScreen extends ConsumerWidget {
             const SizedBox(height: 8),
             TextField(controller: r, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'Rare')),
             const SizedBox(height: 8),
-            TextField(controller: l, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'Legendary')),
+            TextField(controller: l, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'Secret')),
             const SizedBox(height: 8),
             Text('Shown to members as-is. Make them add up to 100. Decimals are fine (0.5).', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
           ],
@@ -246,7 +246,7 @@ class AdminCardsScreen extends ConsumerWidget {
 
   /// Copies that will ever exist. Can't go below what is already out.
   Future<void> _editLegendaryTotal(BuildContext context, WidgetRef ref, BoxOdds odds) async {
-    final v = await _askNumber(context, 'Legendary copies in total', odds.legendaryTotal.toDouble());
+    final v = await _askNumber(context, 'Secret copies in total', odds.legendaryTotal.toDouble());
     if (v == null || !context.mounted) return;
     final total = v.round();
     if (total < odds.legendaryIssued) {
@@ -407,7 +407,7 @@ class AdminCardsScreen extends ConsumerWidget {
                     const SizedBox(width: 8),
                     Expanded(child: TextField(controller: rare, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: '+ rare'))),
                     const SizedBox(width: 8),
-                    Expanded(child: TextField(controller: legendary, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: '+ legendary'))),
+                    Expanded(child: TextField(controller: legendary, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: '+ secret'))),
                   ],
                 ),
                 const SizedBox(height: 12),

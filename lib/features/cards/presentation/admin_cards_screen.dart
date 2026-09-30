@@ -84,7 +84,7 @@ class AdminCardsScreen extends ConsumerWidget {
                   AdminStat(
                     label: 'Legendary issued',
                     value: odds == null ? '–' : '${odds.legendaryIssued}/${odds.legendaryTotal}',
-                    delta: '${byRarity['rare'] ?? 0} rare · ${byRarity['common'] ?? 0} common held',
+                    delta: '${byRarity['rare'] ?? 0} rare · ${byRarity['common'] ?? 0} common',
                   ),
                 ],
               ),

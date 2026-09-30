@@ -80,6 +80,7 @@ Future<void> showCreateHub(BuildContext context, WidgetRef ref) {
             ],
             if (!asClub) ...[
               const Divider(height: 20),
+              _Row(icon: AppIcons.chatCircleDots, title: 'Ask TiTi', subtitle: 'Meets, spots, app help, car tips', onTap: () => _go(ctx, context, Routes.titi)),
               _Row(icon: AppIcons.mapPinPlus, title: 'Suggest a spot', subtitle: 'A good mamak, carpark or road. 30 points if it goes live', onTap: () => _go(ctx, context, Routes.suggestSpot)),
               _Row(icon: AppIcons.car, title: 'Add a car', subtitle: 'Park it in your garage', onTap: () => _go(ctx, context, Routes.newCar)),
               _Row(icon: AppIcons.images, title: 'Moment album', subtitle: 'Group moments on your profile', onTap: () => _go(ctx, context, Routes.newAlbum)),

@@ -317,7 +317,7 @@ class _BodyState extends ConsumerState<_Body> {
                                   width: 44,
                                   height: 44,
                                   decoration: BoxDecoration(color: AppColors.brand.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(12)),
-                                  child: const Center(child: ArtIcon(AppArt.ticket, size: 26)),
+                                  child: const Center(child: ArtIcon(kVoucherAsset, size: 26)),
                                 ),
                                 title: '${x.headline} · ${x.title}',
                                 subtitle: '${x.pointsCost == 0 ? 'Free to claim' : '${x.pointsCost} points'}${x.productName == null ? '' : ' · for ${x.productName}'}',

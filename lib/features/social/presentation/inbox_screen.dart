@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/widgets/glass_tab_bar.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_images.dart';
@@ -137,7 +138,7 @@ class _ChatList extends ConsumerWidget {
           final chatted = {for (final c in chats) if (c.other != null) c.other!.id};
           final unchatted = friends.where((f) => !chatted.contains(f.id)).toList();
           return ListView(
-            padding: const EdgeInsets.only(bottom: 24),
+            padding: EdgeInsets.only(bottom: GlassTabBar.clearance(context)),
             children: [
               if (!entity) _FriendStrip(friends: strip, live: live, moments: moments, onTap: openDm),
               if (!entity) const TitiInboxTile(), // TiTi, the assistant: always the first chat

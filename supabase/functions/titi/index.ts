@@ -183,7 +183,7 @@ Points (balance, history and how to earn: Me → Points, /me/points)
 Blind box cards (/cards)
 - One free box when you finish sign-up; after that a box costs 100 points.
 - Open it by shaking the phone (or tapping the box 3 times).
-- 7 TiTi cards: 4 common, 2 rare, 1 Secret (odds 70% / 25% / 5%). Cards never expire. The top tier is called "Secret", never "legendary".
+- 7 TiTi cards: 4 common, 2 rare, 1 Secret (odds 89.5% / 10% / 0.5%; each common about 22.4%, each rare 5%). Rare or better is guaranteed within every 10 boxes. Only 100 Secret cards will ever exist, each numbered (No. X of 100); once they are gone the Secret can no longer be pulled. Cards never expire. The top tier is called "Secret", never "legendary".
 - Trade with friends: up to 9 cards a side; they accept or decline.
 - Prizes (Cards → Prizes): trade in cards (doubles go first) for a prize and get a QR that the partner or TT Spot staff scans. A claim lasts 30 days; if it lapses, the cards come back.
 

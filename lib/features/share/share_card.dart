@@ -68,7 +68,12 @@ class CardPullShareSpec extends ShareCardSpec {
   String get fileTag => 'card-${card.id}';
 
   @override
-  String shareText(String link) => 'I just pulled ${card.name} (${card.rarity.label}) from a TT Spot blind box. $link';
+  String shareText(String link) => card.rarity == CardRarity.legendary
+      ? 'I pulled the Secret card, ${card.name}, from a TT Spot blind box. $link'
+      : 'I just pulled ${card.name} (${card.rarity.label}) from a TT Spot blind box. $link';
+
+  /// "I PULLED A RARE", but "I PULLED THE SECRET": there is only one.
+  String get headline => card.rarity == CardRarity.legendary ? 'I PULLED\nTHE SECRET' : 'I PULLED A\n${card.rarity.label.toUpperCase()}';
 
   @override
   List<ImageProvider> get images => [?cardArt(card)];
@@ -123,7 +128,7 @@ class ShareCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final (String? eyebrow, String headline, Widget body) = switch (spec) {
       CheckinShareSpec s => (null, 'CHECKED IN', _CheckinBody(s)),
-      CardPullShareSpec s => (null, 'I PULLED A\n${s.card.rarity.label.toUpperCase()}', _CardPullBody(s)),
+      CardPullShareSpec s => (null, s.headline, _CardPullBody(s)),
       MeetInviteShareSpec s => ('JOIN US', s.event.title.toUpperCase(), _MeetBody(s)),
       DrawWinShareSpec s => ('LUCKY DRAW', 'WINNER', _DrawWinBody(s)),
     };
@@ -279,8 +284,8 @@ class _CardPullBody extends StatelessWidget {
       children: [
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
-          decoration: BoxDecoration(color: rarity.color, borderRadius: BorderRadius.circular(999)),
-          child: Text(rarity.label.toUpperCase(), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, letterSpacing: 2, color: rarity == CardRarity.legendary ? AppColors.ink : Colors.white)),
+          decoration: rarity.pill(),
+          child: Text(rarity.label.toUpperCase(), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, letterSpacing: 2, color: rarity.onPill)),
         ),
         const SizedBox(height: 16),
         Expanded(

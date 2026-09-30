@@ -95,7 +95,7 @@ class ProfileCardsGrid extends ConsumerWidget {
                   final w = (c.maxWidth - gap * 3) / 4;
                   return Wrap(
                     spacing: gap,
-                    runSpacing: gap,
+                    runSpacing: gap + 4, // room for the ×N badge hanging off each card
                     children: [
                       for (final t in active)
                         GestureDetector(

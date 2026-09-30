@@ -797,7 +797,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 const Text('YOUR FIRST BLIND BOX', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1.5, color: Color(0xFFFF7A80))),
                 const SizedBox(height: 8),
                 const Text(
-                  'SEVEN TITI CARDS.\nONE IS LEGENDARY.',
+                  'SEVEN TITI CARDS.\nONE IS A SECRET.',
                   style: TextStyle(fontFamily: AppFonts.display, fontSize: 44, height: 0.96, fontWeight: FontWeight.w800, letterSpacing: -0.5, color: Colors.white),
                 ),
                 const SizedBox(height: 12),

@@ -414,18 +414,20 @@ class _Media extends StatelessWidget {
   final VoidCallback? onTap;
 
   /// Post page chrome around the photo: the author row above it, and below
-  /// it the like/comment row peeking out plus the comment bar.
+  /// it the whole rest of the post (like/comment row, likes, a few caption
+  /// lines, the time) plus the comment bar.
   static const _authorRow = 66.0;
-  static const _belowPhoto = 120.0;
+  static const _belowPhoto = 250.0;
 
-  /// Post page: the tallest the photo box can be and still fit on screen
-  /// with the author row above and the actions peeking below. Read from the
-  /// view, not the page's MediaQuery, so the keyboard coming up for a
-  /// comment does not shrink the photo.
+  /// Post page: the tallest the photo box can be while the whole post still
+  /// fits on one screen, and never more than about half the screen (a tap
+  /// opens the full-screen viewer for detail). Read from the view, not the
+  /// page's MediaQuery, so the keyboard coming up for a comment does not
+  /// shrink the photo.
   static double _fitHeight(BuildContext context) {
     final screen = MediaQueryData.fromView(View.of(context));
     final fit = screen.size.height - screen.viewPadding.vertical - kToolbarHeight - _authorRow - _belowPhoto;
-    return math.max(fit, 240);
+    return math.max(math.min(fit, screen.size.height * 0.52), 220);
   }
 
   @override

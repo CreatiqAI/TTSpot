@@ -23,7 +23,7 @@ import '../application/vendors_providers.dart';
 import '../domain/vendor.dart';
 import 'widgets/hours_editor.dart';
 import 'widgets/product_sheet.dart';
-import '../../../core/utils/share_links.dart';
+import '../../../core/widgets/share_options_sheet.dart';
 import '../../../core/widgets/thumb_image.dart';
 
 /// A partner's page for members. Cover + logo on top, then sections you can
@@ -96,6 +96,9 @@ class _BodyState extends ConsumerState<_Body> {
       final top = _topOf(s);
       if (top != null && top <= _stickyBottom + 24) current = s;
     }
+    // Short last sections can't reach the chip bar: at the very end, light the last chip.
+    final pos = _scroll.position;
+    if (pos.maxScrollExtent > 0 && pos.pixels >= pos.maxScrollExtent - 4) current = _Section.values.last;
     if (current != _active) setState(() => _active = current);
   }
 
@@ -146,7 +149,7 @@ class _BodyState extends ConsumerState<_Body> {
           actions: [
             Padding(
               padding: const EdgeInsets.only(right: 8),
-              child: _RoundButton(icon: AppIcons.shareFat, onTap: () => shareThing(type: 'partner', id: v.id, text: '${v.name} on TT Spot')),
+              child: _RoundButton(icon: AppIcons.shareFat, onTap: () => showShareOptions(context, ShareItem(type: 'partner', id: v.id, title: v.name))),
             ),
           ],
           flexibleSpace: FlexibleSpaceBar(
@@ -231,7 +234,8 @@ class _BodyState extends ConsumerState<_Body> {
 
         SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 40),
+            // The page ends where Events ends (plus the phone's bottom inset).
+            padding: EdgeInsets.fromLTRB(16, 4, 16, MediaQuery.paddingOf(context).bottom + 24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -383,8 +387,6 @@ class _BodyState extends ConsumerState<_Body> {
                           ],
                         ),
                 ),
-                // Room so the last sections can scroll up under the chip bar.
-                SizedBox(height: MediaQuery.sizeOf(context).height * 0.45),
               ],
             ),
           ),

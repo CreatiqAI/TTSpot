@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/glass_tab_bar.dart';
 import '../../../core/utils/dates.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../../core/utils/open_external.dart' show confirmSheet;
@@ -44,7 +45,7 @@ class _AdminQueuesScreenState extends ConsumerState<AdminQueuesScreen> {
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.only(bottom: 32),
+        padding: EdgeInsets.only(bottom: GlassTabBar.clearance(context)),
         children: [
           const _Head('WAITING FOR YOU'),
           _Queue(icon: AppIcons.sealCheck, title: 'Spot photo reviews', subtitle: 'Sticker check-ins the AI was unsure about', count: stats?['pending_verifications'], onTap: () => context.push(Routes.adminReview)),

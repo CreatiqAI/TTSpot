@@ -25,7 +25,7 @@ import '../domain/club.dart';
 import '../domain/post.dart';
 import 'story_viewer_screen.dart';
 import 'widgets/masonry_grid.dart';
-import '../../../core/utils/share_links.dart';
+import '../../../core/widgets/share_options_sheet.dart';
 import '../../../core/widgets/thumb_image.dart';
 
 /// A spot: cover, what it is, check in (打卡), who has been, the album, meets
@@ -134,7 +134,7 @@ class _PlaceScreenState extends ConsumerState<PlaceScreen> {
                         child: IconButton(
                           tooltip: 'Share spot',
                           icon: const Icon(AppIcons.shareFat, color: Colors.white),
-                          onPressed: () => shareThing(type: 'place', id: p.id, text: '${p.name} on TT Spot'),
+                          onPressed: () => showShareOptions(context, ShareItem(type: 'place', id: p.id, title: p.name, placeId: p.id)),
                         ),
                       ),
                     ),

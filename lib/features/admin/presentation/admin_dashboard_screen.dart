@@ -58,7 +58,7 @@ class AdminDashboardScreen extends ConsumerWidget {
           return RefreshIndicator(
             onRefresh: refresh,
             child: ListView(
-              padding: EdgeInsets.only(bottom: GlassTabBar.height + 40),
+              padding: EdgeInsets.only(bottom: embedded ? GlassTabBar.clearance(context) : MediaQuery.paddingOf(context).bottom + 32),
               children: [
                 // ---- right now
                 Padding(

@@ -6,6 +6,7 @@ import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_art.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/glass_tab_bar.dart';
 import '../../../core/utils/dates.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/thumb_image.dart';
@@ -46,7 +47,7 @@ class ClubEventsTab extends ConsumerWidget {
             );
           }
           return ListView(
-            padding: const EdgeInsets.only(bottom: 24),
+            padding: EdgeInsets.only(bottom: GlassTabBar.clearance(context)),
             children: [
               if (upcoming.isNotEmpty) const _Head('UPCOMING'),
               for (final e in upcoming) _EventTile(e: e),

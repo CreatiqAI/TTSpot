@@ -38,9 +38,8 @@ import '../../organizer/presentation/widgets/lucky_draw_card.dart';
 import '../../organizer/presentation/widgets/organizer_badge.dart';
 import '../../organizer/presentation/widgets/organizer_tools_entry.dart';
 import '../../../core/utils/share_links.dart';
+import '../../../core/widgets/share_options_sheet.dart';
 import '../../../core/widgets/thumb_image.dart';
-import 'package:flutter/services.dart' show Clipboard, ClipboardData;
-import 'package:share_plus/share_plus.dart';
 import '../../share/share_card_renderer.dart';
 
 class EventDetailsScreen extends ConsumerStatefulWidget {
@@ -1188,43 +1187,25 @@ class _RecapCard extends ConsumerWidget {
 }
 
 
-/// Waze · Google Maps · WhatsApp · Share (native sheet with the meet link).
+/// Directions (in-app, Waze or Google Maps) and Share, side by side.
 class _QuickActions extends StatelessWidget {
   const _QuickActions({required this.event});
   final Event event;
 
-  String get _waze => wazeUrl(event.lat, event.lng);
-  String get _gmaps => googleMapsUrl(event.lat, event.lng);
-  String get _whatsapp => _eventShareText(event);
-
   @override
-  Widget build(BuildContext context) {
-    Widget btn(String label, IconData icon, Color bg, Color fg, VoidCallback onTap) => Expanded(
-          child: Material(
-            color: bg,
-            borderRadius: BorderRadius.circular(12),
-            child: InkWell(
-              onTap: onTap,
-              borderRadius: BorderRadius.circular(12),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 9),
-                child: Column(children: [Icon(icon, size: 20, color: fg), const SizedBox(height: 3), Text(label, style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: fg))]),
-              ),
+  Widget build(BuildContext context) => Row(
+        children: [
+          Expanded(
+            child: SecondaryButton(
+              label: 'Directions',
+              icon: AppIcons.navigationArrow,
+              onPressed: () => showDirectionsSheet(context, lat: event.lat, lng: event.lng, label: event.venueName),
             ),
           ),
-        );
-    return Row(
-      children: [
-        btn('Waze', AppIcons.navigationArrow, const Color(0xFF33CCFF), const Color(0xFF062A3A), () => openExternal(context, 'waze://?ll=${event.lat},${event.lng}&navigate=yes', fallbackUrl: _waze, appName: 'Waze')),
-        const SizedBox(width: 8),
-        btn('Maps', AppIcons.mapTrifold, AppColors.surfaceGray, AppColors.textPrimary, () => openExternal(context, 'comgooglemaps://?daddr=${event.lat},${event.lng}', fallbackUrl: _gmaps, appName: 'Google Maps')),
-        const SizedBox(width: 8),
-        btn('WhatsApp', AppIcons.chatCircle, const Color(0xFF25D366), const Color(0xFF063D1D), () => openExternal(context, 'whatsapp://send?text=${Uri.encodeComponent(_whatsapp)}', fallbackUrl: whatsappUrl(_whatsapp), appName: 'WhatsApp')),
-        const SizedBox(width: 8),
-        btn('Share', AppIcons.shareFat, AppColors.surfaceGray, AppColors.textPrimary, () => showEventShareOptions(context, event)),
-      ],
-    );
-  }
+          const SizedBox(width: 8),
+          Expanded(child: SecondaryButton(label: 'Share', icon: AppIcons.shareFat, onPressed: () => showEventShareOptions(context, event))),
+        ],
+      );
 }
 
 /// "Title · venue · when" plus Waze and the TT Spot link, for WhatsApp and
@@ -1234,43 +1215,20 @@ String _eventShareText(Event event) {
   return '${event.title} · ${event.venueName} · $when\nWaze: ${wazeUrl(event.lat, event.lng)}\nJoin on TT Spot: ${shareLink('event', event.id)}';
 }
 
-/// Share a meet: as a story image (with the host's invite link or my
-/// referral link), as a link, or copy the link.
-Future<void> showEventShareOptions(BuildContext context, Event event) async {
+/// Share a meet: send it in a TT Spot chat (as the meet card), WhatsApp,
+/// the link, or a story image (with the host's invite link or my referral).
+Future<void> showEventShareOptions(BuildContext context, Event event) {
   final me = ProviderScope.containerOf(context, listen: false).read(currentUserIdProvider);
-  final choice = await showModalBottomSheet<String>(
-    context: context,
-    useRootNavigator: true,
-    showDragHandle: true,
-    builder: (ctx) => SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ListTile(
-            leading: const Icon(AppIcons.image),
-            title: const Text('Share as image'),
-            subtitle: const Text('A story-size card for Instagram or WhatsApp status'),
-            onTap: () => Navigator.pop(ctx, 'image'),
-          ),
-          ListTile(leading: const Icon(AppIcons.shareFat), title: const Text('Share link'), onTap: () => Navigator.pop(ctx, 'link')),
-          ListTile(leading: const Icon(AppIcons.link), title: const Text('Copy link'), onTap: () => Navigator.pop(ctx, 'copy')),
-          const SizedBox(height: 8),
-        ],
+  return showShareOptions(
+    context,
+    ShareItem(type: 'event', id: event.id, title: event.title, text: _eventShareText(event), eventId: event.id),
+    extras: [
+      ShareExtra(
+        icon: AppIcons.image,
+        label: 'Story image',
+        subtitle: 'A card for Instagram or WhatsApp status',
+        onTap: () => showShareCardSheet(context, MeetInviteShareSpec(event: event, hostInvite: me != null && me == event.organizerId)),
       ),
-    ),
+    ],
   );
-  if (choice == null || !context.mounted) return;
-  switch (choice) {
-    case 'image':
-      await showShareCardSheet(context, MeetInviteShareSpec(event: event, hostInvite: me != null && me == event.organizerId));
-    case 'link':
-      await SharePlus.instance.share(ShareParams(text: _eventShareText(event)));
-    case 'copy':
-      await Clipboard.setData(ClipboardData(text: shareLink('event', event.id)));
-      if (context.mounted) {
-        ScaffoldMessenger.of(context)
-          ..hideCurrentSnackBar()
-          ..showSnackBar(const SnackBar(content: Text('Link copied')));
-      }
-  }
 }

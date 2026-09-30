@@ -10,9 +10,10 @@ import '../../../friends/domain/friend.dart';
 import '../../../social/domain/post.dart';
 import '../../domain/car.dart';
 
-/// Identity block, about the person: avatar beside the numbers, name,
-/// handle, bio, the actions, then a small strip of their cars. The full
-/// garage (and picking today's car) lives on Home, Garage.
+/// Identity block, about the person: avatar beside the numbers (my points
+/// get their own card under them), name, handle, bio, the actions. On my
+/// page one My garage button opens the garage; on someone else's, a small
+/// strip of their cars.
 class ProfileHeader extends StatelessWidget {
   const ProfileHeader({
     super.key,
@@ -31,7 +32,6 @@ class ProfileHeader extends StatelessWidget {
     required this.onRewards,
     required this.onQr,
     required this.onAvatar,
-    required this.onAddCar,
     required this.onCar,
     required this.onManageGarage,
     required this.onFriendAction,
@@ -54,7 +54,6 @@ class ProfileHeader extends StatelessWidget {
   final VoidCallback onRewards;
   final VoidCallback onQr;
   final VoidCallback onAvatar;
-  final VoidCallback onAddCar;
   final ValueChanged<Car> onCar;
   final VoidCallback onManageGarage;
   final VoidCallback onFriendAction;
@@ -90,12 +89,20 @@ class ProfileHeader extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: Row(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    _Stat(value: stats?.went, label: 'Meets', onTap: onMeets),
-                    _Stat(value: friendCount, label: 'Friends', onTap: onFriends),
-                    _Stat(value: stats?.cars ?? cars.length, label: 'Cars'),
-                    if (points != null) _Stat(value: points, label: 'Points', onTap: onPoints, accent: true, coin: true),
+                    Row(
+                      children: [
+                        _Stat(value: stats?.went, label: 'Meets', onTap: onMeets),
+                        _Stat(value: friendCount, label: 'Friends', onTap: onFriends),
+                        _Stat(value: stats?.cars ?? cars.length, label: 'Cars'),
+                      ],
+                    ),
+                    if (points != null) ...[
+                      const SizedBox(height: 6),
+                      Padding(padding: const EdgeInsets.only(right: 8), child: _PointsCard(points: points!, onTap: onPoints)),
+                    ],
                   ],
                 ),
               ),
@@ -150,22 +157,100 @@ class ProfileHeader extends StatelessWidget {
                 ),
         ),
         // ---------------------------------------------------------- garage ---
-        if (cars.isNotEmpty || isMe) _GarageStrip(cars: cars, isMe: isMe, onCar: onCar, onManage: onManageGarage, onAddCar: onAddCar),
+        if (isMe)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            child: _GarageButton(count: stats?.cars ?? cars.length, onTap: onManageGarage),
+          )
+        else if (cars.isNotEmpty)
+          _GarageStrip(cars: cars, onCar: onCar),
         const SizedBox(height: 14),
       ],
     );
   }
 }
 
-/// A row of small car thumbnails, the daily first. Labels sit under the
-/// photos, never on them. For me: a Manage chip that opens the garage.
+/// My points, big: the balance in the display face beside the coin. Tap for
+/// the Points page (history and how to earn).
+class _PointsCard extends StatelessWidget {
+  const _PointsCard({required this.points, required this.onTap});
+  final int points;
+  final VoidCallback onTap;
+
+  static String _grouped(int n) => n.toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (_) => ',');
+
+  @override
+  Widget build(BuildContext context) => Material(
+        color: AppColors.brand.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(10, 7, 8, 7),
+            child: Row(
+              children: [
+                const PointsCoin(size: 24),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(_grouped(points), style: const TextStyle(fontFamily: AppFonts.display, fontSize: 26, fontWeight: FontWeight.w700, height: 1, color: AppColors.brand)),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text('points', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
+                const Spacer(),
+                Icon(AppIcons.caretRight, size: 15, color: AppColors.textMuted),
+              ],
+            ),
+          ),
+        ),
+      );
+}
+
+/// My page: one full-width button into the garage, where cars are added,
+/// switched and opened.
+class _GarageButton extends StatelessWidget {
+  const _GarageButton({required this.count, required this.onTap});
+  final int count;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Material(
+        color: AppColors.surfaceGray,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          child: SizedBox(
+            height: 40,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Row(
+                children: [
+                  Icon(AppIcons.garage, size: 18, color: AppColors.textPrimary),
+                  const SizedBox(width: 8),
+                  Text('My garage', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                  const Spacer(),
+                  Text(count == 0 ? 'Add your first car' : '$count ${count == 1 ? 'car' : 'cars'}', style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
+                  const SizedBox(width: 4),
+                  Icon(AppIcons.caretRight, size: 14, color: AppColors.textMuted),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+}
+
+/// Someone else's cars: a row of small thumbnails, the daily first. Labels
+/// sit under the photos, never on them.
 class _GarageStrip extends StatelessWidget {
-  const _GarageStrip({required this.cars, required this.isMe, required this.onCar, required this.onManage, required this.onAddCar});
+  const _GarageStrip({required this.cars, required this.onCar});
   final List<Car> cars;
-  final bool isMe;
   final ValueChanged<Car> onCar;
-  final VoidCallback onManage;
-  final VoidCallback onAddCar;
 
   static const _w = 96.0;
   static const _h = 72.0;
@@ -179,41 +264,16 @@ class _GarageStrip extends StatelessWidget {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 18, 12, 8),
-          child: Row(
-            children: [
-              Expanded(child: Text('GARAGE', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textSecondary))),
-              if (isMe)
-                Material(
-                  color: AppColors.surfaceGray,
-                  borderRadius: BorderRadius.circular(AppRadius.pill),
-                  child: InkWell(
-                    onTap: onManage,
-                    borderRadius: BorderRadius.circular(AppRadius.pill),
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(12, 5, 8, 5),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text('Manage', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
-                          const SizedBox(width: 2),
-                          Icon(AppIcons.caretRight, size: 13, color: AppColors.textPrimary),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
+          child: Text('GARAGE', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textSecondary)),
         ),
         SizedBox(
           height: _h + 38,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            itemCount: ordered.isEmpty ? 1 : ordered.length,
+            itemCount: ordered.length,
             separatorBuilder: (_, _) => const SizedBox(width: 10),
             itemBuilder: (_, i) {
-              if (ordered.isEmpty) return _addTile();
               final c = ordered[i];
               return GestureDetector(
                 onTap: () => onCar(c),
@@ -247,41 +307,13 @@ class _GarageStrip extends StatelessWidget {
     if (cover == null) return blank;
     return Image(image: CachedNetworkImageProvider(cover), fit: BoxFit.cover, errorBuilder: (_, _, _) => blank);
   }
-
-  Widget _addTile() => GestureDetector(
-        onTap: onAddCar,
-        child: SizedBox(
-          width: _w,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: _w,
-                height: _h,
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceGray,
-                  borderRadius: BorderRadius.circular(AppRadius.md),
-                  border: Border.all(color: AppColors.border),
-                ),
-                child: Icon(AppIcons.plus, size: 20, color: AppColors.textPrimary),
-              ),
-              const SizedBox(height: 5),
-              const Text('Add a car', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, height: 1.2)),
-            ],
-          ),
-        ),
-      );
 }
 
 class _Stat extends StatelessWidget {
-  const _Stat({required this.value, required this.label, this.onTap, this.accent = false, this.coin = false});
+  const _Stat({required this.value, required this.label, this.onTap});
   final int? value;
   final String label;
   final VoidCallback? onTap;
-  final bool accent;
-
-  /// Show the points coin before the number.
-  final bool coin;
 
   @override
   Widget build(BuildContext context) => Expanded(
@@ -292,15 +324,9 @@ class _Stat extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: 4),
             child: Column(
               children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (coin) ...[const PointsCoin(size: 18), const SizedBox(width: 3)],
-                    Text(
-                      value?.toString() ?? '–',
-                      style: TextStyle(fontFamily: AppFonts.display, fontSize: 22, fontWeight: FontWeight.w700, height: 1, color: accent ? AppColors.brand : AppColors.textPrimary),
-                    ),
-                  ],
+                Text(
+                  value?.toString() ?? '–',
+                  style: TextStyle(fontFamily: AppFonts.display, fontSize: 22, fontWeight: FontWeight.w700, height: 1, color: AppColors.textPrimary),
                 ),
                 const SizedBox(height: 3),
                 Text(label, style: TextStyle(fontSize: 11.5, color: AppColors.textSecondary, fontWeight: FontWeight.w500)),

@@ -411,3 +411,14 @@ s3_secret_key = "env(S3_SECRET_KEY)"
 # declarative_schema_path = "./database"
 # JSON string passed through to pg-delta SQL formatting.
 # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":80,\"commaStyle\":\"trailing\"}"
+
+# Functions called by Postgres hooks or third-party callbacks check their own
+# secret; the gateway JWT check must stay off or every call gets a 401.
+[functions.push]
+verify_jwt = false
+
+[functions.car-portrait]
+verify_jwt = false
+
+[functions.login]
+verify_jwt = false

@@ -69,8 +69,10 @@ class ProfileHeader extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // ------------------------------------------------- avatar + stats ---
+        // Same 16 px gutter both sides; the numbers and the points card share
+        // one column, so their edges line up.
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 8, 0),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
           child: Row(
             children: [
               // 88 across in all: a brand ring when a moment is live.
@@ -86,10 +88,11 @@ class ProfileHeader extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Row(
                       children: [
@@ -99,8 +102,8 @@ class ProfileHeader extends StatelessWidget {
                       ],
                     ),
                     if (points != null) ...[
-                      const SizedBox(height: 6),
-                      Padding(padding: const EdgeInsets.only(right: 8), child: _PointsCard(points: points!, onTap: onPoints)),
+                      const SizedBox(height: 8),
+                      _PointsCard(points: points!, onTap: onPoints),
                     ],
                   ],
                 ),

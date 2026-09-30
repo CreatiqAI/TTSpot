@@ -1,25 +1,25 @@
 import 'package:flutter/material.dart';
 import '../../../core/geo/latlng.dart';
 
-import '../../../core/theme/app_art.dart';
+import '../../../core/theme/app_images.dart';
 
 /// Mirrors the Postgres enum `event_type`.
 enum EventType {
-  meet('meet', 'Meet', '🚗', AppArt.car, Color(0xFFFF3D1F)),
-  tt('tt', 'TT session', '☕', AppArt.coffee, Color(0xFFF5A524)),
-  convoy('convoy', 'Convoy', '🛣️', AppArt.road, Color(0xFF3B82F6)),
-  trackday('trackday', 'Track day', '🏁', AppArt.flag, Color(0xFF22C55E)),
-  charity('charity', 'Charity', '💛', AppArt.heartYellow, Color(0xFFEC4899)),
-  official('official', 'Official', '🏆', AppArt.trophy, Color(0xFFA855F7));
+  meet('meet', 'Meet', '🚗', Color(0xFFFF3D1F)),
+  tt('tt', 'TT session', '☕', Color(0xFFF5A524)),
+  convoy('convoy', 'Convoy', '🛣️', Color(0xFF3B82F6)),
+  trackday('trackday', 'Track day', '🏁', Color(0xFF22C55E)),
+  charity('charity', 'Charity', '💛', Color(0xFFEC4899)),
+  official('official', 'Official', '🏆', Color(0xFFA855F7));
 
-  const EventType(this.db, this.label, this.emoji, this.art, this.color);
+  const EventType(this.db, this.label, this.emoji, this.color);
 
   /// Value stored in the database.
   final String db;
   final String label;
   final String emoji;
-  /// 3D illustration (asset path), see [AppArt].
-  final String art;
+  /// 3D icon (asset path), see [eventTypeAsset].
+  String get art => eventTypeAsset(db);
   final Color color;
 
   /// Bundled 16:9 cover for a meet of this type with no photo.

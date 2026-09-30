@@ -140,6 +140,15 @@ const _kinds = {
 /// kinds get the generic pin.
 String kindIconAsset(String? kind) => 'assets/kinds/${_kinds.contains(kind) ? kind : 'other'}.png';
 
+// ---- Event types + vouchers (batch 4) ---------------------------------------------
+
+/// 3D icon for an event type (EventType.db / events.type).
+String eventTypeAsset(String db) => 'assets/event_types/$db.png';
+
+/// The voucher (coupon) icon, and its torn, greyed "used" version.
+const kVoucherAsset = 'assets/vouchers/voucher.png';
+const kVoucherUsedAsset = 'assets/vouchers/voucher_used.png';
+
 // ---- Club crests --------------------------------------------------------------
 
 /// A stable crest (1..8) for a club with no logo, picked from [seed] (the club

@@ -66,6 +66,8 @@ flutter:
     - assets/crests/
     - assets/partner_covers/
     - assets/prizes/
+    - assets/event_types/
+    - assets/vouchers/
   fonts:
     - family: Phosphor
       fonts:

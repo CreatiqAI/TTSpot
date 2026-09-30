@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_art.dart';
 import '../theme/app_icons.dart';
+import '../theme/app_images.dart';
 import '../theme/app_theme.dart';
 import '../theme/titi.dart';
 
@@ -40,6 +41,7 @@ class EmptyState extends StatelessWidget {
     AppArt.flag: TitiPose.flag,
     AppArt.coffee: TitiPose.voucher,
     AppArt.ticket: TitiPose.voucher,
+    kVoucherAsset: TitiPose.voucher,
     AppArt.hug: TitiPose.heart,
     AppArt.handshake: TitiPose.heart,
     AppArt.trophy: TitiPose.trophy,

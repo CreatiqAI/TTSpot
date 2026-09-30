@@ -66,6 +66,7 @@ class _CardsScreenState extends ConsumerState<CardsScreen> with SingleTickerProv
 
   void _howItWorks(BuildContext context) {
     final s = ref.read(cardSettingsProvider).value ?? const CardSettings();
+    final odds = ref.read(boxOddsProvider).value;
     showModalBottomSheet<void>(
       useRootNavigator: true,
       context: context,
@@ -80,7 +81,11 @@ class _CardsScreenState extends ConsumerState<CardsScreen> with SingleTickerProv
               const Text('How cards work', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
               const SizedBox(height: 12),
               _rule(AppArt.gift, 'Every new member gets one blind box. More boxes cost ${s.boxCost} points.'),
-              _rule(AppArt.sparkles, 'Each box holds one of 7 cards. Odds: ${s.pct(CardRarity.common).round()}% common · ${s.pct(CardRarity.rare).round()}% rare · ${s.pct(CardRarity.legendary).round()}% legendary.'),
+              _rule(AppArt.sparkles, 'Each box holds one of 7 cards. Odds: ${odds?.summary ?? s.summary}.'),
+              _rule(
+                AppArt.shield,
+                'Every ${odds?.pityEvery ?? 10} boxes hold at least one Rare or better. Only ${odds?.legendaryTotal ?? 100} legendary cards will ever exist, each with its own number.',
+              ),
               _rule(AppArt.handshake, 'Trade with friends, up to ${s.tradeMax} cards a side. Cards never expire.'),
               _rule(AppArt.trophy, 'Spend cards on prizes. Spent cards leave your collection, so the full set is worth keeping until you want the big one.'),
             ],
@@ -134,6 +139,7 @@ class _CollectionTab extends ConsumerWidget {
     final collection = ref.watch(myCollectionProvider);
     final sealed = ref.watch(sealedBoxesProvider);
     final settings = ref.watch(cardSettingsProvider).value ?? const CardSettings();
+    final odds = ref.watch(boxOddsProvider).value;
     final balance = ref.watch(pointsBalanceProvider).value ?? 0;
 
     return RefreshIndicator(
@@ -160,9 +166,11 @@ class _CollectionTab extends ConsumerWidget {
             _BoxShop(
               cost: settings.boxCost,
               balance: balance,
-              odds: '${settings.pct(CardRarity.common).round()}% common · ${settings.pct(CardRarity.rare).round()}% rare · ${settings.pct(CardRarity.legendary).round()}% legendary. Cards never expire.',
+              odds: odds,
+              oddsLine: '${odds?.summary ?? settings.summary}. Cards never expire.',
               onBuy: () => _buy(context, ref, settings, balance),
               onEarn: () => context.push(Routes.points),
+              onOdds: () => showBoxOdds(context, col.types),
             ),
             const SizedBox(height: 16),
             // ---- tally
@@ -215,13 +223,15 @@ class _CollectionTab extends ConsumerWidget {
 
   void _showCard(BuildContext context, WidgetRef ref, CardType t, CardCollection col) {
     final owned = col.owns(t.id);
+    final odds = ref.read(boxOddsProvider).value;
+    final serials = col.serialsOf(t.id);
     showModalBottomSheet<void>(
       useRootNavigator: true,
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
       builder: (ctx) => SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -242,8 +252,18 @@ class _CollectionTab extends ConsumerWidget {
               const SizedBox(height: 8),
               Text(
                 owned ? 'You have ${col.count(t.id)}' : 'Not in your collection yet. Open a box or ask a friend.',
+                textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: owned ? AppColors.textPrimary : AppColors.textSecondary),
               ),
+              // the limited run: my copies' numbers, or how many are left
+              if (serials.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                _SerialBadge(serials: serials, total: odds?.legendaryTotal),
+              ],
+              if (t.rarity == CardRarity.legendary && odds != null) ...[
+                const SizedBox(height: 8),
+                Text(odds.limitedLine, textAlign: TextAlign.center, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
+              ],
               const SizedBox(height: 16),
               SizedBox(
                 width: double.infinity,
@@ -264,16 +284,28 @@ class _CollectionTab extends ConsumerWidget {
   }
 }
 
-/// The box shop: the red box floating on a dark card, what is inside, your
-/// points against the price, and one big button. Dark in both themes on
-/// purpose: it is a product shot, and the red box pops on black.
+/// The box shop: the red box floating on a dark card, what is inside, the
+/// limited legendary run, your points against the price, the pity promise
+/// and one big button. Dark in both themes on purpose: it is a product shot,
+/// and the red box pops on black.
 class _BoxShop extends StatefulWidget {
-  const _BoxShop({required this.cost, required this.balance, required this.odds, required this.onBuy, required this.onEarn});
+  const _BoxShop({
+    required this.cost,
+    required this.balance,
+    required this.odds,
+    required this.oddsLine,
+    required this.onBuy,
+    required this.onEarn,
+    required this.onOdds,
+  });
   final int cost;
   final int balance;
-  final String odds;
+  /// Null while loading: the line below falls back to the odds as set.
+  final BoxOdds? odds;
+  final String oddsLine;
   final VoidCallback onBuy;
   final VoidCallback onEarn;
+  final VoidCallback onOdds;
 
   @override
   State<_BoxShop> createState() => _BoxShopState();
@@ -327,8 +359,12 @@ class _BoxShopState extends State<_BoxShop> with SingleTickerProviderStateMixin 
                           const Text('BLIND BOX · SERIES 01', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1.6, color: Color(0xFFFF7A80))),
                           const SizedBox(height: 6),
                           const Text('7 TITI CARDS.\nONE IS LEGENDARY.', style: TextStyle(fontFamily: AppFonts.display, fontSize: 28, height: 0.98, fontWeight: FontWeight.w800, color: Colors.white)),
+                          if (widget.odds case final o?) ...[
+                            const SizedBox(height: 8),
+                            _LimitedBadge(odds: o),
+                          ],
                           const SizedBox(height: 8),
-                          Text(widget.odds, style: TextStyle(fontSize: 11.5, height: 1.35, color: Colors.white.withValues(alpha: 0.6))),
+                          Text(widget.oddsLine, style: TextStyle(fontSize: 11.5, height: 1.35, color: Colors.white.withValues(alpha: 0.6))),
                         ],
                       ),
                     ),
@@ -360,7 +396,36 @@ class _BoxShopState extends State<_BoxShop> with SingleTickerProviderStateMixin 
                     valueColor: AlwaysStoppedAnimation(canBuy ? AppColors.brand : const Color(0xFFFF7A80)),
                   ),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 12),
+                // pity promise + the full odds
+                Row(
+                  children: [
+                    Icon(AppIcons.shieldCheck, size: 18, color: widget.odds?.pityNext == true ? CardRarity.legendary.color : const Color(0xFF7FB2FF)),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        widget.odds?.pityLine ?? 'Rare or better in every 10 boxes',
+                        style: TextStyle(fontSize: 12.5, height: 1.3, fontWeight: FontWeight.w700, color: widget.odds?.pityNext == true ? CardRarity.legendary.color : Colors.white.withValues(alpha: 0.85)),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.white,
+                        side: BorderSide(color: Colors.white.withValues(alpha: 0.3)),
+                        visualDensity: VisualDensity.compact,
+                        minimumSize: const Size(0, 34),
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        shape: const StadiumBorder(),
+                        textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                      ),
+                      onPressed: widget.onOdds,
+                      icon: const Icon(AppIcons.percent, size: 15),
+                      label: const Text('Odds'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
                 SizedBox(
                   height: 52,
                   child: FilledButton(
@@ -374,6 +439,190 @@ class _BoxShopState extends State<_BoxShop> with SingleTickerProviderStateMixin 
                     child: Text(canBuy ? 'Buy a box · ${widget.cost} pts' : 'Earn $short more points'),
                   ),
                 ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// "Only 100 exist · 99 left" under the headline, gold while any are left.
+class _LimitedBadge extends StatelessWidget {
+  const _LimitedBadge({required this.odds});
+  final BoxOdds odds;
+
+  @override
+  Widget build(BuildContext context) {
+    final gold = CardRarity.legendary.color;
+    final out = odds.soldOut;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(8, 4, 10, 4),
+      decoration: BoxDecoration(
+        color: out ? Colors.white.withValues(alpha: 0.08) : gold.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: out ? Colors.white24 : gold.withValues(alpha: 0.6)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(AppIcons.crown, size: 14, color: out ? Colors.white54 : gold),
+          const SizedBox(width: 5),
+          Flexible(
+            child: Text(
+              out ? 'Legendary sold out' : odds.limitedLine,
+              style: TextStyle(fontSize: 11.5, height: 1.25, fontWeight: FontWeight.w800, color: out ? Colors.white70 : gold),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// "No. 1 of 100" on my copies of a limited card.
+class _SerialBadge extends StatelessWidget {
+  const _SerialBadge({required this.serials, this.total});
+  final List<int> serials;
+  final int? total;
+
+  @override
+  Widget build(BuildContext context) {
+    final numbers = serials.map((s) => 'No. $s').join(' · ');
+    return Container(
+      padding: const EdgeInsets.fromLTRB(10, 6, 14, 6),
+      decoration: BoxDecoration(color: CardRarity.legendary.color, borderRadius: BorderRadius.circular(999)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(AppIcons.crown, size: 16, color: AppColors.ink),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              total == null ? numbers : '$numbers of $total',
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontFamily: AppFonts.display, fontSize: 19, fontWeight: FontWeight.w800, height: 1.1, letterSpacing: 0.3, color: AppColors.ink),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Every rarity and card with its chance right now, the limited legendary
+/// run and my pity count. Read from `box_odds`, the numbers the roll uses.
+void showBoxOdds(BuildContext context, List<CardType> types) {
+  showModalBottomSheet<void>(
+    useRootNavigator: true,
+    context: context,
+    showDragHandle: true,
+    isScrollControlled: true,
+    builder: (_) => _OddsSheet(types: types),
+  );
+}
+
+class _OddsSheet extends ConsumerWidget {
+  const _OddsSheet({required this.types});
+  final List<CardType> types;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final odds = ref.watch(boxOddsProvider);
+    return SafeArea(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.85),
+        child: odds.when(
+          loading: () => const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
+          error: (e, _) => Padding(padding: const EdgeInsets.fromLTRB(24, 0, 24, 24), child: Text(friendlyError(e))),
+          data: (o) => ListView(
+            shrinkWrap: true,
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+            children: [
+              const Text('Box odds', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+              const SizedBox(height: 4),
+              Text('What one box can drop right now. The card is picked on our server, never on your phone.', style: TextStyle(fontSize: 13, height: 1.4, color: AppColors.textSecondary)),
+              for (final r in CardRarity.values) ...[
+                const SizedBox(height: 18),
+                _rarityHead(r, o),
+                for (final t in types.where((t) => t.active && t.rarity == r)) _cardRow(t, o.cardPct(t.id)),
+              ],
+              const SizedBox(height: 20),
+              _pity(o),
+              const SizedBox(height: 14),
+              Text(
+                'Cards of one rarity share its odds equally. When the legendary run sells out, boxes stop dropping it and the other cards share its odds.',
+                style: TextStyle(fontSize: 12, height: 1.4, color: AppColors.textMuted),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _rarityHead(CardRarity r, BoxOdds o) => Row(
+        children: [
+          RarityPill(rarity: r, scale: 1.2),
+          const SizedBox(width: 10),
+          Expanded(
+            child: r == CardRarity.legendary
+                ? Row(
+                    children: [
+                      Icon(AppIcons.crown, size: 14, color: o.soldOut ? AppColors.textMuted : CardRarity.legendary.color),
+                      const SizedBox(width: 4),
+                      Flexible(child: Text(o.limitedLine, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppColors.textSecondary))),
+                    ],
+                  )
+                : const SizedBox.shrink(),
+          ),
+          const SizedBox(width: 8),
+          Text('${fmtPct(o.pct(r))}%', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+        ],
+      );
+
+  Widget _cardRow(CardType t, double pct) => Padding(
+        padding: const EdgeInsets.only(top: 10),
+        child: Row(
+          children: [
+            CardFace(card: t, width: 30),
+            const SizedBox(width: 12),
+            Expanded(child: Text(t.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600))),
+            const SizedBox(width: 8),
+            Text('${fmtPct(pct)}%', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textSecondary)),
+          ],
+        ),
+      );
+
+  Widget _pity(BoxOdds o) {
+    final streak = o.pityStreak ?? 0;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(color: AppColors.surfaceGray, borderRadius: BorderRadius.circular(AppRadius.lg)),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(AppIcons.shieldCheck, size: 22, color: o.pityNext ? CardRarity.legendary.color : CardRarity.rare.color),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(o.pityLine, style: const TextStyle(fontSize: 14, height: 1.3, fontWeight: FontWeight.w800)),
+                const SizedBox(height: 4),
+                Text(
+                  'Every ${o.pityEvery} boxes hold at least one Rare or better.'
+                  '${streak > 0 ? ' You have opened $streak ${streak == 1 ? 'box' : 'boxes'} in a row without one.' : ''}',
+                  style: TextStyle(fontSize: 12.5, height: 1.4, color: AppColors.textSecondary),
+                ),
+                if (o.pityNext) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    'Your next box: ${fmtPct(o.pityRarity[CardRarity.rare] ?? 0)}% rare · ${fmtPct(o.pityRarity[CardRarity.legendary] ?? 0)}% legendary',
+                    style: TextStyle(fontSize: 12.5, height: 1.4, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                  ),
+                ],
               ],
             ),
           ),

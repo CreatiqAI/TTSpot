@@ -24,6 +24,9 @@ class CardsRepository {
     return CardSettings.fromSettings({for (final r in rows) r['key'] as String: r['value']});
   }
 
+  /// Live odds per rarity and card, the legendary run and my pity count.
+  Future<BoxOdds> boxOdds() async => BoxOdds.fromMap(((await _client.rpc('box_odds')) as Map).cast<String, dynamic>());
+
   // ---------------------------------------------------------------- mine ---
 
   Future<List<UserCard>> myCards() async => _rows(await _client.rpc('my_cards')).map(UserCard.fromMap).toList();

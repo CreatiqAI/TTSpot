@@ -4,6 +4,45 @@ import MapboxMaps
 @_spi(ExperimentalMapboxAPI) import MapboxNavigationCore
 import MapboxNavigationUIKit
 
+/// TT Spot patch: where full-screen navigation is presented from.
+///
+/// Upstream force-cast `UIApplication.shared.delegate?.window??.rootViewController`
+/// to FlutterViewController. Under the UIScene lifecycle (FlutterSceneDelegate,
+/// which TT Spot uses) the app delegate has no window, so that was a force-cast
+/// of nil: a Swift runtime trap the moment the route came back ("Navigate in
+/// TT Spot" crashed the app on iPhone). This asks the plugin registrar for its
+/// view controller first, then the key window of the foreground scene, then the
+/// legacy app-delegate window, and presents from the topmost controller.
+enum NavigationHost {
+    /// Set in SwiftFlutterMapboxPlugin.register(with:). Weak: the engine owns it.
+    static weak var registrar: FlutterPluginRegistrar?
+
+    @MainActor
+    static func presenter() -> UIViewController? {
+        var root: UIViewController? = registrar?.viewController
+        if root?.viewIfLoaded?.window == nil {
+            let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+            let active = scenes.filter { $0.activationState == .foregroundActive }
+            let windows: [UIWindow] = (active.isEmpty ? scenes : active).flatMap { $0.windows }
+            var window: UIWindow? = windows.first(where: { $0.isKeyWindow })
+            if window == nil {
+                window = windows.first(where: { !$0.isHidden && $0.rootViewController != nil })
+            }
+            if window == nil, let legacy = UIApplication.shared.delegate?.window {
+                window = legacy
+            }
+            if let fromWindow = window?.rootViewController {
+                root = fromWindow
+            }
+        }
+        var top = root
+        while let presented = top?.presentedViewController, !presented.isBeingDismissed {
+            top = presented
+        }
+        return top
+    }
+}
+
 @MainActor
 public class NavigationFactory: NSObject, FlutterStreamHandler {
     var _navigationViewController: NavigationViewController? = nil
@@ -75,15 +114,20 @@ public class NavigationFactory: NSObject, FlutterStreamHandler {
     func startNavigation(arguments: NSDictionary?, result: @escaping FlutterResult) {
         _wayPoints.removeAll()
 
-        guard let oWayPoints = arguments?["wayPoints"] as? NSDictionary else { return }
+        // TT Spot patch: every early exit answers Dart (upstream returned
+        // silently and left `await startNavigation` hanging forever).
+        func bad(_ why: String) {
+            result(FlutterError(code: "BAD_ARGUMENTS", message: why, details: nil))
+        }
+        guard let oWayPoints = arguments?["wayPoints"] as? NSDictionary else { return bad("No waypoints") }
 
         var locations = [Location]()
 
         for item in oWayPoints as NSDictionary {
-            let point = item.value as! NSDictionary
-            guard let oName = point["Name"] as? String else { return }
-            guard let oLatitude = point["Latitude"] as? Double else { return }
-            guard let oLongitude = point["Longitude"] as? Double else { return }
+            guard let point = item.value as? NSDictionary else { return bad("Bad waypoint") }
+            guard let oName = point["Name"] as? String else { return bad("Waypoint without a name") }
+            guard let oLatitude = point["Latitude"] as? Double else { return bad("Waypoint without a latitude") }
+            guard let oLongitude = point["Longitude"] as? Double else { return bad("Waypoint without a longitude") }
             let order = point["Order"] as? Int
             locations.append(Location(name: oName, latitude: oLatitude, longitude: oLongitude, order: order))
         }
@@ -120,7 +164,7 @@ public class NavigationFactory: NSObject, FlutterStreamHandler {
         _mapStyleUrlDay = arguments?["mapStyleUrlDay"] as? String
         _mapStyleUrlNight = arguments?["mapStyleUrlNight"] as? String
 
-        guard !_wayPoints.isEmpty else { return }
+        guard _wayPoints.count >= 2 else { return bad("Navigation needs a start and a destination") }
 
         if IsMultipleUniqueRoutes {
             startNavigationWithWayPoints(
@@ -167,38 +211,57 @@ public class NavigationFactory: NSObject, FlutterStreamHandler {
                         styles: [dayStyle, nightStyle],
                         predictiveCacheManager: self.mapboxNavigationProvider.predictiveCacheManager
                     )
-                    self.presentNavigation(navigationRoutes: navigationRoutes, navOptions: navigationOptions)
+                    self.presentNavigation(navigationRoutes: navigationRoutes, navOptions: navigationOptions, flutterResult: flutterResult)
                 }
             } catch {
                 await MainActor.run {
-                    self.sendEvent(eventType: MapBoxEventType.route_build_failed)
-                    flutterResult("An error occurred while calculating the route: \(error.localizedDescription)")
+                    self.sendEvent(eventType: MapBoxEventType.route_build_failed, data: error.localizedDescription)
+                    // TT Spot patch: a real error, so Dart's await throws (upstream
+                    // reported the failure as a successful result).
+                    flutterResult(FlutterError(code: "ROUTE_FAILED", message: error.localizedDescription, details: nil))
                 }
             }
         }
     }
 
-    private func presentNavigation(navigationRoutes: NavigationRoutes, navOptions: NavigationOptions) {
+    /// TT Spot patch: finds a presenter that exists under the UIScene
+    /// lifecycle (see NavigationHost), never force-unwraps, always answers
+    /// Dart, and builds a fresh NavigationViewController per trip instead of
+    /// re-presenting a stale one (presenting a controller that is already on
+    /// screen raises NSInvalidArgumentException).
+    private func presentNavigation(navigationRoutes: NavigationRoutes, navOptions: NavigationOptions, flutterResult: @escaping FlutterResult) {
         isEmbeddedNavigation = false
-        if _navigationViewController == nil {
-            _navigationViewController = NavigationViewController(
-                navigationRoutes: navigationRoutes,
-                navigationOptions: navOptions
-            )
-            _navigationViewController!.modalPresentationStyle = .fullScreen
-            _navigationViewController!.delegate = self
+        if let current = _navigationViewController, current.presentingViewController != nil, !current.isBeingDismissed {
+            // Already guiding: keep the trip on screen rather than stack a second one.
+            flutterResult(FlutterError(code: "ALREADY_NAVIGATING", message: "Navigation is already running", details: nil))
+            return
         }
-        let flutterViewController = UIApplication.shared.delegate?.window??.rootViewController as! FlutterViewController
-        flutterViewController.present(_navigationViewController!, animated: true, completion: nil)
+        guard let presenter = NavigationHost.presenter() else {
+            sendEvent(eventType: MapBoxEventType.route_build_failed, data: "No view controller to present navigation from")
+            flutterResult(FlutterError(code: "NO_VIEW_CONTROLLER", message: "Could not open the navigation screen", details: nil))
+            return
+        }
+        let navigationViewController = NavigationViewController(
+            navigationRoutes: navigationRoutes,
+            navigationOptions: navOptions
+        )
+        navigationViewController.modalPresentationStyle = .fullScreen
+        navigationViewController.delegate = self
+        _navigationViewController = navigationViewController
+        presenter.present(navigationViewController, animated: true) {
+            flutterResult(true)
+        }
     }
 
     func endNavigation(result: FlutterResult?) {
         sendEvent(eventType: MapBoxEventType.navigation_finished)
         _routeCalculationTask?.cancel()
-        guard let navVC = _navigationViewController else { return }
+        // TT Spot patch: answer Dart on every path (finishNavigation awaits it).
+        guard let navVC = _navigationViewController else { result?(true); return }
         if isEmbeddedNavigation {
             navVC.view.removeFromSuperview()
             _navigationViewController = nil
+            result?(true)
         } else {
             navVC.dismiss(animated: true) { [weak self] in
                 self?._navigationViewController = nil
@@ -207,11 +270,9 @@ public class NavigationFactory: NSObject, FlutterStreamHandler {
         }
     }
 
-    func getLastKnownLocation() -> Waypoint {
-        Waypoint(coordinate: CLLocationCoordinate2D(
-            latitude: _lastKnownLocation!.coordinate.latitude,
-            longitude: _lastKnownLocation!.coordinate.longitude
-        ))
+    func getLastKnownLocation() -> Waypoint? {
+        guard let location = _lastKnownLocation else { return nil }
+        return Waypoint(coordinate: location.coordinate)
     }
 
     func makeDayStyle() -> StandardDayStyle {
@@ -285,9 +346,9 @@ extension NavigationFactory: NavigationViewControllerDelegate {
         didArriveAt waypoint: Waypoint
     ) -> Bool {
         sendEvent(eventType: MapBoxEventType.on_arrival, data: "true")
-        if !_wayPoints.isEmpty && IsMultipleUniqueRoutes {
+        if !_wayPoints.isEmpty && IsMultipleUniqueRoutes, let here = getLastKnownLocation() {
             // Multi-leg route continuation — calculate next leg
-            let nextWaypoints = [getLastKnownLocation(), _wayPoints.remove(at: 0)]
+            let nextWaypoints = [here, _wayPoints.remove(at: 0)]
             _routeCalculationTask?.cancel()
             _routeCalculationTask = Task { [weak self] in
                 guard let self, let options = self._options else { return }

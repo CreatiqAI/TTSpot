@@ -96,8 +96,11 @@ Future<bool> confirmSheet(BuildContext context, {required String title, String? 
   return ok == true;
 }
 
-/// "Directions" chooser: Waze or Google Maps, each confirmed by [openExternal].
-Future<void> showDirectionsSheet(BuildContext context, {required double lat, required double lng, String? label}) {
+/// "Directions" chooser: in-app navigation, Waze or Google Maps (the last two
+/// confirmed by [openExternal]). When in-app navigation cannot start, the
+/// chooser comes straight back with [note] saying why and only the other
+/// apps ([inApp] false), so a failed start never leaves the member stuck.
+Future<void> showDirectionsSheet(BuildContext context, {required double lat, required double lng, String? label, String? note, bool inApp = true}) {
   return showModalBottomSheet<void>(
     useRootNavigator: true, // above the shell tab bar
     context: context,
@@ -110,6 +113,12 @@ Future<void> showDirectionsSheet(BuildContext context, {required double lat, req
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 6),
             child: Align(alignment: Alignment.centerLeft, child: Text(label == null ? 'Directions' : 'Directions to $label', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800))),
           ),
+          if (note != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 6),
+              child: Align(alignment: Alignment.centerLeft, child: Text(note, style: TextStyle(fontSize: 13.5, height: 1.35, color: AppColors.textSecondary))),
+            ),
+          if (inApp)
           ListTile(
             leading: const NavigateTileIcon(icon: AppIcons.car),
             title: const Text('Navigate in TT Spot', style: TextStyle(fontWeight: FontWeight.w700)),
@@ -119,7 +128,9 @@ Future<void> showDirectionsSheet(BuildContext context, {required double lat, req
               try {
                 await AppNavigation.start(to: LatLng(lat, lng), name: label ?? 'Destination');
               } catch (e) {
-                if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
+                // No fix, no route, or the navigation screen would not open:
+                // offer Waze and Google Maps right away, with the reason.
+                if (context.mounted) showDirectionsSheet(context, lat: lat, lng: lng, label: label, note: friendlyError(e), inApp: false);
               }
             },
           ),

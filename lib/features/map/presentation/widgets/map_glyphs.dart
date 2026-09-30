@@ -340,9 +340,18 @@ class GlyphMarkerFactory {
     return _build('c|$count|${color.toARGB32()}|$scale', Size(r * 2, r * 2), Offset(r, r), (c) => paintCluster(c, Offset(r, r), count: count, scale: scale, color: color), null, null);
   }
 
-  Future<MapPin> _build(String k, Size icon, Offset anchorPx, void Function(Canvas) paint, String? label, String? sub) async {
+  /// Bitmaps being painted right now: a second request for the same key
+  /// (two redraws in a row, or the pre-warm) waits for the first paint
+  /// instead of painting it again.
+  final _painting = <String, Future<MapPin>>{};
+
+  Future<MapPin> _build(String k, Size icon, Offset anchorPx, void Function(Canvas) paint, String? label, String? sub) {
     final cached = _cache[k];
-    if (cached != null) return cached;
+    if (cached != null) return Future.value(cached);
+    return _painting[k] ??= _paint(k, icon, anchorPx, paint, label, sub).whenComplete(() => _painting.remove(k));
+  }
+
+  Future<MapPin> _paint(String k, Size icon, Offset anchorPx, void Function(Canvas) paint, String? label, String? sub) async {
 
     TextPainter? title, time;
     if (label != null && label.isNotEmpty) {
@@ -383,5 +392,8 @@ class GlyphMarkerFactory {
         maxLines: 1,
       )..layout();
 
-  void dispose() => _cache.clear();
+  void dispose() {
+    _cache.clear();
+    _painting.clear();
+  }
 }

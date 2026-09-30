@@ -309,8 +309,16 @@ class MapPinFactory {
 
   /// A network image, or a bundled one when [url] is an asset path
   /// (assets/…) or one of the TiTi default avatar URLs.
-  Future<ui.Image?> _image(String url, {required int targetWidth}) async {
-    if (_images.containsKey(url)) return _images[url];
+  /// Downloads in flight: pins that need the same photo at the same time
+  /// (two redraws in a row) share one download.
+  final _loading = <String, Future<ui.Image?>>{};
+
+  Future<ui.Image?> _image(String url, {required int targetWidth}) {
+    if (_images.containsKey(url)) return Future.value(_images[url]);
+    return _loading[url] ??= _load(url, targetWidth: targetWidth).whenComplete(() => _loading.remove(url));
+  }
+
+  Future<ui.Image?> _load(String url, {required int targetWidth}) async {
     final preset = DefaultAvatars.indexOfUrl(url);
     final assetPath = preset != null ? DefaultAvatars.asset(preset) : (url.startsWith('assets/') ? url : null);
     if (assetPath != null) {
@@ -355,6 +363,7 @@ class MapPinFactory {
     }
     _assets.clear();
     _images.clear();
+    _loading.clear();
     _cache.clear();
   }
 }

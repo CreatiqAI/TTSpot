@@ -7,58 +7,63 @@ import '../../../core/theme/titi.dart';
 
 /// TiTi's pose for what he is doing: a calendar for meets, a pin for spots…
 TitiPose titiPoseFor(String? tool) => switch (tool) {
-      'search_meets' => TitiPose.calendar,
-      'search_spots' => TitiPose.mapPin,
-      'search_clubs' => TitiPose.flag,
-      'my_cars' => TitiPose.wrench,
+      'search_meets' || 'my_meets' || 'meet_details' || 'join_meet' || 'leave_meet' => TitiPose.calendar,
+      'search_spots' || 'my_saved_spots' || 'save_spot' || 'open_directions' || 'tt_here' => TitiPose.mapPin,
+      'search_clubs' || 'my_clubs' => TitiPose.flag,
+      'my_cars' || 'my_car_mods' => TitiPose.wrench,
+      'my_car_documents' || 'road_tax_estimate' => TitiPose.clipboard,
+      'my_points' => TitiPose.trophy,
+      'my_vouchers' || 'partner_offers' || 'claim_voucher' => TitiPose.voucher,
+      'my_cards' || 'open_box_shop' => TitiPose.gift,
+      'my_notifications' => TitiPose.bell,
+      'fuel_prices' => TitiPose.rolling,
+      'my_summary' => TitiPose.magnifier,
+      'open_page' => TitiPose.thumbsUp,
       _ => TitiPose.chat,
     };
 
-/// Waiting for the first words: TiTi hops and wiggles in his circle, dots
-/// type in a bubble, and the latest status ("Checking meets near you…") sits
-/// under it. The pose swaps with a little pop when a tool starts.
-class TitiThinking extends StatelessWidget {
-  const TitiThinking({super.key, this.status, this.tool});
+/// Waiting for words: dots type in a bubble, and the latest status
+/// ("Checking meets near you…") sits under it, fading across when it changes.
+/// TiTi hops beside it (TitiHop, drawn by the answer next to its bubbles).
+class TitiThinkingBubble extends StatelessWidget {
+  const TitiThinkingBubble({super.key, this.status});
   final String? status;
-  final String? tool;
 
   @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            TitiHop(pose: titiPoseFor(tool), size: 40),
-            const SizedBox(width: 8),
-            Flexible(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-                    decoration: BoxDecoration(
-                      color: AppColors.surface,
-                      border: Border.all(color: AppColors.border),
-                      borderRadius: const BorderRadius.only(topLeft: Radius.circular(18), topRight: Radius.circular(18), bottomRight: Radius.circular(18), bottomLeft: Radius.circular(4)),
-                    ),
-                    child: const TypingDots(),
-                  ),
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 200),
-                    child: status == null || status!.isEmpty
-                        ? const SizedBox(key: ValueKey('none'), height: 0)
-                        : Padding(
-                            key: ValueKey(status),
-                            padding: const EdgeInsets.only(top: 5, left: 4),
-                            child: Text(status!, style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
-                          ),
-                  ),
-                ],
-              ),
+  Widget build(BuildContext context) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              border: Border.all(color: AppColors.border),
+              borderRadius: const BorderRadius.only(topLeft: Radius.circular(18), topRight: Radius.circular(18), bottomRight: Radius.circular(18), bottomLeft: Radius.circular(4)),
             ),
-          ],
-        ),
+            // Its own layer: the dots repaint every frame, the chat doesn't.
+            child: const RepaintBoundary(child: TypingDots()),
+          ),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topLeft,
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 260),
+              switchInCurve: Curves.easeOut,
+              switchOutCurve: Curves.easeIn,
+              // Old and new status on top of each other: a cross-fade, no jump.
+              layoutBuilder: (current, previous) => Stack(alignment: Alignment.topLeft, children: [...previous, ?current]),
+              child: status == null || status!.isEmpty
+                  ? const SizedBox(key: ValueKey('none'), height: 0, width: 0)
+                  : Padding(
+                      key: ValueKey(status),
+                      padding: const EdgeInsets.only(top: 5, left: 4),
+                      child: Text(status!, style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
+                    ),
+            ),
+          ),
+        ],
       );
 }
 

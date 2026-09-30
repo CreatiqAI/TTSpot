@@ -86,6 +86,7 @@ import '../../features/social/presentation/post_detail_screen.dart';
 import '../../features/social/presentation/saved_posts_screen.dart';
 import '../../features/social/presentation/search_screen.dart';
 import '../../features/social/presentation/story_viewer_screen.dart';
+import '../../features/titi/presentation/titi_screen.dart';
 import '../location/location_gate.dart';
 import '../supabase/supabase_client.dart';
 import 'app_shell.dart';
@@ -181,6 +182,8 @@ abstract final class Routes {
   static const myMoments = '/me/moments';
   static String editAlbum(String id) => '/me/albums/$id/edit';
   static const clubs = '/clubs';
+  /// Chat with TiTi, the assistant (pinned first in Chats).
+  static const titi = '/titi';
 
   static String event(String id) => '/event/$id';
   static String convoy(String eventId) => '/event/$eventId/live';
@@ -436,6 +439,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(path: Routes.search, pageBuilder: (_, s) => page(s, const SearchScreen())),
+      GoRoute(path: Routes.titi, pageBuilder: (_, s) => page(s, const TitiScreen())),
       GoRoute(
         path: '/chat/:id',
         pageBuilder: (_, s) => page(s, ChatScreen(conversationId: s.pathParameters['id']!)),

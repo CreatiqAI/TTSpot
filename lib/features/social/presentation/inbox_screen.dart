@@ -27,6 +27,7 @@ import '../../../core/widgets/thumb_image.dart';
 import '../../accounts/application/active_account.dart';
 import 'activity_screen.dart';
 import 'widgets/chat_media.dart' show fmtMs;
+import '../../titi/presentation/titi_inbox_tile.dart';
 
 /// Chats tab: DMs and meet group chats, with Activity (likes, requests,
 /// TT-now pings, badges) as a second tab.
@@ -139,6 +140,7 @@ class _ChatList extends ConsumerWidget {
             padding: const EdgeInsets.only(bottom: 24),
             children: [
               if (!entity) _FriendStrip(friends: strip, live: live, moments: moments, onTap: openDm),
+              if (!entity) const TitiInboxTile(), // TiTi, the assistant: always the first chat
               if (list.isEmpty && friends.isEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 40),

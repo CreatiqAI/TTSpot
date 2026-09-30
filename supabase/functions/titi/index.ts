@@ -1,0 +1,1032 @@
+// titi
+// TiTi, the traffic-cone mascot, as an in-app assistant: the member's "pit
+// crew". Finds meets, spots, clubs and your cars (tools that query Supabase as
+// the member, so RLS applies), explains the app, and talks cars.
+//
+// Input:  POST { message, lat?, lng? } with the member's JWT. The server loads
+//         the recent history itself (last HISTORY rows of titi_messages).
+// Output: text/event-stream, one small JSON object per `data:` line:
+//   {"t":"status","text":"Checking meets near you…","tool":"search_meets"}
+//   {"t":"delta","text":"…"}                  streamed answer text
+//   {"t":"break"}                              start a new bubble
+//   {"t":"card","kind":"meet"|"spot"|"club"|"car","id","title","subtitle","image","route"}
+//   {"t":"chips","options":["…"]}              2-3 follow-ups, after the text
+//   {"t":"error","text":"…"}                   friendly; the app offers Retry
+//   {"t":"done"}
+//
+// The model marks bubbles with a line "---", cards with [[meet:<id>]] refs it
+// got from a tool, and follow-ups with a last line [[chips: a | b | c]]. The
+// Shaper below turns those into events while the text streams, and cards are
+// only ever built from real rows, so every link and photo is real.
+//
+// Model: OpenAI Responses API, streamed, reasoning effort "none" (speed), no
+// sampling params. Up to MAX_ROUNDS tool rounds, then a forced final answer.
+//
+// Cost guards: DAILY_LIMIT questions per member per Malaysian day
+// (titi_take_turn), HISTORY rows of context, MAX_OUTPUT tokens per call, and
+// every answer's token counts in titi_messages.usage + titi_daily.
+//
+// Service role, and only for bookkeeping: counting the daily limit, writing
+// TiTi's answer and its usage. Members can't write those rows themselves, so
+// nobody can plant a fake reply into the model's history or fake the cost log.
+//
+// Secrets: OPENAI_API_KEY (required), TITI_MODEL (default gpt-5.4-mini),
+// TITI_DAILY_LIMIT (default 60), MAPBOX_TOKEN (optional, to place "near
+// Bangsar"; without it TiTi uses the member's own location only).
+import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
+
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const OPENAI_KEY = Deno.env.get("OPENAI_API_KEY");
+const MAPBOX = Deno.env.get("MAPBOX_TOKEN") ?? "";
+const MODEL = Deno.env.get("TITI_MODEL") ?? "gpt-5.4-mini";
+const DAILY_LIMIT = Number(Deno.env.get("TITI_DAILY_LIMIT") ?? 60) || 60;
+
+const HISTORY = 16;
+const MAX_ROUNDS = 3;
+const MAX_OUTPUT = 900;
+const MAX_MESSAGE = 1000;
+const MAX_CARDS = 6;
+
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// ============================================================ the prompt ===
+
+const SYSTEM = `You are TiTi, the orange traffic-cone mascot of TT Spot, a Malaysian car-community app. You are the member's pit crew: a friendly, knowledgeable Malaysian car buddy who lives inside the app.
+
+# What you do
+1. Find things in TT Spot: meets and TT sessions coming up, spots and car cafés, car clubs, and the member's own cars. ALWAYS use the tools for these. Never invent meets, spots, clubs, people, dates, prices or places. If a tool finds nothing, say so plainly and offer a next step (a wider area, other dates, or starting a TT session themselves).
+2. Explain how the app works, using the app facts below. If something isn't covered, say you're not sure instead of guessing.
+3. Car talk: maintenance, mods, driving, Malaysian road tax, insurance, PUSPAKOM and JPJ basics. This is general advice: when money or the law is involved, say so briefly, never promise prices, fines, approvals or outcomes, and point to the official source (JPJ, PUSPAKOM, the insurer, a trusted workshop). Give prices only as rough, well-known ranges and call them estimates. Mods: mention legality (JPJ, PUSPAKOM inspection, insurance declaration) when it matters. Safety first; never encourage street racing or breaking traffic laws.
+
+# How you write
+- Reply in the member's language: English, Malay or Chinese (Simplified unless they write Traditional). Match light Manglish if they use it.
+- Short, upbeat and plain. Most replies are 1-3 short bubbles. No walls of text. Use at most one exclamation mark in the whole reply (often none).
+- Split a longer reply into bubbles with a line that holds only ---. One idea per bubble.
+- You may use **bold** for a key word, bullet lines starting with "- " (5 at most), numbered steps "1. ", and links written as [label](url).
+- App links open the app itself; use only these paths: APP_LINKS
+- Web links only to official sites you are sure of: https://www.jpj.gov.my, https://www.puspakom.com.my, https://www.myeg.com.my, https://www.bnm.gov.my. Never make up a URL.
+- No headings, tables, code blocks or images. Cards show the photos.
+
+# Cards
+- Tool results give every item a ref such as [[meet:<id>]]. To show an item as a tappable card with its photo, put its ref on a line of its own.
+- The card already shows the name, time, place and photo, so don't repeat those. Add at most one short line on why it's worth a look.
+- Only use refs that came from a tool result. Never write an id yourself. At most 4 cards in a reply.
+
+# Follow-ups
+- End every reply with one last line: [[chips: option | option | option]] with 2-3 short follow-ups the member may tap next (5 words at most each, in their language, written as the member would ask them). Example: [[chips: TT sessions tonight | Car cafés near me | How do points work?]]
+
+# Using the tools
+- "Near me", "nearby", "around here": pass near "me". If the member's location is unknown, ask which area, or search without one.
+- A named area (Bangsar, PJ, Johor Bahru, Ipoh): pass it as near.
+- Times are Malaysia time (UTC+8); send ISO times with +08:00. "This weekend" is Saturday 00:00 to Sunday 23:59 (from now if it's already the weekend). "Tonight" is now to 03:00. "Upcoming" or no date: the next 14 days.
+- Call a tool at most a few times, then answer with what you have. Don't ask permission to search; just search.
+- Meets: "official" means hosted by an official club or a partner business, or an official-type event.
+
+# App facts
+APP_FACTS`;
+
+// Paths the app can open inside itself (the client allows these too).
+const APP_LINKS = [
+  "[Points](/me/points)",
+  "[Cards](/cards)",
+  "[Rewards](/rewards)",
+  "[My vouchers](/rewards?tab=vouchers)",
+  "[Scan a QR](/scan)",
+  "[My QR](/me/qr)",
+  "[Friends](/friends)",
+  "[My meets](/meets)",
+  "[Clubs](/clubs)",
+  "[Map](/map)",
+  "[Chats](/chats)",
+  "[Suggest a spot](/suggest-spot)",
+  "[Add a car](/car/new)",
+  "[My garage](/garage)",
+  "[Plan a TT session](/create-event?session=1)",
+  "[Become an organizer](/organizer/apply)",
+  "[Start a club](/club/apply)",
+  "[Partner with TT Spot](/partner/apply)",
+  "[Settings](/settings)",
+].join(", ");
+
+// Read from the app's code and migrations on 2026-09-30 (point_rules, blind_box,
+// vendors, meet_checkin_flow, event_car, organizer, lucky_draw, club_tiers...).
+// Keep in step when those rules change.
+const APP_FACTS = `The app's tabs: Posts, Map, Chats, Me, and the centre + button (Create).
+
+Points (balance, history and how to earn: Me → Points, /me/points)
+- Check in at a meet: +30 (once per meet). Check in at a spot: +20 (within 300 m, once per spot per day). Verified spot check-in (scan the spot's sticker and snap your car, then it's approved): +50.
+- A spot you suggested goes live: +30. Each badge unlocked: +25. Invite a friend: you get +100 and they get +50 when they do their first check-in.
+- Spend points on blind boxes (100 each) and partner vouchers (the partner sets the price; some are free).
+- No daily login bonus and no levels. 12 badges (Me → Badges).
+
+Blind box cards (/cards)
+- One free box when you finish sign-up; after that a box costs 100 points.
+- Open it by shaking the phone (or tapping the box 3 times).
+- 7 TiTi cards: 4 common, 2 rare, 1 legendary (odds 70% / 25% / 5%). Cards never expire.
+- Trade with friends: up to 9 cards a side; they accept or decline.
+- Prizes (Cards → Prizes): trade in cards (doubles go first) for a prize and get a QR that the partner or TT Spot staff scans. A claim lasts 30 days; if it lapses, the cards come back.
+
+Vouchers (/rewards)
+- Partner shops offer vouchers: % off, RM off or a freebie, sometimes with a minimum spend. Claim one with points; it waits in My vouchers (/rewards?tab=vouchers) until the voucher ends, else 30 days.
+- At the shop, open the voucher and show its QR. The staff scan it in TT Spot and take it off your bill.
+
+Check-ins
+- Meets: check-in opens 1 hour before the start and closes when the meet ends (or 6 hours after the start). Tap "I'm here · check in" within 500 m, or scan the host's QR within 300 m. If you're going, the app can check you in by itself when you arrive. Hosts of small meets confirm who was really there.
+- Spots: tap Check in on the spot's page within 300 m, once a day per spot. A moment posted at the spot counts too.
+
+TT now, TT sessions and meets
+- TT now: the red TT NOW button at the top of Create. Tell friends where you are right now: pick the place, how long (1 hour by default, 15 minutes to 8 hours) and who to ping (all friends by default). Friends and clubmates see it on the map, and you're checked in.
+- TT session: a TT planned for later (Create → TT session, /create-event?session=1). Anyone can plan one; friends-only unless you pick Everyone.
+- Meets, convoys and track days are hosted by car clubs (their officers) and partner shops. Official meets are hosted by official clubs (gold badge) or partners.
+- On a meet's page: tap Going, chat in its group chat, get reminders, check in when you arrive.
+
+Organizers (/organizer/apply)
+- People who run meets can apply to be a verified organizer (name, Instagram or website, usual turnout, a short description). An admin approves.
+- Verified hosts get organizer tools on their meets: crew and co-hosts (up to 30), the check-in QR and door list, announcements, lucky draws (free, one entry per person, for people checked in; provably fair), floor plans, an invite QR and link, and a turnout report.
+
+Clubs (/clubs)
+- Find clubs in the map's list (Clubs tab). Tap Request to join (officers approve) or accept an invite.
+- Start one: Create → Start a car club (/club/apply). An admin approves, then you set it up. Underground clubs hold up to 100 members; official clubs get a gold badge and more perks.
+
+Partners
+- Car businesses (cafés, workshops, detailing, tyres, accessories, audio, car wash) apply at /partner/apply with an SSM number and a shop photo; for now shops in Johor, Penang and Kuala Lumpur. They get a page, vouchers, products and events.
+
+Spots
+- Spots are where car people hang out: car cafés, mamaks, carparks, circuits, driving roads and partner shops. Map → Spots shows them.
+- Suggest one: Create → Suggest a spot (/suggest-spot); +30 points if it goes live. Bookmark spots to save them.
+
+Friends, moments, privacy
+- Add friends by username, or scan their My QR (/me/qr) to be friends instantly. Friends see each other on the map and get TT now pings.
+- Moments: a photo or a video up to 30 s, gone after 24 hours (Create → Moment). Albums keep them on your profile.
+- Who sees your car on the map: Friends (the default), Friends + nearby, Everyone, or Nobody (ghost). Change it on the map.
+- Invite code: your 6-character code is on My QR and Me → Invite friends; new members enter it when they sign up.
+- Help or a problem: email ttspotmy@gmail.com.
+
+Car-talk anchors (Malaysia; general info, check the official source)
+- Road tax (LKM): renew the insurance first, then renew online (MyJPJ app, MyEG) or at JPJ or Pos Malaysia. The price depends on engine size, fuel type and region (Peninsular vs Sabah, Sarawak, Labuan); JPJ's website has the calculator.
+- Insurance: comprehensive, third-party fire and theft, or third-party only. NCD (no-claim discount) grows with claim-free years. Declare mods to the insurer, or a claim can be rejected.
+- PUSPAKOM: inspections for used-car ownership transfers, JPJ-approved modifications, re-registration and commercial vehicles. Book online.`;
+
+const INSTRUCTIONS = SYSTEM.replace("APP_LINKS", APP_LINKS).replace("APP_FACTS", APP_FACTS);
+
+// ============================================================== the tools ===
+
+const TOOLS = [
+  {
+    type: "function",
+    name: "search_meets",
+    description:
+      "Find meets, TT sessions, convoys and track days in TT Spot, soonest first. Returns up to 8 with a ref each for cards.",
+    parameters: {
+      type: "object",
+      properties: {
+        from: { type: "string", description: "Window start, ISO with +08:00. Default: now (meets under way included)." },
+        to: { type: "string", description: "Window end, ISO with +08:00. Default: 14 days after from." },
+        near: { type: "string", description: "\"me\" for the member's own location, or a Malaysian area or place name." },
+        near_lat: { type: "number", description: "Only with exact coordinates the member gave. Otherwise leave out and use near." },
+        near_lng: { type: "number", description: "Only with near_lat." },
+        radius_km: { type: "number", description: "Default 30 when near is set." },
+        official_only: { type: "boolean", description: "Only official meets (official clubs, partners, official events)." },
+        type: { type: "string", enum: ["any", "meet", "tt", "convoy", "trackday"], description: "Default \"any\" (all kinds, also for \"any meets?\"). Pick one only when the member names it: meet = a regular car meet, tt = TT sessions." },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    type: "function",
+    name: "search_spots",
+    description:
+      "Find spots on the TT Spot map (car cafés, mamaks, carparks, circuits, roads, shops), nearest first when a place is given, else the most popular.",
+    parameters: {
+      type: "object",
+      properties: {
+        near: { type: "string", description: "\"me\" for the member's own location, or a Malaysian area or place name." },
+        near_lat: { type: "number", description: "Only with exact coordinates the member gave. Otherwise leave out and use near." },
+        near_lng: { type: "number", description: "Only with near_lat." },
+        kind: { type: "string", enum: ["cafe", "mamak", "carpark", "circuit", "route", "accessories", "other"], description: "cafe = car café." },
+        limit: { type: "integer", description: "1-8, default 5." },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    type: "function",
+    name: "search_clubs",
+    description: "Find car clubs in TT Spot by name, or by state / area.",
+    parameters: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "Part of the club's name or handle, or a make (e.g. Civic, Myvi)." },
+        near: { type: "string", description: "A state or area, or \"me\"." },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    type: "function",
+    name: "my_cars",
+    description: "The member's own cars in their TT Spot garage (make, model, year, colour, specs).",
+    parameters: { type: "object", properties: {}, additionalProperties: false },
+  },
+];
+
+const STATUS: Record<string, (a: any) => string> = {
+  search_meets: (a) => (a?.near ? (a.near === "me" ? "Checking meets near you…" : `Checking meets near ${String(a.near).slice(0, 30)}…`) : "Checking upcoming meets…"),
+  search_spots: (a) => (a?.near ? (a.near === "me" ? "Finding spots near you…" : `Finding spots near ${String(a.near).slice(0, 30)}…`) : "Finding spots…"),
+  search_clubs: () => "Looking up clubs…",
+  my_cars: () => "Opening your garage…",
+};
+
+type Card = { kind: "meet" | "spot" | "club" | "car"; id: string; title: string; subtitle: string; image: string | null; route: string };
+type Point = { lat: number; lng: number; label: string };
+
+// ---------------------------------------------------------------- helpers ---
+
+const MYT = "Asia/Kuala_Lumpur";
+/** "Sat, 14 Sep · 8:00 PM" in Malaysia time, like the app's formatEventDate. */
+const WHEN = new Intl.DateTimeFormat("en-GB", { timeZone: MYT, weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit", hour12: true });
+const fmtWhen = (iso: string) => {
+  const p = Object.fromEntries(WHEN.formatToParts(new Date(iso)).map((x) => [x.type, x.value]));
+  return `${p.weekday}, ${p.day} ${p.month} · ${p.hour}:${p.minute} ${String(p.dayPeriod ?? "").toUpperCase()}`.trim();
+};
+
+function km(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
+  const R = 6371, rad = Math.PI / 180;
+  const dLat = (b.lat - a.lat) * rad, dLng = (b.lng - a.lng) * rad;
+  const s = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(s));
+}
+const round1 = (n: number) => Math.round(n * 10) / 10;
+const short = (s: unknown, n: number) => (typeof s === "string" ? (s.length > n ? s.slice(0, n - 1).trimEnd() + "…" : s) : "");
+const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : null);
+
+const KIND_LABEL: Record<string, string> = {
+  cafe: "Car café", mamak: "Mamak", carpark: "Carpark", circuit: "Circuit", route: "Driving road",
+  accessories: "Parts & accessories", workshop: "Workshop", detailing: "Detailing", tyres: "Tyres & rims",
+  bodyshop: "Body & paint", audio: "Audio", carwash: "Car wash", mall: "Mall", other: "Spot",
+};
+const KIND_ICONS = new Set(["accessories", "audio", "bodyshop", "cafe", "carpark", "carwash", "circuit", "detailing", "mall", "mamak", "other", "route", "tyres", "workshop"]);
+const TYPE_LABEL: Record<string, string> = { meet: "Meet", tt: "TT session", convoy: "Convoy", trackday: "Track day", charity: "Charity", official: "Official" };
+
+// A club's home_state is one of lib/core/constants/malaysian_states.dart. Aliases → that name.
+const STATES: [RegExp, string][] = [
+  [/\bjohor\b|\bjb\b/i, "Johor"], [/\bkedah\b/i, "Kedah"], [/\bkelantan\b/i, "Kelantan"], [/\bkuala lumpur\b|\bkl\b/i, "Kuala Lumpur"],
+  [/\blabuan\b/i, "Labuan"], [/\bmelaka\b|\bmalacca\b/i, "Melaka"], [/\bnegeri sembilan\b|\bn\.? ?9\b/i, "Negeri Sembilan"],
+  [/\bpahang\b/i, "Pahang"], [/\bpenang\b|\bpulau pinang\b/i, "Penang"], [/\bperak\b/i, "Perak"], [/\bperlis\b/i, "Perlis"],
+  [/\bputrajaya\b/i, "Putrajaya"], [/\bsabah\b/i, "Sabah"], [/\bsarawak\b/i, "Sarawak"], [/\bselangor\b/i, "Selangor"],
+  [/\bterengganu\b/i, "Terengganu"],
+];
+const spotCheckins = (r: any) => (r.spot_checkins ?? 0) + (r.checkins_total ?? 0);
+
+// Selects, the same views the app reads.
+const MEET_COLS = "id,title,event_type,cover_url,starts_at,ends_at,venue_name,address,lat,lng,max_attendees,attendee_count,checkin_count,club_name,club_tier,vendor_id,vendor_name,is_instant,visibility";
+const SPOT_COLS = "id,name,kind,lat,lng,cover_url,description,tags,vendor_name,vendor_logo,spot_checkins,checkins_total,upcoming_meets,is_top,recommended";
+const CLUB_COLS = "id,name,handle,description,avatar_url,home_state,tier,official_until,garage_name,garage_lat,garage_lng,members:club_members(count)";
+const CAR_COLS = "id,make,model,year,color,body_style,specs,is_default,photo_urls,portrait_url";
+
+const isOfficialMeet = (r: any) => r.event_type === "official" || r.club_tier === "official" || r.vendor_id != null;
+const meetClosesAt = (r: any) => (r.ends_at ? Date.parse(r.ends_at) : Date.parse(r.starts_at) + 6 * 3600e3);
+const clubOfficial = (r: any) => r.tier === "official" && (!r.official_until || Date.parse(r.official_until) > Date.now());
+const memberCount = (r: any) => (Array.isArray(r.members) ? r.members[0]?.count ?? 0 : 0);
+
+function meetCard(r: any): Card {
+  const cover = r.club_tier === "official" ? "official" : r.is_instant ? "tt" : (TYPE_LABEL[r.event_type] ? r.event_type : "meet");
+  return {
+    kind: "meet",
+    id: r.id,
+    title: short(r.title, 80) || "Meet",
+    subtitle: [fmtWhen(r.starts_at), short(r.venue_name, 40)].filter(Boolean).join(" · "),
+    image: r.cover_url ?? `assets/covers/${cover}.jpg`,
+    route: `/event/${r.id}`,
+  };
+}
+function spotCard(r: any, dist?: number | null): Card {
+  const bits = [KIND_LABEL[r.kind] ?? "Spot"];
+  if (dist != null) bits.push(`${dist < 10 ? round1(dist) : Math.round(dist)} km`);
+  const n = spotCheckins(r);
+  if (n) bits.push(`${n} check-in${n === 1 ? "" : "s"}`);
+  return {
+    kind: "spot",
+    id: r.id,
+    title: short(r.name, 80) || "Spot",
+    subtitle: bits.join(" · "),
+    image: r.cover_url ?? r.vendor_logo ?? `assets/kinds/${KIND_ICONS.has(r.kind) ? r.kind : "other"}.png`,
+    route: `/place/${r.id}`,
+  };
+}
+function clubCard(r: any): Card {
+  const n = memberCount(r);
+  return {
+    kind: "club",
+    id: r.id,
+    title: short(r.name, 80) || "Club",
+    subtitle: [`${n} member${n === 1 ? "" : "s"}`, r.home_state, clubOfficial(r) ? "Official" : null].filter(Boolean).join(" · "),
+    image: r.avatar_url ?? null,
+    route: `/club/${r.id}`,
+  };
+}
+function carCard(r: any): Card {
+  return {
+    kind: "car",
+    id: r.id,
+    title: short(`${r.make ?? ""} ${r.model ?? ""}`.trim(), 80) || "Car",
+    subtitle: [r.year, r.color, short(r.specs, 40)].filter(Boolean).join(" · "),
+    image: (Array.isArray(r.photo_urls) && r.photo_urls[0]) || r.portrait_url || null,
+    route: `/car/${r.id}`,
+  };
+}
+
+const inMalaysia = (lat: number, lng: number) => lat > 0.5 && lat < 7.6 && lng > 99.4 && lng < 119.6;
+
+/**
+ * A Malaysian area or place name → a point. Mapbox knows towns and districts
+ * (Ipoh, Johor Bahru, Sepang) but not KL neighbourhoods, so Bangsar, Mont
+ * Kiara or SS2 fall back to the best-matching place of interest there. Both are
+ * biased towards [bias] (the member, else central KL); left alone, Mapbox
+ * biases towards the server, which sits in Singapore, and Bangsar lands in Johor.
+ */
+async function geocode(name: string, bias: Point | null): Promise<Point | null> {
+  if (!MAPBOX) return null;
+  const get = async (url: string) => {
+    const r = await fetch(url, { signal: AbortSignal.timeout(4000) });
+    const f = r.ok ? (await r.json())?.features?.[0] : null;
+    const c = f?.geometry?.coordinates;
+    return Array.isArray(c) && inMalaysia(c[1], c[0]) ? { lat: c[1] as number, lng: c[0] as number, label: name } : null;
+  };
+  const proximity = bias ? `${bias.lng},${bias.lat}` : "101.6869,3.1390";
+  const q = (extra: Record<string, string>) => new URLSearchParams({ q: name, country: "my", limit: "1", language: "en", proximity, access_token: MAPBOX, ...extra });
+  // Both at once (the member is waiting); the area answer wins when there is one.
+  const safe = (url: string) => get(url).catch((e) => {
+    console.error("titi geocode", String(e).slice(0, 200));
+    return null;
+  });
+  const [area, poi] = await Promise.all([
+    safe(`https://api.mapbox.com/search/geocode/v6/forward?${q({ types: "region,district,place,locality,neighborhood" })}`),
+    safe(`https://api.mapbox.com/search/searchbox/v1/forward?${q({})}`),
+  ]);
+  return area ?? poi;
+}
+
+// ============================================================ one request ===
+
+class Turn {
+  cards = new Map<string, Card>();
+  private geo = new Map<string, Point | null>();
+  constructor(
+    readonly db: SupabaseClient,
+    readonly userId: string,
+    readonly here: Point | null,
+  ) {}
+
+  /**
+   * Where to search around. `near` wins: "me" is the phone's location, a name
+   * is geocoded. Raw coordinates only count inside Malaysia (the model likes
+   * to fill in 0, 0).
+   */
+  async place(args: any): Promise<Point | null> {
+    const near = typeof args?.near === "string" ? args.near.trim() : "";
+    if (/^(me|here|my location|near me|nearby|around me)$/i.test(near)) return this.here;
+    if (near) {
+      if (!this.geo.has(near)) this.geo.set(near, await geocode(near, this.here));
+      return this.geo.get(near)!;
+    }
+    const lat = num(args?.near_lat), lng = num(args?.near_lng);
+    return lat != null && lng != null && inMalaysia(lat, lng) ? { lat, lng, label: "that point" } : null;
+  }
+
+  async run(name: string, args: any): Promise<unknown> {
+    switch (name) {
+      case "search_meets": return await this.searchMeets(args ?? {});
+      case "search_spots": return await this.searchSpots(args ?? {});
+      case "search_clubs": return await this.searchClubs(args ?? {});
+      case "my_cars": return await this.myCars();
+      default: return { error: `unknown tool ${name}` };
+    }
+  }
+
+  private async searchMeets(a: any) {
+    const now = Date.now();
+    const from = Date.parse(a.from) || now;
+    // Include meets that started before the window but are still on.
+    const fromQ = from - 8 * 3600e3;
+    let to = Date.parse(a.to) || from + 14 * 86400e3;
+    to = Math.min(Math.max(to, from + 3600e3), now + 90 * 86400e3);
+    const point = await this.place(a);
+    if (a.near && !point) {
+      return { meets: [], note: a.near === "me" ? "The member's location is unknown. Ask which area, or search without a place." : `Couldn't place "${a.near}" on the map. Ask for a nearby town, or search without a place.` };
+    }
+    const radius = Math.min(Math.max(num(a.radius_km) ?? 30, 1), 400);
+
+    const query = (withPoint: boolean, start = fromQ, end = to, anyKind = false) => {
+      let q = this.db.from("events_with_counts").select(MEET_COLS).eq("status", "active")
+        .gte("starts_at", new Date(start).toISOString()).lte("starts_at", new Date(end).toISOString());
+      if (!anyKind && typeof a.type === "string" && a.type !== "any" && TYPE_LABEL[a.type]) q = q.eq("event_type", a.type);
+      if (a.official_only === true) q = q.or("event_type.eq.official,club_tier.eq.official,vendor_id.not.is.null");
+      if (withPoint && point) {
+        const dLat = radius / 111, dLng = radius / (111 * Math.cos(point.lat * Math.PI / 180));
+        q = q.gte("lat", point.lat - dLat).lte("lat", point.lat + dLat).gte("lng", point.lng - dLng).lte("lng", point.lng + dLng);
+      }
+      return q.order("starts_at", { ascending: true }).limit(60);
+    };
+
+    const shape = (rows: any[], limit: number, inRadius: boolean, after = from) =>
+      rows
+        .filter((r) => meetClosesAt(r) > Math.max(now, after))
+        .map((r) => ({ r, d: point ? km(point, r) : null }))
+        .filter((x) => !inRadius || x.d == null || x.d <= radius * 1.05)
+        .slice(0, limit)
+        .map(({ r, d }) => {
+          const c = meetCard(r);
+          this.cards.set(`meet:${r.id}`, c);
+          const live = Date.parse(r.starts_at) - 3600e3 <= now;
+          return {
+            ref: `[[meet:${r.id}]]`,
+            title: r.title,
+            type: r.is_instant ? "TT now (instant)" : TYPE_LABEL[r.event_type] ?? r.event_type,
+            when: fmtWhen(r.starts_at),
+            status: live ? "on now" : "upcoming",
+            venue: r.venue_name,
+            distance_km: d == null ? undefined : round1(d),
+            going: r.attendee_count ?? 0,
+            full: r.max_attendees != null && (r.attendee_count ?? 0) >= r.max_attendees,
+            host: r.vendor_name ?? r.club_name ?? undefined,
+            official: isOfficialMeet(r),
+            friends_only: r.visibility === "friends" || undefined,
+          };
+        });
+
+    const { data, error } = await query(true);
+    if (error) throw new Error(`meets: ${error.message}`);
+    const meets = shape(data ?? [], 8, true);
+    const out: Record<string, unknown> = {
+      window: `${fmtWhen(new Date(from).toISOString())} to ${fmtWhen(new Date(to).toISOString())}`,
+      near: point ? { place: point.label, radius_km: radius } : undefined,
+      meets,
+    };
+    // Nothing matched: offer any kind, anywhere, on the same dates; else whatever is next.
+    if (!meets.length) {
+      const { data: all } = await query(false, fromQ, to, true);
+      const other = shape(all ?? [], 3, false);
+      if (other.length) out.other_kinds_or_places_same_dates = other;
+    }
+    if (!meets.length && !out.other_kinds_or_places_same_dates) {
+      const { data: next } = await query(false, now - 8 * 3600e3, now + 45 * 86400e3, true);
+      const upcoming = shape((next ?? []).filter((r: any) => Date.parse(r.starts_at) < from || Date.parse(r.starts_at) > to), 3, false, now);
+      if (upcoming.length) out.next_up_other_dates = upcoming;
+    }
+    return out;
+  }
+
+  private async searchSpots(a: any) {
+    const point = await this.place(a);
+    if (a.near && !point) {
+      return { spots: [], note: a.near === "me" ? "The member's location is unknown. Ask which area, or search without a place." : `Couldn't place "${a.near}" on the map.` };
+    }
+    const limit = Math.min(Math.max(Math.round(num(a.limit) ?? 5), 1), 8);
+    const kind = typeof a.kind === "string" && KIND_LABEL[a.kind] ? a.kind : null;
+    let rows: any[];
+    if (point) {
+      // The app's own nearest-first RPC (spots only), then filter by kind.
+      const { data, error } = await this.db.rpc("nearest_spots", { p_lat: point.lat, p_lng: point.lng, p_limit: 50 });
+      if (error) throw new Error(`spots: ${error.message}`);
+      rows = (data ?? []) as any[];
+    } else {
+      let q = this.db.from("places_with_counts").select(SPOT_COLS).eq("is_spot", true);
+      if (kind) q = q.eq("kind", kind);
+      const { data, error } = await q.order("score", { ascending: false }).limit(limit);
+      if (error) throw new Error(`spots: ${error.message}`);
+      rows = data ?? [];
+    }
+    if (kind) rows = rows.filter((r) => r.kind === kind);
+    const spots = rows.slice(0, limit).map((r) => {
+      const d = point ? km(point, r) : null;
+      this.cards.set(`spot:${r.id}`, spotCard(r, d));
+      return {
+        ref: `[[spot:${r.id}]]`,
+        name: r.name,
+        kind: KIND_LABEL[r.kind] ?? r.kind,
+        distance_km: d == null ? undefined : round1(d),
+        checkins: spotCheckins(r),
+        upcoming_meets: r.upcoming_meets || undefined,
+        partner: r.vendor_name ?? undefined,
+        top_spot: r.is_top || undefined,
+        about: short(r.description, 160) || undefined,
+        tags: Array.isArray(r.tags) && r.tags.length ? r.tags.slice(0, 5) : undefined,
+      };
+    });
+    return { near: point ? point.label : undefined, spots, note: spots.length ? undefined : "No spots matched. The map is new; members can suggest spots (30 points when one goes live)." };
+  }
+
+  private async searchClubs(a: any) {
+    let q = this.db.from("clubs").select(CLUB_COLS);
+    const s = typeof a.query === "string" ? a.query.trim().replace(/[%,()*]/g, "").slice(0, 40) : "";
+    if (s) q = q.or(`name.ilike.%${s}%,handle.ilike.%${s}%,description.ilike.%${s}%`);
+    const near = typeof a.near === "string" ? a.near.trim() : "";
+    const state = STATES.find(([re]) => re.test(near))?.[1];
+    if (state) q = q.eq("home_state", state);
+    const { data, error } = await q.order("created_at", { ascending: false }).limit(30);
+    if (error) throw new Error(`clubs: ${error.message}`);
+    let rows = (data ?? []) as any[];
+    const point = near && !state ? await this.place({ near }) : null;
+    const dist = (r: any) => (point && r.garage_lat != null && r.garage_lng != null ? km(point, { lat: r.garage_lat, lng: r.garage_lng }) : null);
+    if (point) rows = rows.sort((x, y) => (dist(x) ?? 1e9) - (dist(y) ?? 1e9));
+    else rows = rows.sort((x, y) => Number(clubOfficial(y)) - Number(clubOfficial(x)) || memberCount(y) - memberCount(x));
+    const clubs = rows.slice(0, 8).map((r) => {
+      this.cards.set(`club:${r.id}`, clubCard(r));
+      const d = dist(r);
+      return {
+        ref: `[[club:${r.id}]]`,
+        name: r.name,
+        handle: r.handle ? `@${r.handle}` : undefined,
+        state: r.home_state ?? undefined,
+        members: memberCount(r),
+        official: clubOfficial(r),
+        garage: r.garage_name ?? undefined,
+        distance_km: d == null ? undefined : round1(d),
+        about: short(r.description, 140) || undefined,
+      };
+    });
+    return { clubs, note: clubs.length ? undefined : "No clubs matched. Anyone can apply to start one (Create, Start a car club)." };
+  }
+
+  private async myCars() {
+    const { data, error } = await this.db.from("cars").select(CAR_COLS).eq("owner_id", this.userId).order("is_default", { ascending: false }).limit(10);
+    if (error) throw new Error(`cars: ${error.message}`);
+    const cars = (data ?? []).map((r: any) => {
+      this.cards.set(`car:${r.id}`, carCard(r));
+      return { ref: `[[car:${r.id}]]`, make: r.make, model: r.model, year: r.year ?? undefined, color: r.color ?? undefined, body: r.body_style ?? undefined, specs: r.specs ?? undefined, main_car: r.is_default || undefined };
+    });
+    return { cars, note: cars.length ? undefined : "No cars in their garage yet. They can add one: [Add a car](/car/new)." };
+  }
+
+  /** A card for a ref: from this turn's tool results, else looked up (as the member) by id. */
+  async card(key: string): Promise<Card | null> {
+    const hit = this.cards.get(key);
+    if (hit) return hit;
+    const [kind, id] = key.split(":");
+    if (!UUID.test(id)) return null;
+    try {
+      if (kind === "meet") {
+        const { data } = await this.db.from("events_with_counts").select(MEET_COLS).eq("id", id).maybeSingle();
+        return data ? meetCard(data) : null;
+      }
+      if (kind === "spot") {
+        const { data } = await this.db.from("places_with_counts").select(SPOT_COLS).eq("id", id).maybeSingle();
+        return data ? spotCard(data) : null;
+      }
+      if (kind === "club") {
+        const { data } = await this.db.from("clubs").select(CLUB_COLS).eq("id", id).maybeSingle();
+        return data ? clubCard(data) : null;
+      }
+      if (kind === "car") {
+        const { data } = await this.db.from("cars").select(CAR_COLS).eq("id", id).maybeSingle();
+        return data ? carCard(data) : null;
+      }
+    } catch {
+      /* no card */
+    }
+    return null;
+  }
+}
+
+// ============================================================== the shaper ===
+
+type Ev =
+  | { t: "delta"; text: string }
+  | { t: "break" }
+  | { t: "ref"; key: string }
+  | { t: "chips"; options: string[] };
+
+/**
+ * Turns the model's streamed text into events without waiting for the end:
+ * a line of only dashes becomes a bubble break, [[meet:<id>]] a card ref and
+ * [[chips: a | b]] the follow-ups. Text is held back only while it could still
+ * be one of those (a line start of "-", or an open "[[").
+ */
+class Shaper {
+  private buf = "";
+  private lineStart = true;
+
+  push(s: string): Ev[] {
+    this.buf += s;
+    return this.drain(false);
+  }
+
+  /** Flushes everything held back; the next text starts a fresh line. */
+  end(): Ev[] {
+    const out = this.drain(true);
+    this.lineStart = true;
+    return out;
+  }
+
+  private drain(final: boolean): Ev[] {
+    const out: Ev[] = [];
+    const text = (s: string) => {
+      if (!s) return;
+      const last = out[out.length - 1];
+      if (last?.t === "delta") last.text += s;
+      else out.push({ t: "delta", text: s });
+    };
+    while (this.buf.length) {
+      if (this.lineStart) {
+        const nl = this.buf.indexOf("\n");
+        const line = nl < 0 ? this.buf : this.buf.slice(0, nl);
+        if (/^[ \t]*-{3,}[ \t]*$/.test(line) || /^[ \t]*[*_]{3,}[ \t]*$/.test(line)) {
+          if (nl < 0 && !final) break; // "---" might still grow; wait for the newline
+          out.push({ t: "break" });
+          this.buf = nl < 0 ? "" : this.buf.slice(nl + 1);
+          continue;
+        }
+        if (nl < 0 && !final && /^[ \t]*[-*_]{0,2}$/.test(line)) break; // could still become "---"
+      }
+      const open = this.buf.indexOf("[[");
+      if (open === 0) {
+        const close = this.buf.indexOf("]]");
+        if (close < 0) {
+          if (!final && this.buf.length < 300) break; // wait for the rest of the ref
+          text(this.buf);
+          this.buf = "";
+          this.lineStart = false;
+          break;
+        }
+        const inner = this.buf.slice(2, close).trim();
+        this.buf = this.buf.slice(close + 2);
+        const chips = /^chips\s*:(.*)$/is.exec(inner);
+        const ref = /^(meet|spot|club|car)\s*:\s*([0-9a-f-]{36})$/i.exec(inner);
+        if (chips) {
+          const options = chips[1].split("|").map((o) => o.trim().replace(/^["']|["']$/g, "")).filter((o) => o && o.length <= 60).slice(0, 3);
+          if (options.length) out.push({ t: "chips", options });
+        } else if (ref) {
+          out.push({ t: "ref", key: `${ref[1].toLowerCase()}:${ref[2].toLowerCase()}` });
+        }
+        // Anything else in [[ ]] is dropped.
+        continue;
+      }
+      // Plain text up to the next newline or "[[", whichever comes first.
+      const nl = this.buf.indexOf("\n");
+      let end = this.buf.length;
+      if (open > 0) end = Math.min(end, open);
+      if (nl >= 0) end = Math.min(end, nl + 1);
+      let chunk = this.buf.slice(0, end);
+      // A lone "[" at the very end might be the start of "[[".
+      if (end === this.buf.length && open < 0 && !final && chunk.endsWith("[")) chunk = chunk.slice(0, -1);
+      if (!chunk) break;
+      text(chunk);
+      this.buf = this.buf.slice(chunk.length);
+      this.lineStart = chunk.endsWith("\n");
+    }
+    return out;
+  }
+}
+
+// ======================================================= the model stream ===
+
+type RoundResult = { items: any[]; usage: any; incomplete: boolean };
+
+async function* sse(body: ReadableStream<Uint8Array>): AsyncGenerator<any> {
+  const reader = body.pipeThrough(new TextDecoderStream()).getReader();
+  let buf = "";
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += value;
+    let i: number;
+    while ((i = buf.indexOf("\n\n")) >= 0) {
+      const block = buf.slice(0, i);
+      buf = buf.slice(i + 2);
+      const data = block.split("\n").filter((l) => l.startsWith("data:")).map((l) => l.slice(5).trimStart()).join("\n");
+      if (!data || data === "[DONE]") continue;
+      try {
+        yield JSON.parse(data);
+      } catch {
+        /* skip a malformed block */
+      }
+    }
+  }
+}
+
+async function callModel(input: any[], instructions: string, finalRound: boolean, signal: AbortSignal, onText: (s: string) => Promise<void>): Promise<RoundResult> {
+  const res = await fetch("https://api.openai.com/v1/responses", {
+    method: "POST",
+    signal,
+    headers: { Authorization: `Bearer ${OPENAI_KEY}`, "content-type": "application/json" },
+    body: JSON.stringify({
+      model: MODEL,
+      instructions,
+      input,
+      tools: TOOLS,
+      tool_choice: finalRound ? "none" : "auto",
+      reasoning: { effort: "none" },
+      max_output_tokens: MAX_OUTPUT,
+      stream: true,
+      store: false,
+      include: ["reasoning.encrypted_content"],
+    }),
+  });
+  if (!res.ok || !res.body) throw new Error(`openai ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  const items: any[] = [];
+  let usage: any = null;
+  let incomplete = false;
+  for await (const ev of sse(res.body)) {
+    switch (ev.type) {
+      case "response.output_text.delta":
+        if (ev.delta) await onText(ev.delta);
+        break;
+      case "response.output_item.done":
+        if (ev.item) items.push(ev.item);
+        break;
+      case "response.completed":
+        usage = ev.response?.usage ?? null;
+        break;
+      case "response.incomplete":
+        usage = ev.response?.usage ?? null;
+        incomplete = true;
+        break;
+      case "response.failed":
+        throw new Error(`openai failed: ${JSON.stringify(ev.response?.error ?? {}).slice(0, 300)}`);
+      case "error":
+        throw new Error(`openai error: ${JSON.stringify(ev).slice(0, 300)}`);
+    }
+  }
+  return { items, usage, incomplete };
+}
+
+// ============================================================ the handler ===
+
+const LIMIT_TEXT = (n: number) =>
+  `That's ${n} questions today, and this cone needs a rest. Ask me again tomorrow!`;
+const ERROR_TEXT = "My radio cut out. Try again?";
+
+/** History rows → model input. Cards in an old answer become a short note so TiTi remembers what it showed. */
+function historyInput(rows: any[]): any[] {
+  return rows.map((r) => {
+    if (r.role === "user") return { role: "user", content: String(r.content ?? "") };
+    let text = String(r.content ?? "");
+    const cards = r.parts?.cards && typeof r.parts.cards === "object" ? Object.entries(r.parts.cards as Record<string, Card>) : [];
+    if (cards.length) text += `\n\n(Cards shown: ${cards.map(([k, c]) => `[[${k}]] ${c.title}`).join("; ")})`;
+    return { role: "assistant", content: text };
+  });
+}
+
+function contextNote(name: string | null, here: Point | null): string {
+  const now = new Date();
+  const day = new Intl.DateTimeFormat("en-GB", { timeZone: MYT, weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(now);
+  const time = new Intl.DateTimeFormat("en-GB", { timeZone: MYT, hour: "numeric", minute: "2-digit", hour12: true }).format(now);
+  const iso = new Date(now.getTime() + 8 * 3600e3).toISOString().slice(0, 19) + "+08:00";
+  return `\n\n# Right now\n- Malaysia time: ${day}, ${time} (${iso}).\n- Member: ${name ?? "unknown name"}.\n- Their location: ${here ? `known (${here.lat.toFixed(3)}, ${here.lng.toFixed(3)}); pass near "me" to use it` : "unknown"}.`;
+}
+
+Deno.serve(async (req) => {
+  if (req.method !== "POST") return json({ error: "POST only" }, 405);
+  const t0 = Date.now();
+
+  let body: any = {};
+  try {
+    body = await req.json();
+  } catch {
+    /* empty */
+  }
+  const message = typeof body.message === "string" ? body.message.trim().slice(0, MAX_MESSAGE) : "";
+  if (!message) return json({ error: "message required" }, 400);
+  const lat = num(body.lat), lng = num(body.lng);
+  const here: Point | null = lat != null && lng != null && Math.abs(lat) <= 90 && Math.abs(lng) <= 180 ? { lat, lng, label: "your location" } : null;
+
+  const auth = req.headers.get("Authorization") ?? "";
+  const asUser = createClient(SUPABASE_URL, ANON_KEY, { global: { headers: { Authorization: auth } }, auth: { persistSession: false } });
+  // Who, their recent chat and their name, all at once (history and profile are RLS-scoped anyway).
+  const [who, hist] = await Promise.all([
+    asUser.auth.getUser(),
+    asUser.from("titi_messages").select("role, content, parts, created_at").order("created_at", { ascending: false }).limit(HISTORY),
+  ]);
+  const user = who.data.user;
+  if (who.error || !user) return json({ error: "Not signed in" }, 401);
+  if (!OPENAI_KEY) return json({ error: "TiTi is not set up yet" }, 503);
+
+  const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
+  const profileP = asUser.from("profiles").select("display_name, username").eq("id", user.id).maybeSingle();
+
+  const history = ((hist.data ?? []) as any[]).reverse();
+  // A Retry sends the same question again: don't store or send it twice.
+  const last = history[history.length - 1];
+  const isRetry = last?.role === "user" && String(last.content).trim() === message;
+  if (isRetry) history.pop();
+
+  const abort = new AbortController();
+  const enc = new TextEncoder();
+  let closed = false;
+
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      const send = (ev: Record<string, unknown>) => {
+        if (closed) return;
+        try {
+          controller.enqueue(enc.encode(`data: ${JSON.stringify(ev)}\n\n`));
+        } catch {
+          closed = true;
+        }
+      };
+      const finish = () => {
+        send({ t: "done" });
+        if (!closed) {
+          closed = true;
+          try {
+            controller.close();
+          } catch {
+            /* already closed */
+          }
+        }
+      };
+
+      const work = (async () => {
+        // Daily limit first; a refused question is not stored.
+        const { data: count, error: countErr } = await admin.rpc("titi_take_turn", { p_user: user.id, p_limit: DAILY_LIMIT });
+        if (countErr) console.error("titi take_turn", countErr.message);
+        if (count === -1) {
+          send({ t: "delta", text: LIMIT_TEXT(DAILY_LIMIT) });
+          finish();
+          return;
+        }
+        const savedQuestion = isRetry ? Promise.resolve() : asUser.from("titi_messages").insert({ user_id: user.id, role: "user", content: message }).then(({ error }) => {
+          if (error) console.error("titi save question", error.message);
+        });
+
+        const profile = (await profileP).data as any;
+        const first = (profile?.display_name ?? "").trim().split(/\s+/)[0] || profile?.username || null;
+        const instructions = INSTRUCTIONS + contextNote(first, here);
+        const turn = new Turn(asUser, user.id, here);
+        const shaper = new Shaper();
+
+        // What gets stored: the answer exactly as shown.
+        let stored = "";
+        const shown = new Set<string>();
+        const parts: { cards: Record<string, Card>; chips: string[] } = { cards: {}, chips: [] };
+        let firstDeltaMs: number | null = null;
+        const usage = { model: MODEL, rounds: 0, tools: [] as string[], input_tokens: 0, cached_tokens: 0, output_tokens: 0, reasoning_tokens: 0, ttft_ms: 0, ms: 0, incomplete: false, stopped: false, steps: [] as string[] };
+        const mark = (what: string) => usage.steps.push(`${what} ${Date.now() - t0}`);
+
+        // A break only goes out once something visible follows it, so there is
+        // never an empty bubble at the start, the end, or two in a row.
+        let visible = false;
+        let pendingBreak = false;
+        const flushBreak = () => {
+          if (pendingBreak && visible) {
+            stored += "\n---\n";
+            send({ t: "break" });
+          }
+          pendingBreak = false;
+        };
+        const emit = async (evs: Ev[]) => {
+          for (const ev of evs) {
+            if (ev.t === "delta") {
+              const solid = ev.text.trim().length > 0;
+              if (!solid && (pendingBreak || !visible)) continue; // whitespace before a bubble
+              if (solid) {
+                if (firstDeltaMs == null) firstDeltaMs = Date.now() - t0;
+                flushBreak();
+                visible = true;
+              }
+              stored += ev.text;
+              send(ev);
+            } else if (ev.t === "break") {
+              pendingBreak = true;
+            } else if (ev.t === "ref") {
+              if (shown.has(ev.key) || shown.size >= MAX_CARDS) continue;
+              const card = await turn.card(ev.key);
+              if (!card) continue;
+              flushBreak();
+              visible = true;
+              shown.add(ev.key);
+              parts.cards[ev.key] = card;
+              stored += `\n[[${ev.key}]]\n`;
+              send({ t: "card", ...card });
+            } else if (ev.t === "chips") {
+              parts.chips = ev.options;
+            }
+          }
+        };
+
+        let failed = false;
+        try {
+          const input: any[] = [...historyInput(history), { role: "user", content: message }];
+          for (let round = 0; ; round++) {
+            usage.rounds = round + 1;
+            mark(`model${round + 1}`);
+            const r = await callModel(input, instructions, round >= MAX_ROUNDS, abort.signal, (s) => emit(shaper.push(s)));
+            mark(`model${round + 1} done`);
+            const u = r.usage;
+            if (u) {
+              usage.input_tokens += u.input_tokens ?? 0;
+              usage.cached_tokens += u.input_tokens_details?.cached_tokens ?? 0;
+              usage.output_tokens += u.output_tokens ?? 0;
+              usage.reasoning_tokens += u.output_tokens_details?.reasoning_tokens ?? 0;
+            }
+            if (r.incomplete) usage.incomplete = true;
+            const calls = r.items.filter((i) => i.type === "function_call");
+            if (!calls.length || round >= MAX_ROUNDS) break;
+            // Text before a tool call ("Let me check…") stays its own bubble.
+            await emit([...shaper.end(), { t: "break" }]);
+            // Echo the round back (store: false keeps nothing at OpenAI): reasoning
+            // items as they are, the rest without their ids.
+            for (const it of r.items) {
+              if (it.type === "reasoning") input.push(it);
+              else {
+                const { id: _id, status: _status, ...rest } = it;
+                input.push(rest);
+              }
+            }
+            const outputs = await Promise.all(calls.map(async (c) => {
+              let args: any = {};
+              try {
+                args = c.arguments ? JSON.parse(c.arguments) : {};
+              } catch {
+                /* bad args: the tool sees {} */
+              }
+              usage.tools.push(`${c.name} ${JSON.stringify(args).slice(0, 200)}`);
+              send({ t: "status", text: (STATUS[c.name] ?? (() => "Checking…"))(args), tool: c.name });
+              let out: unknown;
+              try {
+                out = await turn.run(c.name, args);
+              } catch (e) {
+                console.error("titi tool", c.name, String(e).slice(0, 300));
+                out = { error: "That search failed. Tell the member you couldn't check right now." };
+              }
+              return { type: "function_call_output", call_id: c.call_id, output: JSON.stringify(out) };
+            }));
+            input.push(...outputs);
+            mark("tools done");
+          }
+          await emit(shaper.end());
+        } catch (e) {
+          if (abort.signal.aborted || closed) {
+            usage.stopped = true;
+          } else {
+            failed = true;
+            console.error("titi", String(e).slice(0, 400));
+          }
+        }
+
+        usage.ttft_ms = firstDeltaMs ?? 0;
+        usage.ms = Date.now() - t0;
+        const answer = stored.trim();
+        // Stopped mid-way: OpenAI never sends that round's usage. Log a rough
+        // count (~4 characters a token) so the cost view isn't blind to it.
+        if (usage.stopped && usage.output_tokens === 0 && answer) {
+          usage.output_tokens = Math.ceil(answer.length / 4);
+          (usage as Record<string, unknown>).estimated = true;
+        }
+
+        if (failed && !answer) {
+          send({ t: "error", text: ERROR_TEXT });
+        } else if (parts.chips.length) {
+          send({ t: "chips", options: parts.chips });
+        }
+        finish();
+
+        // Bookkeeping after the stream is closed: the member isn't waiting on it.
+        await savedQuestion;
+        const writes: PromiseLike<unknown>[] = [
+          admin.rpc("titi_log_usage", { p_user: user.id, p_input: usage.input_tokens, p_cached: usage.cached_tokens, p_output: usage.output_tokens }),
+        ];
+        if (answer) {
+          writes.push(admin.from("titi_messages").insert({
+            user_id: user.id,
+            role: "assistant",
+            content: answer.slice(0, 12000),
+            parts: Object.keys(parts.cards).length || parts.chips.length ? parts : null,
+            usage,
+          }));
+        }
+        const results = await Promise.allSettled(writes);
+        for (const r of results) {
+          const err = r.status === "rejected" ? r.reason : (r.value as any)?.error;
+          if (err) console.error("titi save", String(err?.message ?? err).slice(0, 300));
+        }
+        console.log(`titi ${user.id.slice(0, 8)} rounds=${usage.rounds} tools=${usage.tools.map((t) => t.split(" ")[0]).join(",") || "-"} ttft=${usage.ttft_ms}ms total=${usage.ms}ms in=${usage.input_tokens} cached=${usage.cached_tokens} out=${usage.output_tokens}${usage.stopped ? " stopped" : ""}`);
+      })().catch((e) => {
+        console.error("titi fatal", String(e).slice(0, 400));
+        send({ t: "error", text: ERROR_TEXT });
+        finish();
+      });
+
+      // Keep saving the answer even after the member closes the stream (Stop).
+      (globalThis as any).EdgeRuntime?.waitUntil?.(work);
+    },
+    cancel() {
+      closed = true;
+      abort.abort();
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      "content-type": "text/event-stream; charset=utf-8",
+      "cache-control": "no-cache",
+      "x-accel-buffering": "no",
+    },
+  });
+});

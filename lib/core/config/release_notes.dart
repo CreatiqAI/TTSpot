@@ -10,6 +10,23 @@ class ReleaseNote {
 
 const kReleaseNotes = <ReleaseNote>[
   ReleaseNote(
+    version: '0.3.42',
+    date: '30 Sep 2026',
+    title: 'Meet TiTi',
+    points: [
+      'TiTi is now your pit crew: ask about meets this weekend, car cafés near you, points, or road tax. Find it at the top of Chats.',
+      'Log your road tax, insurance and PUSPAKOM on each car, with reminders before they run out.',
+      'A mods log for every car: what you fitted, where and when. Prices stay private.',
+      'AI car portraits are back, for 300 points each.',
+      'Your profile is tidier: Meets, Friends and Cars up top, your points below, and one My garage button.',
+      'Set who sees your car and your notifications right in Settings.',
+      'Meet pages have two clear buttons: Directions and Share (send in TT Spot, WhatsApp or copy the link).',
+      'Smoother map: your own glow is round and steady, and spots appear faster when you zoom out.',
+      'Navigate in TT Spot no longer crashes on iPhone.',
+      'New icons for meets, TT sessions, convoys, track days and vouchers.',
+    ],
+  ),
+  ReleaseNote(
     version: '0.3.41',
     date: '30 Sep 2026',
     title: 'A clearer map',

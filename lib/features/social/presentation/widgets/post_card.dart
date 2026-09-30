@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -411,49 +413,68 @@ class _Media extends StatelessWidget {
   final bool whole;
   final VoidCallback? onTap;
 
+  /// Post page chrome around the photo: the author row above it, and below
+  /// it the like/comment row peeking out plus the comment bar.
+  static const _authorRow = 66.0;
+  static const _belowPhoto = 120.0;
+
+  /// Post page: the tallest the photo box can be and still fit on screen
+  /// with the author row above and the actions peeking below. Read from the
+  /// view, not the page's MediaQuery, so the keyboard coming up for a
+  /// comment does not shrink the photo.
+  static double _fitHeight(BuildContext context) {
+    final screen = MediaQueryData.fromView(View.of(context));
+    final fit = screen.size.height - screen.viewPadding.vertical - kToolbarHeight - _authorRow - _belowPhoto;
+    return math.max(fit, 240);
+  }
+
   @override
   Widget build(BuildContext context) {
     final aspect = whole ? post.coverAspect.clamp(0.56, 1.91) : post.coverAspect.clamp(0.8, 1.91);
     return GestureDetector(
       onDoubleTap: onDoubleTap,
       onTap: onTap,
-      child: AspectRatio(
-        aspectRatio: aspect,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            if (whole) ColoredBox(color: AppColors.surfaceGray),
-            PageView.builder(
-              itemCount: post.photoUrls.length,
-              onPageChanged: onPage,
-              itemBuilder: (_, i) => Image(image: CachedNetworkImageProvider(post.photoUrls[i]),
-                fit: whole ? BoxFit.contain : BoxFit.cover,
-                loadingBuilder: (_, child, prog) => prog == null ? child : ColoredBox(color: AppColors.surfaceGray),
-                errorBuilder: (_, _, _) => ColoredBox(color: AppColors.surfaceGray, child: Icon(AppIcons.imageBroken, color: AppColors.textMuted)),
-              ),
-            ),
-            if (post.photoUrls.length > 1)
-              Positioned(
-                top: 10,
-                right: 10,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(999)),
-                  child: Text('${page + 1}/${post.photoUrls.length}', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
-                ),
-              ),
-            IgnorePointer(
-              child: AnimatedOpacity(
-                duration: const Duration(milliseconds: 200),
-                opacity: burst ? 1 : 0,
-                child: const Center(child: Icon(AppIcons.heartFill, color: Colors.white, size: 96, shadows: [Shadow(color: Colors.black38, blurRadius: 16)])),
-              ),
-            ),
-          ],
-        ),
-      ),
+      child: whole
+          // A phone screenshot on the post page would run off screen at its
+          // own aspect, so its box stops at the screen and the photo sits
+          // whole inside it. Wide photos keep their aspect.
+          ? LayoutBuilder(builder: (context, c) => SizedBox(height: math.min(c.maxWidth / aspect, _fitHeight(context)), child: _stack()))
+          : AspectRatio(aspectRatio: aspect, child: _stack()),
     );
   }
+
+  Widget _stack() => Stack(
+        fit: StackFit.expand,
+        children: [
+          if (whole) ColoredBox(color: AppColors.surfaceGray),
+          PageView.builder(
+            itemCount: post.photoUrls.length,
+            onPageChanged: onPage,
+            itemBuilder: (_, i) => Image(image: CachedNetworkImageProvider(post.photoUrls[i]),
+              fit: whole ? BoxFit.contain : BoxFit.cover,
+              loadingBuilder: (_, child, prog) => prog == null ? child : ColoredBox(color: AppColors.surfaceGray),
+              errorBuilder: (_, _, _) => ColoredBox(color: AppColors.surfaceGray, child: Icon(AppIcons.imageBroken, color: AppColors.textMuted)),
+            ),
+          ),
+          if (post.photoUrls.length > 1)
+            Positioned(
+              top: 10,
+              right: 10,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(999)),
+                child: Text('${page + 1}/${post.photoUrls.length}', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
+              ),
+            ),
+          IgnorePointer(
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 200),
+              opacity: burst ? 1 : 0,
+              child: const Center(child: Icon(AppIcons.heartFill, color: Colors.white, size: 96, shadows: [Shadow(color: Colors.black38, blurRadius: 16)])),
+            ),
+          ),
+        ],
+      );
 }
 
 class _GuideStrip extends StatelessWidget {

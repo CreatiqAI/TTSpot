@@ -10,6 +10,7 @@ import '../../../core/theme/app_images.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/dates.dart';
 import '../../../core/utils/friendly_error.dart';
+import '../../../core/widgets/photo_viewer.dart';
 import '../../../core/widgets/user_avatar.dart';
 import '../../events/application/event_providers.dart';
 import '../../friends/application/friends_providers.dart';
@@ -303,11 +304,7 @@ class _SharedThumb extends ConsumerWidget {
     if (message.imageUrl != null) {
       url = message.imageUrl;
       tag = 'Photo';
-      open = () => showDialog<void>(
-            context: context,
-            barrierColor: Colors.black,
-            builder: (ctx) => GestureDetector(onTap: () => Navigator.pop(ctx), child: InteractiveViewer(child: Center(child: Image(image: CachedNetworkImageProvider(message.imageUrl!))))),
-          );
+      open = () => showPhotoViewer(context, [message.imageUrl!]);
     } else if (message.postId != null) {
       final post = ref.watch(postProvider(message.postId!)).value?.post;
       url = post?.cover;

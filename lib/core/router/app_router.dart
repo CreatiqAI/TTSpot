@@ -61,6 +61,7 @@ import '../../features/profile/presentation/car_mod_form_screen.dart';
 import '../../features/profile/presentation/edit_profile_screen.dart';
 import '../../features/profile/presentation/follow_list_screen.dart';
 import '../../features/profile/presentation/garage_home_tab.dart';
+import '../../features/profile/presentation/user_garage_screen.dart';
 import 'branch_stack.dart';
 import 'tab_slot.dart';
 import '../../features/settings/presentation/settings_screen.dart';
@@ -195,6 +196,8 @@ abstract final class Routes {
   static String followers(String userId) => '/profile/$userId/followers';
   static String following(String userId) => '/profile/$userId/following';
   static String badges(String userId) => '/profile/$userId/badges';
+  /// Someone else's cars, read-only.
+  static String userGarage(String userId) => '/profile/$userId/garage';
   static String car(String id) => '/car/$id';
   static String editCar(String id) => '/car/$id/edit';
   static String newCarMod(String carId) => '/car/$carId/mods/new';
@@ -342,6 +345,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(path: 'followers', pageBuilder: (_, s) => page(s, FollowListScreen(userId: s.pathParameters['userId']!, followers: true))),
           GoRoute(path: 'following', pageBuilder: (_, s) => page(s, FollowListScreen(userId: s.pathParameters['userId']!, followers: false))),
           GoRoute(path: 'badges', pageBuilder: (_, s) => page(s, BadgesScreen(userId: s.pathParameters['userId']!))),
+          GoRoute(path: 'garage', pageBuilder: (_, s) => page(s, UserGarageScreen(userId: s.pathParameters['userId']!))),
         ],
       ),
       GoRoute(path: Routes.editProfile, pageBuilder: (_, s) => page(s, const EditProfileScreen())),

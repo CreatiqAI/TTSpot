@@ -46,8 +46,8 @@ import '../../../core/utils/share_links.dart';
 
 enum _Tab { posts, cards }
 
-/// Profile: about the person. Identity on top (my own page has a My garage
-/// button; others show a small strip of their cars), then Posts · Cards.
+/// Profile: about the person. Identity on top (with a garage row: My garage
+/// on my page, their read-only garage on someone else's), then Posts · Cards.
 /// On my own page the Posts tab also holds Saved · Liked · Commented.
 /// `userId == null` means "me".
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -147,8 +147,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     onRewards: () => context.push(Routes.rewards),
                     onQr: () => context.push(Routes.myQr),
                     onAvatar: () => _avatarSheet(p, isMe, moments),
-                    onCar: (c) => context.push(Routes.car(c.id)),
-                    onManageGarage: () => context.push(Routes.myGarage),
+                    onGarage: () => context.push(isMe ? Routes.myGarage : Routes.userGarage(id)),
                     onFriendAction: () => _friendAction(id, friendship, p.displayName ?? '@${p.username}'),
                     onMessage: () => _message(id),
                     onCall: () => showCallSheet(context, ref, userId: id, name: p.displayName ?? '@${p.username}'),

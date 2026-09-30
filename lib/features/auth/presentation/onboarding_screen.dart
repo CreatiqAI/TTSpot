@@ -27,6 +27,7 @@ import '../../profile/data/profile_repository.dart';
 import '../../profile/domain/car_recognition.dart';
 import '../../profile/presentation/widgets/car_color_picker.dart';
 import '../../profile/presentation/widgets/car_scan_widgets.dart';
+import '../../settings/application/settings_providers.dart';
 import '../../settings/presentation/settings_screen.dart' show LegalScreen;
 import '../application/account_basics.dart';
 import '../application/auth_controller.dart';
@@ -79,8 +80,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   String? _carColor;
   /// The file just picked, shown while the recogniser is still looking.
   XFile? _pickedFile;
-  /// What gets uploaded.
-  Uint8List? _carBytes;
+  /// The photo that gets uploaded (plate blurred first when [_hidePlate]).
+  CarPhotoPick? _carPick;
+  /// "Hide my number plate": off unless the member turned it on before.
+  late bool _hidePlate = ref.read(settingsProvider).hidePlate;
+  int _hideRuns = 0;
+  bool _hideFailed = false;
+  bool get _hiding => _hideRuns > 0;
   bool _carPreparing = false;
   /// The recogniser is back; the last status row goes green.
   bool _scanDone = false;
@@ -110,7 +116,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     final started = DateTime.now();
     setState(() {
       _pickedFile = file;
-      _carBytes = null;
+      _carPick = null;
+      _hideFailed = false;
       _carPreparing = true;
       _scanDone = false;
       _scanStart = started;
@@ -134,9 +141,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     final left = kCarScanHold - DateTime.now().difference(started);
     await Future<void>.delayed((left.isNegative ? Duration.zero : left) + const Duration(milliseconds: 450));
     if (!mounted || _scanStart != started) return; // a newer pick took over
+    final pick = CarPhotoPick(prepared.bytes, scan: prepared.guess);
+    if (_hidePlate) _hideCarPlate(pick); // the scan already says where the plate is
     setState(() {
       _carPreparing = false;
-      _carBytes = prepared.bytes;
+      _carPick = pick;
       // Only touch the fields when they are empty or hold an earlier guess;
       // never overwrite what the member typed.
       final untouched = _guessed || (_make.text.trim().isEmpty && _model.text.trim().isEmpty);
@@ -161,6 +170,33 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     });
   }
 
+  void _setHidePlate(bool v) {
+    setState(() {
+      _hidePlate = v;
+      _hideFailed = false;
+    });
+    ref.read(settingsActionsProvider).patch({'hide_plate': v}).catchError((_) {});
+    if (v && _carPick != null) _hideCarPlate(_carPick!);
+  }
+
+  /// Blurs the plate on [pick] so the photo above shows what goes up. False
+  /// when it couldn't be checked.
+  Future<bool> _hideCarPlate(CarPhotoPick pick) async {
+    setState(() {
+      _hideRuns++;
+      _hideFailed = false;
+    });
+    final ok = await hidePlateOn(ref.read(profileRepositoryProvider), pick);
+    if (mounted) {
+      setState(() {
+        _hideRuns--;
+        // A newer photo may have taken over meanwhile.
+        if (identical(pick, _carPick ?? pick)) _hideFailed = !ok;
+      });
+    }
+    return ok;
+  }
+
   Future<void> _submitCar() async {
     FocusScope.of(context).unfocus();
     setState(() => _carValidate = true);
@@ -169,11 +205,18 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       setState(() => _editingCar = true);
       return;
     }
-    final bytes = _carBytes;
-    if (bytes == null) {
+    final pick = _carPick;
+    if (pick == null) {
       _snack('Add a photo of your car.');
       return;
     }
+    // With the switch on, never upload a photo whose plate couldn't be checked.
+    if (_hidePlate && !await _hideCarPlate(pick)) {
+      if (mounted) _snack('Couldn\'t hide the plate. Check your connection, or turn off Hide my number plate.');
+      return;
+    }
+    if (!mounted) return;
+    final bytes = pick.bytes(hidePlate: _hidePlate);
     // Spec line / body style only while they still describe this make + model.
     final g = _guess;
     final keepGuess = g != null && g.matches(_make.text, _model.text);
@@ -359,7 +402,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     final Widget body;
     if (_carPreparing && _pickedFile != null) {
       body = _rideScanning(existing: existing);
-    } else if (_carBytes != null) {
+    } else if (_carPick != null) {
       body = _rideFound(busy: busy, existing: existing);
     } else {
       body = _rideEmpty(busy: busy, existing: existing);
@@ -460,7 +503,16 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                Image.memory(_carBytes!, fit: BoxFit.cover, gaplessPlayback: true),
+                // With the plate hidden, a tap opens the big check (and moves a blur that missed).
+                GestureDetector(
+                  onTap: _hidePlate && !busy && !_hiding && _carPick!.plateChecked
+                      ? () async {
+                          await showPlateCheckSheet(context, _carPick!);
+                          if (mounted) setState(() {});
+                        }
+                      : null,
+                  child: Image.memory(_carPick!.bytes(hidePlate: _hidePlate), fit: BoxFit.cover, gaplessPlayback: true),
+                ),
                 Positioned(
                   left: 0,
                   right: 0,
@@ -596,8 +648,17 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 Text(colourText, style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
                 const SizedBox(height: 10),
                 CarColorPicker(value: _carColor, onChanged: busy ? null : (v) => setState(() => _carColor = v)),
-                const SizedBox(height: 26),
-                PrimaryButton(label: 'Park it in my garage', loading: busy, onPressed: busy ? null : _submitCar),
+                const SizedBox(height: 14),
+                HidePlateSwitch(
+                  value: _hidePlate,
+                  onChanged: busy ? null : _setHidePlate,
+                  working: _hiding,
+                  failed: _hideFailed,
+                  photos: _carPick!.plateChecked ? 1 : 0,
+                  blurred: _carPick!.plateBlurred ? 1 : 0,
+                ),
+                const SizedBox(height: 14),
+                PrimaryButton(label: 'Park it in my garage', loading: busy || _hiding, onPressed: busy || _hiding ? null : _submitCar),
                 const SizedBox(height: 4),
                 TextButton(
                   onPressed: busy ? null : _pickCarPhoto,

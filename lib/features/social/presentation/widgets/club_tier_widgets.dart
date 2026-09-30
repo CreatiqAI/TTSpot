@@ -287,7 +287,7 @@ class ClubLeaderboard extends ConsumerWidget {
                 child: Row(
                   children: [
                     SizedBox(width: 22, child: Text('${i + 1}', style: TextStyle(fontFamily: AppFonts.display, fontSize: 20, fontWeight: FontWeight.w700, color: i == 0 ? const Color(0xFFB8860B) : AppColors.textSecondary))),
-                    UserAvatar(url: active[i].avatarUrl, name: active[i].displayName ?? active[i].username, size: 32),
+                    UserAvatar(url: active[i].avatarUrl, name: active[i].displayName ?? active[i].username, seed: active[i].userId, size: 32),
                   ],
                 ),
               ),

@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_icons.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/titi.dart';
+import '../../../../core/widgets/primary_button.dart';
 import '../../../map/presentation/widgets/car_marker.dart' show kCarColorLabels;
+import '../../application/profile_providers.dart';
 import '../../domain/car_recognition.dart';
 
 /// Shared by onboarding ("Your ride") and Add car: the scanning state while
@@ -267,5 +269,120 @@ class CarSpecGrid extends StatelessWidget {
             ],
           );
         },
+      );
+}
+
+/// "Hide my number plate" above the upload. Off by default, and then the
+/// photos go up exactly as picked. On, each photo's plate is blurred first
+/// and the thumbnails show the blurred copy.
+class HidePlateSwitch extends StatelessWidget {
+  const HidePlateSwitch({super.key, required this.value, required this.onChanged, this.working = false, this.failed = false, this.photos = 0, this.blurred = 0});
+  final bool value;
+  final ValueChanged<bool>? onChanged;
+
+  /// Looking for plates right now.
+  final bool working;
+
+  /// A photo couldn't be checked (offline, say).
+  final bool failed;
+
+  /// New photos checked, and how many had a plate blurred.
+  final int photos;
+  final int blurred;
+
+  String get _status {
+    if (!value) return 'Off: your photos go up as they are.';
+    if (working) return 'Hiding the plate…';
+    if (failed) return 'Couldn\'t check for a plate. Check your connection and try again.';
+    if (photos == 0) return 'The plate gets blurred on each photo before it goes up.';
+    if (blurred == 0) return 'No plate seen. Tap the photo to blur it yourself.';
+    if (photos == 1) return 'Plate blurred. Tap the photo to check it.';
+    return 'Plate blurred on $blurred of $photos photos. Tap one to check it.';
+  }
+
+  @override
+  Widget build(BuildContext context) => SwitchListTile.adaptive(
+        contentPadding: EdgeInsets.zero,
+        value: value,
+        onChanged: onChanged,
+        activeTrackColor: AppColors.brand,
+        secondary: Icon(value ? AppIcons.eyeSlash : AppIcons.eye, color: AppColors.textPrimary),
+        title: const Text('Hide my number plate', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14.5)),
+        subtitle: Text(_status, style: TextStyle(fontSize: 12.5, height: 1.35, color: value && failed ? AppColors.danger : AppColors.textSecondary)),
+      );
+}
+
+/// The photo as it will go up with the plate hidden, big. The recogniser's
+/// box can miss the plate (or it saw none), so a tap on the plate moves the
+/// blur there.
+Future<void> showPlateCheckSheet(BuildContext context, CarPhotoPick pick) => showModalBottomSheet<void>(
+      useRootNavigator: true, // above the shell tab bar
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (_) => _PlateCheckSheet(pick: pick),
+    );
+
+class _PlateCheckSheet extends StatefulWidget {
+  const _PlateCheckSheet({required this.pick});
+  final CarPhotoPick pick;
+
+  @override
+  State<_PlateCheckSheet> createState() => _PlateCheckSheetState();
+}
+
+class _PlateCheckSheetState extends State<_PlateCheckSheet> {
+  final _photo = GlobalKey();
+  bool _busy = false;
+
+  Future<void> _tap(TapUpDetails d) async {
+    final size = _photo.currentContext?.size;
+    if (_busy || size == null || size.isEmpty) return;
+    setState(() => _busy = true);
+    try {
+      await placePlateAt(widget.pick, d.localPosition.dx / size.width, d.localPosition.dy / size.height, aspect: size.width / size.height);
+    } catch (_) {
+      // Keeps the blur where it was.
+    }
+    if (mounted) setState(() => _busy = false);
+  }
+
+  @override
+  Widget build(BuildContext context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text('Check the plate', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+              const SizedBox(height: 4),
+              Text('This is what goes up. If the blur missed your plate, tap the plate.', style: TextStyle(fontSize: 13, height: 1.35, color: AppColors.textSecondary)),
+              const SizedBox(height: 14),
+              ConstrainedBox(
+                constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.55),
+                child: Center(
+                  heightFactor: 1, // as tall as the photo, not the whole allowance
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      GestureDetector(
+                        key: _photo,
+                        onTapUp: _tap,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(14),
+                          child: Image.memory(widget.pick.bytes(hidePlate: true), gaplessPlayback: true),
+                        ),
+                      ),
+                      if (_busy) const CircularProgressIndicator(strokeWidth: 2),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              PrimaryButton(label: 'Done', onPressed: _busy ? null : () => Navigator.pop(context)),
+            ],
+          ),
+        ),
       );
 }

@@ -113,6 +113,7 @@ class MyEventsScreen extends ConsumerWidget {
                                   trailing: AvatarStack(
                                     urls: [for (final id in g.friendIds) friends.where((f) => f.id == id).firstOrNull?.avatarUrl],
                                     names: [for (final id in g.friendIds) friends.where((f) => f.id == id).firstOrNull?.username],
+                                    seeds: g.friendIds,
                                     size: 24,
                                     max: 3,
                                   ),

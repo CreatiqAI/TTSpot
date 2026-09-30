@@ -39,7 +39,7 @@ Future<void> showPrizeClaim(BuildContext context, WidgetRef ref, String code) as
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                UserAvatar(url: r.avatarUrl, name: r.displayName, size: 36),
+                UserAvatar(url: r.avatarUrl, name: r.displayName, seed: r.userId, size: 36),
                 const SizedBox(width: 10),
                 Flexible(
                   child: Column(

@@ -35,6 +35,9 @@ class AppSettings {
   /// Auto check-in when I'm at a meet I joined.
   bool get autoCheckin => _b('auto_checkin', true);
 
+  /// "Hide my number plate" when adding car photos (off: the original goes up).
+  bool get hidePlate => _b('hide_plate', false);
+
   /// Units: 'km' | 'mi'
   String get units => (_m['units'] as String?) ?? 'km';
 }

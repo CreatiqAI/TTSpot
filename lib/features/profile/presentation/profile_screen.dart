@@ -20,6 +20,7 @@ import '../../cards/presentation/widgets/box_nudge.dart';
 import '../../cards/presentation/widgets/profile_cards_grid.dart';
 import '../../accounts/presentation/account_switcher.dart';
 import '../../accounts/presentation/account_title.dart';
+import '../../admin/application/admin_providers.dart' show adminMemberPointsProvider;
 import '../../auth/application/onboarding_controller.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../auth/domain/profile.dart';
@@ -79,7 +80,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final friendCount = ref.watch(friendCountProvider(id)).value;
     final friendship = ref.watch(friendshipStatusProvider(id)).value ?? FriendshipStatus.none;
     final blocked = ref.watch(blockedUserIdsProvider).value?.contains(id) ?? false;
-    final points = isMe ? (ref.watch(pointsBalanceProvider).value ?? 0) : null;
+    // Points stay private: my own, or anyone's when an admin is looking.
+    final adminView = !isMe && (ref.watch(currentProfileProvider).value?.isAdmin ?? false);
+    final points = isMe ? (ref.watch(pointsBalanceProvider).value ?? 0) : adminView ? ref.watch(adminMemberPointsProvider(id)).value : null;
     final tabs = [
       (AppIcons.squaresFour, 'Posts'),
       (AppIcons.sparkle, 'Cards'),
@@ -95,6 +98,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       ref.invalidate(friendCountProvider(id));
       ref.invalidate(friendshipStatusProvider(id));
       ref.invalidate(cardTypesProvider);
+      if (adminView) ref.invalidate(adminMemberPointsProvider(id));
       if (isMe) {
         ref.read(cardsActionsProvider).refreshCollection();
         ref.invalidate(savedPostsProvider);
@@ -142,7 +146,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     friendship: friendship,
                     onMeets: () => context.push(Routes.meets),
                     onFriends: isMe ? () => context.push(Routes.friends) : null,
-                    onPoints: () => context.push(Routes.points),
+                    // An admin on someone else's profile lands in Give points with them picked.
+                    onPoints: () => context.push(isMe ? Routes.points : Routes.adminPointsFor(id)),
                     onEdit: () => context.push(Routes.editProfile),
                     onRewards: () => context.push(Routes.rewards),
                     onQr: () => context.push(Routes.myQr),

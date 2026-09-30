@@ -175,7 +175,8 @@ class ProfileHeader extends StatelessWidget {
 }
 
 /// My points, big: the balance in the display face beside the coin. Tap for
-/// the Points page (history and how to earn).
+/// the Points page (history and how to earn). Admins also see it on other
+/// members' profiles, where the tap opens Give points.
 class _PointsCard extends StatelessWidget {
   const _PointsCard({required this.points, required this.onTap});
   final int points;

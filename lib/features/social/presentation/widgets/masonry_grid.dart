@@ -118,7 +118,7 @@ class PostTile extends StatelessWidget {
                     Row(
                       children: [
                         // Posted as a club or partner: that is the face on the tile.
-                        UserAvatar(url: face?.avatarUrl ?? p.author?.avatarUrl, name: face?.name ?? p.author?.displayName ?? p.author?.username, size: 18),
+                        UserAvatar(url: face?.avatarUrl ?? p.author?.avatarUrl, name: face?.name ?? p.author?.displayName ?? p.author?.username, seed: face == null ? p.authorId : null, size: 18),
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(face?.name ?? p.author?.username ?? '', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),

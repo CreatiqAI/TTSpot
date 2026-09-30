@@ -448,6 +448,7 @@ class CardClaimLookup {
     this.terms,
     this.imageUrl,
     this.redeemedAt,
+    this.userId,
     this.username,
     this.displayName,
     this.avatarUrl,
@@ -461,6 +462,8 @@ class CardClaimLookup {
   final int cardsUsed;
   final DateTime expiresAt;
   final DateTime? redeemedAt;
+  /// The claimer; picks their default avatar.
+  final String? userId;
   final String? username;
   final String? displayName;
   final String? avatarUrl;
@@ -475,6 +478,7 @@ class CardClaimLookup {
         cardsUsed: (m['cards_used'] as num?)?.toInt() ?? 0,
         expiresAt: DateTime.parse(m['expires_at'] as String).toLocal(),
         redeemedAt: m['redeemed_at'] == null ? null : DateTime.parse(m['redeemed_at'] as String).toLocal(),
+        userId: m['user_id'] as String?,
         username: m['username'] as String?,
         displayName: m['display_name'] as String?,
         avatarUrl: m['avatar_url'] as String?,
@@ -496,6 +500,7 @@ class AdminCardClaim {
     this.displayName,
     this.avatarUrl,
     this.redeemedAt,
+    this.userId,
   });
   final String id;
   final String code;
@@ -504,6 +509,8 @@ class AdminCardClaim {
   final String username;
   final String? displayName;
   final String? avatarUrl;
+  /// The claimer; picks their default avatar.
+  final String? userId;
   final ClaimState status;
   final int cardsUsed;
   final DateTime claimedAt;
@@ -518,6 +525,7 @@ class AdminCardClaim {
         username: m['username'] as String? ?? '',
         displayName: m['display_name'] as String?,
         avatarUrl: m['avatar_url'] as String?,
+        userId: m['user_id'] as String?,
         status: ClaimState.fromDb(m['status'] as String?),
         cardsUsed: (m['cards_used'] as num?)?.toInt() ?? 0,
         claimedAt: DateTime.parse(m['claimed_at'] as String).toLocal(),

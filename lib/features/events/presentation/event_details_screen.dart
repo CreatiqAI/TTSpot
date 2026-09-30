@@ -614,6 +614,7 @@ class _Attendees extends StatelessWidget {
           AvatarStack(
             urls: preview.map((p) => p.avatarUrl).toList(),
             names: preview.map((p) => p.displayName ?? p.username).toList(),
+            seeds: preview.map((p) => p.id).toList(),
           ),
           const SizedBox(width: 10),
         ],
@@ -1003,7 +1004,7 @@ class _CheckInCard extends ConsumerWidget {
               const SizedBox(width: 6),
               Text('Live now · ${e.checkinCount} here', style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700)),
               const Spacer(),
-              if (here.isNotEmpty) AvatarStack(urls: here.map((p) => p.avatarUrl).toList(), names: here.map((p) => p.username).toList(), size: 26, max: 4),
+              if (here.isNotEmpty) AvatarStack(urls: here.map((p) => p.avatarUrl).toList(), names: here.map((p) => p.displayName ?? p.username).toList(), seeds: here.map((p) => p.id).toList(), size: 26, max: 4),
             ],
           ),
           const SizedBox(height: 12),
@@ -1159,7 +1160,7 @@ class _RecapCard extends ConsumerWidget {
             const SizedBox(height: 12),
             Row(
               children: [
-                AvatarStack(urls: here.map((p) => p.avatarUrl).toList(), names: here.map((p) => p.username).toList(), size: 28, max: 6),
+                AvatarStack(urls: here.map((p) => p.avatarUrl).toList(), names: here.map((p) => p.displayName ?? p.username).toList(), seeds: here.map((p) => p.id).toList(), size: 28, max: 6),
                 const SizedBox(width: 8),
                 Expanded(child: Text(here.take(3).map((p) => p.username ?? '').join(', ') + (here.length > 3 ? ' and ${here.length - 3} more' : ''), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, color: AppColors.textSecondary))),
               ],

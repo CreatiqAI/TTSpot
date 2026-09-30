@@ -41,6 +41,7 @@ class StoriesRow extends ConsumerWidget {
               avatarUrl: myProfile?.avatarUrl,
               name: 'You',
               avatarName: myProfile?.displayName ?? myProfile?.username,
+              seed: myProfile?.id,
               when: groups[mineIndex].stories.last.createdAt,
               unseen: !groups[mineIndex].allSeen,
               mine: true,
@@ -57,6 +58,7 @@ class StoriesRow extends ConsumerWidget {
               avatarUrl: groups[i].author.avatarUrl,
               name: (groups[i].author.displayName ?? groups[i].author.username ?? '').split(' ').first,
               avatarName: groups[i].author.displayName ?? groups[i].author.username,
+              seed: groups[i].author.id,
               when: groups[i].stories.last.createdAt,
               unseen: !groups[i].allSeen,
               count: groups[i].stories.length,
@@ -113,6 +115,7 @@ class _MomentCard extends StatelessWidget {
     required this.avatarUrl,
     required this.name,
     required this.avatarName,
+    this.seed,
     required this.when,
     required this.unseen,
     required this.onTap,
@@ -125,6 +128,7 @@ class _MomentCard extends StatelessWidget {
   final String? avatarUrl;
   final String name;
   final String? avatarName;
+  final String? seed;
   final DateTime? when;
   final bool unseen;
   final bool mine;
@@ -168,7 +172,7 @@ class _MomentCard extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.all(2),
                     decoration: BoxDecoration(shape: BoxShape.circle, color: empty ? AppColors.surfaceGray : Colors.white),
-                    child: UserAvatar(url: avatarUrl, name: avatarName, size: 22),
+                    child: UserAvatar(url: avatarUrl, name: avatarName, seed: seed, size: 22),
                   ),
                 ),
                 if (video)

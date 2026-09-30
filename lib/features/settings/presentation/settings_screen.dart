@@ -373,7 +373,7 @@ class BlockedScreen extends ConsumerWidget {
                     builder: (ctx, ref, _) {
                       final p = ref.watch(blockedProfileProvider(id)).value;
                       return ListTile(
-                        leading: UserAvatar(url: p?.avatarUrl, name: p?.displayName ?? p?.username, size: 42),
+                        leading: UserAvatar(url: p?.avatarUrl, name: p?.displayName ?? p?.username, seed: id, size: 42),
                         title: Text(p?.displayName ?? '@${p?.username ?? '…'}', style: const TextStyle(fontWeight: FontWeight.w600)),
                         subtitle: Text('@${p?.username ?? ''}', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                         trailing: TextButton(

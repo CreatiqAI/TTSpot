@@ -87,7 +87,7 @@ class _CardState extends ConsumerState<_Card> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         ListTile(
-          leading: UserAvatar(url: v.avatarUrl, name: v.username, size: 40),
+          leading: UserAvatar(url: v.avatarUrl, name: v.username, seed: v.userId, size: 40),
           title: Text('@${v.username ?? ''}', style: const TextStyle(fontWeight: FontWeight.w600)),
           subtitle: Text('${v.placeName} · ${timeAgo(v.createdAt)}'),
           trailing: Container(

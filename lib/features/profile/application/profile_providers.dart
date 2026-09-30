@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/utils/friendly_error.dart';
+import '../../../core/utils/plate_blur.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../auth/domain/profile.dart';
 import '../data/profile_repository.dart';
@@ -27,28 +28,95 @@ final profileStatsProvider = FutureProvider.family<ProfileStats, String>((ref, u
   return ref.watch(profileRepositoryProvider).fetchStats(userId);
 });
 
-/// A car photo ready to upload, plus what the recogniser thinks the car is
-/// (null when it could not run or was unsure). [plateBlurred] is always false
-/// while plate blurring is off.
+/// A car photo as picked, plus what the recogniser thinks the car is (null
+/// when it could not run or was unsure).
 class PreparedCarPhoto {
-  const PreparedCarPhoto({required this.bytes, this.guess, this.plateBlurred = false});
+  const PreparedCarPhoto({required this.bytes, this.guess});
   final Uint8List bytes;
   final CarRecognition? guess;
-  final bool plateBlurred;
 }
 
 /// Recognise the car on the phone before anything is stored. Never throws:
 /// with no network or no key you get the original bytes back and no guess,
-/// and the form is just a form.
+/// and the form is just a form. The bytes are always the original; the plate
+/// is only blurred when the member turns on "Hide my number plate"
+/// ([CarPhotoPick]).
 Future<PreparedCarPhoto> prepareCarPhoto(ProfileRepository repo, Uint8List original) async {
-  // Plate blurring is off: the owner decided hiding plates is not needed for
-  // now (core/utils/plate_blur.dart stays in place for when it comes back).
   try {
     final guess = await repo.recognizeCar(bytes: original);
     return PreparedCarPhoto(bytes: original, guess: guess);
   } catch (_) {
     return PreparedCarPhoto(bytes: original);
   }
+}
+
+/// A picked car photo for the "Hide my number plate" switch (off by default:
+/// the original goes up). The original is kept so the switch can go back.
+class CarPhotoPick {
+  /// [scan] is the recogniser's answer for this photo, when it already ran
+  /// (it says where the plate is).
+  CarPhotoPick(this.original, {CarRecognition? scan}) : _scanned = scan != null, _plate = scan?.plate;
+  final Uint8List original;
+  bool _scanned;
+  PlateBox? _plate;
+  Uint8List? _hidden;
+  Future<bool>? _pending;
+
+  /// What to show and upload.
+  Uint8List bytes({required bool hidePlate}) => hidePlate ? (_hidden ?? original) : original;
+
+  /// [hidePlateOn] has run: the plate is blurred, or none was seen.
+  bool get plateChecked => _hidden != null;
+
+  /// A plate was found and blurred.
+  bool get plateBlurred => _hidden != null && !identical(_hidden, original);
+}
+
+/// Blurs the plate on [p]. When this photo hasn't been scanned yet, asks the
+/// recogniser where the plate is first (the original goes up as a data URL,
+/// never to storage). False when it couldn't check (offline, say), so the
+/// form can stop instead of uploading a readable plate.
+Future<bool> hidePlateOn(ProfileRepository repo, CarPhotoPick p) {
+  if (p._hidden != null) return Future.value(true);
+  // The switch and Save can both ask while one run is still going.
+  return p._pending ??= _hidePlate(repo, p).whenComplete(() => p._pending = null);
+}
+
+Future<bool> _hidePlate(ProfileRepository repo, CarPhotoPick p) async {
+  if (!p._scanned) {
+    try {
+      p._plate = (await repo.recognizeCar(bytes: p.original)).plate;
+      p._scanned = true;
+    } catch (_) {
+      return false;
+    }
+  }
+  final box = p._plate;
+  if (box == null) {
+    p._hidden = p.original; // no plate seen
+    return true;
+  }
+  try {
+    p._hidden = await blurPlate(p.original, x0: box.x0, y0: box.y0, x1: box.x1, y1: box.y1);
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+/// The recogniser's box can land beside the plate (or it saw none): the
+/// member taps the plate and the blur moves there. [fx], [fy] are the tap as
+/// fractions of the photo; [aspect] is its width / height. Keeps the found
+/// box's size, else a typical plate's (about a sixth of the width).
+Future<void> placePlateAt(CarPhotoPick p, double fx, double fy, {required double aspect}) async {
+  final old = p._plate;
+  final w = old == null ? 0.16 : (old.x1 - old.x0).abs();
+  final h = old == null ? 0.16 * aspect / 4 : (old.y1 - old.y0).abs();
+  final box = PlateBox((fx - w / 2).clamp(0.0, 1.0), (fy - h / 2).clamp(0.0, 1.0), (fx + w / 2).clamp(0.0, 1.0), (fy + h / 2).clamp(0.0, 1.0));
+  final blurred = await blurPlate(p.original, x0: box.x0, y0: box.y0, x1: box.x1, y1: box.y1);
+  p._plate = box;
+  p._scanned = true;
+  p._hidden = blurred;
 }
 
 /// Add / edit / delete a car. [save] returns the car id.

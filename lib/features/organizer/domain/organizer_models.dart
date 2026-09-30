@@ -296,10 +296,12 @@ class MyDraw {
 
 /// A public winners-list row (`draw_results`).
 class DrawResult {
-  const DrawResult({required this.rank, required this.prize, required this.displayName, this.username, this.avatarUrl, required this.status});
+  const DrawResult({required this.rank, required this.prize, required this.displayName, this.userId, this.username, this.avatarUrl, required this.status});
   final int rank;
   final String prize;
   final String displayName;
+  /// The winner; picks their default avatar.
+  final String? userId;
   final String? username;
   final String? avatarUrl;
   final String status;
@@ -308,6 +310,7 @@ class DrawResult {
         rank: _int(m['rank']),
         prize: m['prize'] as String? ?? '',
         displayName: m['display_name'] as String? ?? 'Member',
+        userId: m['user_id'] as String?,
         username: m['username'] as String?,
         avatarUrl: m['avatar_url'] as String?,
         status: m['status'] as String? ?? 'pending',
@@ -323,6 +326,7 @@ class StageWinner {
     this.prizeId,
     this.prizeSort = 0,
     required this.displayName,
+    this.userId,
     this.username,
     this.avatarUrl,
     required this.status,
@@ -338,6 +342,8 @@ class StageWinner {
   final String? prizeId;
   final int prizeSort;
   final String displayName;
+  /// The winner; picks their default avatar.
+  final String? userId;
   final String? username;
   final String? avatarUrl;
   final String status;
@@ -355,6 +361,7 @@ class StageWinner {
         prizeId: m['prize_id'] as String?,
         prizeSort: _int(m['prize_sort']),
         displayName: m['display_name'] as String? ?? 'Member',
+        userId: m['user_id'] as String?,
         username: m['username'] as String?,
         avatarUrl: m['avatar_url'] as String?,
         status: m['status'] as String? ?? 'pending',
@@ -436,11 +443,13 @@ class DrawStage {
 
 /// What `claim_prize()` answers when crew scan a winner's QR.
 class PrizeClaimResult {
-  const PrizeClaimResult({required this.ok, required this.message, this.prize, this.displayName, this.username, this.avatarUrl, this.rank});
+  const PrizeClaimResult({required this.ok, required this.message, this.prize, this.displayName, this.userId, this.username, this.avatarUrl, this.rank});
   final bool ok;
   final String message;
   final String? prize;
   final String? displayName;
+  /// The winner; picks their default avatar.
+  final String? userId;
   final String? username;
   final String? avatarUrl;
   final int? rank;
@@ -450,6 +459,7 @@ class PrizeClaimResult {
         message: m['message'] as String? ?? '',
         prize: m['prize'] as String?,
         displayName: m['display_name'] as String?,
+        userId: m['user_id'] as String?,
         username: m['username'] as String?,
         avatarUrl: m['avatar_url'] as String?,
         rank: (m['rank'] as num?)?.toInt(),

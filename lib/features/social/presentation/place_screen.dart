@@ -278,7 +278,7 @@ class _PlaceScreenState extends ConsumerState<PlaceScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         child: Row(
                           children: [
-                            AvatarStack(urls: visitors.map((v) => v.profile.avatarUrl).toList(), names: visitors.map((v) => v.profile.username).toList(), size: 30, max: 6),
+                            AvatarStack(urls: visitors.map((v) => v.profile.avatarUrl).toList(), names: visitors.map((v) => v.profile.displayName ?? v.profile.username).toList(), seeds: visitors.map((v) => v.profile.id).toList(), size: 30, max: 6),
                             const SizedBox(width: 10),
                             Expanded(
                               child: Text(

@@ -832,7 +832,7 @@ class _TradeCardState extends ConsumerState<_TradeCard> {
             children: [
               GestureDetector(
                 onTap: () => context.push(Routes.profile(t.otherId(me))),
-                child: UserAvatar(url: t.otherAvatar(me), name: t.otherName(me), size: 36),
+                child: UserAvatar(url: t.otherAvatar(me), name: t.otherName(me), seed: t.otherId(me), size: 36),
               ),
               const SizedBox(width: 10),
               Expanded(

@@ -119,7 +119,7 @@ class CrewScreen extends ConsumerWidget {
               ),
               for (final c in list)
                 ListTile(
-                  leading: UserAvatar(url: c.avatarUrl, name: c.name, size: 44),
+                  leading: UserAvatar(url: c.avatarUrl, name: c.name, seed: c.userId, size: 44),
                   title: Text(c.name, style: const TextStyle(fontWeight: FontWeight.w700)),
                   subtitle: Text(c.username == null ? c.roleLabel : '@${c.username}', style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
                   trailing: Row(

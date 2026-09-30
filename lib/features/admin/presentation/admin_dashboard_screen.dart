@@ -142,7 +142,7 @@ class AdminDashboardScreen extends ConsumerWidget {
                   for (final u in newest.take(4))
                     ListTile(
                       dense: true,
-                      leading: UserAvatar(url: u.avatarUrl, name: u.displayName ?? u.username, size: 36),
+                      leading: UserAvatar(url: u.avatarUrl, name: u.displayName ?? u.username, seed: u.id, size: 36),
                       title: Text(u.displayName ?? u.username, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
                       subtitle: Text('@${u.username} · joined ${timeAgo(u.createdAt)}${u.homeState == null ? '' : ' · ${u.homeState}'}', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                       trailing: u.lastSeen == null ? null : Text(timeAgo(u.lastSeen!), style: TextStyle(fontSize: 11.5, color: AppColors.textMuted)),
@@ -163,6 +163,7 @@ class AdminDashboardScreen extends ConsumerWidget {
                   onTap: () => _editNumber(context, ref, 'checkin_radius_m', 'Check-in radius (m)', ((settings['checkin_radius_m'] as num?) ?? 300).toDouble(), (v) => v.round()),
                 ),
                 _SettingTile(title: 'Commission report', value: 'Per partner, per month', onTap: () => context.push(Routes.adminCommission)),
+                _SettingTile(title: 'Give points', value: 'Gift a member points, or take some back', onTap: () => context.push(Routes.adminPoints)),
                 _SettingTile(title: 'Cards & blind boxes', value: 'Drop odds, box price, designs, prizes, giveaways', onTap: () => context.push(Routes.adminCards)),
                 _SettingTile(
                   title: 'AI car portraits',

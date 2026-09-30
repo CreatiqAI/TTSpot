@@ -93,7 +93,7 @@ class _CardPrizeRedeemScreenState extends ConsumerState<CardPrizeRedeemScreen> {
             children: [
               Row(
                 children: [
-                  UserAvatar(url: c.avatarUrl, name: c.displayName ?? c.username, size: 52),
+                  UserAvatar(url: c.avatarUrl, name: c.displayName ?? c.username, seed: c.userId, size: 52),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(

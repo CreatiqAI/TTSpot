@@ -52,7 +52,7 @@ class VendorReportScreen extends ConsumerWidget {
                   for (final r in list)
                     ListTile(
                       dense: true,
-                      leading: UserAvatar(url: r.avatarUrl, name: r.username, size: 34),
+                      leading: UserAvatar(url: r.avatarUrl, name: r.username, seed: r.userId, size: 34),
                       title: Text('@${r.username ?? ''} · ${r.title}', maxLines: 1, overflow: TextOverflow.ellipsis),
                       subtitle: Text('${formatEventDate(r.createdAt)}${r.note == null ? '' : ' · ${r.note}'}', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                       trailing: Column(

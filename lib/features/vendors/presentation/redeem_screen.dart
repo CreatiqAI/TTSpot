@@ -138,7 +138,7 @@ class _RedeemScreenState extends ConsumerState<RedeemScreen> {
                     const SizedBox(height: 12),
                     Row(
                       children: [
-                        UserAvatar(url: c.avatarUrl, name: c.displayName ?? c.username, size: 32),
+                        UserAvatar(url: c.avatarUrl, name: c.displayName ?? c.username, seed: c.userId, size: 32),
                         const SizedBox(width: 8),
                         Expanded(child: Text('@${c.username ?? ''} · ${c.displayName ?? ''}', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontWeight: FontWeight.w600, color: usable ? Colors.white : AppColors.textPrimary))),
                         Text(

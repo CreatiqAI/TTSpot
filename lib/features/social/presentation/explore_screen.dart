@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/widgets/glass_tab_bar.dart';
+import '../../../core/widgets/pinch_zoom.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/router/tab_reselect.dart';
 import '../../../core/theme/app_icons.dart';
@@ -98,6 +99,7 @@ class _FeedState extends ConsumerState<_Feed> with AutomaticKeepAliveClientMixin
       },
       child: CustomScrollView(
         primary: true, // Home-tap and the iOS status-bar tap both scroll it to the top
+        physics: const PinchLockScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
         slivers: [
           SliverToBoxAdapter(
             child: Padding(

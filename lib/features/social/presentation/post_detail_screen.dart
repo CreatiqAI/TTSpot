@@ -9,6 +9,7 @@ import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/dates.dart';
 import '../../../core/utils/friendly_error.dart';
+import '../../../core/widgets/pinch_zoom.dart';
 import '../../../core/widgets/user_avatar.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../safety/data/safety_repository.dart';
@@ -80,6 +81,7 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                   },
                   child: ListView(
                     padding: EdgeInsets.zero,
+                    physics: const PinchLockScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
                     children: [
                       PostCard(feed: f, expanded: true, onComment: () => _commentFocus.requestFocus()),
                       if (f.post.kind == PostKind.guide && (f.post.guideStops ?? const []).isNotEmpty) _GuideMap(post: f.post),

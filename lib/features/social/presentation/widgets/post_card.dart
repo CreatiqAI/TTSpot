@@ -12,6 +12,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/dates.dart';
 import '../../../../core/utils/friendly_error.dart';
 import '../../../../core/widgets/photo_viewer.dart';
+import '../../../../core/widgets/pinch_zoom.dart';
 import '../../../../core/widgets/pop_icon.dart';
 import '../../../../core/widgets/user_avatar.dart';
 import '../../../safety/data/safety_repository.dart';
@@ -452,10 +453,15 @@ class _Media extends StatelessWidget {
           PageView.builder(
             itemCount: post.photoUrls.length,
             onPageChanged: onPage,
-            itemBuilder: (_, i) => Image(image: CachedNetworkImageProvider(post.photoUrls[i]),
-              fit: whole ? BoxFit.contain : BoxFit.cover,
-              loadingBuilder: (_, child, prog) => prog == null ? child : ColoredBox(color: AppColors.surfaceGray),
-              errorBuilder: (_, _, _) => ColoredBox(color: AppColors.surfaceGray, child: Icon(AppIcons.imageBroken, color: AppColors.textMuted)),
+            // Holds still while a photo is pinched (see PinchZoom).
+            pageSnapping: false,
+            physics: const PinchLockScrollPhysics(parent: PageScrollPhysics()),
+            itemBuilder: (_, i) => PinchZoom(
+              child: Image(image: CachedNetworkImageProvider(post.photoUrls[i]),
+                fit: whole ? BoxFit.contain : BoxFit.cover,
+                loadingBuilder: (_, child, prog) => prog == null ? child : ColoredBox(color: AppColors.surfaceGray),
+                errorBuilder: (_, _, _) => ColoredBox(color: AppColors.surfaceGray, child: Icon(AppIcons.imageBroken, color: AppColors.textMuted)),
+              ),
             ),
           ),
           if (post.photoUrls.length > 1)

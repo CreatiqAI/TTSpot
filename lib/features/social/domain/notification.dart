@@ -2,7 +2,7 @@ import '../../auth/domain/profile.dart';
 
 enum NotificationType {
   follow, postLike, postComment, eventJoin, eventComment, eventReminder, eventCancelled, spottedClaim, badge, carOfWeek, clubJoin,
-  friendRequest, friendAccepted, ttNow, checkin, referral, points, partner, voucher, clubInvite, clubRequest, clubEvent, partnerEvent, garage, clubOfficial, cards, portrait, meetStart, announcement, luckyDraw, unknown;
+  friendRequest, friendAccepted, ttNow, checkin, referral, points, partner, voucher, clubInvite, clubRequest, clubEvent, partnerEvent, garage, clubOfficial, cards, portrait, meetStart, announcement, luckyDraw, carDoc, unknown;
 
   static NotificationType fromDb(String v) => switch (v) {
         'follow' => follow,
@@ -35,6 +35,7 @@ enum NotificationType {
         'meet_start' => meetStart,
         'announcement' => announcement,
         'lucky_draw' => luckyDraw,
+        'car_doc' => carDoc,
         _ => unknown,
       };
 }

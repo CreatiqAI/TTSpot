@@ -14,11 +14,12 @@ import '../../../core/theme/titi.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../../core/widgets/glass_tab_bar.dart';
 import '../../../core/widgets/thumb_image.dart';
-import '../../social/application/community_providers.dart';
 import '../../social/application/social_providers.dart';
+import '../application/garage_providers.dart';
 import '../application/profile_providers.dart';
 import '../domain/car.dart';
 import 'widgets/car_actions_sheet.dart';
+import 'widgets/car_documents_section.dart';
 
 /// The signed-in member's garage: today's car up top, every car in a row
 /// below, tap one to drive it today. Lives on Home (Garage tab) and at
@@ -40,6 +41,7 @@ class GarageHomeTab extends ConsumerWidget {
       ref.invalidate(userCarsProvider(me));
       if (today != null) {
         ref.invalidate(carModsProvider(today.id));
+        ref.invalidate(carDocumentsProvider(today.id));
         ref.invalidate(postsWhereProvider((column: 'car_id', value: today.id)));
       }
       await ref.read(userCarsProvider(me).future);
@@ -191,6 +193,9 @@ class _TodayHero extends ConsumerWidget {
     final mods = ref.watch(carModsProvider(c.id));
     final posts = ref.watch(postsWhereProvider((column: 'car_id', value: c.id)));
     final spent = mods.value?.fold<double>(0, (s, m) => s + (m.cost ?? 0));
+    // Papers that need attention soon (expired or under two weeks away).
+    final docs = ref.watch(carDocumentsProvider(c.id)).value;
+    final dueSoon = docs == null ? const <DocChipData>[] : docChips(docs).where((d) => d.urgent).toList();
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       child: Column(
@@ -235,6 +240,13 @@ class _TodayHero extends ConsumerWidget {
               ],
             ),
           ),
+          if (dueSoon.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            GestureDetector(
+              onTap: () => context.push(Routes.carDocuments(c.id)),
+              child: Wrap(spacing: 6, runSpacing: 6, children: [for (final d in dueSoon) DocChip(chip: d)]),
+            ),
+          ],
           const SizedBox(height: 14),
           Row(
             children: [

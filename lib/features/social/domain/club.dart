@@ -239,26 +239,3 @@ class PlaceRegular {
   final Profile profile;
   final int visits;
 }
-
-class CarMod {
-  const CarMod({required this.id, required this.carId, required this.title, this.description, this.cost, required this.doneOn, required this.photoUrls, required this.createdAt});
-  final String id;
-  final String carId;
-  final String title;
-  final String? description;
-  final double? cost;
-  final DateTime doneOn;
-  final List<String> photoUrls;
-  final DateTime createdAt;
-
-  factory CarMod.fromMap(Map<String, dynamic> m) => CarMod(
-        id: m['id'] as String,
-        carId: m['car_id'] as String,
-        title: m['title'] as String,
-        description: m['description'] as String?,
-        cost: (m['cost'] as num?)?.toDouble(),
-        doneOn: DateTime.parse(m['done_on'] as String),
-        photoUrls: ((m['photo_urls'] as List?) ?? const []).cast<String>(),
-        createdAt: DateTime.parse(m['created_at'] as String).toLocal(),
-      );
-}

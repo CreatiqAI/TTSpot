@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/utils/friendly_error.dart';
-import '../../auth/data/auth_repository.dart';
+import '../../points/application/points_providers.dart';
 import '../data/portrait_repository.dart';
 import '../domain/portrait_style.dart';
 import 'profile_providers.dart';
@@ -64,11 +64,19 @@ class PortraitActions {
   PortraitActions(this._ref);
   final Ref _ref;
 
+  /// Books the job and pays for it (the server takes the points in the same
+  /// step, and gives them back if the job fails).
   Future<void> request(String carId, String styleId) async {
     final me = _ref.read(currentUserIdProvider);
     if (me == null) throw const AppException('You\'re signed out. Sign in again.');
-    await _ref.read(portraitRepositoryProvider).request(carId: carId, styleId: styleId);
+    try {
+      await _ref.read(portraitRepositoryProvider).request(carId: carId, styleId: styleId);
+    } finally {
+      // Paid, or refused for the balance: either way show the real number.
+      _ref.invalidate(pointsBalanceProvider);
+    }
     _ref.invalidate(carPortraitsProvider(carId));
+    _ref.invalidate(pointHistoryProvider);
   }
 
   Future<void> choose(CarPortrait p) async {
@@ -88,20 +96,32 @@ class PortraitActions {
   }
 }
 
-/// Whether members may make AI portraits right now (`platform_settings.
-/// portraits_enabled`, flipped by an admin). Admins always can, so styles and
-/// prompts can be tuned before the feature opens. Off until proven good:
-/// the first renders drifted from the photo (wrong paint colour).
-final portraitsEnabledProvider = FutureProvider<bool>((ref) async {
-  final admin = ref.watch(currentProfileProvider).value?.isAdmin ?? false;
-  if (admin) return true;
+/// The portrait switch and price, from `platform_settings`:
+/// `portraits_enabled` (a kill switch for everyone, admins too) and
+/// `portrait_cost_points` (what one portrait costs; 0 = free).
+typedef PortraitSettings = ({bool enabled, int cost});
+
+final portraitSettingsProvider = FutureProvider<PortraitSettings>((ref) async {
+  ref.watch(currentUserIdProvider);
   try {
-    final row = await ref.watch(supabaseProvider).from('platform_settings').select('value').eq('key', 'portraits_enabled').maybeSingle();
-    final v = row?['value'];
-    return v == true || v == 'true' || v == 1 || v == '1';
+    final rows = await ref.watch(supabaseProvider).from('platform_settings').select('key, value').inFilter('key', ['portraits_enabled', 'portrait_cost_points']);
+    final byKey = {for (final r in rows) r['key'] as String: r['value']};
+    final on = byKey['portraits_enabled'];
+    final cost = byKey['portrait_cost_points'];
+    return (
+      enabled: on == true || on == 'true' || on == 1 || on == '1',
+      cost: cost is num ? cost.toInt() : int.tryParse('$cost') ?? kDefaultPortraitCost,
+    );
   } catch (_) {
-    return false;
+    return (enabled: false, cost: kDefaultPortraitCost);
   }
 });
+
+/// Mirrors the server default of `portrait_cost_points`.
+const kDefaultPortraitCost = 300;
+
+/// Whether anyone may start an AI portrait right now. No admin bypass: admins
+/// pay points like everyone else.
+final portraitsEnabledProvider = Provider<AsyncValue<bool>>((ref) => ref.watch(portraitSettingsProvider).whenData((s) => s.enabled));
 
 final portraitActionsProvider = Provider<PortraitActions>((ref) => PortraitActions(ref));

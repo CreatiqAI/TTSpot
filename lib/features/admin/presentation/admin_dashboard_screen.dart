@@ -12,6 +12,7 @@ import '../../../core/widgets/glass_tab_bar.dart';
 import '../../../core/widgets/user_avatar.dart';
 import '../../accounts/presentation/account_switcher.dart';
 import '../../accounts/presentation/account_title.dart';
+import '../../profile/application/portrait_providers.dart';
 import '../../vendors/domain/vendor.dart' show rm;
 import '../application/admin_providers.dart';
 import 'widgets/admin_widgets.dart';
@@ -163,12 +164,57 @@ class AdminDashboardScreen extends ConsumerWidget {
                 ),
                 _SettingTile(title: 'Commission report', value: 'Per partner, per month', onTap: () => context.push(Routes.adminCommission)),
                 _SettingTile(title: 'Cards & blind boxes', value: 'Drop odds, box price, designs, prizes, giveaways', onTap: () => context.push(Routes.adminCards)),
+                _SettingTile(
+                  title: 'AI car portraits',
+                  value: '${_isOn(settings['portraits_enabled']) ? 'On' : 'Off for everyone'} · ${(settings['portrait_cost_points'] as num?) ?? kDefaultPortraitCost} points each',
+                  onTap: () => _editPortraits(context, ref, settings),
+                ),
               ],
             ),
           );
         },
       ),
     );
+  }
+
+  static bool _isOn(Object? v) => v == true || v == 'true' || v == 1 || v == '1';
+
+  /// Portraits: the kill switch (admins included, nobody paints while off)
+  /// and the price in points.
+  Future<void> _editPortraits(BuildContext context, WidgetRef ref, Map<String, dynamic> settings) async {
+    final on = _isOn(settings['portraits_enabled']);
+    final cost = ((settings['portrait_cost_points'] as num?) ?? kDefaultPortraitCost).toDouble();
+    final action = await showModalBottomSheet<String>(
+      useRootNavigator: true,
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: Icon(on ? AppIcons.pause : AppIcons.play),
+              title: Text(on ? 'Pause portraits for everyone' : 'Turn portraits on'),
+              subtitle: const Text('Admins pay and are paused too', style: TextStyle(fontSize: 12)),
+              onTap: () => Navigator.pop(ctx, 'toggle'),
+            ),
+            ListTile(leading: const Icon(AppIcons.coins), title: const Text('Change the price'), subtitle: Text('${cost.round()} points now', style: const TextStyle(fontSize: 12)), onTap: () => Navigator.pop(ctx, 'price')),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (action == null || !context.mounted) return;
+    if (action == 'price') {
+      await _editNumber(context, ref, 'portrait_cost_points', 'Points per AI portrait', cost, (v) => v.round().clamp(0, 100000));
+    } else {
+      try {
+        await ref.read(adminActionsProvider).setSetting('portraits_enabled', !on);
+      } catch (e) {
+        if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
+      }
+    }
+    ref.invalidate(portraitSettingsProvider);
   }
 
   Future<void> _editNumber(BuildContext context, WidgetRef ref, String key, String label, double current, Object Function(double) store) async {

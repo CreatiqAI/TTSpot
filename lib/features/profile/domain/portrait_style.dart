@@ -54,6 +54,8 @@ class CarPortrait {
     this.error,
     required this.createdAt,
     this.readyAt,
+    this.pointsSpent = 0,
+    this.refunded = false,
   });
 
   final String id;
@@ -64,6 +66,10 @@ class CarPortrait {
   final String? error;
   final DateTime createdAt;
   final DateTime? readyAt;
+  /// What it cost (0 for the free ones made before portraits cost points).
+  final int pointsSpent;
+  /// A failed job's points went back.
+  final bool refunded;
 
   PortraitStyle? get style => PortraitStyle.byId(styleId);
   bool get isPending => status == PortraitStatus.pending;
@@ -78,5 +84,7 @@ class CarPortrait {
         error: m['error'] as String?,
         createdAt: DateTime.parse(m['created_at'] as String).toLocal(),
         readyAt: m['ready_at'] == null ? null : DateTime.parse(m['ready_at'] as String).toLocal(),
+        pointsSpent: (m['points_spent'] as num?)?.toInt() ?? 0,
+        refunded: m['refunded_at'] != null,
       );
 }

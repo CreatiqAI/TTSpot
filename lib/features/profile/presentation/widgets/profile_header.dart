@@ -103,7 +103,7 @@ class ProfileHeader extends StatelessWidget {
                     ),
                     if (points != null) ...[
                       const SizedBox(height: 8),
-                      _PointsCard(points: points!, onTap: onPoints),
+                      Center(child: _PointsCard(points: points!, onTap: onPoints)),
                     ],
                   ],
                 ),
@@ -174,8 +174,9 @@ class ProfileHeader extends StatelessWidget {
   }
 }
 
-/// My points, big: the balance in the display face beside the coin. Tap for
-/// the Points page (history and how to earn).
+/// My points: a pill as wide as what it says, centred under the numbers.
+/// Coin, balance, "points" and the arrow sit close together with the same
+/// gap on either side. Tap for the Points page (history and how to earn).
 class _PointsCard extends StatelessWidget {
   const _PointsCard({required this.points, required this.onTap});
   final int points;
@@ -191,22 +192,28 @@ class _PointsCard extends StatelessWidget {
           onTap: onTap,
           borderRadius: BorderRadius.circular(AppRadius.md),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(10, 7, 8, 7),
+            padding: const EdgeInsets.fromLTRB(12, 6, 10, 6),
             child: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                const PointsCoin(size: 24),
-                const SizedBox(width: 8),
+                const PointsCoin(size: 22),
+                const SizedBox(width: 7),
                 Flexible(
                   child: FittedBox(
                     fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Text(_grouped(points), style: const TextStyle(fontFamily: AppFonts.display, fontSize: 26, fontWeight: FontWeight.w700, height: 1, color: AppColors.brand)),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
+                      children: [
+                        Text(_grouped(points), style: const TextStyle(fontFamily: AppFonts.display, fontSize: 22, fontWeight: FontWeight.w700, height: 1, color: AppColors.brand)),
+                        const SizedBox(width: 5),
+                        Text('points', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(width: 6),
-                Text('points', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
-                const Spacer(),
-                Icon(AppIcons.caretRight, size: 15, color: AppColors.textMuted),
+                Icon(AppIcons.caretRight, size: 14, color: AppColors.textMuted),
               ],
             ),
           ),

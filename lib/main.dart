@@ -92,17 +92,29 @@ class TtSpotApp extends ConsumerStatefulWidget {
 
 class _TtSpotAppState extends ConsumerState<TtSpotApp> {
   Timer? _clock;
+  late final AppLifecycleListener _lifecycle;
 
   @override
   void initState() {
     super.initState();
-    // Auto theme flips at 7 am / 7 pm: check once a minute.
+    // Auto theme flips at 7 am / 7 pm: check once a minute, and again the
+    // moment the app comes back (timers sleep while it is in the background).
     _clock = Timer.periodic(const Duration(minutes: 1), (_) { if (mounted) setState(() {}); });
+    _lifecycle = AppLifecycleListener(onResume: () { if (mounted) setState(() {}); });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Both logos decoded up front, so a theme switch never shows the old ink.
+    precacheImage(const AssetImage('assets/brand/logo.png'), context, onError: (_, _) {});
+    precacheImage(const AssetImage('assets/brand/logo_dark.png'), context, onError: (_, _) {});
   }
 
   @override
   void dispose() {
     _clock?.cancel();
+    _lifecycle.dispose();
     super.dispose();
   }
 

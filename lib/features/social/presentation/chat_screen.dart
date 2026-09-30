@@ -352,11 +352,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     final m = reversed[i];
                     final mine = m.senderId == me;
                     final prev = i + 1 < reversed.length ? reversed[i + 1] : null;
-                    final showName = (conv?.isMeet ?? false) && !mine && (prev == null || prev.senderId != m.senderId);
+                    // The day's first message gets a divider above it (the list runs bottom-up, so
+                    // "above" is the older neighbour), and a meet chat names the sender again under it.
+                    final newDay = prev == null || !isSameDay(prev.createdAt, m.createdAt);
+                    final showName = (conv?.isMeet ?? false) && !mine && (prev == null || newDay || prev.senderId != m.senderId);
                     final sender = m.sender ?? membersById[m.senderId];
                     final host = m.senderId == hostId;
                     final showEntity = m.asName != null;
-                    return GestureDetector(
+                    final row = GestureDetector(
                       onLongPress: mine ? null : () => _messageMenu(m, sender?.username),
                       child: _Bubble(
                         message: m,
@@ -368,6 +371,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                         host: host && !showEntity,
                       ),
                     );
+                    if (!newDay) return row;
+                    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [_DayDivider(m.createdAt), row]);
                   },
                 );
               },
@@ -411,10 +416,12 @@ class _Bubble extends StatelessWidget {
     final isShare = message.hasAttachment;
     final auto = message.autoBody;
     final maxW = MediaQuery.sizeOf(context).width * 0.72;
+    final time = formatTime(message.createdAt);
 
+    // The text bubble is always the message's last piece, so it always carries the time.
     Widget textBubble(String text) => Container(
           constraints: BoxConstraints(maxWidth: maxW),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+          padding: const EdgeInsets.fromLTRB(14, 9, 12, 7),
           decoration: BoxDecoration(
             color: mine ? AppColors.surfaceGray : AppColors.surface,
             border: mine ? null : Border.all(color: AppColors.border),
@@ -425,26 +432,43 @@ class _Bubble extends StatelessWidget {
               bottomRight: Radius.circular(mine ? 4 : 18),
             ),
           ),
-          child: Text(text, style: TextStyle(color: AppColors.textPrimary, fontSize: 15, height: 1.35)),
+          child: _TimedText(text: text, time: time),
         );
 
+    // Time on a line of its own under a card, post, moment or sticker, lined up with its right edge.
+    Widget under(Widget w, String? t) => t == null
+        ? w
+        : Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              w,
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Text(t, maxLines: 1, softWrap: false, style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+              ),
+            ],
+          );
+
     // A shared post / moment sits on its own, no bubble around it. A note, if any, follows underneath.
+    // Each piece takes the time or null; only the last one gets it.
+    final pieces = <Widget Function(String? t)>[
+      if (message.postId != null) (t) => under(_SharedPost(postId: message.postId!, mine: mine), t),
+      if (message.storyId != null) (t) => under(_SharedMoment(storyId: message.storyId!, mine: mine), t),
+      if (message.imageUrl != null) (t) => _Photo(url: message.imageUrl!, time: t),
+      if (message.audioUrl != null) (t) => Padding(padding: const EdgeInsets.only(bottom: 4), child: VoiceBubble(url: message.audioUrl!, ms: message.audioMs ?? 0, mine: mine, time: t)),
+      if (message.videoUrl != null) (t) => VideoBubble(url: message.videoUrl!, time: t),
+      if (message.sticker != null) (t) => under(Padding(padding: const EdgeInsets.only(bottom: 4), child: ArtIcon(kStickers[message.sticker!] ?? AppArt.car, size: 96)), t),
+      if (message.eventId != null) (t) => under(_SharedEvent(eventId: message.eventId!), t),
+      if (message.placeId != null) (t) => under(_SharedPlace(placeId: message.placeId!), t),
+      if (message.carId != null) (t) => under(_SharedCar(carId: message.carId!), t),
+      if (!auto) (_) => textBubble(message.body),
+    ];
     final bubble = isShare
         ? Column(
             crossAxisAlignment: mine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
-            children: [
-              if (message.postId != null) _SharedPost(postId: message.postId!, mine: mine),
-              if (message.storyId != null) _SharedMoment(storyId: message.storyId!, mine: mine),
-              if (message.imageUrl != null) _Photo(url: message.imageUrl!),
-              if (message.audioUrl != null) Padding(padding: const EdgeInsets.only(bottom: 4), child: VoiceBubble(url: message.audioUrl!, ms: message.audioMs ?? 0, mine: mine)),
-              if (message.videoUrl != null) VideoBubble(url: message.videoUrl!),
-              if (message.sticker != null) Padding(padding: const EdgeInsets.only(bottom: 4), child: ArtIcon(kStickers[message.sticker!] ?? AppArt.car, size: 96)),
-              if (message.eventId != null) _SharedEvent(eventId: message.eventId!),
-              if (message.placeId != null) _SharedPlace(placeId: message.placeId!),
-              if (message.carId != null) _SharedCar(carId: message.carId!),
-              if (!auto) textBubble(message.body),
-            ],
+            children: [for (var i = 0; i < pieces.length; i++) pieces[i](i == pieces.length - 1 ? time : null)],
           )
         : textBubble(message.body);
     return Padding(
@@ -475,13 +499,66 @@ class _Bubble extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               if (showAvatar) ...[UserAvatar(url: avatarUrl, name: senderName, size: 28), const SizedBox(width: 6)],
-              Tooltip(message: formatEventDate(message.createdAt), child: bubble),
+              bubble,
             ],
           ),
         ],
       ),
     );
   }
+}
+
+/// Message text with its send time in the bottom-right corner, WhatsApp style.
+/// An invisible copy of the time rides at the end of the text, so the text
+/// wraps around it: the time shares the last line when there's room, else it
+/// drops to a line of its own. Same style, same text scaling, so it can't overlap.
+class _TimedText extends StatelessWidget {
+  const _TimedText({required this.text, required this.time});
+  final String text;
+  final String time;
+
+  static const _timeStyle = TextStyle(fontSize: 11, height: 1.2, fontWeight: FontWeight.w400);
+
+  @override
+  Widget build(BuildContext context) => Stack(
+        children: [
+          Text.rich(
+            TextSpan(
+              text: text,
+              style: TextStyle(color: AppColors.textPrimary, fontSize: 15, height: 1.35),
+              children: [
+                // The plain space lets the line break before the time; the no-break
+                // spaces keep the gap and the time in one piece.
+                TextSpan(text: '   ${time.replaceAll(' ', ' ')}', style: _timeStyle.copyWith(color: Colors.transparent)),
+              ],
+            ),
+            // Hug the longest line, so a bubble whose time dropped a line isn't stretched to full width.
+            textWidthBasis: TextWidthBasis.longestLine,
+          ),
+          Positioned(
+            right: 0,
+            bottom: 0,
+            // Screen readers already hear the invisible copy.
+            child: ExcludeSemantics(child: Text(time, maxLines: 1, softWrap: false, style: _timeStyle.copyWith(color: AppColors.textSecondary))),
+          ),
+        ],
+      );
+}
+
+/// "Today", "Yesterday", "Monday", "28 Sep": a small centred pill between days.
+class _DayDivider extends StatelessWidget {
+  const _DayDivider(this.day);
+  final DateTime day;
+
+  @override
+  Widget build(BuildContext context) => Center(
+        child: Container(
+          margin: const EdgeInsets.fromLTRB(0, 8, 0, 12),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(color: AppColors.surfaceGray, borderRadius: BorderRadius.circular(AppRadius.pill)),
+          child: Text(formatDayLabel(day), maxLines: 1, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
+        ),
+      );
 }
 
 
@@ -617,10 +694,12 @@ class _SharedMoment extends ConsumerWidget {
 }
 
 
-/// A photo sent in chat. Tap to see it full screen.
+/// A photo sent in chat, with the send [time] in a pill at the bottom right
+/// when given. Tap to see it full screen.
 class _Photo extends StatelessWidget {
-  const _Photo({required this.url});
+  const _Photo({required this.url, this.time});
   final String url;
+  final String? time;
   @override
   Widget build(BuildContext context) => GestureDetector(
         onTap: () => showPhotoViewer(context, [url]),
@@ -629,7 +708,12 @@ class _Photo extends StatelessWidget {
           constraints: const BoxConstraints(maxWidth: 240, maxHeight: 320),
           clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(color: AppColors.surfaceGray, borderRadius: BorderRadius.circular(14)),
-          child: Image(image: CachedNetworkImageProvider(url), fit: BoxFit.cover),
+          child: Stack(
+            children: [
+              Image(image: CachedNetworkImageProvider(url), fit: BoxFit.cover),
+              if (time != null) Positioned(right: 8, bottom: 8, child: ChatTimePill(time!)),
+            ],
+          ),
         ),
       );
 }

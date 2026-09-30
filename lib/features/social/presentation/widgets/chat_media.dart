@@ -12,12 +12,27 @@ String fmtMs(int ms) {
   return '${s ~/ 60}:${(s % 60).toString().padLeft(2, '0')}';
 }
 
-/// A voice note bubble: play / pause, a progress bar, and the length.
+/// The send time as a dark pill, over the bottom-right of a photo or video.
+class ChatTimePill extends StatelessWidget {
+  const ChatTimePill(this.time, {super.key});
+  final String time;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+        decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.45), borderRadius: BorderRadius.circular(AppRadius.pill)),
+        child: Text(time, maxLines: 1, softWrap: false, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
+      );
+}
+
+/// A voice note bubble: play / pause, a progress bar, the length, and the
+/// send [time] at the right when it's given.
 class VoiceBubble extends StatefulWidget {
-  const VoiceBubble({super.key, required this.url, required this.ms, required this.mine});
+  const VoiceBubble({super.key, required this.url, required this.ms, required this.mine, this.time});
   final String url;
   final int ms;
   final bool mine;
+  final String? time;
 
   @override
   State<VoiceBubble> createState() => _VoiceBubbleState();
@@ -129,6 +144,10 @@ class _VoiceBubbleState extends State<VoiceBubble> {
                     Icon(AppIcons.record, size: 12, color: fg.withValues(alpha: 0.7)),
                     const SizedBox(width: 4),
                     Text(_playing ? fmtMs(_at.inMilliseconds) : fmtMs(total), style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: fg.withValues(alpha: 0.85))),
+                    if (widget.time != null)
+                      Expanded(
+                        child: Text(widget.time!, textAlign: TextAlign.end, maxLines: 1, softWrap: false, overflow: TextOverflow.fade, style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                      ),
                   ],
                 ),
               ],
@@ -141,10 +160,12 @@ class _VoiceBubbleState extends State<VoiceBubble> {
 }
 
 /// A video message: poster frame with a play button, tap to play inline,
-/// tap again to pause. Long-press for full screen.
+/// tap again to pause. Long-press for full screen. The send [time], when
+/// given, sits in a pill at the bottom right.
 class VideoBubble extends StatefulWidget {
-  const VideoBubble({super.key, required this.url});
+  const VideoBubble({super.key, required this.url, this.time});
   final String url;
+  final String? time;
 
   @override
   State<VideoBubble> createState() => _VideoBubbleState();
@@ -238,6 +259,7 @@ class _VideoBubbleState extends State<VideoBubble> {
                 )
               else
                 const Positioned(left: 8, bottom: 8, child: Icon(AppIcons.record, color: Colors.white70, size: 14)),
+              if (widget.time != null) Positioned(right: 8, bottom: 8, child: ChatTimePill(widget.time!)),
             ],
           ),
         ),

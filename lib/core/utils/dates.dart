@@ -1,6 +1,7 @@
 // Date formatting without the `intl` package. Malaysian-English style.
 
 const _weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const _weekdaysLong = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const _months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 /// "8:00 PM"
@@ -55,4 +56,25 @@ String timeAgo(DateTime t, {DateTime? now}) {
   if (d.inDays < 30) return '${d.inDays ~/ 7}w';
   final l = t.toLocal();
   return '${l.day} ${_months[l.month - 1]}';
+}
+
+/// Whether [a] and [b] fall on the same local calendar day.
+bool isSameDay(DateTime a, DateTime b) {
+  final x = a.toLocal();
+  final y = b.toLocal();
+  return x.year == y.year && x.month == y.month && x.day == y.day;
+}
+
+/// Chat day divider: "Today", "Yesterday", the weekday within the last week
+/// ("Monday"), else "28 Sep", with the year when it isn't this one ("28 Sep 2025").
+String formatDayLabel(DateTime t, {DateTime? now}) {
+  final n = (now ?? DateTime.now()).toLocal();
+  final l = t.toLocal();
+  // Counted on UTC midnights so a daylight-saving day can't come out as 23 h.
+  final days = DateTime.utc(n.year, n.month, n.day).difference(DateTime.utc(l.year, l.month, l.day)).inDays;
+  if (days <= 0) return 'Today';
+  if (days == 1) return 'Yesterday';
+  if (days < 7) return _weekdaysLong[l.weekday - 1];
+  final dm = '${l.day} ${_months[l.month - 1]}';
+  return l.year == n.year ? dm : '$dm ${l.year}';
 }

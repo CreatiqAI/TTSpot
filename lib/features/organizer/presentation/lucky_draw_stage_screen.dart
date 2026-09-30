@@ -643,7 +643,7 @@ class _WinnerTile extends StatelessWidget {
       decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.07), borderRadius: BorderRadius.circular(AppRadius.lg)),
       child: Row(
         children: [
-          UserAvatar(url: w.avatarUrl, name: w.displayName, size: 42),
+          UserAvatar(url: w.avatarUrl, name: w.displayName, seed: w.userId, size: 42),
           const SizedBox(width: 12),
           Expanded(
             child: Column(

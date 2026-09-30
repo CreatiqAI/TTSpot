@@ -167,7 +167,7 @@ class AdminCardsScreen extends ConsumerWidget {
             for (final c in claims.take(30))
               ListTile(
                 dense: true,
-                leading: UserAvatar(url: c.avatarUrl, name: c.displayName ?? c.username, size: 36),
+                leading: UserAvatar(url: c.avatarUrl, name: c.displayName ?? c.username, seed: c.userId, size: 36),
                 title: Text('${c.displayName ?? '@${c.username}'} · ${c.title}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
                 subtitle: Text(
                   c.status == ClaimState.active ? 'Waiting · ${c.cardsUsed} cards · till ${formatDate(c.expiresAt)}' : '${c.status.label}${c.redeemedAt == null ? '' : ' ${timeAgo(c.redeemedAt!)}'}',

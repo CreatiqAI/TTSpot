@@ -11,6 +11,7 @@ import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/titi.dart';
 import '../../../core/utils/friendly_error.dart';
+import '../../settings/application/settings_providers.dart';
 import '../application/profile_providers.dart';
 import '../data/profile_repository.dart';
 import '../domain/car.dart';
@@ -23,6 +24,7 @@ import 'widgets/car_scan_widgets.dart';
 /// Adding: the first photo goes through the recogniser like onboarding does
 /// (same scanning card, then the big model name, spec tiles and colour from
 /// the photo) when make and model are still empty. Everything stays editable.
+/// Photos go up as picked unless "Hide my number plate" is on.
 class CarFormScreen extends ConsumerStatefulWidget {
   const CarFormScreen({super.key, this.carId});
   final String? carId;
@@ -38,9 +40,15 @@ class _CarFormScreenState extends ConsumerState<CarFormScreen> {
   String? _color;
   final _description = TextEditingController();
   final _kept = <String>[];
-  final _new = <Uint8List>[];
+  final _new = <CarPhotoPick>[];
   bool _loaded = false;
   Car? _loadedCar;
+
+  // "Hide my number plate": off unless the member turned it on before.
+  late bool _hidePlate = ref.read(settingsProvider).hidePlate;
+  int _hideRuns = 0;
+  bool _hideFailed = false;
+  bool get _hiding => _hideRuns > 0;
 
   // recognition
   bool _recognizing = false;
@@ -83,6 +91,42 @@ class _CarFormScreenState extends ConsumerState<CarFormScreen> {
       ..showSnackBar(SnackBar(content: Text(msg)));
   }
 
+  void _setHidePlate(bool v) {
+    setState(() {
+      _hidePlate = v;
+      _hideFailed = false;
+    });
+    ref.read(settingsActionsProvider).patch({'hide_plate': v}).catchError((_) {});
+    if (v) _hideAll();
+  }
+
+  /// With the switch on, blurs the plate on every new photo (the thumbnails
+  /// then show what goes up). False when a photo couldn't be checked.
+  Future<bool> _hideAll() async {
+    if (!_hidePlate || _new.isEmpty) return true;
+    setState(() {
+      _hideRuns++;
+      _hideFailed = false;
+    });
+    final repo = ref.read(profileRepositoryProvider);
+    final ok = (await Future.wait([for (final p in List.of(_new)) hidePlateOn(repo, p)])).every((v) => v);
+    if (mounted) {
+      setState(() {
+        _hideRuns--;
+        _hideFailed = !ok;
+      });
+    }
+    return ok;
+  }
+
+  bool _canCheckPlate(int i, bool busy) => _hidePlate && !busy && i < _new.length && _new[i].plateChecked;
+
+  /// Big preview of what goes up; a tap on the plate moves a blur that missed.
+  Future<void> _checkPlate(CarPhotoPick pick) async {
+    await showPlateCheckSheet(context, pick);
+    if (mounted) setState(() {});
+  }
+
   Future<void> _addPhoto() async {
     if (_kept.length + _new.length >= 5) {
       _snack('Up to 5 photos per car.');
@@ -120,7 +164,8 @@ class _CarFormScreenState extends ConsumerState<CarFormScreen> {
     final blank = _make.text.trim().isEmpty && _model.text.trim().isEmpty;
     final untouchedGuess = _guessed && _guess!.matches(_make.text, _model.text) && _kept.isEmpty && _new.isEmpty;
     if (_isEdit || !(blank || untouchedGuess)) {
-      setState(() => _new.add(bytes));
+      setState(() => _new.add(CarPhotoPick(bytes)));
+      _hideAll();
       return;
     }
     final started = DateTime.now();
@@ -137,10 +182,11 @@ class _CarFormScreenState extends ConsumerState<CarFormScreen> {
     final left = kCarScanHold - DateTime.now().difference(started);
     await Future<void>.delayed((left.isNegative ? Duration.zero : left) + const Duration(milliseconds: 450));
     if (!mounted) return;
+    _new.add(CarPhotoPick(prepared.bytes, scan: prepared.guess));
+    _hideAll(); // the scan already says where the plate is
     setState(() {
       _recognizing = false;
       _scanBytes = null;
-      _new.add(prepared.bytes);
       // The member may have typed while TiTi was looking: keep their words.
       final untouched = (_make.text.trim().isEmpty && _model.text.trim().isEmpty) || (_guessed && _guess!.matches(_make.text, _model.text));
       if (!untouched) return;
@@ -168,6 +214,12 @@ class _CarFormScreenState extends ConsumerState<CarFormScreen> {
 
   Future<void> _save() async {
     FocusScope.of(context).unfocus();
+    // With the switch on, never upload a photo whose plate couldn't be checked.
+    if (_hidePlate && !await _hideAll()) {
+      if (mounted) _snack('Couldn\'t hide the plate. Check your connection, or turn off Hide my number plate.');
+      return;
+    }
+    if (!mounted) return;
     // Spec line / body style only while they still describe this make + model.
     String? specs;
     String? bodyStyle;
@@ -187,7 +239,7 @@ class _CarFormScreenState extends ConsumerState<CarFormScreen> {
           description: _description.text,
           color: _color,
           keptPhotoUrls: _kept,
-          newPhotos: _new,
+          newPhotos: [for (final p in _new) p.bytes(hidePlate: _hidePlate)],
           specs: specs,
           bodyStyle: bodyStyle,
         );
@@ -205,7 +257,7 @@ class _CarFormScreenState extends ConsumerState<CarFormScreen> {
     ref.listen(carFormControllerProvider, (_, next) {
       if (next.hasError && !next.isLoading) _snack(friendlyError(next.error!));
     });
-    final busy = ref.watch(carFormControllerProvider).isLoading || _recognizing;
+    final busy = ref.watch(carFormControllerProvider).isLoading || _recognizing || _hiding;
 
     if (_isEdit) {
       final car = ref.watch(carProvider(widget.carId!));
@@ -219,7 +271,7 @@ class _CarFormScreenState extends ConsumerState<CarFormScreen> {
     final make = _make.text.trim();
     final model = _model.text.trim();
     final tiles = carSpecTiles(_guess, make, model);
-    final cover = _new.isNotEmpty ? _new.first : null;
+    final cover = _new.isNotEmpty ? _new.first.bytes(hidePlate: _hidePlate) : null;
 
     return Scaffold(
       appBar: AppBar(
@@ -250,9 +302,12 @@ class _CarFormScreenState extends ConsumerState<CarFormScreen> {
             ] else if (_guessed) ...[
               // Found it: the same reveal as onboarding, over the editable form.
               if (cover != null) ...[
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(24),
-                  child: AspectRatio(aspectRatio: 4 / 3, child: Image.memory(cover, fit: BoxFit.cover, gaplessPlayback: true)),
+                GestureDetector(
+                  onTap: _canCheckPlate(0, busy) ? () => _checkPlate(_new.first) : null,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(24),
+                    child: AspectRatio(aspectRatio: 4 / 3, child: Image.memory(cover, fit: BoxFit.cover, gaplessPlayback: true)),
+                  ),
                 ),
                 const SizedBox(height: 14),
               ],
@@ -300,7 +355,11 @@ class _CarFormScreenState extends ConsumerState<CarFormScreen> {
                   for (var i = 0; i < _kept.length; i++)
                     _Thumb(image: CachedNetworkImageProvider(_kept[i]), onRemove: busy ? null : () => setState(() => _kept.removeAt(i))),
                   for (var i = 0; i < _new.length; i++)
-                    _Thumb(image: MemoryImage(_new[i]), onRemove: busy ? null : () => setState(() => _new.removeAt(i))),
+                    _Thumb(
+                      image: MemoryImage(_new[i].bytes(hidePlate: _hidePlate)),
+                      onRemove: busy ? null : () => setState(() => _new.removeAt(i)),
+                      onTap: _canCheckPlate(i, busy) ? () => _checkPlate(_new[i]) : null,
+                    ),
                   if (_kept.length + _new.length < 5)
                     GestureDetector(
                       onTap: busy ? null : _addPhoto,
@@ -323,7 +382,16 @@ class _CarFormScreenState extends ConsumerState<CarFormScreen> {
               _recognizing ? 'Looking at your car…' : '${_kept.length + _new.length} of 5 · first photo is the cover',
               style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 4),
+            HidePlateSwitch(
+              value: _hidePlate,
+              onChanged: _recognizing ? null : _setHidePlate,
+              working: _hiding,
+              failed: _hideFailed,
+              photos: _new.where((p) => p.plateChecked).length,
+              blurred: _new.where((p) => p.plateBlurred).length,
+            ),
+            const SizedBox(height: 12),
             TextField(
               controller: _make,
               textCapitalization: TextCapitalization.words,
@@ -380,9 +448,10 @@ class _CarFormScreenState extends ConsumerState<CarFormScreen> {
 }
 
 class _Thumb extends StatelessWidget {
-  const _Thumb({required this.image, required this.onRemove});
+  const _Thumb({required this.image, required this.onRemove, this.onTap});
   final ImageProvider image;
   final VoidCallback? onRemove;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -390,9 +459,12 @@ class _Thumb extends StatelessWidget {
       padding: const EdgeInsets.only(right: 8),
       child: Stack(
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(AppRadius.md),
-            child: Image(image: image, width: 96, height: 96, fit: BoxFit.cover),
+          GestureDetector(
+            onTap: onTap,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(AppRadius.md),
+              child: Image(image: image, width: 96, height: 96, fit: BoxFit.cover, gaplessPlayback: true),
+            ),
           ),
           Positioned(
             top: 4,

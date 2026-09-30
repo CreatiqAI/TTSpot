@@ -31,7 +31,7 @@ class AdminReport {
 }
 
 class AdminUser {
-  const AdminUser({required this.id, required this.username, this.displayName, this.avatarUrl, required this.createdAt, this.homeState, required this.isAdmin, required this.clubOwner, required this.cars, this.lastSeen, this.phone, this.isPartner = false, this.email, this.isOrganizer = false});
+  const AdminUser({required this.id, required this.username, this.displayName, this.avatarUrl, required this.createdAt, this.homeState, required this.isAdmin, required this.clubOwner, required this.cars, this.lastSeen, this.phone, this.isPartner = false, this.email, this.isOrganizer = false, this.points = 0});
   final String id;
   final String username;
   final String? displayName;
@@ -46,6 +46,7 @@ class AdminUser {
   final bool isPartner;
   final String? email;
   final bool isOrganizer;
+  final int points;
 }
 
 final adminStatsProvider = FutureProvider<AdminStats>((ref) async {
@@ -97,6 +98,7 @@ final adminUsersProvider = FutureProvider<List<AdminUser>>((ref) async {
       isPartner: m['is_partner'] as bool? ?? false,
       email: m['email'] as String?,
       isOrganizer: m['is_organizer'] as bool? ?? false,
+      points: (m['points'] as num?)?.toInt() ?? 0,
     );
   }).toList();
 });
@@ -131,6 +133,44 @@ final adminSuggestionsProvider = FutureProvider<List<AdminSuggestion>>((ref) asy
       createdAt: DateTime.parse(m['created_at'] as String).toLocal(),
     );
   }).toList();
+});
+
+/// Points the team gave a member (or took back, [delta] < 0) with the
+/// Give points tool: the 'freepoints' ledger rows.
+class AdminGift {
+  const AdminGift({required this.id, required this.userId, required this.username, this.displayName, this.avatarUrl, required this.delta, this.note, required this.createdAt});
+  final int id;
+  final String userId;
+  final String username;
+  final String? displayName;
+  final String? avatarUrl;
+  final int delta;
+  final String? note;
+  final DateTime createdAt;
+}
+
+final adminGiftsProvider = FutureProvider<List<AdminGift>>((ref) async {
+  ref.watch(currentUserIdProvider);
+  final rows = await ref.read(supabaseProvider).rpc('admin_freepoints_recent', params: {'p_limit': 30}) as List;
+  return rows.map((r) {
+    final m = (r as Map).cast<String, dynamic>();
+    return AdminGift(
+      id: (m['id'] as num).toInt(),
+      userId: m['user_id'] as String,
+      username: m['username'] as String? ?? '',
+      displayName: m['display_name'] as String?,
+      avatarUrl: m['avatar_url'] as String?,
+      delta: (m['delta'] as num).toInt(),
+      note: m['note'] as String?,
+      createdAt: DateTime.parse(m['created_at'] as String).toLocal(),
+    );
+  }).toList();
+});
+
+/// A member's points balance, shown before giving or taking.
+final adminMemberPointsProvider = FutureProvider.family<int, String>((ref, id) async {
+  final row = await ref.read(supabaseProvider).from('profiles').select('points').eq('id', id).maybeSingle();
+  return (row?['points'] as num?)?.toInt() ?? 0;
 });
 
 final platformSettingsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
@@ -178,6 +218,16 @@ class AdminActions {
     await _ref.read(supabaseProvider).rpc('admin_review_suggestion', params: {'p_id': id, 'p_approve': approve});
     _ref.invalidate(adminSuggestionsProvider);
     _ref.invalidate(adminStatsProvider);
+  }
+
+  /// Gives [delta] points (negative takes some back, never below 0). Up to
+  /// 100,000 either way. The member gets a notification. Returns the new balance.
+  Future<int> givePoints(String userId, int delta, {String? note}) async {
+    final v = await _ref.read(supabaseProvider).rpc('admin_give_points', params: {'p_user': userId, 'p_delta': delta, 'p_note': note});
+    _ref.invalidate(adminGiftsProvider);
+    _ref.invalidate(adminMemberPointsProvider(userId));
+    _ref.invalidate(adminUsersProvider); // the Members list shows balances
+    return (v as num).toInt();
   }
 
   Future<void> setSetting(String key, Object value) async {

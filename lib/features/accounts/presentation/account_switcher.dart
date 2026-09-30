@@ -53,7 +53,7 @@ Future<void> showAccountSwitcher(BuildContext context, WidgetRef ref) async {
             child: Text('Switch account', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
           ),
           _Row(
-            avatar: UserAvatar(url: profile?.avatarUrl, name: profile?.displayName ?? profile?.username, size: 44),
+            avatar: UserAvatar(url: profile?.avatarUrl, name: profile?.displayName ?? profile?.username, seed: profile?.id, size: 44),
             title: profile?.displayName ?? '@${profile?.username ?? ''}',
             subtitle: 'Personal',
             selected: active is PersonalAccount,

@@ -235,7 +235,7 @@ class _Body extends ConsumerWidget {
           for (final r in redemptions)
             ListTile(
               dense: true,
-              leading: UserAvatar(url: r.avatarUrl, name: r.username, size: 36),
+              leading: UserAvatar(url: r.avatarUrl, name: r.username, seed: r.userId, size: 36),
               title: Text('@${r.username ?? ''} · ${r.title}', maxLines: 1, overflow: TextOverflow.ellipsis),
               subtitle: Text('${timeAgo(r.createdAt)}${r.note == null ? '' : ' · ${r.note}'}', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
               trailing: Column(

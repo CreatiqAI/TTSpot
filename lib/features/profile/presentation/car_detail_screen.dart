@@ -11,6 +11,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../../core/widgets/primary_button.dart';
 import '../../../core/widgets/user_avatar.dart';
+import '../../social/application/chat_providers.dart';
 import '../../social/application/social_providers.dart';
 import '../../social/domain/post.dart';
 import '../../social/presentation/widgets/masonry_grid.dart';
@@ -32,6 +33,7 @@ class CarDetailScreen extends ConsumerStatefulWidget {
 
 class _CarDetailScreenState extends ConsumerState<CarDetailScreen> {
   int _page = 0;
+  bool _opening = false;
 
   Future<void> _delete(Car car) async {
     final ok = await showDialog<bool>(
@@ -48,6 +50,21 @@ class _CarDetailScreenState extends ConsumerState<CarDetailScreen> {
     if (ok != true) return;
     final done = await ref.read(carFormControllerProvider.notifier).delete(car.id);
     if (done && mounted) context.pop();
+  }
+
+  /// Straight into the DM with the owner, like the profile's Message button
+  /// (the server says so when they only take messages from friends).
+  Future<void> _messageOwner(String ownerId) async {
+    if (_opening) return;
+    setState(() => _opening = true);
+    try {
+      final conv = await ref.read(chatActionsProvider).openDm(ownerId);
+      if (mounted) context.push(Routes.chat(conv));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
+    } finally {
+      if (mounted) setState(() => _opening = false);
+    }
   }
 
   @override
@@ -140,7 +157,7 @@ class _CarDetailScreenState extends ConsumerState<CarDetailScreen> {
                           const SizedBox(width: 8),
                           Expanded(child: PrimaryButton(label: 'Add a mod', onPressed: () => context.push(Routes.newCarMod(c.id)))),
                         ] else
-                          Expanded(child: SecondaryButton(label: 'Message owner', icon: AppIcons.chatCircle, onPressed: () => context.push(Routes.profile(c.ownerId)))),
+                          Expanded(child: SecondaryButton(label: 'Message owner', icon: AppIcons.chatCircle, onPressed: _opening ? null : () => _messageOwner(c.ownerId))),
                       ],
                     ),
                     const SizedBox(height: 18),
@@ -151,7 +168,7 @@ class _CarDetailScreenState extends ConsumerState<CarDetailScreen> {
                       borderRadius: BorderRadius.circular(AppRadius.md),
                       child: Row(
                         children: [
-                          UserAvatar(url: owner?.avatarUrl, name: owner?.displayName ?? owner?.username, size: 36),
+                          UserAvatar(url: owner?.avatarUrl, name: owner?.displayName ?? owner?.username, seed: c.ownerId, size: 36),
                           const SizedBox(width: 12),
                           Expanded(
                             child: RichText(

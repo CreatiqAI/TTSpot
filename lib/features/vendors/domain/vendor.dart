@@ -522,6 +522,7 @@ class ClaimLookup {
     required this.commissionRate,
     required this.expiresAt,
     this.terms,
+    this.userId,
     this.username,
     this.displayName,
     this.avatarUrl,
@@ -537,6 +538,8 @@ class ClaimLookup {
   final double commissionRate;
   final DateTime expiresAt;
   final String? terms;
+  /// The customer; picks their default avatar.
+  final String? userId;
   final String? username;
   final String? displayName;
   final String? avatarUrl;
@@ -558,6 +561,7 @@ class ClaimLookup {
         commissionRate: _num(m['commission_rate']),
         expiresAt: _date(m['expires_at'])!,
         terms: m['terms'] as String?,
+        userId: m['user_id'] as String?,
         username: m['username'] as String?,
         displayName: m['display_name'] as String?,
         avatarUrl: m['avatar_url'] as String?,
@@ -573,6 +577,7 @@ class Redemption {
     required this.commissionRate,
     required this.commissionAmount,
     required this.createdAt,
+    this.userId,
     this.username,
     this.avatarUrl,
     this.receiptUrl,
@@ -585,6 +590,8 @@ class Redemption {
   final double commissionRate;
   final double commissionAmount;
   final DateTime createdAt;
+  /// The customer; picks their default avatar.
+  final String? userId;
   final String? username;
   final String? avatarUrl;
   final String? receiptUrl;
@@ -597,6 +604,7 @@ class Redemption {
         commissionRate: _num(m['commission_rate']),
         commissionAmount: _num(m['commission_amount']),
         createdAt: _date(m['created_at'])!,
+        userId: m['user_id'] as String?,
         username: m['username'] as String?,
         avatarUrl: m['avatar_url'] as String?,
         receiptUrl: m['receipt_url'] as String?,

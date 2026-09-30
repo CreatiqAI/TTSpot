@@ -194,7 +194,7 @@ class _CardState extends ConsumerState<_Card> {
             children: [
               GestureDetector(
                 onTap: a.userId == null ? null : () => context.push(Routes.profile(a.userId!)),
-                child: UserAvatar(url: a.avatarUrl, name: a.username, size: 36),
+                child: UserAvatar(url: a.avatarUrl, name: a.username, seed: a.userId, size: 36),
               ),
               const SizedBox(width: 10),
               Expanded(

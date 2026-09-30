@@ -289,7 +289,7 @@ Future<void> showDrawWinnersSheet(BuildContext context, {required String drawId,
                             children: [
                               for (final r in list)
                                 ListTile(
-                                  leading: UserAvatar(url: r.avatarUrl, name: r.displayName, size: 40),
+                                  leading: UserAvatar(url: r.avatarUrl, name: r.displayName, seed: r.userId, size: 40),
                                   title: Text(r.displayName, style: const TextStyle(fontWeight: FontWeight.w700)),
                                   subtitle: Text(r.prize, style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
                                   trailing: Text(

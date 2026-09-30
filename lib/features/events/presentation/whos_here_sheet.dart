@@ -186,7 +186,7 @@ class _Row extends StatelessWidget {
     ].join(' · ');
     return ListTile(
       onTap: onOpen,
-      leading: UserAvatar(url: row.avatarUrl, name: row.name, size: 42),
+      leading: UserAvatar(url: row.avatarUrl, name: row.name, seed: row.userId, size: 42),
       title: Text(row.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600)),
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

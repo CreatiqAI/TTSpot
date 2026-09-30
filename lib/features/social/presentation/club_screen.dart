@@ -215,7 +215,7 @@ class ClubScreen extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: UserAvatar(url: m.avatarUrl, name: name, size: 40),
+              leading: UserAvatar(url: m.avatarUrl, name: name, seed: m.id, size: 40),
               title: Text(name, style: const TextStyle(fontWeight: FontWeight.w700)),
               subtitle: Text(role == 'member' ? 'Member' : '${clubRoleLabel(role)} · helps run ${c.name}', style: const TextStyle(fontSize: 12)),
               onTap: () => Navigator.pop(ctx, 'profile'),

@@ -246,6 +246,7 @@ class _FriendStrip extends ConsumerWidget {
                 name: 'You',
                 avatarUrl: myProfile?.avatarUrl,
                 avatarName: myProfile?.displayName ?? myProfile?.username,
+                seed: myProfile?.id,
                 ring: mine >= 0 ? (moments[mine].allSeen ? _Ring.seen : _Ring.fresh) : _Ring.none,
                 add: true,
                 onTap: mine >= 0 ? () => watch(mine) : () => context.push(Routes.createStory),
@@ -256,6 +257,7 @@ class _FriendStrip extends ConsumerWidget {
                   name: (moments[i].author.displayName ?? moments[i].author.username ?? '').split(' ').first,
                   avatarUrl: moments[i].author.avatarUrl,
                   avatarName: moments[i].author.displayName ?? moments[i].author.username,
+                  seed: moments[i].author.id,
                   ring: moments[i].allSeen ? _Ring.seen : _Ring.fresh,
                   online: live.containsKey(moments[i].author.id),
                   onTap: () => watch(i),
@@ -265,6 +267,7 @@ class _FriendStrip extends ConsumerWidget {
                   name: f.displayName?.split(' ').first ?? f.username ?? '',
                   avatarUrl: f.avatarUrl,
                   avatarName: f.displayName ?? f.username,
+                  seed: f.id,
                   ring: _Ring.none,
                   online: live.containsKey(f.id),
                   onTap: () => onTap(f.id),
@@ -280,10 +283,11 @@ class _FriendStrip extends ConsumerWidget {
 enum _Ring { none, fresh, seen }
 
 class _Circle extends StatelessWidget {
-  const _Circle({required this.name, required this.avatarUrl, required this.avatarName, required this.ring, required this.onTap, this.online = false, this.add = false, this.onAdd});
+  const _Circle({required this.name, required this.avatarUrl, required this.avatarName, this.seed, required this.ring, required this.onTap, this.online = false, this.add = false, this.onAdd});
   final String name;
   final String? avatarUrl;
   final String? avatarName;
+  final String? seed;
   final _Ring ring;
   final bool online;
   final bool add;
@@ -311,7 +315,7 @@ class _Circle extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(2.5),
                     decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: ringColor, width: 2.2)),
-                    child: UserAvatar(url: avatarUrl, name: avatarName, size: 54),
+                    child: UserAvatar(url: avatarUrl, name: avatarName, seed: seed, size: 54),
                   ),
                   if (add)
                     Positioned(
@@ -424,7 +428,7 @@ class _ChatTile extends StatelessWidget {
                     : ThumbImage(c.eventCover!, error: ColoredBox(color: AppColors.surfaceGray)),
               ),
             )
-          : UserAvatar(url: c.avatarUrl, name: c.title, size: 48, fallbackAsset: c.showEntity && c.clubId != null ? crestAsset(c.clubId!) : null),
+          : UserAvatar(url: c.avatarUrl, name: c.title, seed: c.showEntity ? null : c.other?.id, size: 48, fallbackAsset: c.showEntity && c.clubId != null ? crestAsset(c.clubId!) : null),
       title: Row(
         children: [
           Flexible(child: Text(c.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontWeight: c.unread > 0 ? FontWeight.w700 : FontWeight.w600))),

@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show AuthChangeEvent;
 
 import '../geo/latlng.dart';
+import '../../features/admin/presentation/admin_give_points_screen.dart';
 import '../../features/auth/data/auth_repository.dart';
 import '../../features/auth/presentation/onboarding_screen.dart';
 import '../../features/auth/presentation/welcome_screen.dart';
@@ -123,6 +124,8 @@ abstract final class Routes {
   static const adminReview = '/admin/review';
   static const adminPartners = '/admin/partners';
   static const adminCommission = '/admin/commission';
+  static const adminPoints = '/admin/points';
+  static String adminPointsFor(String userId) => '/admin/points?user=$userId';
 
   // Partners (vendors) + rewards
   static const partnerApply = '/partner/apply';
@@ -412,6 +415,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: Routes.adminReview, pageBuilder: (_, s) => page(s, const AdminReviewScreen())),
       GoRoute(path: Routes.adminPartners, pageBuilder: (_, s) => page(s, const AdminPartnersScreen())),
       GoRoute(path: Routes.adminCommission, pageBuilder: (_, s) => page(s, const AdminCommissionScreen())),
+      GoRoute(path: Routes.adminPoints, pageBuilder: (_, s) => page(s, AdminGivePointsScreen(userId: s.uri.queryParameters['user']))),
       GoRoute(path: Routes.partnerApply, pageBuilder: (_, s) => page(s, const PartnerApplyScreen())),
       GoRoute(path: Routes.clubApply, pageBuilder: (_, s) => page(s, const PartnerApplyScreen(kind: ApplicationKind.club))),
       GoRoute(path: Routes.locationGate, pageBuilder: (_, s) => page(s, const LocationGateScreen())),

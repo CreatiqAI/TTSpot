@@ -159,7 +159,7 @@ class _RequestRowState extends ConsumerState<_RequestRow> {
         children: [
           Row(
             children: [
-              GestureDetector(onTap: () => context.push(Routes.profile(r.userId)), child: UserAvatar(url: r.avatarUrl, name: r.displayName ?? r.username, size: 40)),
+              GestureDetector(onTap: () => context.push(Routes.profile(r.userId)), child: UserAvatar(url: r.avatarUrl, name: r.displayName ?? r.username, seed: r.userId, size: 40)),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(

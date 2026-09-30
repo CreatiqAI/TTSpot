@@ -59,7 +59,10 @@ class _AdminMembersScreenState extends ConsumerState<AdminMembersScreen> {
       appBar: AppBar(
         automaticallyImplyLeading: false,
         title: const Text('Members'),
-        actions: [IconButton(tooltip: 'Refresh', icon: const Icon(AppIcons.arrowsClockwise), onPressed: () => ref.invalidate(adminUsersProvider))],
+        actions: [
+          IconButton(tooltip: 'Give points', icon: const Icon(AppIcons.gift), onPressed: () => context.push(Routes.adminPoints)),
+          IconButton(tooltip: 'Refresh', icon: const Icon(AppIcons.arrowsClockwise), onPressed: () => ref.invalidate(adminUsersProvider)),
+        ],
       ),
       body: Column(
         children: [
@@ -128,6 +131,8 @@ class _MemberRow extends ConsumerWidget {
   final AdminUser u;
   final bool isMe;
 
+  static String _pts(int n) => n.toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (_) => ',');
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tags = <(String, Color)>[
@@ -137,7 +142,7 @@ class _MemberRow extends ConsumerWidget {
       if (u.isOrganizer) ('Organizer', AppColors.success),
     ];
     return ListTile(
-      leading: UserAvatar(url: u.avatarUrl, name: u.displayName ?? u.username, size: 44),
+      leading: UserAvatar(url: u.avatarUrl, name: u.displayName ?? u.username, seed: u.id, size: 44),
       title: Row(
         children: [
           Flexible(child: Text(u.displayName ?? '@${u.username}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700))),
@@ -151,7 +156,7 @@ class _MemberRow extends ConsumerWidget {
         ],
       ),
       subtitle: Text(
-        '@${u.username}${u.email == null ? '' : ' · ${u.email}'}\n${u.phone ?? 'no phone'} · ${u.cars} car${u.cars == 1 ? '' : 's'} · joined ${u.createdAt.day}/${u.createdAt.month}/${u.createdAt.year % 100}${u.lastSeen == null ? '' : ' · seen ${timeAgo(u.lastSeen!)}'}',
+        '@${u.username}${u.email == null ? '' : ' · ${u.email}'}\n${u.phone ?? 'no phone'} · ${u.cars} car${u.cars == 1 ? '' : 's'} · ${_pts(u.points)} pts · joined ${u.createdAt.day}/${u.createdAt.month}/${u.createdAt.year % 100}${u.lastSeen == null ? '' : ' · seen ${timeAgo(u.lastSeen!)}'}',
         style: TextStyle(fontSize: 12, color: AppColors.textSecondary, height: 1.35),
       ),
       isThreeLine: true,
@@ -170,6 +175,8 @@ class _MemberRow extends ConsumerWidget {
                       await a.setOrganizer(u.id, on: !u.isOrganizer);
                     case 'profile':
                       if (context.mounted) context.push(Routes.profile(u.id));
+                    case 'points':
+                      if (context.mounted) context.push(Routes.adminPointsFor(u.id));
                   }
                 } catch (e) {
                   if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
@@ -177,6 +184,7 @@ class _MemberRow extends ConsumerWidget {
               },
               itemBuilder: (_) => [
                 const PopupMenuItem(value: 'profile', child: Text('Open profile')),
+                const PopupMenuItem(value: 'points', child: Text('Give or take points')),
                 PopupMenuItem(value: 'club', child: Text(u.clubOwner ? 'Remove club owner' : 'Make club owner')),
                 PopupMenuItem(value: 'organizer', child: Text(u.isOrganizer ? 'Remove verified organizer' : 'Make verified organizer')),
                 PopupMenuItem(value: 'admin', child: Text(u.isAdmin ? 'Remove admin' : 'Make admin')),

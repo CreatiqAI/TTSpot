@@ -264,7 +264,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           child: Row(
             children: [
               if (conv != null && !conv.isMeet) ...[
-                UserAvatar(url: conv.avatarUrl, name: conv.title, size: 32, fallbackAsset: conv.showEntity && conv.clubId != null ? crestAsset(conv.clubId!) : null),
+                UserAvatar(url: conv.avatarUrl, name: conv.title, seed: conv.showEntity ? null : conv.other?.id, size: 32, fallbackAsset: conv.showEntity && conv.clubId != null ? crestAsset(conv.clubId!) : null),
                 const SizedBox(width: 10),
               ],
               Expanded(
@@ -367,6 +367,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                         showName: (showName || showEntity) && !mine,
                         senderName: showEntity ? m.asName : sender?.username,
                         avatarUrl: showEntity ? m.asLogo : sender?.avatarUrl,
+                        avatarSeed: showEntity ? null : m.senderId,
                         showAvatar: !mine && ((conv?.isMeet ?? false) || showEntity),
                         host: host && !showEntity,
                       ),
@@ -402,12 +403,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 }
 
 class _Bubble extends StatelessWidget {
-  const _Bubble({required this.message, required this.mine, required this.showName, this.senderName, this.avatarUrl, required this.showAvatar, this.host = false});
+  const _Bubble({required this.message, required this.mine, required this.showName, this.senderName, this.avatarUrl, this.avatarSeed, required this.showAvatar, this.host = false});
   final Message message;
   final bool mine;
   final bool showName;
   final String? senderName;
   final String? avatarUrl;
+  final String? avatarSeed;
   final bool showAvatar;
   final bool host;
 
@@ -498,7 +500,7 @@ class _Bubble extends StatelessWidget {
             mainAxisAlignment: mine ? MainAxisAlignment.end : MainAxisAlignment.start,
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              if (showAvatar) ...[UserAvatar(url: avatarUrl, name: senderName, size: 28), const SizedBox(width: 6)],
+              if (showAvatar) ...[UserAvatar(url: avatarUrl, name: senderName, seed: avatarSeed, size: 28), const SizedBox(width: 6)],
               bubble,
             ],
           ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/accounts/application/active_account.dart';
+import '../../features/accounts/presentation/account_chats_tab.dart';
 import '../../features/accounts/presentation/account_tab.dart';
 import '../../features/admin/presentation/admin_dashboard_screen.dart';
 import '../../features/admin/presentation/admin_members_screen.dart';
@@ -37,12 +38,12 @@ class TabSlot extends ConsumerWidget {
       ClubAccount(:final club) => switch (index) {
           0 => ClubScreen(clubId: club.id, embedded: true),
           1 => ClubEventsTab(club: club),
-          2 => const InboxScreen(),
+          2 => const AccountChatsTab(),
           _ => const AccountTab(),
         },
       PartnerAccount() => switch (index) {
           1 => const VendorProductsScreen(),
-          2 => const InboxScreen(),
+          2 => const AccountChatsTab(),
           3 => const AccountTab(),
           4 => const VendorVouchersScreen(),
           _ => const VendorDashboardScreen(embedded: true),

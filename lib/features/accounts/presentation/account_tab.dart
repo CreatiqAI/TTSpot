@@ -6,6 +6,7 @@ import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_images.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/glass_tab_bar.dart';
 import '../../../core/widgets/user_avatar.dart';
 import '../../auth/presentation/widgets/confirm_logout.dart';
 import '../../social/domain/post.dart';
@@ -65,7 +66,8 @@ class AccountTab extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(automaticallyImplyLeading: false, title: const Text('Account')),
       body: ListView(
-        padding: const EdgeInsets.only(bottom: 32),
+        // Log out is last: it scrolls clear of the floating tab bar.
+        padding: EdgeInsets.only(bottom: GlassTabBar.clearance(context)),
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),

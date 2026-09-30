@@ -4,6 +4,7 @@ import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show MethodChannel;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -25,14 +26,18 @@ class PushService {
   bool _started = false;
   bool _starting = false;
   bool _listening = false;
+  bool _asked = false;
   final _subs = <StreamSubscription<dynamic>>[];
 
   /// One line for Settings → Notifications ("On", "Off in iPhone Settings"…).
   final status = ValueNotifier<String>('Checking…');
 
   /// Called once the member is inside the app (past onboarding) and again on
-  /// resume until it works. Asks for permission the first time.
-  Future<void> start() async {
+  /// resume until it works. Asks for permission once per launch; the resume
+  /// calls only check, so a "Don't allow" isn't followed by a second prompt.
+  /// [ask] = the member tapped Turn on: show the phone's prompt again if it
+  /// still may.
+  Future<void> start({bool ask = false}) async {
     if (_started || _starting) return;
     final me = _ref.read(currentUserIdProvider);
     if (me == null) return;
@@ -44,8 +49,11 @@ class PushService {
     final fm = FirebaseMessaging.instance;
     try {
       FirebaseCrashlytics.instance.setUserIdentifier(me);
-      final perm = await fm.requestPermission();
-      if (perm.authorizationStatus == AuthorizationStatus.denied) {
+      final perm = ask || !_asked ? await fm.requestPermission() : await fm.getNotificationSettings();
+      _asked = true;
+      final allowed = perm.authorizationStatus == AuthorizationStatus.authorized || perm.authorizationStatus == AuthorizationStatus.provisional;
+      if (!allowed) {
+        // Android 13+ also reports deniedPermanently; either way nothing can show.
         _set(defaultTargetPlatform == TargetPlatform.iOS ? 'Off in iPhone Settings' : 'Off in phone settings');
         return;
       }
@@ -85,14 +93,15 @@ class PushService {
     }
   }
 
-  /// Settings row tap: retry, or open the phone's settings when it's off there.
-  Future<void> fix() async {
-    if (status.value.startsWith('Off in')) {
-      await launchUrl(Uri.parse('app-settings:'));
-      return;
+  /// What the phone allows right now (null = Firebase isn't running, can't tell).
+  /// Asked fresh each time: the member may have changed it in phone settings.
+  Future<AuthorizationStatus?> permission() async {
+    if (!firebaseReady) return null;
+    try {
+      return (await FirebaseMessaging.instance.getNotificationSettings()).authorizationStatus;
+    } catch (_) {
+      return null;
     }
-    _started = false;
-    await start();
   }
 
   /// Shows the result in Settings and keeps the last one on the profile
@@ -148,3 +157,21 @@ class PushService {
 }
 
 final pushServiceProvider = Provider<PushService>((ref) => PushService(ref));
+
+/// Android has no URL for an app's notification settings (url_launcher only
+/// sends VIEW intents), so MainActivity opens them over this channel.
+const _settingsChannel = MethodChannel('my.ttspot.app/settings');
+
+/// Opens TT Spot's notification settings on the phone: the app's page in
+/// iPhone Settings, or Android's notification screen for the app. False when
+/// nothing opened.
+Future<bool> openPhoneNotificationSettings() async {
+  try {
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      return await _settingsChannel.invokeMethod<bool>('openNotificationSettings') ?? false;
+    }
+    return await launchUrl(Uri.parse('app-settings:'));
+  } catch (_) {
+    return false;
+  }
+}

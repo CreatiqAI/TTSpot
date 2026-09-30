@@ -8,6 +8,7 @@ import '../../../core/theme/app_art.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_images.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/glass_tab_bar.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../../core/widgets/event_list_tile.dart';
 import '../../../core/widgets/primary_button.dart';
@@ -93,7 +94,8 @@ class ClubScreen extends ConsumerWidget {
               await ref.read(clubProvider(clubId).future);
             },
             child: ListView(
-              padding: const EdgeInsets.only(bottom: 32),
+              // As the club account's first tab, the end scrolls clear of the floating tab bar.
+              padding: EdgeInsets.only(bottom: embedded ? GlassTabBar.clearance(context) : MediaQuery.paddingOf(context).bottom + 32),
               children: [
                 _Header(club: c, meets: events.length, posts: posts.length),
                 if (invite != null && (!isMember || inviteRole == 'vp' || inviteRole == 'secretary')) _InviteBanner(clubId: clubId, clubName: c.name, role: inviteRole ?? 'member'),

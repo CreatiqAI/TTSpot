@@ -171,6 +171,7 @@ abstract final class Routes {
   static const saved = '/saved';
   static const settings = '/settings';
   static const blocked = '/settings/blocked';
+  static const pushSettings = '/settings/notifications';
   static const privacy = '/settings/privacy';
   static const terms = '/settings/terms';
   static const stories = '/stories';
@@ -370,6 +371,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/me/albums/:id/edit', pageBuilder: (_, s) => page(s, AlbumEditorScreen(albumId: s.pathParameters['id']!))),
       GoRoute(path: Routes.settings, pageBuilder: (_, s) => page(s, const SettingsScreen())),
       GoRoute(path: Routes.blocked, pageBuilder: (_, s) => page(s, const BlockedScreen())),
+      GoRoute(path: Routes.pushSettings, pageBuilder: (_, s) => page(s, const PushSettingsScreen())),
       GoRoute(path: Routes.privacy, pageBuilder: (_, s) => page(s, const LegalScreen(title: 'Privacy Policy', body: kPrivacyPolicy))),
       GoRoute(path: Routes.terms, pageBuilder: (_, s) => page(s, const LegalScreen(title: 'Terms of Use', body: kTerms))),
       GoRoute(path: Routes.friends, pageBuilder: (_, s) => page(s, const FriendsScreen())),

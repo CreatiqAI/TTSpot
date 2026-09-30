@@ -10,6 +10,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/dates.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../../core/widgets/empty_state.dart';
+import '../../../core/widgets/glass_tab_bar.dart';
 import '../../../core/widgets/user_avatar.dart';
 import '../../accounts/presentation/account_switcher.dart';
 import '../../accounts/presentation/account_title.dart';
@@ -50,15 +51,16 @@ class VendorDashboardScreen extends ConsumerWidget {
         error: (e, _) => Center(child: Text(friendlyError(e))),
         data: (v) => v == null
             ? EmptyState(art: AppArt.handshake, title: 'Not a partner yet', subtitle: 'Apply and an admin will review it.', actionLabel: 'Apply', onAction: () => context.pushReplacement(Routes.partnerApply))
-            : _Body(vendor: v),
+            : _Body(vendor: v, embedded: embedded),
       ),
     );
   }
 }
 
 class _Body extends ConsumerWidget {
-  const _Body({required this.vendor});
+  const _Body({required this.vendor, required this.embedded});
   final Vendor vendor;
+  final bool embedded;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -89,7 +91,8 @@ class _Body extends ConsumerWidget {
         await ref.read(myVendorProvider.future);
       },
       child: ListView(
-        padding: const EdgeInsets.only(bottom: 32),
+        // Inside the partner tabs the last redemptions scroll clear of the floating bar.
+        padding: EdgeInsets.only(bottom: embedded ? GlassTabBar.clearance(context) : MediaQuery.paddingOf(context).bottom + 32),
         children: [
           // ---- who you are
           Padding(

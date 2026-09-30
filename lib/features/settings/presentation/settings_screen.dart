@@ -1,3 +1,5 @@
+import 'package:firebase_messaging/firebase_messaging.dart' show AuthorizationStatus;
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,12 +13,18 @@ import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../../core/utils/open_external.dart';
+import '../../../core/widgets/primary_button.dart';
 import '../../../core/widgets/user_avatar.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../auth/application/account_basics.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../auth/presentation/widgets/confirm_logout.dart';
+import '../../friends/application/friends_providers.dart';
+import '../../friends/domain/friend.dart';
+import '../../map/presentation/widgets/visibility_sheet.dart';
 import '../../safety/data/safety_repository.dart';
+import '../../social/application/chat_providers.dart';
+import '../../social/domain/chat.dart';
 import '../application/settings_providers.dart';
 import '../../../core/push/push_service.dart';
 
@@ -43,7 +51,7 @@ class SettingsScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(leading: IconButton(icon: const Icon(AppIcons.arrowLeft), onPressed: () => context.pop()), title: const Text('Settings')),
       body: ListView(
-        padding: const EdgeInsets.only(bottom: 40),
+        padding: EdgeInsets.only(bottom: MediaQuery.paddingOf(context).bottom + 24),
         children: [
           // ---- account card
           Padding(
@@ -80,19 +88,21 @@ class SettingsScreen extends ConsumerWidget {
           const _Head('NOTIFICATIONS'),
           ValueListenableBuilder<String>(
             valueListenable: ref.read(pushServiceProvider).status,
-            builder: (_, st, _) => _Row(
-              icon: AppIcons.bell,
-              title: 'Push notifications',
-              subtitle: st == 'On' ? 'On for this phone' : '$st · tap to ${st.startsWith('Off in') ? 'open settings' : 'try again'}',
-              onTap: () => ref.read(pushServiceProvider).fix(),
-            ),
+            builder: (_, st, _) {
+              final on = _PushKind.values.where((k) => k.isOn(s)).length;
+              return _Row(
+                icon: AppIcons.bell,
+                title: 'Push notifications',
+                subtitle: switch (st) {
+                  'On' => on == _PushKind.values.length ? 'On for this phone' : 'On · $on of ${_PushKind.values.length} kinds',
+                  'Checking…' => 'Checking…',
+                  _ when st.startsWith('Off in') => 'Off · not allowed on this phone',
+                  _ => 'Off · tap to turn on',
+                },
+                onTap: () => context.push(Routes.pushSettings),
+              );
+            },
           ),
-          _Toggle(icon: AppIcons.coffee, title: 'TT now pings', subtitle: 'When a friend starts a TT near you', value: s.notifTt, onChanged: (v) => set({'notif_tt': v})),
-          _Toggle(icon: AppIcons.flagCheckered, title: 'Meets', subtitle: 'Reminders, changes and who joined', value: s.notifMeets, onChanged: (v) => set({'notif_meets': v})),
-          _Toggle(icon: AppIcons.chatCircle, title: 'Messages', subtitle: 'New chat messages', value: s.notifMessages, onChanged: (v) => set({'notif_messages': v})),
-          _Toggle(icon: AppIcons.users, title: 'Friends', subtitle: 'Requests, accepts and club invites', value: s.notifFriends, onChanged: (v) => set({'notif_friends': v})),
-          _Toggle(icon: AppIcons.gift, title: 'Rewards', subtitle: 'Points earned, vouchers, badges', value: s.notifRewards, onChanged: (v) => set({'notif_rewards': v})),
-          const _Note('Pick what reaches your lock screen. Everything still shows in Activity.'),
 
           const _Head('APPEARANCE'),
           _Choice(
@@ -110,7 +120,12 @@ class SettingsScreen extends ConsumerWidget {
           _Choice(icon: AppIcons.gauge, title: 'Distances', value: s.units, options: const [('km', 'Kilometres'), ('mi', 'Miles')], onChanged: (v) => set({'units': v})),
 
           const _Head('PRIVACY'),
-          _Row(icon: AppIcons.eye, title: 'Who can see my car', subtitle: 'Friends · nearby · everyone · nobody', onTap: () => context.go(Routes.map)),
+          _Row(
+            icon: AppIcons.eye,
+            title: 'Who can see my car',
+            subtitle: _shareLabel(ref.watch(myLocationProvider).value),
+            onTap: () => _openVisibility(context, ref),
+          ),
           _Choice(
             icon: AppIcons.chatText,
             title: 'Who can message me',
@@ -175,6 +190,26 @@ class SettingsScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  /// The same "Who can see my car" sheet as the map's eye button, opened here
+  /// once the current choice has loaded so it starts on the right option.
+  Future<void> _openVisibility(BuildContext context, WidgetRef ref) async {
+    try {
+      await ref.read(myLocationProvider.future);
+    } catch (_) {/* the sheet falls back to Friends */}
+    if (context.mounted) await showVisibilitySheet(context);
+  }
+
+  static String _shareLabel(MyLocation? my) {
+    if (my == null) return 'Friends · nearby · everyone · nobody';
+    final km = my.shareRadiusM / 1000;
+    return switch (my.shareMode) {
+      'nearby' => 'Friends + nearby · ${km >= 1 ? '${km.toStringAsFixed(km % 1 == 0 ? 0 : 1)} km' : '${my.shareRadiusM} m'}',
+      'public' => 'Everyone',
+      'ghost' => 'Nobody (ghost)',
+      _ => 'Friends',
+    };
   }
 
   Future<void> _editPhone(BuildContext context, WidgetRef ref, String? current) async {
@@ -360,6 +395,220 @@ class BlockedScreen extends ConsumerWidget {
 }
 
 final blockedProfileProvider = FutureProvider.family((ref, String id) => ref.watch(authRepositoryProvider).fetchProfile(id));
+
+// ---------------------------------------------------------------- push ---
+
+/// Each kind of push the server sends, with the profiles.settings switch
+/// that silences it (the `push` Edge Function's SETTING map).
+enum _PushKind {
+  messages('notif_messages', AppIcons.chatCircle, 'Messages', 'New messages in your chats'),
+  meets('notif_meets', AppIcons.flagCheckered, 'Meets', 'Reminders, changes, check-ins and host news'),
+  tt('notif_tt', AppIcons.coffee, 'TT now pings', 'A friend starts a TT, a clubmate pulls up'),
+  friends('notif_friends', AppIcons.users, 'Friends', 'Requests, follows, likes, comments, club invites'),
+  rewards('notif_rewards', AppIcons.gift, 'Rewards', 'Points, vouchers, badges and cards');
+
+  const _PushKind(this.key, this.icon, this.title, this.subtitle);
+  final String key;
+  final IconData icon;
+  final String title;
+  final String subtitle;
+
+  bool isOn(AppSettings s) => switch (this) {
+        messages => s.notifMessages,
+        meets => s.notifMeets,
+        tt => s.notifTt,
+        friends => s.notifFriends,
+        rewards => s.notifRewards,
+      };
+}
+
+/// Settings → Push notifications: is this phone getting pushes (and a way to
+/// fix it when not), which kinds ping me, and the chats I muted.
+class PushSettingsScreen extends ConsumerStatefulWidget {
+  const PushSettingsScreen({super.key});
+
+  @override
+  ConsumerState<PushSettingsScreen> createState() => _PushSettingsScreenState();
+}
+
+class _PushSettingsScreenState extends ConsumerState<PushSettingsScreen> with WidgetsBindingObserver {
+  AuthorizationStatus? _perm;
+  bool _checked = false;
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _check();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  // Back from phone settings: read the permission again and register if it's now allowed.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _check(register: true);
+  }
+
+  Future<void> _check({bool register = false}) async {
+    final push = ref.read(pushServiceProvider);
+    final p = await push.permission();
+    final allowed = p == AuthorizationStatus.authorized || p == AuthorizationStatus.provisional;
+    if (register && allowed && push.status.value != 'On') await push.start();
+    if (!mounted) return;
+    setState(() {
+      _perm = p;
+      _checked = true;
+    });
+  }
+
+  Future<void> _fix() async {
+    setState(() => _busy = true);
+    try {
+      if (_blockedInSettings(_perm)) {
+        final opened = await openPhoneNotificationSettings();
+        if (!opened && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Open your phone\'s Settings, then Apps › TT Spot › Notifications, and allow them.')));
+        }
+      } else {
+        await ref.read(pushServiceProvider).start(ask: true); // the phone's prompt again if it still may, then register
+        await _check();
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _set(String key, bool v) async {
+    try {
+      await ref.read(settingsActionsProvider).patch({key: v});
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
+    }
+  }
+
+  Future<void> _unmute(Conversation c) async {
+    try {
+      await ref.read(chatActionsProvider).setMute(c.id, false);
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = ref.watch(settingsProvider);
+    final muted = (ref.watch(inboxProvider).value ?? const <Conversation>[]).where((c) => c.muted).toList();
+    return Scaffold(
+      appBar: AppBar(leading: IconButton(icon: const Icon(AppIcons.arrowLeft), onPressed: () => context.pop()), title: const Text('Push notifications')),
+      body: ListView(
+        padding: EdgeInsets.only(bottom: MediaQuery.paddingOf(context).bottom + 24),
+        children: [
+          ValueListenableBuilder<String>(
+            valueListenable: ref.read(pushServiceProvider).status,
+            builder: (_, st, _) => _PushStatusCard(checked: _checked, permission: _perm, status: st, busy: _busy, onFix: _fix),
+          ),
+          const _Head('WHAT PINGS YOU'),
+          for (final k in _PushKind.values)
+            _Toggle(icon: k.icon, title: k.title, subtitle: k.subtitle, value: k.isOn(s), onChanged: (v) => _set(k.key, v)),
+          const _Note('Switched off here, it still shows in Activity. It just stays off your lock screen.'),
+          const _Head('MUTED CHATS'),
+          if (muted.isEmpty)
+            const _Note('None. Mute a chat from its info page and its messages stop pinging you.')
+          else
+            for (final c in muted)
+              ListTile(
+                leading: UserAvatar(url: c.avatarUrl, name: c.title, seed: c.other?.id ?? c.id, size: 40),
+                title: Text(c.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14.5)),
+                subtitle: Text(c.isMeet ? 'Meet chat · muted' : 'Muted', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                trailing: TextButton(onPressed: () => _unmute(c), child: const Text('Unmute')),
+              ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Only phone settings can turn notifications back on: Android after "Don't
+/// allow" twice, and iOS after any "Don't Allow". A first Android denial can
+/// still be asked again from the app.
+bool _blockedInSettings(AuthorizationStatus? p) =>
+    p == AuthorizationStatus.deniedPermanently || (p == AuthorizationStatus.denied && defaultTargetPlatform == TargetPlatform.iOS);
+
+/// The phone's side: on, off (not allowed yet, or not set up) or blocked in
+/// phone settings, with the one button that fixes it.
+class _PushStatusCard extends StatelessWidget {
+  const _PushStatusCard({required this.checked, required this.permission, required this.status, required this.busy, required this.onFix});
+  final bool checked;
+  final AuthorizationStatus? permission;
+  final String status;
+  final bool busy;
+  final VoidCallback onFix;
+
+  @override
+  Widget build(BuildContext context) {
+    final blocked = _blockedInSettings(permission);
+    final allowed = permission == AuthorizationStatus.authorized || permission == AuthorizationStatus.provisional;
+    final on = allowed && status == 'On';
+    final (String title, String body, String? action, IconData? actionIcon) = !checked
+        ? ('Checking…', 'Asking the phone.', null, null)
+        : permission == null
+            ? ('Not available', 'Push couldn\'t start on this phone. Close TT Spot, open it again and check here.', null, null)
+            : blocked
+                ? ('Not allowed in phone settings', 'Your phone is blocking TT Spot\'s notifications. Allow them there, then come back.', 'Open phone settings', AppIcons.gear)
+                : !allowed
+                    ? ('Off', 'TT Spot isn\'t allowed to notify you yet.', 'Turn on', AppIcons.bell)
+                    : on
+                    ? ('On', 'This phone gets the kinds switched on below.', null, null)
+                    : status == 'Checking…'
+                        ? ('Off', 'Not set up on this phone yet.', 'Turn on', AppIcons.bell)
+                        : status.startsWith('Waiting for Apple')
+                            ? ('Off', 'Waiting for Apple to hand over a push token. Try again in a minute.', 'Try again', AppIcons.arrowsClockwise)
+                            // "Error: …" / "No push token": the full text is kept in settings.push_debug.
+                            : ('Off', 'Couldn\'t set it up on this phone. Check your connection and try again.', 'Try again', AppIcons.arrowsClockwise);
+    final tint = on ? AppColors.success : (blocked ? AppColors.danger : AppColors.textSecondary);
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(color: AppColors.surfaceGray, borderRadius: BorderRadius.circular(AppRadius.lg)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(color: tint.withValues(alpha: 0.14), shape: BoxShape.circle),
+                child: Icon(on ? AppIcons.bellRinging : AppIcons.bellSlash, size: 22, color: tint),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: on ? AppColors.success : AppColors.textPrimary)),
+                    const SizedBox(height: 2),
+                    Text(body, style: TextStyle(fontSize: 12.5, height: 1.35, color: AppColors.textSecondary)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (action != null) ...[
+            const SizedBox(height: 12),
+            PrimaryButton(label: action, icon: actionIcon, loading: busy, onPressed: onFix),
+          ],
+        ],
+      ),
+    );
+  }
+}
 
 // --------------------------------------------------------------- legal ---
 

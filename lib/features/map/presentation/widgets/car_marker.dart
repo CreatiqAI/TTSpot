@@ -96,9 +96,11 @@ void paintCar(Canvas canvas, {required Offset centre, required double size, requ
 
 /// Renders car markers for the map. Cached per key.
 class CarMarkerFactory {
-  CarMarkerFactory({required this.devicePixelRatio, required this.pins});
+  CarMarkerFactory({required this.devicePixelRatio, required this.pins, this.night = false});
   final double devicePixelRatio;
   final MapPinFactory pins;
+  /// The map is in its night style: my halo is painted for a dark map.
+  final bool night;
   final _cache = <String, MapPin>{};
 
   /// A friend (or me, or a nearby stranger) as their car with a name chip.
@@ -208,7 +210,7 @@ class CarMarkerFactory {
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder)..scale(devicePixelRatio);
     final ringPaint = Paint()..color = dim ? Color.lerp(ring, const Color(0xFFBFC3CA), 0.5)! : ring;
-    if (me) paintHalo(canvas, centre, haloR);
+    if (me) paintHalo(canvas, centre, haloR, night: night);
     if (headingDeg != null) paintHeadingCone(canvas, centre, headingDeg, length: outer / 2 + 12, color: ringPaint.color);
     // shadow + ring
     final outerRect = RRect.fromRectAndRadius(Rect.fromCenter(center: centre, width: outer, height: outer), const Radius.circular(radius + ringW));
@@ -276,7 +278,7 @@ class CarMarkerFactory {
     final centre = Offset(cx, pad + carSize / 2);
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder)..scale(devicePixelRatio);
-    paintHalo(canvas, centre, haloR);
+    paintHalo(canvas, centre, haloR, night: night);
     if (headingDeg != null) paintHeadingCone(canvas, centre, headingDeg, length: carSize / 2 + 14, color: kRelationMe);
     paintCar(canvas, centre: centre, size: carSize, color: carColor(colorKey), headingDeg: headingDeg ?? 0);
     final chipTop = pad + carSize + gap;
@@ -306,7 +308,7 @@ class CarMarkerFactory {
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder)..scale(devicePixelRatio);
     final c = Offset(total / 2, total / 2);
-    paintHalo(canvas, c, haloR);
+    paintHalo(canvas, c, haloR, night: night);
     if (headingDeg != null) paintHeadingCone(canvas, c, headingDeg, length: size / 2 + 12, color: kRelationMe);
     canvas.drawCircle(c.translate(0, 1), size / 2 + 1, Paint()..color = Colors.black.withValues(alpha: 0.25)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2));
     canvas.drawCircle(c, size / 2 + 2.5, Paint()..color = Colors.white);
@@ -366,39 +368,73 @@ String freshnessLabel(DateTime updatedAt) {
 /// inside the image instead of being cut off square at its edge.
 double haloReach(double r) => r * 1.6;
 
-/// Soft red glow under my marker, so the eye lands on me first. A radial
-/// gradient that reaches zero at exactly [haloReach] (a blur mask filter
-/// has no hard edge, so it always spilled past the bitmap and was clipped).
-void paintHalo(Canvas canvas, Offset centre, double r, {Color color = kRelationMe}) {
+/// Soft red glow under my marker, so the eye lands on me first. It reaches
+/// zero at exactly [haloReach] (a blur mask filter has no hard edge, so it
+/// always spilled past the bitmap and was clipped).
+///
+/// Two layers, both easing to nothing with zero slope at the rim: a wash
+/// that evens out the map under it, then the red. A thin red tint alone
+/// takes its look from what lies under it (pink on pale land, grey-mauve
+/// on a road, brown on a park) and fades out fast, so on the map it read as
+/// a box between the nearest road and park edge instead of a circle. The
+/// wash is near-white by day and a deep rose at [night] (white would read
+/// as fog on the dark map).
+void paintHalo(Canvas canvas, Offset centre, double r, {Color color = kRelationMe, bool night = false}) {
   final reach = haloReach(r);
-  canvas.drawCircle(
-    centre,
-    reach,
-    Paint()
-      ..shader = ui.Gradient.radial(
-        centre,
-        reach,
-        [
-          for (final a in const [0.42, 0.38, 0.28, 0.16, 0.07, 0.02, 0.0]) color.withValues(alpha: a),
-        ],
-        // 0.625 of the reach is the halo's nominal radius r.
-        const [0.0, 0.3, 0.5, 0.64, 0.78, 0.9, 1.0],
-      ),
-  );
+  _softDisc(canvas, centre, reach, night ? const Color(0xFFFF787D) : const Color(0xFFFFF2F2), alpha: night ? 0.60 : 0.85, fadeFrom: night ? 0.42 : 0.45);
+  _softDisc(canvas, centre, reach, color, alpha: 0.40, fadeFrom: night ? 0.25 : 0.30, fadeTo: 0.95);
 }
 
-/// Translucent wedge (±28°) from [centre] along [headingDeg] (0 = north),
-/// like the phone's own blue-dot beam. Drawn under the marker.
+/// A disc of [color] at [alpha] out to [fadeFrom] x [reach], then a
+/// smoothstep down to fully transparent at [fadeTo] x [reach]: no plateau
+/// edge, no kink, nothing left at the rim.
+void _softDisc(Canvas canvas, Offset centre, double reach, Color color, {required double alpha, required double fadeFrom, double fadeTo = 1.0}) {
+  const steps = 10;
+  final stops = <double>[0.0];
+  final colors = <Color>[color.withValues(alpha: alpha)];
+  for (var i = 0; i <= steps; i++) {
+    final u = i / steps;
+    stops.add(fadeFrom + (fadeTo - fadeFrom) * u);
+    colors.add(color.withValues(alpha: alpha * (1 - u * u * (3 - 2 * u))));
+  }
+  if (fadeTo < 1) {
+    stops.add(1.0);
+    colors.add(color.withValues(alpha: 0));
+  }
+  canvas.drawCircle(centre, reach, Paint()..shader = ui.Gradient.radial(centre, reach, colors, stops));
+}
+
+/// Translucent beam from [centre] along [headingDeg] (0 = north), like the
+/// phone's own blue-dot beam. Drawn under the marker. It fades with distance
+/// and its sides are feathered by a sweep mask, so it has no straight edge.
 void paintHeadingCone(Canvas canvas, Offset centre, double headingDeg, {required double length, required Color color}) {
-  final a = headingDeg * math.pi / 180 - math.pi / 2;
-  const half = 28 * math.pi / 180;
-  final path = Path()
-    ..moveTo(centre.dx, centre.dy)
-    ..arcTo(Rect.fromCircle(center: centre, radius: length), a - half, half * 2, false)
-    ..close();
+  const half = 38 * math.pi / 180;
+  final box = Rect.fromCircle(center: Offset.zero, radius: length);
+  canvas.save();
+  canvas.translate(centre.dx, centre.dy);
+  // Point the beam at local angle pi, so its sweep never wraps through 0.
+  canvas.rotate(headingDeg * math.pi / 180 + math.pi / 2);
+  canvas.saveLayer(box, Paint());
   canvas.drawPath(
-    path,
-    Paint()
-      ..shader = ui.Gradient.radial(centre, length, [color.withValues(alpha: 0.55), color.withValues(alpha: 0.0)]),
+    Path()
+      ..moveTo(0, 0)
+      ..arcTo(box, math.pi - half, half * 2, false)
+      ..close(),
+    Paint()..shader = ui.Gradient.radial(Offset.zero, length, [color.withValues(alpha: 0.7), color.withValues(alpha: 0.45), color.withValues(alpha: 0.0)], const [0.0, 0.6, 1.0]),
   );
+  canvas.drawRect(
+    box,
+    Paint()
+      ..blendMode = BlendMode.dstIn
+      ..shader = ui.Gradient.sweep(
+        Offset.zero,
+        const [Color(0x00000000), Color(0xCC000000), Color(0xFF000000), Color(0xCC000000), Color(0x00000000)],
+        const [0.0, 0.3, 0.5, 0.7, 1.0],
+        TileMode.clamp,
+        math.pi - half,
+        math.pi + half,
+      ),
+  );
+  canvas.restore();
+  canvas.restore();
 }

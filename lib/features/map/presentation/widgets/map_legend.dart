@@ -190,7 +190,7 @@ class _KeyRow extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           // The glyph exactly as the map draws it, 18 px wide.
-          SizedBox(width: 18, height: 23, child: CustomPaint(painter: LegendGlyphPainter(item.glyph))),
+          SizedBox(width: 18, height: 23, child: CustomPaint(painter: LegendGlyphPainter(item.glyph, night: !palette.light))),
           const SizedBox(width: 7),
           Flexible(
             child: Text(
@@ -221,8 +221,10 @@ LegendGlyph legendGlyphForSpot(SpotKind k) => switch (k) {
     };
 
 class LegendGlyphPainter extends CustomPainter {
-  const LegendGlyphPainter(this.glyph);
+  const LegendGlyphPainter(this.glyph, {this.night = false});
   final LegendGlyph glyph;
+  /// On the night map's dark key: my halo is painted for a dark ground.
+  final bool night;
 
   @override
   void paint(Canvas c, Size s) {
@@ -279,7 +281,7 @@ class LegendGlyphPainter extends CustomPainter {
         c.drawRect(const Rect.fromLTWH(-6, -6.5, 12, 12), Paint()..color = const Color(0xFF9AA0A6));
         c.restore();
       case LegendGlyph.me:
-        paintHalo(c, centre, 9);
+        paintHalo(c, centre, 9, night: night);
         paintDot(c, centre, r: 4.5, color: kRelationMe);
       case LegendGlyph.friend:
         paintDot(c, centre, r: 4.5, color: kRelationFriend);
@@ -291,5 +293,5 @@ class LegendGlyphPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(LegendGlyphPainter old) => old.glyph != glyph;
+  bool shouldRepaint(LegendGlyphPainter old) => old.glyph != glyph || old.night != night;
 }

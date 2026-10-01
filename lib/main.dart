@@ -16,6 +16,7 @@ import 'core/theme/app_theme.dart';
 import 'features/settings/application/background_location_controller.dart';
 import 'features/settings/application/settings_providers.dart';
 import 'core/push/firebase_setup.dart';
+import 'core/push/in_app_notice.dart';
 import 'core/push/push_service.dart';
 
 Future<void> main() async {
@@ -152,13 +153,21 @@ class _TtSpotAppState extends ConsumerState<TtSpotApp> {
       routerConfig: router,
       scaffoldMessengerKey: rootMessengerKey,
       // iPhone habit: tapping anywhere outside a text field closes the keyboard.
-      builder: (context, child) => GestureDetector(
-        behavior: HitTestBehavior.translucent,
-        onTap: () {
-          final f = FocusManager.instance.primaryFocus;
-          if (f != null && f.context != null) f.unfocus();
-        },
-        child: child,
+      // Over everything: the in-app banner for pushes while the app is open.
+      builder: (context, child) => Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onTap: () {
+                final f = FocusManager.instance.primaryFocus;
+                if (f != null && f.context != null) f.unfocus();
+              },
+              child: child,
+            ),
+          ),
+          const InAppNoticeHost(),
+        ],
       ),
     );
   }

@@ -79,6 +79,8 @@ class MainActivity : FlutterActivity() {
         }
         // Garage cut-outs (ML Kit subject segmentation); see CarCutout.kt.
         CarCutout.register(flutterEngine.dartExecutor.binaryMessenger, this)
+        // Chat push notifications: Dart clears a chat's notification when it opens.
+        ChatNotifications.register(flutterEngine.dartExecutor.binaryMessenger, applicationContext)
 
         // Accelerometer in g (gravity included), ~50 Hz, only while Dart listens.
         // Used by the blind-box shake-to-open and the tilt parallax; see lib/core/motion/motion.dart.

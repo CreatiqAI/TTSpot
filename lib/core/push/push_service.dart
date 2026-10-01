@@ -10,12 +10,13 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../features/social/application/chat_providers.dart';
 import '../../features/social/application/notification_providers.dart';
+import '../../features/social/domain/chat.dart' show Conversation;
 import '../router/app_router.dart';
 import '../supabase/supabase_client.dart';
 import 'firebase_setup.dart';
+import 'in_app_notice.dart';
 
-/// Lets push banners show while the app is open (Android doesn't draw a
-/// system notification for a foreground message).
+/// App-wide SnackBars from outside a page (background location uses it).
 final rootMessengerKey = GlobalKey<ScaffoldMessengerState>();
 
 /// Registers this phone for push after sign-in and opens the right screen when
@@ -57,7 +58,10 @@ class PushService {
         _set(defaultTargetPlatform == TargetPlatform.iOS ? 'Off in iPhone Settings' : 'Off in phone settings');
         return;
       }
-      await fm.setForegroundNotificationPresentationOptions(alert: true, badge: true, sound: true);
+      // Open app: no phone banner or sound (iOS), our in-app banner instead.
+      // Android draws nothing in the foreground on its own: FCM skips
+      // notification payloads, and ChatPushService skips data-only chats.
+      await fm.setForegroundNotificationPresentationOptions(alert: false, badge: true, sound: false);
       if (defaultTargetPlatform == TargetPlatform.iOS) {
         // The FCM token needs the APNs token first; it can lag on first launch.
         String? apns;
@@ -114,10 +118,15 @@ class PushService {
         .then((_) {}, onError: (_) {}));
   }
 
-  Future<void> _register(String token) => _ref.read(supabaseProvider).rpc('register_push_token', params: {
-        'p_token': token,
-        'p_platform': defaultTargetPlatform == TargetPlatform.iOS ? 'ios' : 'android',
-      });
+  Future<void> _register(String token) async {
+    final android = defaultTargetPlatform == TargetPlatform.android;
+    final db = _ref.read(supabaseProvider);
+    await db.rpc('register_push_token', params: {'p_token': token, 'p_platform': android ? 'android' : 'ios'});
+    // This build draws chat pushes itself (ChatPushService.kt), so the server
+    // may send them data-only. Older installs never say so and keep the
+    // standard notification.
+    if (android) await db.rpc('mark_push_token_native_chat', params: {'p_token': token}).then((_) {}, onError: (_) {});
+  }
 
   /// Before sign-out, so the next account on this phone doesn't get our pushes.
   Future<void> unregister() async {
@@ -134,25 +143,33 @@ class PushService {
     } catch (_) {/* offline or never registered: the server drops dead tokens anyway */}
   }
 
-  void _open(RemoteMessage m) {
-    final route = m.data['route'] as String?;
+  void _open(RemoteMessage m) => openRoute(m.data['route'] as String?);
+
+  /// Where a tapped push (system or in-app banner) goes.
+  void openRoute(String? route) {
     if (route != null && route.startsWith('/')) _ref.read(appRouterProvider).push(route);
   }
 
+  String? _currentPath() {
+    try {
+      return _ref.read(appRouterProvider).state.uri.path;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// A push while the app is open: refresh, then our own banner unless I'm
+  /// already in that chat (or on that page) or muted it.
   void _foreground(RemoteMessage m) {
+    // Muted chats from the inbox as it was, before the refresh below.
+    final muted = {for (final c in _ref.read(inboxProvider).value ?? const <Conversation>[]) if (c.muted) c.id};
     _ref.invalidate(notificationsProvider);
     _ref.invalidate(inboxProvider);
-    // iOS shows its own banner (presentation options above); Android needs ours.
-    if (defaultTargetPlatform == TargetPlatform.iOS) return;
-    final n = m.notification;
-    if (n == null) return;
-    final route = m.data['route'] as String?;
-    // Already looking at that chat: the message is on screen.
-    if (route != null && _ref.read(appRouterProvider).state.uri.path == route) return;
-    rootMessengerKey.currentState?.showSnackBar(SnackBar(
-      content: Text([n.title, n.body].whereType<String>().join(' · '), maxLines: 2, overflow: TextOverflow.ellipsis),
-      action: route == null ? null : SnackBarAction(label: 'Open', onPressed: () => _open(m)),
-    ));
+    final notice = InAppNotice.fromPush(m.data, title: m.notification?.title, body: m.notification?.body, messageId: m.messageId);
+    if (notice == null) return;
+    final path = _currentPath();
+    if (!shouldShowInAppNotice(notice, viewingChatId: OpenChats.viewing(path), mutedChatIds: muted, currentPath: path)) return;
+    InAppNotices.show(notice, onTap: notice.route == null ? null : () => openRoute(notice.route));
   }
 }
 

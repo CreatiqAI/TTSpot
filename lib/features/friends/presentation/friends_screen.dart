@@ -14,6 +14,7 @@ import '../../auth/domain/profile.dart';
 import '../../social/application/chat_providers.dart';
 import '../../social/application/social_providers.dart';
 import '../application/friends_providers.dart';
+import '../application/nicknames.dart';
 import '../domain/friend.dart';
 
 /// Friends: requests waiting, your friends, people you may know, and search.
@@ -238,7 +239,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
   }
 }
 
-class _PersonTile extends StatelessWidget {
+class _PersonTile extends ConsumerWidget {
   const _PersonTile({required this.profile, required this.trailing, this.subtitle});
   final Profile profile;
   final Widget trailing;
@@ -246,13 +247,16 @@ class _PersonTile extends StatelessWidget {
   final String? subtitle;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final p = profile;
+    // My nickname for them leads; their real name joins the handle line.
+    final nick = ref.nicknameFor(p.id);
+    final real = (p.displayName ?? '').trim();
     return ListTile(
       onTap: () => context.push(Routes.profile(p.id)),
       leading: UserAvatar(url: p.avatarUrl, name: p.displayName ?? p.username, seed: p.id, size: 44),
-      title: Text(p.displayName ?? '@${p.username}', style: const TextStyle(fontWeight: FontWeight.w600)),
-      subtitle: Text(subtitle ?? '@${p.username ?? ''}', style: TextStyle(color: AppColors.textSecondary, fontSize: 12.5)),
+      title: Text(ref.displayNameFor(p), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600)),
+      subtitle: Text(subtitle ?? '${nick != null && real.isNotEmpty ? '$real · ' : ''}@${p.username ?? ''}', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: AppColors.textSecondary, fontSize: 12.5)),
       trailing: trailing,
     );
   }

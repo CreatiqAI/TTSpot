@@ -16,7 +16,9 @@ import '../../../core/widgets/video_viewer.dart';
 import '../../events/application/event_providers.dart';
 import '../../friends/application/friends_providers.dart';
 import '../../friends/domain/friend.dart';
+import '../../friends/application/nicknames.dart';
 import '../../friends/presentation/call_sheet.dart';
+import '../../friends/presentation/nickname_sheet.dart';
 import '../../safety/data/safety_repository.dart';
 import '../../safety/presentation/report_sheet.dart';
 import '../application/chat_providers.dart';
@@ -73,7 +75,10 @@ class _DmInfo extends ConsumerWidget {
     final theirClubs = ref.watch(clubsOfUserProvider(p.id)).value ?? const <Club>[];
     final common = theirClubs.where((c) => myClubs.any((m) => m.id == c.id)).toList();
     final blocked = ref.watch(blockedUserIdsProvider).value?.contains(p.id) ?? false;
-    final name = p.displayName ?? '@${p.username}';
+    // My nickname for them (备注) leads; their real name moves to the line under it.
+    final nick = ref.nicknameFor(p.id);
+    final name = nick ?? p.displayName ?? '@${p.username}';
+    final real = (p.displayName ?? '').trim();
 
     return ListView(
       padding: const EdgeInsets.only(bottom: 32),
@@ -86,8 +91,20 @@ class _DmInfo extends ConsumerWidget {
               children: [
                 UserAvatar(url: p.avatarUrl, name: name, seed: p.id, size: 96),
                 const SizedBox(height: 10),
-                Text(name, style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w800)),
-                Text('@${p.username ?? ''}${(p.homeState ?? '').isEmpty ? '' : ' · ${p.homeState}'}', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Text(name, textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w800)),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Text(
+                    '${nick != null && real.isNotEmpty ? '$real · ' : ''}@${p.username ?? ''}${(p.homeState ?? '').isEmpty ? '' : ' · ${p.homeState}'}',
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                  ),
+                ),
                 if ((p.bio ?? '').trim().isNotEmpty)
                   Padding(padding: const EdgeInsets.fromLTRB(32, 8, 32, 0), child: Text(p.bio!.trim(), textAlign: TextAlign.center, style: const TextStyle(fontSize: 13.5, height: 1.4))),
               ],
@@ -135,6 +152,13 @@ class _DmInfo extends ConsumerWidget {
             ),
         ],
         const _Section('THIS CHAT'),
+        ListTile(
+          leading: Icon(AppIcons.tag, color: AppColors.textPrimary),
+          title: const Text('Nickname', style: TextStyle(fontWeight: FontWeight.w600)),
+          subtitle: Text(nick == null ? 'Only you can see this' : '$nick · only you can see this', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12)),
+          trailing: Icon(AppIcons.caretRight, size: 16, color: AppColors.textMuted),
+          onTap: () => showNicknameSheet(context, ref, p),
+        ),
         _PinTile(conv: conv),
         _MuteTile(conv: conv),
         const ChatWallpaperTile(),
@@ -221,7 +245,7 @@ class _MeetInfo extends ConsumerWidget {
         for (final m in members)
           ListTile(
             leading: UserAvatar(url: m.avatarUrl, name: m.displayName ?? m.username, seed: m.id, size: 40),
-            title: Text(m.id == me ? 'You' : (m.displayName ?? '@${m.username}'), style: const TextStyle(fontWeight: FontWeight.w600)),
+            title: Text(m.id == me ? 'You' : ref.displayNameFor(m), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600)),
             subtitle: Text(
               m.id == event?.organizerId ? '@${m.username ?? ''} · HOST' : '@${m.username ?? ''}',
               style: TextStyle(fontSize: 12, color: m.id == event?.organizerId ? AppColors.brand : AppColors.textSecondary),

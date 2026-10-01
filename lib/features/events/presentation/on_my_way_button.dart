@@ -72,8 +72,8 @@ class _OnMyWayButtonState extends ConsumerState<OnMyWayButton> {
 
 enum _Choice { undo, directions }
 
-/// "Posted in the meet chat": the message, Undo, and Open Waze (the
-/// remembered app) or Get directions. Swiping it away keeps the message.
+/// "Posted in the meet chat": the message, Undo, and the remembered app
+/// ("Waze") or "Directions" (the chooser). Swiping it away keeps the message.
 Future<_Choice?> _postedSheet(BuildContext context, OnMyWayPost post, {DirectionsApp? app}) => showModalBottomSheet<_Choice>(
       useRootNavigator: true, // above the shell tab bar
       context: context,
@@ -108,7 +108,8 @@ Future<_Choice?> _postedSheet(BuildContext context, OnMyWayPost post, {Direction
                 children: [
                   Expanded(child: SecondaryButton(label: 'Undo', onPressed: post.messageId == null ? null : () => Navigator.pop(ctx, _Choice.undo))),
                   const SizedBox(width: 10),
-                  Expanded(child: PrimaryButton(label: app == null ? 'Get directions' : 'Open ${app.label}', onPressed: () => Navigator.pop(ctx, _Choice.directions))),
+                  // Short so it stays on one line at large text sizes.
+                  Expanded(child: PrimaryButton(label: app?.label ?? 'Directions', icon: AppIcons.navigationArrow, onPressed: () => Navigator.pop(ctx, _Choice.directions))),
                 ],
               ),
             ],

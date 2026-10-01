@@ -11,12 +11,15 @@ class PrimaryButton extends StatelessWidget {
     required this.onPressed,
     this.loading = false,
     this.icon,
+    this.onLongPress,
   });
 
   final String label;
   final VoidCallback? onPressed;
   final bool loading;
   final IconData? icon;
+  /// e.g. Directions: long-press always shows the app chooser.
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -28,26 +31,29 @@ class PrimaryButton extends StatelessWidget {
     return PressScale(
       enabled: onPressed != null && !loading,
       child: icon == null || loading
-          ? FilledButton(onPressed: loading ? null : onPressed, child: loading ? spinner : Text(label))
-          : FilledButton.icon(onPressed: onPressed, icon: Icon(icon, size: 18, color: Colors.white), label: Text(label)),
+          ? FilledButton(onPressed: loading ? null : onPressed, onLongPress: loading ? null : onLongPress, child: loading ? spinner : Text(label))
+          : FilledButton.icon(onPressed: onPressed, onLongPress: onLongPress, icon: Icon(icon, size: 18, color: Colors.white), label: Text(label)),
     );
   }
 }
 
 /// Gray secondary action. Squeezes while pressed.
 class SecondaryButton extends StatelessWidget {
-  const SecondaryButton({super.key, required this.label, required this.onPressed, this.icon});
+  const SecondaryButton({super.key, required this.label, required this.onPressed, this.icon, this.onLongPress});
 
   final String label;
   final VoidCallback? onPressed;
   final IconData? icon;
+  /// e.g. Directions: long-press always shows the app chooser.
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
     final button = icon == null
-        ? ElevatedButton(onPressed: onPressed, child: Text(label))
+        ? ElevatedButton(onPressed: onPressed, onLongPress: onLongPress, child: Text(label))
         : ElevatedButton.icon(
             onPressed: onPressed,
+            onLongPress: onLongPress,
             icon: Icon(icon, size: 18, color: AppColors.textPrimary),
             label: Text(label),
           );

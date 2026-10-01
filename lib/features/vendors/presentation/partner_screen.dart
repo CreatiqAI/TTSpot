@@ -13,6 +13,7 @@ import '../../../core/theme/app_images.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/dates.dart';
 import '../../../core/utils/friendly_error.dart';
+import '../../../core/directions/directions.dart';
 import '../../../core/utils/open_external.dart';
 import '../../../core/widgets/primary_button.dart';
 import '../../events/domain/event.dart';
@@ -211,7 +212,14 @@ class _BodyState extends ConsumerState<_Body> {
                         Expanded(child: SecondaryButton(label: 'WhatsApp', icon: AppIcons.whatsappLogo, onPressed: () => openExternal(context, 'whatsapp://send?phone=$digits', fallbackUrl: 'https://wa.me/$digits', appName: 'WhatsApp'))),
                       if (digits.isNotEmpty && hasLocation) const SizedBox(width: 8),
                       if (hasLocation)
-                        Expanded(child: SecondaryButton(label: 'Directions', icon: AppIcons.navigationArrow, onPressed: () => showDirectionsSheet(context, lat: v.lat!, lng: v.lng!, label: v.name))),
+                        Expanded(
+                          child: SecondaryButton(
+                            label: 'Directions',
+                            icon: AppIcons.navigationArrow,
+                            onPressed: () => openDirections(context, lat: v.lat!, lng: v.lng!, label: v.name),
+                            onLongPress: () => openDirections(context, lat: v.lat!, lng: v.lng!, label: v.name, choose: true),
+                          ),
+                        ),
                     ],
                   ),
                 ],
@@ -256,9 +264,9 @@ class _BodyState extends ConsumerState<_Body> {
                           padding: const EdgeInsets.fromLTRB(28, 6, 0, 4),
                           child: Row(
                             children: [
-                              _MiniButton(label: 'Waze', icon: AppIcons.navigationArrow, onTap: () => openExternal(context, 'waze://?ll=${v.lat},${v.lng}&navigate=yes', fallbackUrl: wazeUrl(v.lat!, v.lng!), appName: 'Waze')),
+                              _MiniButton(label: 'Waze', icon: AppIcons.navigationArrow, onTap: () => launchDirections(context, DirectionsApp.waze, v.lat!, v.lng!)),
                               const SizedBox(width: 8),
-                              _MiniButton(label: 'Google Maps', icon: AppIcons.mapTrifold, onTap: () => openExternal(context, 'comgooglemaps://?daddr=${v.lat},${v.lng}', fallbackUrl: googleMapsUrl(v.lat!, v.lng!), appName: 'Google Maps')),
+                              _MiniButton(label: 'Google Maps', icon: AppIcons.mapTrifold, onTap: () => launchDirections(context, DirectionsApp.google, v.lat!, v.lng!)),
                             ],
                           ),
                         ),

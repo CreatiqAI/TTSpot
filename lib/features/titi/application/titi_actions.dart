@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/router/app_router.dart';
 import '../../../core/utils/friendly_error.dart';
-import '../../../core/utils/open_external.dart';
+import '../../../core/directions/directions.dart';
 import '../../events/application/event_providers.dart';
 import '../../map/presentation/widgets/place_card.dart' show ttHere;
 import '../../social/application/community_providers.dart';
@@ -35,7 +35,7 @@ Future<String?> runTitiAction(BuildContext context, WidgetRef ref, TitiAction a)
     case 'directions':
       final lat = a.lat, lng = a.lng;
       if (lat == null || lng == null) throw const AppException('No location for that one.');
-      await showDirectionsSheet(context, lat: lat, lng: lng, label: a.title.isEmpty ? null : a.title);
+      await openDirections(context, lat: lat, lng: lng, label: a.title.isEmpty ? null : a.title);
     case 'tt_here':
       final place = await ref.read(placeProvider(target()).future);
       if (place == null) throw const AppException('That spot is gone.');

@@ -7,7 +7,7 @@ import '../../../../core/theme/app_icons.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/dates.dart';
 import '../../../../core/utils/friendly_error.dart';
-import '../../../../core/utils/open_external.dart';
+import '../../../../core/directions/directions.dart';
 import '../../../../core/widgets/place_search_field.dart';
 import '../../../../core/widgets/primary_button.dart';
 import '../../../../core/widgets/user_avatar.dart';
@@ -243,7 +243,12 @@ class ClubGarageSection extends ConsumerWidget {
           ),
           trailing: isManager
               ? TextButton(style: TextButton.styleFrom(visualDensity: VisualDensity.compact), onPressed: () => _set(context, ref), child: Text(has ? 'Change' : 'Set'))
-              : IconButton(icon: const Icon(AppIcons.navigationArrow, size: 18), onPressed: () => showDirectionsSheet(context, lat: club.garageLat!, lng: club.garageLng!, label: club.garageName)),
+              : IconButton(
+                  icon: const Icon(AppIcons.navigationArrow, size: 18),
+                  tooltip: 'Directions',
+                  onPressed: () => openDirections(context, lat: club.garageLat!, lng: club.garageLng!, label: club.garageName),
+                  onLongPress: () => openDirections(context, lat: club.garageLat!, lng: club.garageLng!, label: club.garageName, choose: true),
+                ),
         ),
       ),
     );

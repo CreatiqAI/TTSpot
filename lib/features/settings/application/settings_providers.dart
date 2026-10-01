@@ -29,6 +29,10 @@ class AppSettings {
   /// The map key has been open once; from then on it starts folded.
   bool get mapKeySeen => _b('map_key_seen', false);
 
+  /// Directions / Go now open this app: 'ask' (the chooser, default) |
+  /// 'waze' | 'google' | 'apple' (iPhone). See core/directions/directions.dart.
+  String get directionsApp => (_m['directions_app'] as String?) ?? 'ask';
+
   /// Show my car colour to friends on the map (else the default silver).
   bool get showCarColor => _b('show_car_color', true);
 

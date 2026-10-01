@@ -1,5 +1,6 @@
 package my.ttspot.app
 
+import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -15,8 +16,48 @@ import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
+    private val bgPermissionRequest = 4108
+    private var pendingBgPermission: MethodChannel.Result? = null
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        // "Share location when TT Spot is closed": the foreground service in
+        // BgLocationService.kt. Dart side: lib/core/location/background_location.dart.
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "my.ttspot.app/bglocation").setMethodCallHandler { call, result ->
+            val ctx = applicationContext
+            when (call.method) {
+                "status" -> result.success(BgLocationStore.status(ctx))
+                "start" -> {
+                    val url = call.argument<String>("url")
+                    val key = call.argument<String>("key")
+                    val token = call.argument<String>("token")
+                    val userId = call.argument<String>("userId")
+                    if (url.isNullOrEmpty() || key.isNullOrEmpty() || token.isNullOrEmpty() || userId.isNullOrEmpty()) {
+                        result.error("bad_args", "url, key, token and userId are required", null)
+                    } else {
+                        BgLocationStore.save(ctx, url, key, token, userId, call.argument<String>("devCa"))
+                        result.success(BgLocationService.start(ctx))
+                    }
+                }
+                // Nobody (ghost): stop the service but keep the token.
+                "pause" -> {
+                    BgLocationStore.setPaused(ctx, true)
+                    BgLocationService.stop(ctx)
+                    result.success(null)
+                }
+                "resume" -> {
+                    BgLocationStore.setPaused(ctx, false)
+                    result.success(BgLocationService.start(ctx))
+                }
+                "stop" -> {
+                    BgLocationService.forget(ctx, "off", revoke = call.argument<Boolean>("revoke") ?: true)
+                    result.success(null)
+                }
+                "requestBackground" -> requestBackgroundPermission(result)
+                else -> result.notImplemented()
+            }
+        }
+
         // Settings → Push notifications → "Open phone settings". url_launcher can only
         // send VIEW intents, so the app's notification screen is opened from here.
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "my.ttspot.app/settings").setMethodCallHandler { call, result ->
@@ -64,5 +105,33 @@ class MainActivity : FlutterActivity() {
                 listener = null
             }
         })
+    }
+
+    /**
+     * "Allow all the time". Android 10 shows it in the dialog; Android 11+ can't
+     * ask inline, so the system opens TT Spot's location page in Settings and the
+     * answer comes back when the member returns. Replies true when granted.
+     */
+    private fun requestBackgroundPermission(result: MethodChannel.Result) {
+        if (BgLocationStore.hasBackgroundPermission(this)) {
+            result.success(true)
+            return
+        }
+        if (!BgLocationStore.hasForegroundPermission(this) || Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            result.success(false)
+            return
+        }
+        pendingBgPermission?.success(false)
+        pendingBgPermission = result
+        requestPermissions(arrayOf(Manifest.permission.ACCESS_BACKGROUND_LOCATION), bgPermissionRequest)
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
+        if (requestCode == bgPermissionRequest) {
+            pendingBgPermission?.success(BgLocationStore.hasBackgroundPermission(this))
+            pendingBgPermission = null
+            return
+        }
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
     }
 }

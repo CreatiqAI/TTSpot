@@ -75,7 +75,7 @@
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>TT Spot runs on location: see friends and your club on the map, check in at meets and spots, and scan a meet's QR when you're there. Only while the app is open.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>TT Spot uses your location to show you to friends and your club on the map and to check you in at meets and spots. It only shares your location while the app is open, and you can turn sharing off any time in Settings.</string>
+	<string>Only if you turn on "Share location when TT Spot is closed": your friends, clubmates and anyone else your map visibility allows keep seeing you on the map while the app is closed. It is off unless you turn it on, and you can turn it off any time in TT Spot Settings.</string>
 	<key>NSLocationTemporaryUsageDescriptionDictionary</key>
 	<dict>
 		<key>TTSpotMap</key>
@@ -109,6 +109,7 @@
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>
+		<string>location</string>
 	</array>
 </dict>
 </plist>

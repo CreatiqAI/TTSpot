@@ -1,7 +1,7 @@
 /// Privacy Policy and Terms for TT Spot. Plain text with `#` headings so the
 /// same source renders in the app and on ttspot.my. Drafts: have a lawyer
 /// read them before launch.
-const kLegalUpdated = '15 September 2026';
+const kLegalUpdated = '1 October 2026';
 
 /// Bump when the Terms change materially; every member is asked to accept again.
 const kTermsVersion = '2026-09-15';
@@ -15,7 +15,7 @@ TT Spot ("we", "us") is a car community app for Malaysia. This policy explains w
 # What we collect
 - Account: your email, username, display name, photo, home state and bio.
 - Your cars: make, model, year, colour, photos and the mods you add.
-- Location: your position while the app is open, so friends can see your car on the map, TT now can find the nearest place, and meet check-ins can be verified. We keep only your latest position; it expires after 24 hours.
+- Location: your position while the app is open, so friends can see your car on the map, TT now can find the nearest place, and meet check-ins can be verified. Only if you turn on "Share location when TT Spot is closed", also while the app is in the background or closed. We keep only your latest position; it expires after 24 hours.
 - Content: posts, moments, comments, chat messages, voice notes, videos and meets you create.
 - Activity: meets you join, check-ins, points and vouchers you claim.
 - Device: app version, crash reports and the device model, to keep the app working.
@@ -26,7 +26,8 @@ TT Spot ("we", "us") is a car community app for Malaysia. This policy explains w
 - To improve TT Spot: understand which features are used. We do not sell your data.
 
 # Location, in detail
-- Sharing is on only while the app is open. There is no background tracking.
+- Sharing runs while the app is open. Sharing while the app is closed is off unless you turn on Settings > Share location when TT Spot is closed. Then your phone sends your position about every 30 seconds while you move, to the same people your visibility allows, and never while you are on Nobody (ghost). On Android a notification with a Stop button shows while it is on.
+- Turning it off, logging out, or another member logging in on the same phone stops it straight away.
 - You choose who sees your car: Friends, Friends + nearby within a distance you set, Everyone, or Nobody (ghost). Nearby and Everyone show strangers a rounded position, your handle and car model, never your photo or exact spot.
 - Meet check-ins record your position once, at the moment you check in.
 
@@ -46,7 +47,7 @@ We do not share your data with advertisers.
 # Your rights
 - See, correct or export your data: email us.
 - Delete your account: Settings > Delete account. Everything you posted goes with it within 24 hours; backups clear within 30 days.
-- Withdraw consent for location: switch to Nobody (ghost) or turn off location for TT Spot in your phone settings.
+- Withdraw consent for location: switch to Nobody (ghost), turn off "Share location when TT Spot is closed", or turn off location for TT Spot in your phone settings.
 
 # Keeping it safe
 Data is stored in the cloud with encryption in transit and at rest. Only staff who need access have it.

@@ -79,3 +79,9 @@ kotlin {
 flutter {
     source = "../.."
 }
+
+dependencies {
+    // Fused location for BgLocationService. The same artifact and version
+    // geolocator_android already ships, declared so app code can compile against it.
+    implementation("com.google.android.gms:play-services-location:21.2.0")
+}

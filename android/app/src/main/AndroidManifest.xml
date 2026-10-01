@@ -4,6 +4,12 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Settings > "Share location when TT Spot is closed" (off by default):
+         BgLocationService, a location foreground service with a Stop button. -->
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <application
         android:label="TT Spot"
@@ -43,6 +49,21 @@
                 <data android:scheme="ttspot" />
             </intent-filter>
         </activity>
+        <!-- Location sharing with the app closed. No stopWithTask: it keeps
+             running when the app is swiped away, until the member taps Stop. -->
+        <service
+            android:name=".BgLocationService"
+            android:exported="false"
+            android:foregroundServiceType="location" />
+        <!-- Restarts that service after a reboot or an app update, only if it was on. -->
+        <receiver
+            android:name=".BgLocationBootReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
         <!-- Google Maps key: value comes from android/local.properties (MAPS_API_KEY=...)
              via manifestPlaceholders in app/build.gradle.kts. Never commit the key. -->
         <meta-data

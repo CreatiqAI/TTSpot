@@ -64,6 +64,9 @@ class CommunityRepository {
     return Club.fromMap(row);
   }
 
+  /// Officers only (RPC checks); a logo can be changed, never removed.
+  Future<void> setClubLogo(String clubId, String url) => _client.rpc('set_club_logo', params: {'p_club': clubId, 'p_url': url});
+
   Future<void> joinClub(String clubId, String me) => _client.from('club_members').upsert({'club_id': clubId, 'user_id': me});
 
   // ------------------------------------------------- invites + sharing ---

@@ -24,6 +24,7 @@ import '../domain/club.dart';
 import '../domain/post.dart';
 import '../../profile/presentation/profile_menu.dart';
 import 'create_hub_sheet.dart';
+import 'widgets/club_logo.dart';
 import 'widgets/club_requests.dart';
 import 'widgets/club_tier_widgets.dart';
 import 'widgets/masonry_grid.dart';
@@ -97,7 +98,9 @@ class ClubScreen extends ConsumerWidget {
               // As the club account's first tab, the end scrolls clear of the floating tab bar.
               padding: EdgeInsets.only(bottom: embedded ? GlassTabBar.clearance(context) : MediaQuery.paddingOf(context).bottom + 32),
               children: [
-                _Header(club: c, meets: events.length, posts: posts.length),
+                _Header(club: c, meets: events.length, posts: posts.length, onLogoTap: isManager ? () => changeClubLogo(context, ref, clubId) : null),
+                // Officers of a club with no logo yet: add one (it shows on the map and the club's events).
+                if (isManager && (c.avatarUrl ?? '').trim().isEmpty) ClubLogoBanner(club: c),
                 if (invite != null && (!isMember || inviteRole == 'vp' || inviteRole == 'secretary')) _InviteBanner(clubId: clubId, clubName: c.name, role: inviteRole ?? 'member'),
                 ClubTierCard(club: c, isOwner: isOwner),
                 Padding(
@@ -355,10 +358,12 @@ class _MemberTile extends StatelessWidget {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.club, required this.meets, required this.posts});
+  const _Header({required this.club, required this.meets, required this.posts, this.onLogoTap});
   final Club club;
   final int meets;
   final int posts;
+  /// Officers: change the logo (it can be changed, never removed).
+  final VoidCallback? onLogoTap;
 
   @override
   Widget build(BuildContext context) {
@@ -383,7 +388,29 @@ class _Header extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              UserAvatar(url: club.avatarUrl, name: club.name, size: 72, borderColor: AppColors.warnColor, fallbackAsset: crestAsset(club.id)),
+              GestureDetector(
+                onTap: onLogoTap,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    UserAvatar(url: club.avatarUrl, name: club.name, size: 72, borderColor: AppColors.warnColor, fallbackAsset: crestAsset(club.id)),
+                    if (onLogoTap != null)
+                      Positioned(
+                        right: -2,
+                        bottom: -2,
+                        child: Semantics(
+                          label: 'Change club logo',
+                          child: Container(
+                            width: 26,
+                            height: 26,
+                            decoration: BoxDecoration(color: AppColors.brand, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)),
+                            child: const Icon(AppIcons.pencilSimple, size: 12, color: Colors.white),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(

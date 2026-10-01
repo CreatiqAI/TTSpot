@@ -1,658 +1,229 @@
-import 'dart:io';
-
-import 'package:flutter/foundation.dart';
-import 'package:flutter/gestures.dart';
-import 'package:flutter/cupertino.dart' show CupertinoDatePickerMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../core/geo/latlng.dart';
-import '../../../core/map/app_map.dart';
-import 'package:image_picker/image_picker.dart';
 
+import '../../../core/geo/latlng.dart';
+import '../../../core/places/places_service.dart';
 import '../../../core/router/app_router.dart';
-import '../../../core/theme/app_art.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/utils/dates.dart';
 import '../../../core/utils/friendly_error.dart';
-import '../../../core/utils/geo.dart';
-import '../../../core/widgets/pin_picker_screen.dart';
-import '../../../core/widgets/place_search_field.dart';
-import '../../../core/widgets/wheel_picker.dart';
-import '../../map/application/map_providers.dart';
+import '../../../core/utils/open_external.dart' show confirmSheet;
 import '../../social/application/community_providers.dart';
 import '../../vendors/application/vendors_providers.dart';
 import '../application/create_event_controller.dart';
-import '../domain/event.dart';
+import '../application/plan_draft.dart';
+import 'plan_steps/kind_step.dart';
+import 'plan_steps/review_step.dart';
+import 'plan_steps/style_step.dart';
+import 'plan_steps/when_step.dart';
+import 'plan_steps/where_step.dart';
+import 'plan_steps/who_step.dart';
+import 'plan_steps/wizard_parts.dart';
 
-/// One form, two flavours:
-/// * `session` = a TT session anyone can plan (title, when, where, who sees
-///   it). No type, no cover. Shows as a feather flag on the map.
-/// * otherwise an event hosted by a club (`clubId`) or a partner (`vendorId`).
+/// Plan something for later, one question per screen, so it never feels
+/// like a long form:
+/// * `session` = a TT session anyone can plan: Where → When (+ how long) →
+///   Who → Make it yours → Review.
+/// * otherwise a meet hosted by a club (`clubId`) or a partner (`vendorId`):
+///   What kind → Where → When → Who → Make it yours → Review.
+/// Every answer lives in one [PlanDraft], so Back / Next / Edit never lose
+/// anything. [at] + [venue] start on that place ("TT here" from a map card),
+/// in which case a TT session opens on When.
 class CreateEventScreen extends ConsumerStatefulWidget {
-  const CreateEventScreen({super.key, this.clubId, this.vendorId, this.session = false, this.at, this.venue});
+  const CreateEventScreen({super.key, this.clubId, this.vendorId, this.session = false, this.at, this.venue, this.showMap = true});
   final String? clubId;
   final String? vendorId;
   final bool session;
-  /// Start on this place (the pin and the venue name), e.g. "TT here" from a map card.
   final LatLng? at;
   final String? venue;
+  /// False in widget tests (the map is a platform view).
+  final bool showMap;
 
   @override
   ConsumerState<CreateEventScreen> createState() => _CreateEventScreenState();
 }
 
 class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
-  final _title = TextEditingController();
-  final _venue = TextEditingController();
-  final _description = TextEditingController();
-  late EventType _type = widget.session ? EventType.tt : EventType.meet;
-  late DateTime _startsAt;
-  late bool _friendsOnly = widget.session;
-  XFile? _cover;
-  LatLng? _pin;
-  String? _address;
-  final _map = AppMapController();
+  late final PlanDraft _draft = PlanDraft(session: widget.session, at: widget.at, venue: widget.venue);
+  final _nearby = ValueNotifier<List<PlaceDetails>>(const []);
+  late int _index = widget.session && widget.at != null && (widget.venue ?? '').trim().isNotEmpty ? _draft.steps.indexOf(PlanStep.when) : 0;
+  /// Came here from an Edit link on the review: Next goes straight back.
+  bool _fromReview = false;
+  String? _error;
 
-  @override
-  void initState() {
-    super.initState();
-    _pin = widget.at;
-    if (widget.venue != null) _venue.text = widget.venue!;
-    final now = DateTime.now();
-    if (widget.session) {
-      // TT sessions: tonight 9 pm (or in an hour if it's already late).
-      final tonight = DateTime(now.year, now.month, now.day, 21);
-      _startsAt = tonight.isAfter(now.add(const Duration(minutes: 30))) ? tonight : now.add(const Duration(hours: 1));
-      _startsAt = DateTime(_startsAt.year, _startsAt.month, _startsAt.day, _startsAt.hour, _startsAt.minute - _startsAt.minute % 5);
-    } else {
-      // Events: next Saturday, 8:00 PM.
-      var days = (DateTime.saturday - now.weekday) % 7;
-      if (days == 0 && now.hour >= 20) days = 7;
-      final sat = DateTime(now.year, now.month, now.day).add(Duration(days: days));
-      _startsAt = DateTime(sat.year, sat.month, sat.day, 20);
-    }
-  }
+  List<PlanStep> get _steps => _draft.steps;
+  PlanStep get _step => _steps[_index];
 
   @override
   void dispose() {
-    _title.dispose();
-    _venue.dispose();
-    _description.dispose();
-    _map.dispose();
+    _draft.dispose();
+    _nearby.dispose();
     super.dispose();
   }
 
-  void _snack(String msg) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(msg)));
+  void _show(int i, {bool fromReview = false}) {
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _index = i.clamp(0, _steps.length - 1);
+      _fromReview = fromReview;
+      _error = null;
+    });
   }
 
-  Future<void> _pickCover() async {
-    final source = await showModalBottomSheet<ImageSource>(
-      useRootNavigator: true, // above the shell tab bar
-      context: context,
-      showDragHandle: true,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(AppIcons.images),
-              title: const Text('Choose from library'),
-              onTap: () => Navigator.pop(ctx, ImageSource.gallery),
-            ),
-            ListTile(
-              leading: const Icon(AppIcons.camera),
-              title: const Text('Take photo'),
-              onTap: () => Navigator.pop(ctx, ImageSource.camera),
-            ),
-            if (_cover != null)
-              ListTile(
-                leading: const Icon(AppIcons.trash, color: AppColors.danger),
-                title: const Text('Remove photo', style: TextStyle(color: AppColors.danger)),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  setState(() => _cover = null);
-                },
-              ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
-    );
-    if (source == null) return;
-    try {
-      final f = await pickCoverImage(source);
-      if (f != null) setState(() => _cover = f);
-    } catch (e) {
-      if (mounted) _snack(friendlyError(e));
-    }
-  }
-
-  Future<void> _pickDate() async {
-    final now = DateTime.now();
-    final d = await showWheelPicker(
-      context,
-      initial: _startsAt.isBefore(now) ? now : _startsAt,
-      mode: CupertinoDatePickerMode.date,
-      min: DateTime(now.year, now.month, now.day),
-      // Underground clubs plan up to a week out; official clubs and everyone else, a year.
-      max: now.add(Duration(days: widget.clubId != null && (ref.read(clubProvider(widget.clubId!)).value?.isOfficial == false) ? 7 : 365)),
-      title: 'Which day?',
-    );
-    if (d == null) return;
-    setState(() => _startsAt = DateTime(d.year, d.month, d.day, _startsAt.hour, _startsAt.minute));
-  }
-
-  Future<void> _pickTime() async {
-    // The wheel rounds to 5-minute steps; feed it a rounded start so it lands on a row.
-    final rounded = DateTime(_startsAt.year, _startsAt.month, _startsAt.day, _startsAt.hour, _startsAt.minute - _startsAt.minute % 5);
-    final t = await showWheelPicker(context, initial: rounded, mode: CupertinoDatePickerMode.time, title: 'What time?');
-    if (t == null) return;
-    setState(() => _startsAt = DateTime(_startsAt.year, _startsAt.month, _startsAt.day, t.hour, t.minute));
-  }
-
-  Future<void> _useMyLocation() async {
-    final loc = ref.read(userLocationProvider).value ?? await ref.read(userLocationProvider.future);
-    if (loc == null) {
-      _snack('Location is off. Pan the map to the venue instead.');
+  void _next() {
+    final problem = _draft.problem(_step);
+    if (problem != null) {
+      setState(() => _error = problem);
       return;
     }
-    _map.animateTo(loc, zoom: 15);
+    if (_step == PlanStep.review) {
+      _submit();
+      return;
+    }
+    _show(_fromReview ? _steps.indexOf(PlanStep.review) : _index + 1);
   }
 
-  Future<void> _expandMap() async {
-    final r = await pickPinFullScreen(context, start: _pin ?? (ref.read(userLocationProvider).value ?? kualaLumpur));
-    if (r == null || !mounted) return;
-    setState(() {
-      _pin = r.latLng;
-      if (r.name != null) _address = null; // picked by search inside the picker: name only
-    });
-    if (r.name != null && r.name!.isNotEmpty) _venue.text = r.name!;
-    _map.animateTo(r.latLng, zoom: 16);
+  Future<void> _back() async {
+    if (_index == 0) return _close();
+    _show(_fromReview ? _steps.indexOf(PlanStep.review) : _index - 1);
+  }
+
+  Future<void> _close() async {
+    if (_draft.isDirty) {
+      final ok = await confirmSheet(context, title: 'Discard this plan?', body: 'What you filled in so far will be lost.', confirm: 'Discard', cancel: 'Keep going', icon: AppIcons.trash);
+      if (!ok || !mounted) return;
+    }
+    if (mounted) context.pop();
   }
 
   Future<void> _submit() async {
     FocusScope.of(context).unfocus();
+    final d = _draft;
     final id = await ref.read(createEventControllerProvider.notifier).submit(
-          title: _title.text,
-          description: _description.text,
-          type: _type,
-          startsAt: _startsAt,
-          venueName: _venue.text,
-          location: _pin,
-          cover: _cover,
+          title: d.title,
+          description: d.notesCtrl.text,
+          type: d.type,
+          startsAt: d.startsAt,
+          endsAt: d.endsAt,
+          venueName: d.venue,
+          location: d.pin,
+          cover: d.coverFile,
+          coverUrl: d.presetUrl,
           clubId: widget.clubId,
           vendorId: widget.vendorId,
-          friendsOnly: _friendsOnly,
-          address: _address,
+          friendsOnly: d.friendsOnly,
+          address: d.address,
+          invitees: d.invitees.toList(),
         );
-    if (id != null && mounted) {
-      context.pushReplacement(Routes.event(id));
-    }
+    if (id != null && mounted) context.pushReplacement(Routes.event(id));
   }
 
   @override
   Widget build(BuildContext context) {
     ref.listen(createEventControllerProvider, (_, next) {
-      if (next.hasError && !next.isLoading) _snack(friendlyError(next.error!));
+      if (next.hasError && !next.isLoading && mounted) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(SnackBar(content: Text(friendlyError(next.error!))));
+      }
     });
     final busy = ref.watch(createEventControllerProvider).isLoading;
-    // The pin map opens on the given place, else on me.
-    final start = widget.at ?? ref.watch(userLocationProvider).value ?? kualaLumpur;
     final club = widget.clubId == null ? null : ref.watch(clubProvider(widget.clubId!)).value;
     final vendor = widget.vendorId == null ? null : ref.watch(myVendorProvider).value;
-    final session = widget.session;
+    // Underground clubs plan up to a week out (the server says so too).
+    _draft.underground = club != null && !club.isOfficial;
+    final hostName = club?.name ?? vendor?.name;
+    final personal = widget.clubId == null && widget.vendorId == null;
+    final step = _step;
 
-    return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(icon: const Icon(AppIcons.x), onPressed: busy ? null : () => context.pop()),
-        title: Text(session ? 'Plan a TT session' : 'New event'),
-        actions: [
-          busy
-              ? const Padding(
-                  padding: EdgeInsets.only(right: 20),
-                  child: Center(child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))),
-                )
-              : TextButton(onPressed: _submit, child: const Text('Publish')),
-        ],
-      ),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.only(bottom: 32),
-          children: [
-            if (!session) _CoverPicker(file: _cover, onTap: busy ? null : _pickCover),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  if (session)
-                    Container(
-                      margin: const EdgeInsets.only(bottom: 14),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(color: AppColors.surfaceGray, borderRadius: BorderRadius.circular(AppRadius.md)),
-                      child: Row(
-                        children: [
-                          Icon(AppIcons.coffee, size: 20),
-                          SizedBox(width: 10),
-                          Expanded(child: Text('A TT session is casual: pick a mamak, a time, and who should see it. It shows as a flag on the map.', style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary, height: 1.4))),
-                        ],
-                      ),
-                    ),
-                  if (club != null) ...[
-                    _HostingAs(name: club.name),
-                    const SizedBox(height: 14),
-                  ],
-                  if (vendor != null) ...[
-                    _HostingAs(name: vendor.name),
-                    const SizedBox(height: 14),
-                  ],
-                  TextField(
-                    controller: _title,
-                    maxLength: 80,
-                    textCapitalization: TextCapitalization.sentences,
-                    decoration: InputDecoration(labelText: session ? 'Call it something' : 'What\'s the event?', hintText: session ? 'e.g. Friday teh tarik' : 'e.g. Sunway Night Meet', counterText: ''),
+    final Widget body = switch (step) {
+      PlanStep.kind => KindStep(draft: _draft, hostName: hostName),
+      PlanStep.where => WhereStep(draft: _draft, showMap: widget.showMap, nearby: _nearby),
+      PlanStep.when => WhenStep(draft: _draft),
+      PlanStep.who => WhoStep(draft: _draft, clubName: club?.name, canInvite: personal),
+      PlanStep.style => StyleStep(draft: _draft),
+      PlanStep.review => ReviewStep(draft: _draft, hostName: hostName, clubName: club?.name, onEdit: (s) => _show(_steps.indexOf(s), fromReview: true)),
+    };
+
+    final last = step == PlanStep.review;
+    final primary = last ? (widget.session ? 'Post TT session' : 'Publish meet') : (_fromReview ? 'Back to review' : 'Next');
+
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && !busy) _back();
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          leading: IconButton(tooltip: 'Close', icon: const Icon(AppIcons.x), onPressed: busy ? null : _close),
+          title: Text(widget.session ? 'Plan a TT session' : 'Plan a meet'),
+          bottom: PreferredSize(
+            preferredSize: Size.fromHeight(26 + MediaQuery.textScalerOf(context).scale(12) * 1.4),
+            child: WizardProgress(index: _index, count: _steps.length, label: step.title),
+          ),
+        ),
+        body: SafeArea(
+          child: Column(
+            children: [
+              Expanded(
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 200),
+                  transitionBuilder: (child, a) => FadeTransition(
+                    opacity: a,
+                    child: SlideTransition(position: Tween(begin: const Offset(0.04, 0), end: Offset.zero).animate(a), child: child),
                   ),
-                  if (!session) ...[
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
+                  child: KeyedSubtree(key: ValueKey(step), child: body),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+                decoration: BoxDecoration(color: AppColors.bg, border: Border(top: BorderSide(color: AppColors.divider))),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (_error != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Row(
+                          children: [
+                            const Icon(AppIcons.warning, size: 16, color: AppColors.danger),
+                            const SizedBox(width: 6),
+                            Expanded(child: Text(_error!, key: const Key('plan-error'), style: const TextStyle(color: AppColors.danger, fontSize: 13, fontWeight: FontWeight.w600))),
+                          ],
+                        ),
+                      ),
+                    Row(
                       children: [
-                        for (final t in EventType.pickable)
-                          ChoiceChip(
-                            avatar: ArtIcon(t.art, size: 20),
-                            label: Text(t.label),
-                            selected: t == _type,
-                            showCheckmark: false,
-                            onSelected: busy ? null : (_) => setState(() => _type = t),
+                        if (_index > 0) ...[
+                          OutlinedButton(
+                            key: const Key('plan-back'),
+                            onPressed: busy ? null : _back,
+                            style: OutlinedButton.styleFrom(minimumSize: const Size(96, 50)),
+                            child: const Text('Back'),
                           ),
+                          const SizedBox(width: 10),
+                        ],
+                        Expanded(
+                          child: FilledButton(
+                            key: const Key('plan-next'),
+                            onPressed: busy ? null : _next,
+                            style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50)),
+                            child: busy
+                                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                : Text(primary, maxLines: 1, overflow: TextOverflow.ellipsis),
+                          ),
+                        ),
                       ],
                     ),
                   ],
-                  const SizedBox(height: 18),
-                  const _Label('WHEN'),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _TapField(icon: AppIcons.calendarBlank, text: formatDate(_startsAt), onTap: busy ? null : _pickDate),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _TapField(icon: AppIcons.clock, text: formatTime(_startsAt), onTap: busy ? null : _pickTime),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 18),
-                  const _Label('WHERE'),
-                  const SizedBox(height: 8),
-                  PlaceSearchField(
-                    enabled: !busy,
-                    near: (start.latitude, start.longitude),
-                    hint: 'Search a place or address',
-                    onPicked: (d) {
-                      final target = LatLng(d.lat, d.lng);
-                      setState(() {
-                        _pin = target;
-                        _address = d.address;
-                      });
-                      _venue.text = d.name;
-                      _map.animateTo(target, zoom: 16);
-                    },
-                  ),
-                  const SizedBox(height: 10),
-                  _PinMap(
-                    start: start,
-                    controller: _map,
-                    hasPin: _pin != null,
-                    onIdle: (target) => setState(() {
-                      if (_pin != null && (target.latitude - _pin!.latitude).abs() + (target.longitude - _pin!.longitude).abs() > 0.0005) _address = null;
-                      _pin = target;
-                    }),
-                    onMyLocation: busy ? null : _useMyLocation,
-                    onExpand: busy ? null : _expandMap,
-                  ),
-                  const SizedBox(height: 10),
-                  TextField(
-                    controller: _venue,
-                    maxLength: 80,
-                    textCapitalization: TextCapitalization.words,
-                    decoration: const InputDecoration(
-                      labelText: 'Venue name',
-                      hintText: 'e.g. Sunway Pyramid Open Carpark',
-                      counterText: '',
-                      prefixIcon: Icon(AppIcons.mapPin),
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  const _Label('WHO CAN SEE IT'),
-                  const SizedBox(height: 8),
-                  _Audience(
-                    friendsOnly: _friendsOnly,
-                    clubName: club?.name,
-                    onChanged: busy ? null : (v) => setState(() => _friendsOnly = v),
-                  ),
-                  const SizedBox(height: 18),
-                  TextField(
-                    controller: _description,
-                    maxLength: 2000,
-                    minLines: 2,
-                    maxLines: 8,
-                    textCapitalization: TextCapitalization.sentences,
-                    decoration: const InputDecoration(
-                      labelText: 'Details (optional)',
-                      hintText: 'Parking, what to bring, who it\'s for…',
-                      alignLabelWithHint: true,
-                      counterText: '',
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    session
-                        ? 'Keep it legal and friendly. No street racing.'
-                        : 'By publishing you confirm this is a legal, public gathering. No street racing.',
-                    style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary, height: 1.4),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Two big options, one tap. Friends (default) or everyone on TT Spot.
-class _Audience extends StatelessWidget {
-  const _Audience({required this.friendsOnly, required this.onChanged, this.clubName});
-  final bool friendsOnly;
-  final String? clubName;
-  final ValueChanged<bool>? onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    Widget option({required bool value, required IconData icon, required String title, required String subtitle}) {
-      final on = friendsOnly == value;
-      return Expanded(
-        child: GestureDetector(
-          onTap: onChanged == null ? null : () => onChanged!(value),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 160),
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-            decoration: BoxDecoration(
-              color: on ? AppColors.textPrimary : AppColors.surfaceRaised,
-              borderRadius: BorderRadius.circular(AppRadius.md),
-              border: Border.all(color: on ? AppColors.textPrimary : AppColors.border),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(icon, size: 20, color: on ? AppColors.onInk : AppColors.textPrimary),
-                const SizedBox(height: 8),
-                Text(title, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: on ? AppColors.onInk : AppColors.textPrimary)),
-                const SizedBox(height: 2),
-                Text(subtitle, style: TextStyle(fontSize: 11.5, height: 1.3, color: on ? AppColors.onInk.withValues(alpha: 0.7) : AppColors.textSecondary)),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-
-    return Row(
-      children: [
-        option(
-          value: true,
-          icon: AppIcons.users,
-          title: 'Friends',
-          subtitle: clubName == null ? 'Your friends and people who join.' : 'Your friends and $clubName members.',
-        ),
-        const SizedBox(width: 10),
-        option(value: false, icon: AppIcons.globe, title: 'Everyone', subtitle: 'Shows on the map for all of TT Spot.'),
-      ],
-    );
-  }
-}
-
-class _HostingAs extends StatelessWidget {
-  const _HostingAs({required this.name});
-  final String name;
-  @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(color: AppColors.surfaceGray, borderRadius: BorderRadius.circular(AppRadius.md)),
-        child: Row(
-          children: [
-            const Icon(AppIcons.shieldCheck, size: 18),
-            const SizedBox(width: 8),
-            Expanded(child: Text('Hosting as $name', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5))),
-          ],
-        ),
-      );
-}
-
-// ---------------------------------------------------------------- pieces ---
-
-class _Label extends StatelessWidget {
-  const _Label(this.text);
-  final String text;
-
-  @override
-  Widget build(BuildContext context) => Text(
-        text,
-        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textSecondary),
-      );
-}
-
-class _CoverPicker extends StatelessWidget {
-  const _CoverPicker({required this.file, required this.onTap});
-  final XFile? file;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AspectRatio(
-        aspectRatio: 16 / 9,
-        child: file == null
-            ? ColoredBox(
-                color: AppColors.surfaceGray,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(AppIcons.cameraPlus, size: 32, color: AppColors.textSecondary),
-                    SizedBox(height: 8),
-                    Text('Add a cover photo', style: TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.w600)),
-                  ],
                 ),
-              )
-            : Stack(
-                fit: StackFit.expand,
-                children: [
-                  Image.file(File(file!.path), fit: BoxFit.cover),
-                  Positioned(
-                    right: 12,
-                    bottom: 12,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(8)),
-                      child: const Text('Change', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
-                    ),
-                  ),
-                ],
               ),
-      ),
-    );
-  }
-}
-
-class _TapField extends StatelessWidget {
-  const _TapField({required this.icon, required this.text, required this.onTap});
-  final IconData icon;
-  final String text;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppRadius.md),
-      child: Container(
-        height: 52,
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        decoration: BoxDecoration(
-          color: AppColors.surfaceRaised,
-          borderRadius: BorderRadius.circular(AppRadius.md),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, size: 20, color: AppColors.textSecondary),
-            const SizedBox(width: 10),
-            Expanded(child: Text(text, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500))),
-          ],
+            ],
+          ),
         ),
       ),
-    );
-  }
-}
-
-/// Map with a fixed centre pin: pan the map, the pin stays put, the venue
-/// is wherever the pin ends up when the map stops moving.
-class _PinMap extends StatelessWidget {
-  const _PinMap({
-    required this.start,
-    required this.controller,
-    required this.hasPin,
-    required this.onIdle,
-    required this.onMyLocation,
-    required this.onExpand,
-  });
-
-  final LatLng start;
-  final AppMapController controller;
-  final bool hasPin;
-  final void Function(LatLng) onIdle;
-  final VoidCallback? onMyLocation;
-  final VoidCallback? onExpand;
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(AppRadius.md),
-      child: SizedBox(
-        height: 220,
-        child: _PinMapBody(start: start, controller: controller, hasPin: hasPin, onIdle: onIdle, onMyLocation: onMyLocation, onExpand: onExpand),
-      ),
-    );
-  }
-}
-
-class _PinMapBody extends StatefulWidget {
-  const _PinMapBody({
-    required this.start,
-    required this.controller,
-    required this.hasPin,
-    required this.onIdle,
-    required this.onMyLocation,
-    required this.onExpand,
-  });
-
-  final LatLng start;
-  final AppMapController controller;
-  final bool hasPin;
-  final void Function(LatLng) onIdle;
-  final VoidCallback? onMyLocation;
-  final VoidCallback? onExpand;
-
-  @override
-  State<_PinMapBody> createState() => _PinMapBodyState();
-}
-
-class _PinMapBodyState extends State<_PinMapBody> {
-  LatLng? _target;
-
-  @override
-  void initState() {
-    super.initState();
-    // Pin starts at the initial centre so an un-panned map is still a valid location.
-    _target = widget.start;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) widget.onIdle(widget.start);
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        AppMap(
-          controller: widget.controller,
-          initialTarget: widget.start,
-          initialZoom: 13.5,
-          night: AppColors.dark,
-          onCameraMove: (c) => _target = c,
-          onCameraIdle: () {
-            if (_target != null) widget.onIdle(_target!);
-          },
-          gestureRecognizers: {Factory<OneSequenceGestureRecognizer>(EagerGestureRecognizer.new)},
-        ),
-        // Fixed centre pin (tip sits on the map centre)
-        const IgnorePointer(
-          child: Center(
-            child: Padding(
-              padding: EdgeInsets.only(bottom: 34),
-              child: Icon(AppIcons.mapPinFill, size: 40, color: AppColors.accent),
-            ),
-          ),
-        ),
-        Positioned(
-          left: 10,
-          top: 10,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.72), borderRadius: BorderRadius.circular(8)),
-            child: Text(
-              widget.hasPin ? 'Drag to adjust · expand for a big map' : 'Drag the map to the meet spot',
-              style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
-            ),
-          ),
-        ),
-        Positioned(
-          right: 10,
-          top: 10,
-          child: Material(
-            color: AppColors.surface,
-            shape: const CircleBorder(),
-            elevation: 3,
-            child: InkWell(
-              onTap: widget.onExpand,
-              customBorder: const CircleBorder(),
-              child: SizedBox(width: 40, height: 40, child: Icon(AppIcons.arrowsOut, size: 20, color: AppColors.textPrimary)),
-            ),
-          ),
-        ),
-        Positioned(
-          right: 10,
-          bottom: 10,
-          child: Material(
-            color: AppColors.surface,
-            shape: const CircleBorder(),
-            elevation: 3,
-            child: InkWell(
-              onTap: widget.onMyLocation,
-              customBorder: const CircleBorder(),
-              child: SizedBox(width: 40, height: 40, child: Icon(AppIcons.gpsFix, size: 20, color: AppColors.textPrimary)),
-            ),
-          ),
-        ),
-      ],
     );
   }
 }

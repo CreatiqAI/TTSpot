@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,10 +9,14 @@ import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/widgets/picker_field.dart';
 import '../../../core/utils/friendly_error.dart';
-import '../../../core/widgets/photo_picker_sheet.dart';
-import '../../../core/widgets/user_avatar.dart';
+import '../../vendors/application/vendors_providers.dart';
+import '../../vendors/domain/vendor.dart';
 import '../application/community_providers.dart';
+import 'widgets/club_logo.dart';
 
+/// New club. The logo comes first and is required (owner's rule: it is the
+/// club's face on the map and on its events); Create stays off until there
+/// is one. The logo sent with the club application is offered as a start.
 class CreateClubScreen extends ConsumerStatefulWidget {
   const CreateClubScreen({super.key});
 
@@ -28,6 +30,9 @@ class _CreateClubScreenState extends ConsumerState<CreateClubScreen> {
   final _description = TextEditingController();
   String? _state;
   XFile? _avatar;
+  /// The application's logo, once the member keeps it (no new upload needed).
+  String? _appLogo;
+  bool _appLogoDismissed = false;
   bool _busy = false;
 
   @override
@@ -38,8 +43,21 @@ class _CreateClubScreenState extends ConsumerState<CreateClubScreen> {
     super.dispose();
   }
 
+  bool get _hasLogo => _avatar != null || (_appLogo ?? '').isNotEmpty;
+
+  Future<void> _pickLogo() async {
+    final f = await pickClubLogo(context);
+    if (f != null && mounted) {
+      setState(() {
+        _avatar = f;
+        _appLogoDismissed = true;
+      });
+    }
+  }
+
   Future<void> _create() async {
     FocusScope.of(context).unfocus();
+    if (!_hasLogo) return;
     setState(() => _busy = true);
     try {
       final club = await ref.read(communityActionsProvider).createClub(
@@ -48,6 +66,7 @@ class _CreateClubScreenState extends ConsumerState<CreateClubScreen> {
             description: _description.text.trim().isEmpty ? null : _description.text,
             homeState: _state,
             avatar: _avatar,
+            avatarUrl: _avatar == null ? _appLogo : null,
           );
       if (mounted) context.pushReplacement(Routes.club(club.id));
     } catch (e) {
@@ -60,6 +79,11 @@ class _CreateClubScreenState extends ConsumerState<CreateClubScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Start from the logo sent with the club application, when there was one.
+    if (!_appLogoDismissed && _avatar == null && _appLogo == null) {
+      final fromApp = ref.watch(myPartnerApplicationProvider(ApplicationKind.club)).value?.logoUrl;
+      if ((fromApp ?? '').isNotEmpty) _appLogo = fromApp;
+    }
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(icon: const Icon(AppIcons.x), onPressed: _busy ? null : () => context.pop()),
@@ -67,35 +91,14 @@ class _CreateClubScreenState extends ConsumerState<CreateClubScreen> {
         actions: [
           _busy
               ? const Padding(padding: EdgeInsets.only(right: 20), child: Center(child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))))
-              : TextButton(onPressed: _create, child: const Text('Create')),
+              : TextButton(key: const Key('club-create'), onPressed: _hasLogo ? _create : null, child: const Text('Create')),
         ],
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
         children: [
-          Center(
-            child: Column(
-              children: [
-                GestureDetector(
-                  onTap: () async {
-                    final files = await pickPhotos(context, max: 1, multi: false, small: true);
-                    if (files.isNotEmpty) setState(() => _avatar = files.first);
-                  },
-                  child: _avatar == null
-                      ? const UserAvatar(name: 'C', size: 96)
-                      : Container(width: 96, height: 96, decoration: BoxDecoration(shape: BoxShape.circle, image: DecorationImage(image: FileImage(File(_avatar!.path)), fit: BoxFit.cover))),
-                ),
-                TextButton(
-                  onPressed: () async {
-                    final files = await pickPhotos(context, max: 1, multi: false, small: true);
-                    if (files.isNotEmpty) setState(() => _avatar = files.first);
-                  },
-                  child: const Text('Add club logo'),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
+          ClubLogoPicker(file: _avatar, url: _avatar == null ? _appLogo : null, onTap: _busy ? null : _pickLogo),
+          const SizedBox(height: 18),
           TextField(controller: _name, maxLength: 60, textCapitalization: TextCapitalization.words, decoration: const InputDecoration(labelText: 'Club name', hintText: 'e.g. Myvi Owners KL', counterText: '')),
           const SizedBox(height: 14),
           TextField(
@@ -113,6 +116,13 @@ class _CreateClubScreenState extends ConsumerState<CreateClubScreen> {
             value: _state,
             options: [for (final s in malaysianStates) (s, s)],
             onChanged: (v) => setState(() => _state = v),
+          ),
+          const SizedBox(height: 20),
+          FilledButton(
+            key: const Key('club-create-bottom'),
+            onPressed: _busy || !_hasLogo ? null : _create,
+            style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50)),
+            child: Text(_hasLogo ? 'Create club' : 'Add a logo to create the club'),
           ),
         ],
       ),

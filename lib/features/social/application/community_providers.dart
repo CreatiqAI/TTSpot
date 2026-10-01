@@ -12,6 +12,9 @@ import '../domain/club.dart';
 
 // ------------------------------------------------------------------ clubs ---
 
+/// Why a club must have a logo, shown wherever one is asked for.
+const kClubLogoHint = "Your logo shows on the map and on your club's events.";
+
 final clubsProvider = FutureProvider.family<List<Club>, String>((ref, query) => ref.watch(communityRepositoryProvider).clubs(query: query));
 final clubProvider = FutureProvider.family<Club?, String>((ref, id) => ref.watch(communityRepositoryProvider).club(id));
 final clubMembersProvider = FutureProvider.family<List<Profile>, String>((ref, id) => ref.watch(communityRepositoryProvider).clubMembers(id));
@@ -114,12 +117,15 @@ class CommunityActions {
 
   CommunityRepository get _repo => _ref.read(communityRepositoryProvider);
 
-  Future<Club> createClub({required String name, required String handle, String? description, String? homeState, XFile? avatar}) async {
+  /// A club needs a logo (owner's rule; the database refuses one without):
+  /// a new photo in [avatar], or [avatarUrl] when the logo is already
+  /// uploaded (the one sent with the club application).
+  Future<Club> createClub({required String name, required String handle, String? description, String? homeState, XFile? avatar, String? avatarUrl}) async {
+    if (avatar == null && (avatarUrl ?? '').trim().isEmpty) throw const AppException(kClubLogoHint);
     if (name.trim().length < 2) throw const AppException('Give the club a name.');
     if (!RegExp(r'^[a-z0-9_]{3,24}$').hasMatch(handle.trim().toLowerCase())) {
       throw const AppException('Handle: 3–24 characters, letters, numbers or _ only.');
     }
-    String? avatarUrl;
     if (avatar != null) {
       avatarUrl = await _repo.uploadPhoto(userId: _me, bytes: await avatar.readAsBytes(), folder: 'clubs', thumb: false);
     }
@@ -130,6 +136,16 @@ class CommunityActions {
   }
 
   Future<void> inviteToClub(String clubId, String userId, {String role = 'member'}) => _repo.inviteToClub(clubId, userId, role: role);
+
+  /// New logo for a club I help run (owner, VP or secretary). Logos can be
+  /// changed, never removed.
+  Future<void> setClubLogo(String clubId, XFile logo) async {
+    final url = await _repo.uploadPhoto(userId: _me, bytes: await logo.readAsBytes(), folder: 'clubs', thumb: false);
+    await _repo.setClubLogo(clubId, url);
+    _ref.invalidate(clubProvider(clubId));
+    _ref.invalidate(myClubsProvider);
+    _ref.invalidate(clubsProvider(''));
+  }
 
   Future<void> requestOfficialClub(String clubId) async {
     await _repo.requestOfficialClub(clubId);

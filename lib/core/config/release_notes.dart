@@ -10,6 +10,18 @@ class ReleaseNote {
 
 const kReleaseNotes = <ReleaseNote>[
   ReleaseNote(
+    version: '0.3.47',
+    date: '2 Oct 2026',
+    title: 'Hide your plate, properly',
+    points: [
+      'Hide my number plate now works on photos already on your car: switch it on and every photo shows the blur straight away.',
+      'Tap a photo to open it big, then drag or resize the blur onto the plate. Add a second blur for front and back plates.',
+      'When you save, the original photos with the plate are removed.',
+      'My garage on your profile has its own badge, the twin of the points coin.',
+      'The light in your garage now shines across your car, not the wall.',
+    ],
+  ),
+  ReleaseNote(
     version: '0.3.46',
     date: '1 Oct 2026',
     title: 'New garage, camera and chat backgrounds',

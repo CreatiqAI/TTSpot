@@ -15,11 +15,13 @@ import '../../../core/widgets/user_avatar.dart';
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:record/record.dart';
 import 'widgets/chat_media.dart';
 import 'widgets/chat_composer.dart';
+import 'widgets/chat_reply.dart';
+import 'widgets/voice_bubble.dart';
+import 'widgets/voice_recorder.dart';
 
 import '../../../core/theme/app_art.dart';
 import '../../../core/theme/app_images.dart';
@@ -33,6 +35,7 @@ import 'story_viewer_screen.dart';
 import '../domain/post.dart';
 import '../application/social_providers.dart';
 import '../domain/chat.dart';
+import '../../auth/domain/profile.dart';
 import '../../safety/data/safety_repository.dart';
 import '../../safety/presentation/report_sheet.dart';
 
@@ -58,20 +61,87 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   @override
   void dispose() {
-    _tick?.cancel();
-    _rec.dispose();
+    _voice.dispose();
+    _focus.dispose();
+    _flashTimer?.cancel();
     _text.dispose();
     _scroll.dispose();
     super.dispose();
   }
 
+  // ---- replies: swipe a bubble right, or long-press > Reply
+  final _focus = FocusNode();
+  Message? _replyTo;
+  String? _flashId;
+  Timer? _flashTimer;
+  final _rowKeys = <String, GlobalKey>{};
+
+  void _startReply(Message m) {
+    setState(() => _replyTo = m);
+    if (!_voice.active) _focus.requestFocus();
+  }
+
+  /// Drop the reply strip once the message that answered it is out.
+  void _replied(Message? r) {
+    if (mounted && r != null && _replyTo?.id == r.id) setState(() => _replyTo = null);
+  }
+
+  /// Who a quote is from: "You", the club / partner it was sent as, or the person.
+  String _nameOf(Message o, String? me, Map<String, Profile> members, Conversation? conv) {
+    if (o.senderId == me) return 'You';
+    if (o.asClub != null || o.asVendor != null) return o.asName ?? conv?.entityName ?? 'Club';
+    final p = o.sender ?? members[o.senderId];
+    return p?.displayName ?? p?.username ?? 'Member';
+  }
+
+  /// Scroll the original of a reply into view and flash it.
+  Future<void> _jumpTo(String id, List<Message> reversed) async {
+    final idx = reversed.indexWhere((m) => m.id == id);
+    if (idx < 0) {
+      _hint('Original message unavailable');
+      return;
+    }
+    // The list is lazy, so step towards it a screen at a time until it's built.
+    for (var i = 0; i < 80 && mounted; i++) {
+      final ctx = _rowKeys[id]?.currentContext;
+      if (ctx != null && ctx.mounted) {
+        await Scrollable.ensureVisible(ctx, alignment: 0.4, duration: const Duration(milliseconds: 280), curve: Curves.easeOutCubic);
+        break;
+      }
+      final built = [for (var j = 0; j < reversed.length; j++) if (_rowKeys[reversed[j].id]?.currentContext != null) j];
+      if (built.isEmpty || !_scroll.hasClients) break;
+      final pos = _scroll.position;
+      final step = pos.viewportDimension * 0.8;
+      // Reversed list: further back in time = bigger offset.
+      final to = (idx > built.last ? pos.pixels + step : pos.pixels - step).clamp(pos.minScrollExtent, pos.maxScrollExtent);
+      if (to == pos.pixels) break;
+      _scroll.jumpTo(to);
+      await WidgetsBinding.instance.endOfFrame;
+    }
+    if (!mounted) return;
+    setState(() => _flashId = id);
+    _flashTimer?.cancel();
+    _flashTimer = Timer(const Duration(milliseconds: 1100), () {
+      if (mounted) setState(() => _flashId = null);
+    });
+  }
+
+  void _hint(String text) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(text), duration: const Duration(seconds: 2)));
+  }
+
   Future<void> _send() async {
     final body = _text.text.trim();
     if (body.isEmpty) return;
+    final reply = _replyTo;
     setState(() => _sending = true);
     try {
-      await ref.read(chatActionsProvider).send(widget.conversationId, body);
+      await ref.read(chatActionsProvider).send(widget.conversationId, body, replyTo: reply?.id);
       _text.clear();
+      _replied(reply);
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
     } finally {
@@ -90,66 +160,31 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
   }
 
-  // ---- voice notes: hold the mic, slide left to cancel
-  final _rec = AudioRecorder();
-  bool _recording = false;
-  bool _cancelling = false;
-  Duration _elapsed = Duration.zero;
-  Timer? _tick;
-  DateTime? _recStart;
-  double _dragX = 0;
-
-  Future<void> _startRecording() async {
-    if (_recording || _sending) return;
-    if (!await _rec.hasPermission()) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Allow the microphone to send voice notes.')));
-      return;
-    }
-    final dir = await getTemporaryDirectory();
-    final path = '${dir.path}/vn_${DateTime.now().millisecondsSinceEpoch}.m4a';
-    await _rec.start(const RecordConfig(encoder: AudioEncoder.aacLc, bitRate: 64000, sampleRate: 44100), path: path);
-    _recStart = DateTime.now();
-    _dragX = 0;
-    setState(() {
-      _recording = true;
-      _cancelling = false;
-      _elapsed = Duration.zero;
-    });
-    _tick = Timer.periodic(const Duration(milliseconds: 200), (_) {
-      if (!mounted) return;
-      final e = DateTime.now().difference(_recStart!);
-      if (e > const Duration(minutes: 2)) {
-        _stopRecording(send: true);
-        return;
-      }
-      setState(() => _elapsed = e);
+  /// [_guard] for anything sent while a reply is open: it goes out as a reply,
+  /// and the strip closes once it's sent.
+  Future<void> _guardReply(Future<void> Function(String? replyTo) f) {
+    final reply = _replyTo;
+    return _guard(() async {
+      await f(reply?.id);
+      _replied(reply);
     });
   }
 
-  Future<void> _stopRecording({required bool send}) async {
-    if (!_recording) return;
-    _tick?.cancel();
-    final path = await _rec.stop();
-    final ms = DateTime.now().difference(_recStart ?? DateTime.now()).inMilliseconds;
-    setState(() {
-      _recording = false;
-      _cancelling = false;
-    });
-    if (!send || path == null || ms < 700) {
-      if (path != null) File(path).delete().catchError((_) => File(path));
-      return;
-    }
-    await _guard(() async {
-      final bytes = await File(path).readAsBytes();
-      await ref.read(chatActionsProvider).sendVoice(widget.conversationId, bytes, ms);
-      File(path).delete().catchError((_) => File(path));
+  // ---- voice notes: tap the mic to record hands-free, or hold it and let go to send
+  late final _voice = VoiceRecorder(onReady: _sendVoiceNote, onHint: _hint, canStart: () => !_sending);
+
+  Future<void> _sendVoiceNote(VoiceNote n) async {
+    await _guardReply((replyTo) async {
+      final bytes = await File(n.path).readAsBytes();
+      await ref.read(chatActionsProvider).sendVoice(widget.conversationId, bytes, n.ms, wave: n.wave, replyTo: replyTo);
+      File(n.path).delete().catchError((_) => File(n.path));
     });
   }
 
   Future<void> _video(ImageSource source) async {
     final f = await ImagePicker().pickVideo(source: source, maxDuration: kChatVideoMaxDuration);
     if (f == null) return;
-    await _guard(() => ref.read(chatActionsProvider).sendVideo(widget.conversationId, f));
+    await _guardReply((r) => ref.read(chatActionsProvider).sendVideo(widget.conversationId, f, replyTo: r));
   }
 
   Future<void> _cameraMenu() async {
@@ -175,19 +210,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   Future<void> _photo(ImageSource source) async {
     final f = await pickCoverImage(source);
     if (f == null) return;
-    await _guard(() => ref.read(chatActionsProvider).sendPhoto(widget.conversationId, f));
+    await _guardReply((r) => ref.read(chatActionsProvider).sendPhoto(widget.conversationId, f, replyTo: r));
   }
 
   Future<void> _sticker() async {
     final key = await showStickerSheet(context);
     if (key == null) return;
-    await _guard(() => ref.read(chatActionsProvider).sendSticker(widget.conversationId, key));
+    await _guardReply((r) => ref.read(chatActionsProvider).sendSticker(widget.conversationId, key, replyTo: r));
   }
 
   Future<void> _attach({int tab = 0}) async {
     final a = await showAttachSheet(context, initialTab: tab);
     if (a == null) return;
-    await _guard(() => ref.read(chatActionsProvider).attach(widget.conversationId, eventId: a.eventId, placeId: a.placeId, carId: a.carId));
+    await _guardReply((r) => ref.read(chatActionsProvider).attach(widget.conversationId, eventId: a.eventId, placeId: a.placeId, carId: a.carId, replyTo: r));
   }
 
   Future<void> _plus() async {
@@ -211,9 +246,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
   }
 
-  /// Long-press on someone else's message: report it or block the sender.
-  Future<void> _messageMenu(Message m, String? username) async {
+  /// Long-press on a message: reply, copy its text, and on someone else's,
+  /// report it or block the sender.
+  Future<void> _messageMenu(Message m, String? username, {bool mine = false, bool canReply = true}) async {
     final name = username ?? 'user';
+    final canCopy = !m.autoBody && m.body.trim().isNotEmpty;
     final action = await showModalBottomSheet<String>(
       useRootNavigator: true, // above the shell tab bar
       context: context,
@@ -222,8 +259,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ListTile(leading: const Icon(AppIcons.flag), title: const Text('Report message'), onTap: () => Navigator.pop(ctx, 'report')),
-            ListTile(leading: const Icon(AppIcons.prohibit, color: AppColors.danger), title: Text('Block @$name', style: TextStyle(color: AppColors.danger)), onTap: () => Navigator.pop(ctx, 'block')),
+            if (canReply) ListTile(leading: const Icon(AppIcons.arrowBendUpLeft), title: const Text('Reply'), onTap: () => Navigator.pop(ctx, 'reply')),
+            if (canCopy) ListTile(leading: const Icon(AppIcons.copy), title: const Text('Copy text'), onTap: () => Navigator.pop(ctx, 'copy')),
+            if (!mine) ...[
+              ListTile(leading: const Icon(AppIcons.flag), title: const Text('Report message'), onTap: () => Navigator.pop(ctx, 'report')),
+              ListTile(leading: const Icon(AppIcons.prohibit, color: AppColors.danger), title: Text('Block @$name', style: TextStyle(color: AppColors.danger)), onTap: () => Navigator.pop(ctx, 'block')),
+            ],
             const SizedBox(height: 8),
           ],
         ),
@@ -231,6 +272,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     );
     if (!mounted) return;
     switch (action) {
+      case 'reply':
+        _startReply(m);
+      case 'copy':
+        await Clipboard.setData(ClipboardData(text: m.body));
+        _hint('Copied');
       case 'report':
         await showReportSheet(context, target: ReportTarget.message, targetId: m.id);
       case 'block':
@@ -248,7 +294,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       if (next.hasValue) ref.read(chatActionsProvider).markRead(widget.conversationId);
     });
 
-    final membersById = {for (final p in conv?.members ?? const []) p.id: p};
+    final membersById = <String, Profile>{for (final p in conv?.members ?? const <Profile>[]) p.id: p};
     final hostId = conv?.eventId == null ? null : ref.watch(eventDetailProvider(conv!.eventId!)).value?.event.organizerId;
 
     return Scaffold(
@@ -344,6 +390,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   );
                 }
                 final reversed = list.reversed.toList();
+                final byId = {for (final m in all) m.id: m};
                 return ListView.builder(
                   controller: _scroll,
                   reverse: true,
@@ -360,17 +407,44 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     final sender = m.sender ?? membersById[m.senderId];
                     final host = m.senderId == hostId;
                     final showEntity = m.asName != null;
-                    final row = GestureDetector(
-                      onLongPress: mine ? null : () => _messageMenu(m, sender?.username),
-                      child: _Bubble(
-                        message: m,
-                        mine: mine,
-                        showName: (showName || showEntity) && !mine,
-                        senderName: showEntity ? m.asName : sender?.username,
-                        avatarUrl: showEntity ? m.asLogo : sender?.avatarUrl,
-                        avatarSeed: showEntity ? null : m.senderId,
-                        showAvatar: !mine && ((conv?.isMeet ?? false) || showEntity),
-                        host: host && !showEntity,
+                    final canReply = !(conv?.otherGone ?? false);
+                    final replyId = m.replyTo;
+                    final quote = replyId == null
+                        ? null
+                        : ReplyQuoteFor(
+                            replyToId: replyId,
+                            loaded: byId[replyId],
+                            nameOf: (o) => _nameOf(o, me, membersById, conv),
+                            isMine: (o) => o.senderId == me,
+                            hidden: (o) => blocked.contains(o.senderId),
+                            onTap: () => _jumpTo(replyId, reversed),
+                          );
+                    final row = KeyedSubtree(
+                      key: _rowKeys.putIfAbsent(m.id, GlobalKey.new),
+                      child: SwipeToReply(
+                        enabled: canReply,
+                        onReply: () => _startReply(m),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 350),
+                          decoration: BoxDecoration(
+                            color: _flashId == m.id ? AppColors.brand.withValues(alpha: 0.12) : AppColors.brand.withValues(alpha: 0),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: GestureDetector(
+                            onLongPress: () => _messageMenu(m, sender?.username, mine: mine, canReply: canReply),
+                            child: _Bubble(
+                              message: m,
+                              mine: mine,
+                              showName: (showName || showEntity) && !mine,
+                              senderName: showEntity ? m.asName : sender?.username,
+                              avatarUrl: showEntity ? m.asLogo : sender?.avatarUrl,
+                              avatarSeed: showEntity ? null : m.senderId,
+                              showAvatar: !mine && ((conv?.isMeet ?? false) || showEntity),
+                              host: host && !showEntity,
+                              quote: quote,
+                            ),
+                          ),
+                        ),
                       ),
                     );
                     if (!newDay) return row;
@@ -399,16 +473,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               onSend: _send,
               onPlus: _plus,
               onCamera: _cameraMenu,
-              recording: _recording,
-              cancelling: _cancelling,
-              elapsed: _elapsed,
-              onRecordStart: _startRecording,
-              onRecordMove: (dx) {
-                _dragX = dx;
-                final c = _dragX < -80;
-                if (c != _cancelling) setState(() => _cancelling = c);
-              },
-              onRecordEnd: ({required bool send}) => _stopRecording(send: send),
+              recorder: _voice,
+              focusNode: _focus,
+              header: _replyTo == null
+                  ? null
+                  : ReplyComposerStrip(
+                      original: _replyTo!,
+                      name: _nameOf(_replyTo!, me, membersById, conv),
+                      mine: _replyTo!.senderId == me,
+                      onCancel: () => setState(() => _replyTo = null),
+                    ),
             ),
         ],
       ),
@@ -417,7 +491,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 }
 
 class _Bubble extends StatelessWidget {
-  const _Bubble({required this.message, required this.mine, required this.showName, this.senderName, this.avatarUrl, this.avatarSeed, required this.showAvatar, this.host = false});
+  const _Bubble({required this.message, required this.mine, required this.showName, this.senderName, this.avatarUrl, this.avatarSeed, required this.showAvatar, this.host = false, this.quote});
   final Message message;
   final bool mine;
   final bool showName;
@@ -426,6 +500,8 @@ class _Bubble extends StatelessWidget {
   final String? avatarSeed;
   final bool showAvatar;
   final bool host;
+  /// The quoted original when this message is a reply.
+  final Widget? quote;
 
   @override
   Widget build(BuildContext context) {
@@ -435,9 +511,10 @@ class _Bubble extends StatelessWidget {
     final time = formatTime(message.createdAt);
 
     // The text bubble is always the message's last piece, so it always carries the time.
-    Widget textBubble(String text) => Container(
+    // A plain-text reply carries its quote inside, on top, the bubble as wide as the wider of the two.
+    Widget textBubble(String text, {Widget? quote}) => Container(
           constraints: BoxConstraints(maxWidth: maxW),
-          padding: const EdgeInsets.fromLTRB(14, 9, 12, 7),
+          padding: quote == null ? const EdgeInsets.fromLTRB(14, 9, 12, 7) : const EdgeInsets.fromLTRB(5, 5, 5, 7),
           decoration: BoxDecoration(
             color: mine ? AppColors.surfaceGray : AppColors.surface,
             border: mine ? null : Border.all(color: AppColors.border),
@@ -448,7 +525,30 @@ class _Bubble extends StatelessWidget {
               bottomRight: Radius.circular(mine ? 4 : 18),
             ),
           ),
-          child: _TimedText(text: text, time: time),
+          child: quote == null
+              ? _TimedText(text: text, time: time)
+              : IntrinsicWidth(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      quote,
+                      Padding(padding: const EdgeInsets.fromLTRB(9, 6, 7, 0), child: _TimedText(text: text, time: time)),
+                    ],
+                  ),
+                ),
+        );
+
+    // A reply with a photo, card or sticker: the quote rides in a small bubble on top.
+    Widget quoteCard(Widget q) => Container(
+          margin: const EdgeInsets.only(bottom: 3),
+          constraints: BoxConstraints(maxWidth: maxW),
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            color: mine ? AppColors.surfaceGray : AppColors.surface,
+            border: mine ? null : Border.all(color: AppColors.border),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: IntrinsicWidth(child: q),
         );
 
     // Time on a line of its own under a card, post, moment or sticker, lined up with its right edge.
@@ -469,10 +569,15 @@ class _Bubble extends StatelessWidget {
     // A shared post / moment sits on its own, no bubble around it. A note, if any, follows underneath.
     // Each piece takes the time or null; only the last one gets it.
     final pieces = <Widget Function(String? t)>[
+      if (quote != null && message.audioUrl == null) (_) => quoteCard(quote!),
       if (message.postId != null) (t) => under(_SharedPost(postId: message.postId!, mine: mine), t),
       if (message.storyId != null) (t) => under(_SharedMoment(storyId: message.storyId!, mine: mine), t),
       if (message.imageUrl != null) (t) => _Photo(url: message.imageUrl!, time: t),
-      if (message.audioUrl != null) (t) => Padding(padding: const EdgeInsets.only(bottom: 4), child: VoiceBubble(url: message.audioUrl!, ms: message.audioMs ?? 0, mine: mine, time: t)),
+      if (message.audioUrl != null)
+        (t) => Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: VoiceBubble(url: message.audioUrl!, ms: message.audioMs ?? 0, mine: mine, time: t, wave: message.audioWave, seed: message.id, avatarUrl: avatarUrl, avatarSeed: avatarSeed, avatarName: senderName, quote: quote),
+            ),
       if (message.videoUrl != null) (t) => VideoBubble(url: message.videoUrl!, time: t),
       if (message.sticker != null) (t) => under(Padding(padding: const EdgeInsets.only(bottom: 4), child: ArtIcon(kStickers[message.sticker!] ?? AppArt.car, size: 96)), t),
       if (message.eventId != null) (t) => under(_SharedEvent(eventId: message.eventId!), t),
@@ -486,7 +591,7 @@ class _Bubble extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [for (var i = 0; i < pieces.length; i++) pieces[i](i == pieces.length - 1 ? time : null)],
           )
-        : textBubble(message.body);
+        : textBubble(message.body, quote: quote);
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
       child: Column(

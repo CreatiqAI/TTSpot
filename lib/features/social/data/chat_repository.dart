@@ -149,6 +149,17 @@ class ChatRepository {
     return rows.map(Message.fromMap).toList();
   }
 
+  /// One message with its sender, for a reply whose original is older than
+  /// the loaded page. Null when it was deleted (or isn't visible to me).
+  Future<Message?> message(String id) async {
+    final row = await _client
+        .from('messages')
+        .select('*, profiles($profileCols), clubs!messages_as_club_fkey(name, avatar_url), vendors!messages_as_vendor_fkey(name, logo_url)')
+        .eq('id', id)
+        .maybeSingle();
+    return row == null ? null : Message.fromMap(row);
+  }
+
   Future<void> send({
     required String conversationId,
     required String me,
@@ -165,6 +176,8 @@ class ChatRepository {
     String? videoUrl,
     String? asClub,
     String? asVendor,
+    String? replyTo,
+    List<int>? audioWave,
   }) =>
       _client.from('messages').insert({
         'as_club': ?asClub,
@@ -182,6 +195,8 @@ class ChatRepository {
         'event_id': ?eventId,
         'place_id': ?placeId,
         'car_id': ?carId,
+        'reply_to': ?replyTo,
+        'audio_wave': ?audioWave,
       });
 
   Future<String> uploadMedia({required String me, required Uint8List bytes, required String ext, required String contentType}) async {

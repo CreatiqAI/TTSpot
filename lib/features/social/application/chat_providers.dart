@@ -41,6 +41,10 @@ final conversationProvider = FutureProvider.family<Conversation?, String>((ref, 
 /// Live message list: initial fetch, then realtime inserts appended.
 final sharedInChatProvider = FutureProvider.family<List<Message>, String>((ref, id) => ref.watch(chatRepositoryProvider).shared(id));
 
+/// A single message by id: the original of a reply that's older than the
+/// loaded page. Null once it's deleted.
+final chatMessageProvider = FutureProvider.family<Message?, String>((ref, id) => ref.watch(chatRepositoryProvider).message(id));
+
 final messagesProvider = StreamProvider.family<List<Message>, String>((ref, conversationId) {
   final repo = ref.watch(chatRepositoryProvider);
   final controller = StreamController<List<Message>>();
@@ -131,9 +135,9 @@ class ChatActions {
     return id;
   }
 
-  Future<void> send(String conversationId, String body) async {
+  Future<void> send(String conversationId, String body, {String? replyTo}) async {
     if (body.trim().isEmpty) return;
-    await _ref.read(chatRepositoryProvider).send(asClub: _actor(conversationId).asClub, asVendor: _actor(conversationId).asVendor, conversationId: conversationId, me: _me, body: body);
+    await _ref.read(chatRepositoryProvider).send(asClub: _actor(conversationId).asClub, asVendor: _actor(conversationId).asVendor, conversationId: conversationId, me: _me, body: body, replyTo: replyTo);
   }
 
   /// Drop a post or moment into a chat, with an optional note.
@@ -154,38 +158,38 @@ class ChatActions {
     _ref.invalidate(inboxProvider);
   }
 
-  Future<void> sendPhoto(String conversationId, XFile file) async {
+  Future<void> sendPhoto(String conversationId, XFile file, {String? replyTo}) async {
     final repo = _ref.read(chatRepositoryProvider);
     final url = await repo.uploadPhoto(me: _me, bytes: await file.readAsBytes());
-    await repo.send(asClub: _actor(conversationId).asClub, asVendor: _actor(conversationId).asVendor, conversationId: conversationId, me: _me, body: 'Sent a photo', imageUrl: url);
+    await repo.send(asClub: _actor(conversationId).asClub, asVendor: _actor(conversationId).asVendor, conversationId: conversationId, me: _me, body: 'Sent a photo', imageUrl: url, replyTo: replyTo);
     _ref.invalidate(inboxProvider);
   }
 
-  Future<void> sendVoice(String conversationId, Uint8List bytes, int ms) async {
+  Future<void> sendVoice(String conversationId, Uint8List bytes, int ms, {List<int>? wave, String? replyTo}) async {
     final repo = _ref.read(chatRepositoryProvider);
     final url = await repo.uploadMedia(me: _me, bytes: bytes, ext: 'm4a', contentType: 'audio/mp4');
-    await repo.send(asClub: _actor(conversationId).asClub, asVendor: _actor(conversationId).asVendor, conversationId: conversationId, me: _me, body: 'Voice note', audioUrl: url, audioMs: ms);
+    await repo.send(asClub: _actor(conversationId).asClub, asVendor: _actor(conversationId).asVendor, conversationId: conversationId, me: _me, body: 'Voice note', audioUrl: url, audioMs: ms, replyTo: replyTo, audioWave: wave == null || wave.isEmpty ? null : wave);
     _ref.invalidate(inboxProvider);
   }
 
-  Future<void> sendVideo(String conversationId, XFile file) async {
+  Future<void> sendVideo(String conversationId, XFile file, {String? replyTo}) async {
     // Library picks can skip maxDuration, so check the size before reading it in.
     if (await file.length() > kChatVideoMaxMb * 1024 * 1024) throw const AppException('That video is too big. Pick one under $kChatVideoMaxMb MB.');
     final bytes = await file.readAsBytes();
     final repo = _ref.read(chatRepositoryProvider);
     final url = await repo.uploadMedia(me: _me, bytes: bytes, ext: 'mp4', contentType: 'video/mp4');
-    await repo.send(asClub: _actor(conversationId).asClub, asVendor: _actor(conversationId).asVendor, conversationId: conversationId, me: _me, body: 'Sent a video', videoUrl: url);
+    await repo.send(asClub: _actor(conversationId).asClub, asVendor: _actor(conversationId).asVendor, conversationId: conversationId, me: _me, body: 'Sent a video', videoUrl: url, replyTo: replyTo);
     _ref.invalidate(inboxProvider);
   }
 
-  Future<void> sendSticker(String conversationId, String key) async {
-    await _ref.read(chatRepositoryProvider).send(asClub: _actor(conversationId).asClub, asVendor: _actor(conversationId).asVendor, conversationId: conversationId, me: _me, body: 'Sent a sticker', sticker: key);
+  Future<void> sendSticker(String conversationId, String key, {String? replyTo}) async {
+    await _ref.read(chatRepositoryProvider).send(asClub: _actor(conversationId).asClub, asVendor: _actor(conversationId).asVendor, conversationId: conversationId, me: _me, body: 'Sent a sticker', sticker: key, replyTo: replyTo);
     _ref.invalidate(inboxProvider);
   }
 
-  Future<void> attach(String conversationId, {String? eventId, String? placeId, String? carId}) async {
+  Future<void> attach(String conversationId, {String? eventId, String? placeId, String? carId, String? replyTo}) async {
     final body = eventId != null ? 'Shared a meet' : (placeId != null ? 'Shared a spot' : 'Shared a car');
-    await _ref.read(chatRepositoryProvider).send(asClub: _actor(conversationId).asClub, asVendor: _actor(conversationId).asVendor, conversationId: conversationId, me: _me, body: body, eventId: eventId, placeId: placeId, carId: carId);
+    await _ref.read(chatRepositoryProvider).send(asClub: _actor(conversationId).asClub, asVendor: _actor(conversationId).asVendor, conversationId: conversationId, me: _me, body: body, eventId: eventId, placeId: placeId, carId: carId, replyTo: replyTo);
     _ref.invalidate(inboxProvider);
   }
 

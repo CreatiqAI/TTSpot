@@ -164,6 +164,7 @@ abstract final class AppIcons {
   static const IconData microphone = IconData(0xe326, fontFamily: _family);
   static const IconData pause = IconData(0xe39e, fontFamily: _family);
   static const IconData play = IconData(0xe3d0, fontFamily: _family);
+  static const IconData arrowBendUpLeft = IconData(0xe024, fontFamily: _family);
   static const IconData googleLogo = IconData(0xe292, fontFamily: _family);
   static const IconData bellSlash = IconData(0xe0d4, fontFamily: _family);
   static const IconData paperPlaneRight = IconData(0xe396, fontFamily: _family);
@@ -191,6 +192,9 @@ abstract final class AppIcons {
   static const IconData eyeSlashFill = IconData(0xe224, fontFamily: _fill);
   static const IconData starFill = IconData(0xe46a, fontFamily: _fill);
   static const IconData cameraFill = IconData(0xe10e, fontFamily: _fill);
+  static const IconData playFill = IconData(0xe3d0, fontFamily: _fill);
+  static const IconData pauseFill = IconData(0xe39e, fontFamily: _fill);
+  static const IconData microphoneFill = IconData(0xe326, fontFamily: _fill);
   static const IconData calendarBlankFill = IconData(0xe10a, fontFamily: _fill);
   static const IconData houseFill = IconData(0xe2c2, fontFamily: _fill);
   static const IconData usersFill = IconData(0xe4d6, fontFamily: _fill);

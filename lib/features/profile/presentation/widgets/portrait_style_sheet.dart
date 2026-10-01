@@ -38,17 +38,47 @@ Future<void> showPortraitStyleSheet(BuildContext context, WidgetRef ref, Car car
     context: context,
     showDragHandle: true,
     isScrollControlled: true,
-    builder: (ctx) => PortraitStylePicker(car: car, cost: settings.cost),
+    // Opens at about 85 % of the screen with the page peeking above it, so
+    // it reads as a sheet you can swipe away (the content drags it down too).
+    builder: (ctx) => LayoutBuilder(
+      builder: (ctx, c) {
+        final full = c.maxHeight * kPortraitSheetSize;
+        return DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: kPortraitSheetSize,
+          maxChildSize: kPortraitSheetSize,
+          minChildSize: 0, // dragged all the way down: the sheet closes
+          snap: true,
+          // The picker keeps its open height while the sheet slides away
+          // (clipped, not squeezed), so a swipe down never overflows.
+          builder: (ctx, scroll) => ClipRect(
+            child: OverflowBox(
+              alignment: Alignment.topCenter,
+              minHeight: full,
+              maxHeight: full,
+              child: PortraitStylePicker(car: car, cost: settings.cost, scrollController: scroll),
+            ),
+          ),
+        );
+      },
+    ),
   );
 }
+
+/// Share of the screen the style sheet opens at.
+const kPortraitSheetSize = 0.85;
 
 /// The sheet's body: header, one line on price and timing, then the styles
 /// two to a row. Rows size to their text (no fixed tile height), so long
 /// descriptions and big font sizes wrap instead of clipping.
 class PortraitStylePicker extends StatefulWidget {
-  const PortraitStylePicker({super.key, required this.car, required this.cost});
+  const PortraitStylePicker({super.key, required this.car, required this.cost, this.scrollController});
   final Car car;
   final int cost;
+
+  /// The sheet's controller, so a swipe down on the styles drags the sheet
+  /// once they are scrolled to the top.
+  final ScrollController? scrollController;
 
   @override
   State<PortraitStylePicker> createState() => _PortraitStylePickerState();
@@ -74,6 +104,7 @@ class _PortraitStylePickerState extends State<PortraitStylePicker> {
   Widget build(BuildContext context) {
     final cost = widget.cost;
     return SafeArea(
+      top: false,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
         child: Column(
@@ -89,6 +120,7 @@ class _PortraitStylePickerState extends State<PortraitStylePicker> {
             const SizedBox(height: 14),
             Flexible(
               child: SingleChildScrollView(
+                controller: widget.scrollController,
                 child: Column(
                   children: [
                     for (var r = 0; r < kPortraitStyles.length; r += 2) ...[

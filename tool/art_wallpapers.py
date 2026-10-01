@@ -5,11 +5,11 @@
 writes assets/wallpapers/<id>_<light|dark>.webp and a preview sheet for the owner at
 design/wallpapers/sheet.jpg (each wallpaper with mock bubbles, light and dark).
 
-  ttspot  (default) seamless doodle tile of car-culture Phosphor glyphs, very low contrast.
+  ttspot  seamless doodle tile of car-culture Phosphor glyphs, very low contrast.
           Repeats in the app (ImageRepeat.repeat, 768 px tile shown at 384 logical px).
   night   full-screen dusk / night-drive gradient with faint lane lines and city bokeh.
           Not a tile: BoxFit.cover, pinned to the bottom of the list.
-  titi    seamless pastel tile of faded TiTi heads and line cones. Repeats like ttspot.
+  titi    (the default) seamless pastel tile of faded TiTi heads and line cones. Repeats like ttspot.
 
 The bubble / chip colours drawn in the sheet mirror ChatWallpaperStyle in
 lib/features/social/presentation/widgets/chat_wallpaper.dart; change both together.
@@ -424,7 +424,7 @@ def mock(wid, mode, img, W=760, H=1500):
 
 
 def sheet(walls):
-    names = [('ttspot', 'TT Spot (default)'), ('night', 'Night drive'), ('titi', 'TiTi')]
+    names = [('titi', 'TiTi (default)'), ('ttspot', 'TT Spot'), ('night', 'Night drive')]
     pw, ph = 456, 900
     gap, top, label = 36, 160, 64
     W = gap + len(names) * (pw + gap)

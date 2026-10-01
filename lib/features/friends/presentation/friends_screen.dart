@@ -15,6 +15,7 @@ import '../../social/application/chat_providers.dart';
 import '../../social/application/social_providers.dart';
 import '../application/friends_providers.dart';
 import '../domain/friend.dart';
+import 'friend_request_buttons.dart';
 
 /// Friends: requests waiting, your friends, people you may know, and search.
 class FriendsScreen extends ConsumerStatefulWidget {
@@ -33,11 +34,47 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
   /// back in place (now showing Requested) until I leave the page.
   final _added = <String, (int, FriendSuggestion)>{};
 
+  /// Requests answered on this visit stay in the list, showing Message or
+  /// "Request removed", until I leave (the refreshed list drops them).
+  final _answers = FriendRequestAnswers();
+  final _keptRequests = <String, FriendRequest>{};
+
+  @override
+  void initState() {
+    super.initState();
+    _answers.addListener(_changed);
+  }
+
   @override
   void dispose() {
+    _answers.dispose();
     _query.dispose();
     super.dispose();
   }
+
+  void _changed() {
+    if (mounted) setState(() {});
+  }
+
+  /// Accept or Delete: the row changes at once and goes back if it fails.
+  Future<void> _answerRequest(FriendRequest r, RequestAnswer a) async {
+    final id = r.from.id;
+    _keptRequests[id] = r;
+    final actions = ref.read(friendActionsProvider);
+    try {
+      await _answers.answer(_key(r), a, () => a == RequestAnswer.accepted ? actions.accept(id) : actions.decline(id));
+    } catch (e) {
+      if (mounted) _snack(friendlyError(e));
+    }
+  }
+
+  /// One answer per request (a later request from the same person is new).
+  static String _key(FriendRequest r) => '${r.from.id}@${r.createdAt.toIso8601String()}';
+
+  Future<void> _message(String userId) => _run(() async {
+        final conv = await ref.read(chatActionsProvider).openDm(userId);
+        if (mounted) context.push(Routes.chat(conv));
+      });
 
   void _snack(String m) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
 
@@ -63,6 +100,8 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
       if (!suggestions.any((x) => x.profile.id == sgg.profile.id)) suggestions.insert(i.clamp(0, suggestions.length), sgg);
     }
     final actions = ref.read(friendActionsProvider);
+    final shownRequests = keepAnsweredRows(requests, _keptRequests.values, id: (r) => r.from.id, newerFirst: (a, b) => b.createdAt.compareTo(a.createdAt));
+    final waiting = shownRequests.where((r) => _answers.of(_key(r)) == null).length;
 
     Widget addButton(Profile p, {(int, FriendSuggestion)? keep}) => FilledButton(
           onPressed: () => _run(() async {
@@ -146,27 +185,16 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
                 },
               )
             else ...[
-              if (requests.isNotEmpty) ...[
-                _Section('REQUESTS · ${requests.length}'),
-                for (final r in requests)
+              if (shownRequests.isNotEmpty) ...[
+                _Section(waiting == 0 ? 'REQUESTS' : 'REQUESTS · $waiting'),
+                for (final r in shownRequests)
                   _PersonTile(
                     profile: r.from,
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        FilledButton(
-                          onPressed: () => _run(() => actions.accept(r.from.id)),
-                          style: FilledButton.styleFrom(minimumSize: const Size(0, 36), padding: const EdgeInsets.symmetric(horizontal: 14)),
-                          child: const Text('Accept'),
-                        ),
-                        const SizedBox(width: 6),
-                        IconButton(
-                          tooltip: 'Decline',
-                          visualDensity: VisualDensity.compact,
-                          icon: const Icon(AppIcons.x),
-                          onPressed: () => _run(() => actions.decline(r.from.id)),
-                        ),
-                      ],
+                    trailing: FriendRequestButtons(
+                      answer: _answers.of(_key(r)),
+                      onAccept: () => _answerRequest(r, RequestAnswer.accepted),
+                      onDelete: () => _answerRequest(r, RequestAnswer.removed),
+                      onMessage: () => _message(r.from.id),
                     ),
                   ),
               ],

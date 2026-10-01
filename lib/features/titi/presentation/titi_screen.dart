@@ -17,6 +17,7 @@ import '../../social/presentation/widgets/chat_media.dart' show ChatTimePill;
 import '../application/titi_controller.dart';
 import '../domain/titi_message.dart';
 import 'titi_answer.dart';
+import 'titi_background.dart';
 import 'titi_sessions_sheet.dart';
 
 /// Chat with TiTi, the app's assistant: meets, spots, clubs, the member's own
@@ -228,48 +229,50 @@ class _TitiScreenState extends ConsumerState<TitiScreen> {
       body: Column(
         children: [
           Expanded(
-            child: Stack(
-              children: [
-                Positioned.fill(child: _list(s, c)),
-                // Nothing yet: TiTi says hi, with starters. Fades out on the first question.
-                Positioned.fill(
-                  child: IgnorePointer(
-                    ignoring: s.messages.isNotEmpty || s.loading,
-                    child: AnimatedOpacity(
-                      opacity: s.messages.isEmpty && !s.loading ? 1 : 0,
-                      duration: const Duration(milliseconds: 220),
-                      child: _Empty(starters: _starters, onPick: _send, error: s.loadError, onReload: c.reload),
+            child: TitiBackground(
+              child: Stack(
+                children: [
+                  Positioned.fill(child: _list(s, c)),
+                  // Nothing yet: TiTi says hi, with starters. Fades out on the first question.
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      ignoring: s.messages.isNotEmpty || s.loading,
+                      child: AnimatedOpacity(
+                        opacity: s.messages.isEmpty && !s.loading ? 1 : 0,
+                        duration: const Duration(milliseconds: 220),
+                        child: _Empty(starters: _starters, onPick: _send, error: s.loadError, onReload: c.reload),
+                      ),
                     ),
                   ),
-                ),
-                if (s.loading && s.messages.isEmpty) const Center(child: CircularProgressIndicator(strokeWidth: 2)),
-                // Scrolled up: a quick way back to the newest message.
-                Positioned(
-                  right: 14,
-                  bottom: 10,
-                  child: IgnorePointer(
-                    ignoring: !_showDown,
-                    child: AnimatedScale(
-                      scale: _showDown ? 1 : 0.6,
-                      duration: const Duration(milliseconds: 180),
-                      child: AnimatedOpacity(
-                        opacity: _showDown ? 1 : 0,
+                  if (s.loading && s.messages.isEmpty) const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                  // Scrolled up: a quick way back to the newest message.
+                  Positioned(
+                    right: 14,
+                    bottom: 10,
+                    child: IgnorePointer(
+                      ignoring: !_showDown,
+                      child: AnimatedScale(
+                        scale: _showDown ? 1 : 0.6,
                         duration: const Duration(milliseconds: 180),
-                        child: Material(
-                          color: AppColors.surface,
-                          shape: CircleBorder(side: BorderSide(color: AppColors.border)),
-                          elevation: 2,
-                          child: InkWell(
-                            customBorder: const CircleBorder(),
-                            onTap: () => _follow(force: true),
-                            child: SizedBox(width: 40, height: 40, child: Icon(AppIcons.arrowDown, size: 18, color: AppColors.textPrimary)),
+                        child: AnimatedOpacity(
+                          opacity: _showDown ? 1 : 0,
+                          duration: const Duration(milliseconds: 180),
+                          child: Material(
+                            color: AppColors.surface,
+                            shape: CircleBorder(side: BorderSide(color: AppColors.border)),
+                            elevation: 2,
+                            child: InkWell(
+                              customBorder: const CircleBorder(),
+                              onTap: () => _follow(force: true),
+                              child: SizedBox(width: 40, height: 40, child: Icon(AppIcons.arrowDown, size: 18, color: AppColors.textPrimary)),
+                            ),
                           ),
                         ),
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
           _Composer(
@@ -406,7 +409,7 @@ class _Mine extends StatelessWidget {
               constraints: BoxConstraints(maxWidth: titiMaxBubble(context)),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
               decoration: BoxDecoration(
-                color: AppColors.surfaceGray,
+                color: TitiBackground.mineFill,
                 borderRadius: const BorderRadius.only(topLeft: Radius.circular(18), topRight: Radius.circular(18), bottomLeft: Radius.circular(18), bottomRight: Radius.circular(4)),
               ),
               child: time == null ? _words(text) : Stack(children: [_words(text, room: titiTimeRoom(context, time)), Positioned(right: 0, bottom: 0, child: TitiTime(time))]),
@@ -522,8 +525,8 @@ class _Empty extends StatelessWidget {
   final String? error;
 
   @override
-  Widget build(BuildContext context) => ColoredBox(
-        color: Theme.of(context).scaffoldBackgroundColor,
+  // Sits straight on TiTi's background (the list behind is empty).
+  Widget build(BuildContext context) => SizedBox.expand(
         child: Center(
           child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),

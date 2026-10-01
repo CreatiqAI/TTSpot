@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:car_meet/core/theme/app_theme.dart';
+import 'package:car_meet/features/points/application/points_providers.dart';
+import 'package:car_meet/features/profile/application/portrait_providers.dart';
 import 'package:car_meet/features/profile/application/portrait_share.dart';
 import 'package:car_meet/features/profile/domain/car.dart';
 import 'package:car_meet/features/profile/domain/portrait_style.dart';
@@ -146,5 +148,40 @@ void main() {
     expect(find.text('SHOWROOM'), findsOneWidget);
     expect(find.text('Paint my 718 Cayman GT4 · free'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the style sheet opens at 85 % with the page peeking above, and a swipe down closes it', (tester) async {
+    tester.view.physicalSize = const Size(1080, 2340); // a 393 x 851 phone
+    tester.view.devicePixelRatio = 2.75;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        portraitSettingsProvider.overrideWith((ref) async => (enabled: true, cost: 300)),
+        pointsBalanceProvider.overrideWith((ref) async => 1000),
+      ],
+      child: MaterialApp(
+        theme: AppTheme.current,
+        home: Consumer(
+          builder: (context, ref, _) => Scaffold(
+            body: Center(child: TextButton(onPressed: () => showPortraitStyleSheet(context, ref, _car), child: const Text('open'))),
+          ),
+        ),
+      ),
+    ));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    expect(find.text('Paint your 718 Cayman GT4'), findsOneWidget);
+
+    const screen = 851.0;
+    final sheet = tester.getRect(find.byType(PortraitStylePicker));
+    // The page shows above the sheet (and its drag handle): about 15 % of the screen.
+    expect(sheet.top, greaterThan(screen * 0.12));
+    expect(sheet.top, lessThan(screen * 0.2));
+    expect(tester.takeException(), isNull);
+
+    // A swipe down on the styles (scrolled to the top) drags the sheet away.
+    await tester.fling(find.byType(PortraitStyleTile).first, const Offset(0, 600), 2000);
+    await tester.pumpAndSettle();
+    expect(find.byType(PortraitStylePicker), findsNothing);
   });
 }

@@ -12,14 +12,17 @@ import '../../../settings/application/settings_providers.dart';
 /// in Settings > Appearance or on any chat's info page. Each has a light and a
 /// dark picture (art: tool/art_wallpapers.py, preview: design/wallpapers/sheet.jpg).
 enum ChatWallpaper {
+  titi('TiTi'),
   ttspot('TT Spot'),
-  night('Night drive'),
-  titi('TiTi');
+  night('Night drive');
 
   const ChatWallpaper(this.label);
   final String label;
 
-  static ChatWallpaper fromId(String id) => values.firstWhere((w) => w.name == id, orElse: () => ttspot);
+  /// What a member who never picked one sees (an unset `chat_wallpaper`).
+  static const fallback = titi;
+
+  static ChatWallpaper fromId(String id) => values.firstWhere((w) => w.name == id, orElse: () => fallback);
 
   String get id => name;
 
@@ -296,7 +299,7 @@ class _Option extends StatelessWidget {
                 maxLines: 2,
                 style: TextStyle(fontSize: 13.5, fontWeight: selected ? FontWeight.w800 : FontWeight.w600, color: selected ? AppColors.textPrimary : AppColors.textSecondary),
               ),
-              if (wallpaper == ChatWallpaper.ttspot) Text('Default', textAlign: TextAlign.center, style: TextStyle(fontSize: 11.5, color: AppColors.textMuted)),
+              if (wallpaper == ChatWallpaper.fallback) Text('Default', textAlign: TextAlign.center, style: TextStyle(fontSize: 11.5, color: AppColors.textMuted)),
             ],
           ),
         ),

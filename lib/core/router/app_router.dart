@@ -328,6 +328,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         },
       ),
       GoRoute(path: Routes.suggestSpot, pageBuilder: (_, s) => page(s, const SuggestSpotScreen())),
+      // Before /partner/:id, which would otherwise match /partner/apply (id "apply")
+      // and spin on a partner page that can't load. Literal paths go first.
+      GoRoute(path: Routes.partnerApply, pageBuilder: (_, s) => page(s, const PartnerApplyScreen())),
       GoRoute(path: '/partner/:id', pageBuilder: (_, s) => page(s, PartnerScreen(vendorId: s.pathParameters['id']!))),
       GoRoute(
         path: '/event/:id',
@@ -416,7 +419,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: Routes.adminPartners, pageBuilder: (_, s) => page(s, const AdminPartnersScreen())),
       GoRoute(path: Routes.adminCommission, pageBuilder: (_, s) => page(s, const AdminCommissionScreen())),
       GoRoute(path: Routes.adminPoints, pageBuilder: (_, s) => page(s, AdminGivePointsScreen(userId: s.uri.queryParameters['user']))),
-      GoRoute(path: Routes.partnerApply, pageBuilder: (_, s) => page(s, const PartnerApplyScreen())),
       GoRoute(path: Routes.clubApply, pageBuilder: (_, s) => page(s, const PartnerApplyScreen(kind: ApplicationKind.club))),
       GoRoute(path: Routes.locationGate, pageBuilder: (_, s) => page(s, const LocationGateScreen())),
       GoRoute(path: Routes.vendor, pageBuilder: (_, s) => page(s, const VendorDashboardScreen())),

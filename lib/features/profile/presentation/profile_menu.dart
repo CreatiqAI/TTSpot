@@ -55,7 +55,7 @@ Future<void> showProfileMenu(BuildContext context, WidgetRef ref) async {
             _Item(AppIcons.star, 'Points', 'points'),
             _Item(AppIcons.userPlus, 'Invite friends', 'invite'),
             _Item(AppIcons.gift, 'Rewards & vouchers', 'rewards'),
-            _Item(AppIcons.sparkle, 'Cards & blind boxes', 'cards'),
+            _Item(AppIcons.cards, 'Cards & blind boxes', 'cards'),
             _Item(AppIcons.trophy, 'Badges', 'badges'),
             _Group('PARTNERS & CLUBS'),
             _Item(AppIcons.storefront, isVendor ? 'Partner dashboard' : 'Become a partner', 'partner'),

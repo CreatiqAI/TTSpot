@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_icons.dart';
@@ -68,8 +66,6 @@ class ProfileHeader extends StatelessWidget {
     final where = (p.homeState ?? '').isNotEmpty ? ' · ${p.homeState}' : '';
     final live = moments.any((m) => m.isLive);
     final showGarage = isMe || cars.isNotEmpty;
-    // Width of the numbers column beside the 88 px avatar (16 px gutters and gap).
-    final column = MediaQuery.sizeOf(context).width - 16 - 88 - 16 - 16;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -112,19 +108,12 @@ class ProfileHeader extends StatelessWidget {
                       const SizedBox(height: 8),
                       IntrinsicHeight(
                         child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            // The garage label shows whole (up to ~60 % of the
-                            // column); the points take the rest and a big
-                            // balance shrinks to fit.
-                            if (showGarage)
-                              ConstrainedBox(
-                                constraints: BoxConstraints(maxWidth: math.max(110, column * 0.6)),
-                                child: _GaragePill(label: isMe ? 'My garage' : garageTitle(p), onTap: onGarage),
-                              ),
+                            // A matched pair, equal widths, 8 px apart.
+                            if (showGarage) Expanded(child: _GaragePill(label: isMe ? 'My garage' : garageTitle(p), fit: isMe, onTap: onGarage)),
                             if (showGarage && points != null) const SizedBox(width: 8),
-                            if (points != null) Flexible(child: _PointsCard(points: points!, onTap: onPoints)),
+                            if (points != null) Expanded(child: _PointsCard(points: points!, onTap: onPoints)),
                           ],
                         ),
                       ),
@@ -188,10 +177,8 @@ class ProfileHeader extends StatelessWidget {
   }
 }
 
-/// My points: a pill as wide as what it says, at the right end of the row
-/// under the numbers. Coin, balance, "points" and the arrow sit close
-/// together with the same gap on either side; a long balance shrinks to fit.
-/// Tap for the Points page (history and how to earn).
+/// My points, the right half of the pair under the numbers. Tap for the
+/// Points page (history and how to earn).
 class _PointsCard extends StatelessWidget {
   const _PointsCard({required this.points, required this.onTap});
   final int points;
@@ -200,34 +187,80 @@ class _PointsCard extends StatelessWidget {
   static String _grouped(int n) => n.toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (_) => ',');
 
   @override
-  Widget build(BuildContext context) => Material(
+  Widget build(BuildContext context) => _HeaderPill(
         color: AppColors.brand.withValues(alpha: 0.08),
+        onTap: onTap,
+        leading: const PointsCoin(size: 21),
+        // A big balance shrinks to fit rather than wrapping.
+        label: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text(_grouped(points), style: const TextStyle(fontFamily: AppFonts.display, fontSize: 20, fontWeight: FontWeight.w700, height: 1, color: AppColors.brand)),
+              const SizedBox(width: 4),
+              Text('points', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
+            ],
+          ),
+        ),
+      );
+}
+
+/// Into a garage: mine (add, switch and open cars) or someone else's to look
+/// through. The twin of the points pill: a round badge where the coin is.
+class _GaragePill extends StatelessWidget {
+  const _GaragePill({required this.label, required this.onTap, this.fit = false});
+  final String label;
+  final VoidCallback onTap;
+  final bool fit;
+
+  @override
+  Widget build(BuildContext context) => _HeaderPill(
+        color: AppColors.textPrimary.withValues(alpha: 0.06),
+        onTap: onTap,
+        leading: Container(
+          width: 21,
+          height: 21,
+          decoration: BoxDecoration(color: AppColors.textPrimary, shape: BoxShape.circle),
+          alignment: Alignment.center,
+          child: Icon(AppIcons.garage, size: 13, color: AppColors.bg),
+        ),
+        // "My garage" shrinks a touch rather than lose letters; a long
+        // "Muhammad Hafiz's garage" ends in "…" instead.
+        label: fit
+            ? FittedBox(fit: BoxFit.scaleDown, child: Text(label, maxLines: 1, style: _style))
+            : Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: _style),
+      );
+
+  TextStyle get _style => TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: AppColors.textPrimary);
+}
+
+/// The shared shape of the two pills under the numbers: tinted, rounded,
+/// badge + label + arrow centred together, the same padding and height.
+class _HeaderPill extends StatelessWidget {
+  const _HeaderPill({required this.color, required this.onTap, required this.leading, required this.label});
+  final Color color;
+  final VoidCallback onTap;
+  final Widget leading;
+  final Widget label;
+
+  @override
+  Widget build(BuildContext context) => Material(
+        color: color,
         borderRadius: BorderRadius.circular(AppRadius.md),
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(AppRadius.md),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(10, 6, 8, 6),
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 7),
             child: Row(
-              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const PointsCoin(size: 20),
-                const SizedBox(width: 6),
-                Flexible(
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.baseline,
-                      textBaseline: TextBaseline.alphabetic,
-                      children: [
-                        Text(_grouped(points), style: const TextStyle(fontFamily: AppFonts.display, fontSize: 22, fontWeight: FontWeight.w700, height: 1, color: AppColors.brand)),
-                        const SizedBox(width: 4),
-                        Text('points', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 4),
+                leading,
+                const SizedBox(width: 5),
+                Flexible(child: label),
+                const SizedBox(width: 3),
                 Icon(AppIcons.caretRight, size: 13, color: AppColors.textMuted),
               ],
             ),
@@ -236,36 +269,6 @@ class _PointsCard extends StatelessWidget {
       );
 }
 
-/// Into a garage: mine (add, switch and open cars) or someone else's to look
-/// through. A pill at the left end of the row under the numbers.
-class _GaragePill extends StatelessWidget {
-  const _GaragePill({required this.label, required this.onTap});
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => Material(
-        color: AppColors.surfaceGray,
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(AppRadius.md),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(AppIcons.garage, size: 17, color: AppColors.textPrimary),
-                const SizedBox(width: 6),
-                Flexible(
-                  child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-}
 class _Stat extends StatelessWidget {
   const _Stat({required this.value, required this.label, this.onTap});
   final int? value;

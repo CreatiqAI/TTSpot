@@ -9,6 +9,7 @@ import '../../../core/supabase/supabase_client.dart';
 import '../../../core/utils/plate_blur.dart';
 import '../../../core/utils/thumbnails.dart';
 import '../domain/car.dart';
+import '../domain/car_photo_storage.dart';
 import '../domain/car_recognition.dart';
 import '../domain/garage_look.dart';
 
@@ -87,11 +88,16 @@ class ProfileRepository {
     String? specs,
     String? bodyStyle,
     String? garageStyle,
+    bool clearCutout = false,
   }) async {
     final row = await _client
         .from('cars')
         .update({
           'garage_style': ?garageStyle,
+          // A new cover (a blurred copy, say): the old cut-out is stale and
+          // may show the plate; the owner's phone cuts the new cover.
+          if (clearCutout) 'cutout_url': null,
+          if (clearCutout) 'cutout_source': null,
           'color': color,
           'make': make.trim(),
           'model': model.trim(),
@@ -110,12 +116,12 @@ class ProfileRepository {
   Future<void> deleteCar(String id) => _client.from('cars').delete().eq('id', id);
 
   /// Uploads to `car-photos/<userId>/<millis>_<index>.<ext>` (plus its grid
-  /// thumbnail), returns the public URL. JPEG straight from the picker; PNG
-  /// once a plate was blurred.
-  Future<String> uploadCarPhoto({required String userId, required Uint8List bytes, required int index}) async {
+  /// thumbnail), returns the public URL. [plateBlurred] photos get
+  /// `…_<index>_pb.<ext>` so the form knows they are already hidden.
+  Future<String> uploadCarPhoto({required String userId, required Uint8List bytes, required int index, bool plateBlurred = false}) async {
     final type = imageContentType(bytes);
     final ext = switch (type) { 'image/png' => 'png', 'image/webp' => 'webp', _ => 'jpg' };
-    final path = '$userId/${DateTime.now().millisecondsSinceEpoch}_$index.$ext';
+    final path = '$userId/${DateTime.now().millisecondsSinceEpoch}_$index${plateBlurred ? kPlateBlurredSuffix : ''}.$ext';
     final bucket = _client.storage.from('car-photos');
     await Future.wait([
       bucket.uploadBinary(path, bytes, fileOptions: FileOptions(contentType: type, cacheControl: kImmutableCacheControl)),
@@ -139,13 +145,36 @@ class ProfileRepository {
 
   /// Records a cut-out attempt for [source] (the cover photo): [url] is null
   /// when it didn't pass the quality check, so the car shows as a card and
-  /// isn't cut again until the cover changes. Skipped when the cover changed
-  /// meanwhile (the next garage visit cuts the new one).
-  Future<void> saveCutout({required String carId, required String? url, required String source}) async {
+  /// isn't cut again until the cover changes. Skipped (false) when the cover
+  /// changed meanwhile (the next garage visit cuts the new one).
+  Future<bool> saveCutout({required String carId, required String? url, required String source}) async {
     final row = await _client.from('cars').select('photo_urls').eq('id', carId).maybeSingle();
     final photos = ((row?['photo_urls'] as List?) ?? const []).cast<String>();
-    if (photos.isEmpty || photos.first != source) return;
+    if (photos.isEmpty || photos.first != source) return false;
     await _client.from('cars').update({'cutout_url': url, 'cutout_source': source}).eq('id', carId);
+    return true;
+  }
+
+  /// Deletes car photos that a save replaced with blurred copies ([replaced],
+  /// with their thumbnails and cut-outs) and cut-outs no car uses any more
+  /// ([staleCutouts]): the originals show the plate and the bucket is public.
+  /// Only [ownerId]'s own files that none of their cars still points at
+  /// (see [stalePhotoPaths]); returns the paths it removed. Call it after
+  /// the cars row is saved.
+  Future<List<String>> deleteUnreferencedPhotos({required String ownerId, Iterable<String> replaced = const [], Iterable<String> staleCutouts = const []}) async {
+    if (replaced.isEmpty && staleCutouts.isEmpty) return const [];
+    final rows = await _client.from('cars').select('photo_urls, cutout_url').eq('owner_id', ownerId);
+    final referenced = <String>[
+      for (final r in rows) ...[
+        ...((r['photo_urls'] as List?) ?? const []).whereType<String>(),
+        if (r['cutout_url'] case final String u) u,
+      ],
+    ];
+    final bucket = _client.storage.from('car-photos');
+    final paths = stalePhotoPaths(ownerId: ownerId, bucketUrl: bucket.getPublicUrl(''), replaced: replaced, referenced: referenced, staleCutouts: staleCutouts);
+    if (paths.isEmpty) return const [];
+    await bucket.remove(paths);
+    return paths;
   }
 
   /// 'auto' (cut-out when there is a good one) or 'card'.

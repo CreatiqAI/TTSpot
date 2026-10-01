@@ -3,9 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_icons.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/titi.dart';
-import '../../../../core/widgets/primary_button.dart';
 import '../../../map/presentation/widgets/car_marker.dart' show kCarColorLabels;
-import '../../application/profile_providers.dart';
 import '../../domain/car_recognition.dart';
 
 /// Shared by onboarding ("Your ride") and Add car: the scanning state while
@@ -272,30 +270,46 @@ class CarSpecGrid extends StatelessWidget {
       );
 }
 
-/// "Hide my number plate" above the upload. Off by default, and then the
-/// photos go up exactly as picked. On, each photo's plate is blurred first
-/// and the thumbnails show the blurred copy.
+/// "Hide my number plate" under the photos. Off by default, and then the
+/// photos go up exactly as picked. On, each photo's plate is blurred right
+/// away (saved photos too) and the thumbnails show the blurred copy.
 class HidePlateSwitch extends StatelessWidget {
-  const HidePlateSwitch({super.key, required this.value, required this.onChanged, this.working = false, this.failed = false, this.photos = 0, this.blurred = 0});
+  const HidePlateSwitch({
+    super.key,
+    required this.value,
+    required this.onChanged,
+    this.working = false,
+    this.failed = false,
+    this.photos = 0,
+    this.blurred = 0,
+    this.guessed = 0,
+    this.keepsBlurred = false,
+  });
   final bool value;
   final ValueChanged<bool>? onChanged;
 
   /// Looking for plates right now.
   final bool working;
 
-  /// A photo couldn't be checked (offline, say).
+  /// A photo couldn't be loaded or blurred (offline, say).
   final bool failed;
 
-  /// New photos checked, and how many had a plate blurred.
+  /// Photos checked, how many show a blurred plate, and on how many the
+  /// blur is only a guess (the recogniser couldn't be asked).
   final int photos;
   final int blurred;
+  final int guessed;
+
+  /// Edit car: says that turning it off keeps saved photos blurred.
+  final bool keepsBlurred;
 
   String get _status {
-    if (!value) return 'Off: your photos go up as they are.';
+    if (!value) return keepsBlurred ? 'Off: new photos go up as they are.' : 'Off: your photos go up as they are.';
     if (working) return 'Hiding the plate…';
-    if (failed) return 'Couldn\'t check for a plate. Check your connection and try again.';
+    if (failed) return 'Couldn\'t load a photo to hide its plate. Check your connection and try again.';
     if (photos == 0) return 'The plate gets blurred on each photo before it goes up.';
-    if (blurred == 0) return 'No plate seen. Tap the photo to blur it yourself.';
+    if (guessed > 0) return 'Couldn\'t look for the plate, so the blur is a guess. Tap the photo to check it.';
+    if (blurred == 0) return photos == 1 ? 'No plate seen. Tap the photo to blur it yourself.' : 'No plate seen. Tap a photo to blur it yourself.';
     if (photos == 1) return 'Plate blurred. Tap the photo to check it.';
     return 'Plate blurred on $blurred of $photos photos. Tap one to check it.';
   }
@@ -308,81 +322,83 @@ class HidePlateSwitch extends StatelessWidget {
         activeTrackColor: AppColors.brand,
         secondary: Icon(value ? AppIcons.eyeSlash : AppIcons.eye, color: AppColors.textPrimary),
         title: const Text('Hide my number plate', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14.5)),
-        subtitle: Text(_status, style: TextStyle(fontSize: 12.5, height: 1.35, color: value && failed ? AppColors.danger : AppColors.textSecondary)),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(_status, style: TextStyle(fontSize: 12.5, height: 1.35, color: value && failed ? AppColors.danger : AppColors.textSecondary)),
+            if (keepsBlurred)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text('Turning this off keeps photos you already blurred.', style: TextStyle(fontSize: 12, height: 1.35, color: AppColors.textMuted)),
+              ),
+          ],
+        ),
       );
 }
 
-/// The photo as it will go up with the plate hidden, big. The recogniser's
-/// box can miss the plate (or it saw none), so a tap on the plate moves the
-/// blur there.
-Future<void> showPlateCheckSheet(BuildContext context, CarPhotoPick pick) => showModalBottomSheet<void>(
-      useRootNavigator: true, // above the shell tab bar
-      context: context,
-      showDragHandle: true,
-      isScrollControlled: true,
-      builder: (_) => _PlateCheckSheet(pick: pick),
-    );
-
-class _PlateCheckSheet extends StatefulWidget {
-  const _PlateCheckSheet({required this.pick});
-  final CarPhotoPick pick;
+/// A light sweep over a photo that is being worked on (its plate is being
+/// found and blurred).
+class PhotoShimmer extends StatefulWidget {
+  const PhotoShimmer({super.key});
 
   @override
-  State<_PlateCheckSheet> createState() => _PlateCheckSheetState();
+  State<PhotoShimmer> createState() => _PhotoShimmerState();
 }
 
-class _PlateCheckSheetState extends State<_PlateCheckSheet> {
-  final _photo = GlobalKey();
-  bool _busy = false;
+class _PhotoShimmerState extends State<PhotoShimmer> with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 1300))..repeat();
 
-  Future<void> _tap(TapUpDetails d) async {
-    final size = _photo.currentContext?.size;
-    if (_busy || size == null || size.isEmpty) return;
-    setState(() => _busy = true);
-    try {
-      await placePlateAt(widget.pick, d.localPosition.dx / size.width, d.localPosition.dy / size.height, aspect: size.width / size.height);
-    } catch (_) {
-      // Keeps the blur where it was.
-    }
-    if (mounted) setState(() => _busy = false);
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
   }
 
   @override
-  Widget build(BuildContext context) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text('Check the plate', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
-              const SizedBox(height: 4),
-              Text('This is what goes up. If the blur missed your plate, tap the plate.', style: TextStyle(fontSize: 13, height: 1.35, color: AppColors.textSecondary)),
-              const SizedBox(height: 14),
-              ConstrainedBox(
-                constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.55),
-                child: Center(
-                  heightFactor: 1, // as tall as the photo, not the whole allowance
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      GestureDetector(
-                        key: _photo,
-                        onTapUp: _tap,
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(14),
-                          child: Image.memory(widget.pick.bytes(hidePlate: true), gaplessPlayback: true),
-                        ),
-                      ),
-                      if (_busy) const CircularProgressIndicator(strokeWidth: 2),
-                    ],
-                  ),
+  Widget build(BuildContext context) => IgnorePointer(
+        child: AnimatedBuilder(
+          animation: _c,
+          builder: (_, _) {
+            final t = -1.5 + 3 * _c.value; // the band crosses from left to right
+            return DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment(t - 1, -0.4),
+                  end: Alignment(t + 1, 0.4),
+                  colors: [
+                    Colors.white.withValues(alpha: 0.12),
+                    Colors.white.withValues(alpha: 0.5),
+                    Colors.white.withValues(alpha: 0.12),
+                  ],
+                  stops: const [0.3, 0.5, 0.7],
                 ),
               ),
-              const SizedBox(height: 16),
-              PrimaryButton(label: 'Done', onPressed: _busy ? null : () => Navigator.pop(context)),
-            ],
-          ),
+            );
+          },
         ),
       );
+}
+
+/// "Plate hidden" on a photo whose plate is blurred. [compact] for the
+/// small form thumbnails: it shrinks to fit rather than overflow.
+class PlateHiddenBadge extends StatelessWidget {
+  const PlateHiddenBadge({super.key, this.compact = false});
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final pill = Container(
+      padding: EdgeInsets.symmetric(horizontal: compact ? 6 : 9, vertical: compact ? 3 : 5),
+      decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.62), borderRadius: BorderRadius.circular(AppRadius.pill)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(AppIcons.eyeSlash, size: compact ? 11 : 14, color: Colors.white),
+          SizedBox(width: compact ? 3 : 5),
+          Text('Plate hidden', maxLines: 1, style: TextStyle(color: Colors.white, fontSize: compact ? 10 : 12.5, fontWeight: FontWeight.w700)),
+        ],
+      ),
+    );
+    return compact ? FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.topLeft, child: pill) : pill;
+  }
 }

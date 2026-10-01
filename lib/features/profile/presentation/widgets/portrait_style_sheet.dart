@@ -1,10 +1,8 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/router/app_router.dart';
-import '../../../../core/theme/app_icons.dart';
 import '../../../../core/theme/app_images.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/friendly_error.dart';
@@ -14,10 +12,12 @@ import '../../../points/application/points_providers.dart';
 import '../../application/portrait_providers.dart';
 import '../../domain/car.dart';
 import '../../domain/portrait_style.dart';
+import 'portrait_sample_preview.dart';
 
-/// "Which look?" Grid of the 8 portrait styles, then a confirm sheet with the
-/// price in points. Generate books the job (the server takes the points) and
-/// returns straight away; the car page shows it painting.
+/// "Which look?" The 8 portrait styles, each with a real sample (one Porsche
+/// 911 in every style). Tapping one opens the full-screen preview, whose
+/// "Paint my …" button runs the confirm sheet (price in points) and books the
+/// job; the server takes the points and the car page shows it painting.
 Future<void> showPortraitStyleSheet(BuildContext context, WidgetRef ref, Car car) async {
   final messenger = ScaffoldMessenger.of(context);
   if (car.photoUrls.isEmpty) {
@@ -33,57 +33,107 @@ Future<void> showPortraitStyleSheet(BuildContext context, WidgetRef ref, Car car
     return;
   }
   ref.invalidate(pointsBalanceProvider); // the confirm sheet shows a fresh balance
-  final picked = await showModalBottomSheet<PortraitStyle>(
+  await showModalBottomSheet<void>(
     useRootNavigator: true,
     context: context,
     showDragHandle: true,
     isScrollControlled: true,
-    builder: (ctx) => SafeArea(
+    builder: (ctx) => PortraitStylePicker(car: car, cost: settings.cost),
+  );
+}
+
+/// The sheet's body: header, one line on price and timing, then the styles
+/// two to a row. Rows size to their text (no fixed tile height), so long
+/// descriptions and big font sizes wrap instead of clipping.
+class PortraitStylePicker extends StatefulWidget {
+  const PortraitStylePicker({super.key, required this.car, required this.cost});
+  final Car car;
+  final int cost;
+
+  @override
+  State<PortraitStylePicker> createState() => _PortraitStylePickerState();
+}
+
+class _PortraitStylePickerState extends State<PortraitStylePicker> {
+  // One per tile, so the preview can zoom out of (and back into) its card.
+  final _tiles = [for (final _ in kPortraitStyles) GlobalKey()];
+
+  Rect? _tileRect(int i) {
+    final box = _tiles[i].currentContext?.findRenderObject() as RenderBox?;
+    if (box == null || !box.attached || !box.hasSize) return null;
+    return box.localToGlobal(Offset.zero) & box.size;
+  }
+
+  Future<void> _open(int i) async {
+    final started = await showPortraitSamplePreview(context, car: widget.car, cost: widget.cost, initial: i, originOf: _tileRect);
+    // Painting started from the preview: the sheet's job is done too.
+    if (started == true && mounted) Navigator.of(context).pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cost = widget.cost;
+    return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SheetHeader(title: 'Paint your ${car.model}', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+            SheetHeader(title: 'Paint your ${widget.car.model}', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
             const SizedBox(height: 4),
             Text(
-              'Same car, plate blanked, in a look you pick. ${settings.cost > 0 ? '${settings.cost} points each. ' : ''}Takes about a minute; you can leave and come back.',
-              style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+              'Same car, plate blanked, in a look you pick. ${cost > 0 ? '$cost points each. ' : ''}Tap a look to see a sample first.',
+              style: TextStyle(fontSize: 13, height: 1.35, color: AppColors.textSecondary),
             ),
             const SizedBox(height: 14),
             Flexible(
-              child: GridView.builder(
-                shrinkWrap: true,
-                padding: EdgeInsets.zero,
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, mainAxisSpacing: 10, crossAxisSpacing: 10, childAspectRatio: 1.05),
-                itemCount: kPortraitStyles.length,
-                itemBuilder: (_, i) => PortraitStyleTile(style: kPortraitStyles[i], onTap: () => Navigator.pop(ctx, kPortraitStyles[i])),
+              child: SingleChildScrollView(
+                child: Column(
+                  children: [
+                    for (var r = 0; r < kPortraitStyles.length; r += 2) ...[
+                      if (r > 0) const SizedBox(height: 10),
+                      IntrinsicHeight(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            for (var i = r; i < r + 2; i++) ...[
+                              if (i > r) const SizedBox(width: 10),
+                              Expanded(
+                                child: i < kPortraitStyles.length
+                                    ? PortraitStyleTile(key: _tiles[i], style: kPortraitStyles[i], onTap: () => _open(i))
+                                    : const SizedBox.shrink(),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ),
           ],
         ),
       ),
-    ),
-  );
-  if (picked == null || !context.mounted) return;
-  final go = await showModalBottomSheet<bool>(
-    useRootNavigator: true,
-    context: context,
-    showDragHandle: true,
-    builder: (_) => _ConfirmPortraitSheet(car: car, style: picked, cost: settings.cost),
-  );
-  if (go != true || !context.mounted) return;
-  try {
-    await ref.read(portraitActionsProvider).request(car.id, picked.id);
-    messenger.showSnackBar(SnackBar(content: Text('Painting your ${car.model} in ${picked.name}. We\'ll ping you when it\'s ready.')));
-  } catch (e) {
-    messenger.showSnackBar(SnackBar(content: Text(friendlyError(e))));
+    );
   }
 }
 
 /// "Uses 300 points · you have 1,240", then Generate / Cancel. With too few
 /// points Generate stays off and the sheet points to how to earn more.
+/// Answers true for Generate.
+Future<bool> confirmPortrait(BuildContext context, {required Car car, required PortraitStyle style, required int cost}) async {
+  final go = await showModalBottomSheet<bool>(
+    useRootNavigator: true,
+    context: context,
+    showDragHandle: true,
+    isScrollControlled: true,
+    builder: (_) => _ConfirmPortraitSheet(car: car, style: style, cost: cost),
+  );
+  return go == true;
+}
+
 class _ConfirmPortraitSheet extends ConsumerWidget {
   const _ConfirmPortraitSheet({required this.car, required this.style, required this.cost});
   final Car car;
@@ -107,7 +157,7 @@ class _ConfirmPortraitSheet extends ConsumerWidget {
               children: [
                 ClipRRect(
                   borderRadius: BorderRadius.circular(AppRadius.md),
-                  child: SizedBox(width: 88, height: 66, child: _Tint(style: style)),
+                  child: SizedBox(width: 88, height: 66, child: PortraitSampleImage(style: style, cacheWidth: 264)),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -116,7 +166,7 @@ class _ConfirmPortraitSheet extends ConsumerWidget {
                     children: [
                       Text('${style.name} portrait', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
                       const SizedBox(height: 2),
-                      Text('Your ${car.model}. ${style.description}', maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+                      Text('Your ${car.model}. ${style.description}', maxLines: 3, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
                     ],
                   ),
                 ),
@@ -153,7 +203,9 @@ class _ConfirmPortraitSheet extends ConsumerWidget {
                   style: TextButton.styleFrom(padding: EdgeInsets.zero, visualDensity: VisualDensity.compact),
                   onPressed: () {
                     final router = GoRouter.of(context);
-                    Navigator.pop(context, false);
+                    // Close the confirm sheet and everything under it that is
+                    // part of this flow (preview, style sheet), then go earn.
+                    Navigator.of(context).popUntil((r) => r is! PopupRoute && r is! PortraitPreviewRoute);
                     router.push(Routes.points);
                   },
                   child: const Text('How to earn points'),
@@ -176,8 +228,8 @@ class _ConfirmPortraitSheet extends ConsumerWidget {
   static String _n(int v) => v.toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (_) => ',');
 }
 
-/// One style in the grid: tinted placeholder (or the curated reference when
-/// we have one), name and one-line description.
+/// One style in the picker: its sample with the style's icon in the corner,
+/// then the name and the full description (wraps; the row grows to fit).
 class PortraitStyleTile extends StatelessWidget {
   const PortraitStyleTile({super.key, required this.style, required this.onTap});
   final PortraitStyle style;
@@ -185,63 +237,95 @@ class PortraitStyleTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ref = style.referenceUrl;
-    return Material(
-      color: AppColors.surfaceGray,
-      borderRadius: BorderRadius.circular(AppRadius.lg),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: SizedBox(
-                width: double.infinity,
-                child: ref != null
-                    ? Image(image: CachedNetworkImageProvider(ref), fit: BoxFit.cover, errorBuilder: (_, _, _) => _Tint(style: style))
-                    : _Tint(style: style),
+    // Decode about as wide as the tile is drawn, not the full 1024 px.
+    final px = (MediaQuery.sizeOf(context).width / 2 * MediaQuery.devicePixelRatioOf(context)).clamp(240, 1024).round();
+    return Semantics(
+      button: true,
+      label: '${style.name}. ${style.description} See a sample.',
+      excludeSemantics: true,
+      child: Material(
+        color: AppColors.surfaceGray,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              AspectRatio(
+                aspectRatio: 4 / 3,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    PortraitSampleImage(style: style, cacheWidth: px),
+                    Positioned(left: 8, top: 8, child: PortraitStyleBadge(style: style)),
+                  ],
+                ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(style.name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 2),
-                  Text(style.description, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11.5, height: 1.3, color: AppColors.textSecondary)),
-                ],
+              Padding(
+                padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(style.name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 2),
+                    Text(style.description, style: TextStyle(fontSize: 11.5, height: 1.3, color: AppColors.textSecondary)),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _Tint extends StatelessWidget {
-  const _Tint({required this.style});
+/// The style's own icon on a soft dark disc, for the corner of a sample.
+class PortraitStyleBadge extends StatelessWidget {
+  const PortraitStyleBadge({super.key, required this.style, this.size = 26});
   final PortraitStyle style;
+  final double size;
 
   @override
-  Widget build(BuildContext context) {
-    final t = style.tint;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color.lerp(t, Colors.white, 0.18)!, t, Color.lerp(t, Colors.black, 0.28)!],
-        ),
-      ),
-      child: Stack(
-        children: [
-          Positioned(right: -10, bottom: -14, child: Icon(AppIcons.car, size: 84, color: Colors.white.withValues(alpha: 0.14))),
-          Positioned(left: 10, top: 10, child: Icon(style.icon, size: 22, color: Colors.white.withValues(alpha: 0.92))),
-        ],
-      ),
-    );
+  Widget build(BuildContext context) => Container(
+        width: size,
+        height: size,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.38), shape: BoxShape.circle),
+        child: Icon(style.icon, size: size * 0.56, color: Colors.white.withValues(alpha: 0.95)),
+      );
+}
+
+/// A style's sample picture, cropped to fill. Falls back to the style's
+/// colour if the asset can't be read.
+class PortraitSampleImage extends StatelessWidget {
+  const PortraitSampleImage({super.key, required this.style, this.cacheWidth, this.fit = BoxFit.cover});
+  final PortraitStyle style;
+  final int? cacheWidth;
+  final BoxFit fit;
+
+  @override
+  Widget build(BuildContext context) => Image.asset(
+        style.sampleAsset,
+        fit: fit,
+        cacheWidth: cacheWidth,
+        gaplessPlayback: true,
+        filterQuality: FilterQuality.medium,
+        errorBuilder: (_, _, _) => ColoredBox(color: style.tint),
+      );
+}
+
+/// Books the job for [style] after the member said yes. The confirm sheet
+/// has already shown the price; the server checks the points again and takes
+/// them. Answers true when the job started.
+Future<bool> requestPortrait(WidgetRef ref, ScaffoldMessengerState messenger, Car car, PortraitStyle style) async {
+  try {
+    await ref.read(portraitActionsProvider).request(car.id, style.id);
+    messenger.showSnackBar(SnackBar(content: Text('Painting your ${car.model} in ${style.name}. We\'ll ping you when it\'s ready.')));
+    return true;
+  } catch (e) {
+    messenger.showSnackBar(SnackBar(content: Text(friendlyError(e))));
+    return false;
   }
 }

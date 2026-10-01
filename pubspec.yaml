@@ -71,6 +71,7 @@ flutter:
     - assets/stickers/titi/
     - assets/stickers/car/
     - assets/wallpapers/
+    - assets/portrait_samples/
   fonts:
     - family: Phosphor
       fonts:

@@ -7,6 +7,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/friendly_error.dart';
 import '../../../../core/widgets/primary_button.dart';
 import '../../application/portrait_providers.dart';
+import '../../application/portrait_share.dart';
 import '../../domain/car.dart';
 import '../../domain/portrait_style.dart';
 import 'portrait_style_sheet.dart';
@@ -183,31 +184,7 @@ class _PortraitTile extends ConsumerWidget {
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(AppRadius.lg),
-                child: AspectRatio(
-                  aspectRatio: 4 / 3,
-                  child: Image(image: CachedNetworkImageProvider(portrait.url!), fit: BoxFit.cover, errorBuilder: (_, _, _) => ColoredBox(color: AppColors.surfaceGray)),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text('${car.title} · ${portrait.style?.name ?? portrait.styleId}', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
-              const SizedBox(height: 12),
-              if (inUse)
-                SecondaryButton(label: 'Use the photos instead', icon: AppIcons.images, onPressed: () => Navigator.pop(ctx, 'photos'))
-              else
-                PrimaryButton(label: 'Use as car picture', onPressed: () => Navigator.pop(ctx, 'use')),
-            ],
-          ),
-        ),
-      ),
+      builder: (ctx) => _ReadyPortraitSheet(car: car, portrait: portrait, inUse: inUse),
     );
     if (action == null || !context.mounted) return;
     final messenger = ScaffoldMessenger.of(context);
@@ -221,6 +198,81 @@ class _PortraitTile extends ConsumerWidget {
     } catch (e) {
       messenger.showSnackBar(SnackBar(content: Text(friendlyError(e))));
     }
+  }
+}
+
+/// A finished portrait big, with "Use as car picture" (or back to the
+/// photos) and Share. Pops 'use' / 'photos'; sharing happens in place. The
+/// shared copy carries a small TT Spot logo; the one in the app stays clean.
+class _ReadyPortraitSheet extends StatefulWidget {
+  const _ReadyPortraitSheet({required this.car, required this.portrait, required this.inUse});
+  final Car car;
+  final CarPortrait portrait;
+  final bool inUse;
+
+  @override
+  State<_ReadyPortraitSheet> createState() => _ReadyPortraitSheetState();
+}
+
+class _ReadyPortraitSheetState extends State<_ReadyPortraitSheet> {
+  final _shareButton = GlobalKey();
+  bool _sharing = false;
+
+  Future<void> _share() async {
+    final p = widget.portrait;
+    final styleName = p.style?.name ?? p.styleId;
+    final box = _shareButton.currentContext?.findRenderObject() as RenderBox?;
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _sharing = true);
+    try {
+      await sharePortrait(
+        url: p.url!,
+        fileTag: '${widget.car.model}-${p.styleId}',
+        text: 'My ${widget.car.title}, painted in $styleName on TT Spot. https://ttspot.my',
+        origin: box == null || !box.hasSize ? null : box.localToGlobal(Offset.zero) & box.size,
+      );
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(friendlyError(e))));
+    } finally {
+      if (mounted) setState(() => _sharing = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = widget.portrait;
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(AppRadius.lg),
+              child: AspectRatio(
+                aspectRatio: 4 / 3,
+                child: Image(image: CachedNetworkImageProvider(p.url!), fit: BoxFit.cover, errorBuilder: (_, _, _) => ColoredBox(color: AppColors.surfaceGray)),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text('${widget.car.title} · ${p.style?.name ?? p.styleId}', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 12),
+            if (widget.inUse)
+              SecondaryButton(label: 'Use the photos instead', icon: AppIcons.images, onPressed: () => Navigator.pop(context, 'photos'))
+            else
+              PrimaryButton(label: 'Use as car picture', onPressed: () => Navigator.pop(context, 'use')),
+            const SizedBox(height: 8),
+            KeyedSubtree(
+              key: _shareButton,
+              child: _sharing
+                  ? SecondaryButton(label: 'Getting it ready…', onPressed: null)
+                  : SecondaryButton(label: 'Share', icon: AppIcons.shareFat, onPressed: _share),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

@@ -5,18 +5,24 @@ import '../../../core/theme/app_icons.dart';
 /// One look the member can ask for. The prompt itself lives server-side in
 /// supabase/functions/car-portrait (STYLES); the ids here must match its keys.
 class PortraitStyle {
-  const PortraitStyle({required this.id, required this.name, required this.description, required this.tint, required this.icon, this.referenceUrl});
+  const PortraitStyle({required this.id, required this.name, required this.description, required this.tint, required this.icon});
 
   /// Sent to the edge function and stored in car_portraits.style.
   final String id;
   final String name;
   /// One line for the picker.
   final String description;
-  /// Placeholder tile colour until we have curated reference art.
+  /// The style's colour: a backdrop while the sample image loads.
   final Color tint;
   final IconData icon;
-  /// Curated example image for the picker tile (none yet; placeholders for now).
-  final String? referenceUrl;
+
+  /// A real result of this style, shown in the picker and its preview. All
+  /// eight are one Porsche 911 run through the same prompt and settings as
+  /// the edge function (tool/art_portrait_samples.py), so they are honest.
+  String get sampleAsset => 'assets/portrait_samples/$id.webp';
+
+  /// The car every sample shows, for the "Sample: …" caption.
+  static const sampleCar = 'Porsche 911';
 
   static PortraitStyle? byId(String id) => kPortraitStyles.where((s) => s.id == id).firstOrNull;
 }

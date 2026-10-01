@@ -2,15 +2,17 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_icons.dart';
 import '../../../../core/theme/app_theme.dart';
-import 'chat_media.dart' show fmtMs;
+import 'voice_recorder.dart';
 
 /// What the "+" sheet can start.
 enum ComposerAction { photos, video, camera, location, meet, car, sticker }
 
 /// The bottom bar of a chat: [+] [Message…] [camera] [mic].
-/// Typing swaps the mic for Send. Tapping the mic swaps the whole row for a
-/// "Hold to speak" bar; hold it to record, slide left to cancel, X to close.
-class ChatComposer extends StatefulWidget {
+/// Typing swaps the mic for Send. The mic works like WhatsApp's: tap it to
+/// record hands-free (the bar becomes trash / pause / send), or hold it and
+/// let go to send, sliding left to cancel or up to lock. [header] (the reply
+/// being written) sits above the row.
+class ChatComposer extends StatelessWidget {
   const ChatComposer({
     super.key,
     required this.controller,
@@ -18,13 +20,10 @@ class ChatComposer extends StatefulWidget {
     required this.onSend,
     required this.onPlus,
     required this.onCamera,
-    required this.recording,
-    required this.cancelling,
-    required this.elapsed,
-    required this.onRecordStart,
-    required this.onRecordMove,
-    required this.onRecordEnd,
+    required this.recorder,
     this.hint = 'Message…',
+    this.header,
+    this.focusNode,
   });
 
   final TextEditingController controller;
@@ -32,20 +31,10 @@ class ChatComposer extends StatefulWidget {
   final VoidCallback onSend;
   final VoidCallback onPlus;
   final VoidCallback onCamera;
-  final bool recording;
-  final bool cancelling;
-  final Duration elapsed;
-  final VoidCallback onRecordStart;
-  final void Function(double dx) onRecordMove;
-  final void Function({required bool send}) onRecordEnd;
+  final VoiceRecorder recorder;
   final String hint;
-
-  @override
-  State<ChatComposer> createState() => _ChatComposerState();
-}
-
-class _ChatComposerState extends State<ChatComposer> {
-  bool _micBar = false;
+  final Widget? header;
+  final FocusNode? focusNode;
 
   @override
   Widget build(BuildContext context) {
@@ -53,161 +42,111 @@ class _ChatComposerState extends State<ChatComposer> {
       decoration: BoxDecoration(color: AppColors.bg, border: Border(top: BorderSide(color: AppColors.border, width: 0.5))),
       child: SafeArea(
         top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 160),
-            child: _micBar || widget.recording ? _voiceBar() : _textRow(),
-          ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ?header,
+            Padding(
+              padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+              child: ListenableBuilder(
+                listenable: recorder,
+                builder: (context, _) => AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 160),
+                  child: recorder.locked ? VoiceLockedBar(key: const ValueKey('locked'), recorder: recorder) : _row(),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _round(IconData icon, VoidCallback? onTap, {bool filled = false, String? tooltip}) => Tooltip(
+  Widget _round(IconData icon, VoidCallback? onTap, {String? tooltip}) => Tooltip(
         message: tooltip ?? '',
         child: Material(
-          color: filled ? AppColors.textPrimary : AppColors.surfaceGray,
+          color: AppColors.surfaceGray,
           shape: const CircleBorder(),
           child: InkWell(
             customBorder: const CircleBorder(),
             onTap: onTap,
-            child: SizedBox(width: 42, height: 42, child: Icon(icon, size: 20, color: filled ? AppColors.onInk : AppColors.textPrimary)),
+            child: SizedBox(width: 42, height: 42, child: Icon(icon, size: 20, color: AppColors.textPrimary)),
           ),
         ),
       );
 
-  Widget _textRow() {
+  Widget _row() {
     return ValueListenableBuilder<TextEditingValue>(
-      key: const ValueKey('text'),
-      valueListenable: widget.controller,
+      key: const ValueKey('row'),
+      valueListenable: controller,
       builder: (_, v, _) {
-        final typing = v.text.trim().isNotEmpty;
+        final holding = recorder.holding;
+        final typing = v.text.trim().isNotEmpty && !holding;
         return Row(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            _round(AppIcons.plus, widget.sending ? null : widget.onPlus, tooltip: 'Attach'),
-            const SizedBox(width: 8),
             Expanded(
-              child: TextField(
-                controller: widget.controller,
-                minLines: 1,
-                maxLines: 5,
-                textCapitalization: TextCapitalization.sentences,
-                decoration: InputDecoration(
-                  hintText: widget.hint,
-                  filled: true,
-                  fillColor: AppColors.surfaceGray,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(22), borderSide: BorderSide.none),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(22), borderSide: BorderSide.none),
-                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(22), borderSide: BorderSide(color: AppColors.textMuted)),
-                ),
-                onSubmitted: (_) => widget.onSend(),
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 140),
+                child: holding
+                    ? VoiceHoldStrip(key: const ValueKey('hold'), recorder: recorder)
+                    : Row(
+                        key: const ValueKey('text'),
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          _round(AppIcons.plus, sending ? null : onPlus, tooltip: 'Attach'),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: TextField(
+                              controller: controller,
+                              focusNode: focusNode,
+                              minLines: 1,
+                              maxLines: 5,
+                              textCapitalization: TextCapitalization.sentences,
+                              decoration: InputDecoration(
+                                hintText: hint,
+                                filled: true,
+                                fillColor: AppColors.surfaceGray,
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(22), borderSide: BorderSide.none),
+                                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(22), borderSide: BorderSide.none),
+                                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(22), borderSide: BorderSide(color: AppColors.textMuted)),
+                              ),
+                              onSubmitted: (_) => onSend(),
+                            ),
+                          ),
+                          if (!typing && !sending) ...[
+                            const SizedBox(width: 8),
+                            _round(AppIcons.camera, onCamera, tooltip: 'Camera'),
+                          ],
+                        ],
+                      ),
               ),
             ),
             const SizedBox(width: 8),
-            if (typing || widget.sending)
+            if (typing || sending)
               Material(
                 color: AppColors.brand,
                 shape: const CircleBorder(),
                 child: InkWell(
                   customBorder: const CircleBorder(),
-                  onTap: widget.sending ? null : widget.onSend,
+                  onTap: sending ? null : onSend,
                   child: SizedBox(
                     width: 42,
                     height: 42,
-                    child: widget.sending
+                    child: sending
                         ? const Padding(padding: EdgeInsets.all(11), child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                         : const Icon(AppIcons.paperPlaneRight, size: 20, color: Colors.white),
                   ),
                 ),
               )
-            else ...[
-              _round(AppIcons.camera, widget.onCamera, tooltip: 'Camera'),
-              const SizedBox(width: 8),
-              _round(AppIcons.microphone, () => setState(() => _micBar = true), tooltip: 'Voice note'),
-            ],
+            else
+              VoiceMicButton(recorder: recorder),
           ],
         );
       },
     );
   }
-
-  Widget _voiceBar() {
-    final rec = widget.recording;
-    final cancel = widget.cancelling;
-    return Row(
-      key: const ValueKey('voice'),
-      children: [
-        _round(AppIcons.x, rec ? null : () => setState(() => _micBar = false), tooltip: 'Close'),
-        const SizedBox(width: 8),
-        Expanded(
-          child: GestureDetector(
-            onLongPressStart: (_) => widget.onRecordStart(),
-            onLongPressMoveUpdate: (d) => widget.onRecordMove(d.offsetFromOrigin.dx),
-            onLongPressEnd: (_) {
-              widget.onRecordEnd(send: !cancel);
-              setState(() => _micBar = false);
-            },
-            onLongPressCancel: () {
-              widget.onRecordEnd(send: false);
-            },
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              height: 46,
-              decoration: BoxDecoration(
-                color: rec ? (cancel ? AppColors.textSecondary : AppColors.brand) : AppColors.textPrimary,
-                borderRadius: BorderRadius.circular(23),
-              ),
-              child: Row(
-                children: [
-                  const SizedBox(width: 14),
-                  Icon(cancel ? AppIcons.trash : AppIcons.microphone, color: rec ? Colors.white : AppColors.onInk, size: 20),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      rec ? (cancel ? 'Release to cancel' : '${fmtMs(widget.elapsed.inMilliseconds)}  ·  slide left to cancel') : 'Hold to speak',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: rec ? Colors.white : AppColors.onInk, fontWeight: FontWeight.w700, fontSize: 14),
-                    ),
-                  ),
-                  if (rec && !cancel)
-                    const Padding(
-                      padding: EdgeInsets.only(right: 14),
-                      child: _Pulse(),
-                    ),
-                  if (!rec) Padding(padding: const EdgeInsets.only(right: 14), child: Text('2 min max', style: TextStyle(color: AppColors.onInk.withValues(alpha: 0.6), fontSize: 11.5))),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _Pulse extends StatefulWidget {
-  const _Pulse();
-  @override
-  State<_Pulse> createState() => _PulseState();
-}
-
-class _PulseState extends State<_Pulse> with SingleTickerProviderStateMixin {
-  late final _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 900))..repeat(reverse: true);
-  @override
-  void dispose() {
-    _c.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => FadeTransition(
-        opacity: Tween(begin: 0.3, end: 1.0).animate(_c),
-        child: Container(width: 10, height: 10, decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle)),
-      );
 }
 
 /// The "+" sheet: big tiles, one tap each.

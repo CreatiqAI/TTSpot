@@ -23,12 +23,12 @@ users-four handshake smiley thumbs-up phone envelope link qr-code export downloa
 chat-teardrop chat-text record pulse target binoculars footprints signpost map-pin-plus map-pin-area storefront buildings
 toilet elevator door-open microphone-stage stack-simple copy printer trend-up
 fork-knife gas-pump tire traffic-cone police-car siren list-checks caret-up arrow-up arrow-down minus hash tag scan
-chart-bar ticket receipt gift percent coins hand-coins wallet shopping-bag crown map-pin-line share-fat arrows-out corners-out push-pin push-pin-slash microphone pause play google-logo bell-slash paper-plane-right stop whatsapp-logo phone-call video-camera moon device-mobile vibrate
+chart-bar ticket receipt gift percent coins hand-coins wallet shopping-bag crown map-pin-line share-fat arrows-out corners-out push-pin push-pin-slash microphone pause play arrow-bend-up-left google-logo bell-slash paper-plane-right stop whatsapp-logo phone-call video-camera moon device-mobile vibrate
 """.split()
 
 FILL = """
 map-trifold flag-checkered chat-circle chat-circle-dots user heart bookmark-simple check-circle map-pin paper-plane-tilt bell eye eye-slash
-star camera calendar-blank house users car trophy ghost fire shield flag crown storefront flag-pennant
+star camera play pause microphone calendar-blank house users car trophy ghost fire shield flag crown storefront flag-pennant
 """.split()
 
 

@@ -1,3 +1,5 @@
+import 'car_photo_storage.dart' show parsePhotoOriginals;
+
 /// A row from `cars`.
 class Car {
   const Car({
@@ -17,6 +19,7 @@ class Car {
     this.cutoutUrl,
     this.cutoutSource,
     this.garageStyle = 'auto',
+    this.photoOriginals = const {},
   });
 
   final String id;
@@ -44,6 +47,10 @@ class Car {
   final String? cutoutSource;
   /// 'auto' (cut-out when there is a good one) | 'card' (always the photo card).
   final String garageStyle;
+  /// Blurred photo URL → its original in the private car-originals bucket
+  /// (`<uid>/<file>`), so the owner can take the blur off again. Photos
+  /// blurred before 2 Oct 2026 have no entry.
+  final Map<String, String> photoOriginals;
 
   String get title => '$make $model';
   /// Spec line worth showing, or null.
@@ -70,6 +77,7 @@ class Car {
         cutoutUrl: m['cutout_url'] as String?,
         cutoutSource: m['cutout_source'] as String?,
         garageStyle: m['garage_style'] as String? ?? 'auto',
+        photoOriginals: parsePhotoOriginals(m['photo_originals']),
       );
 }
 

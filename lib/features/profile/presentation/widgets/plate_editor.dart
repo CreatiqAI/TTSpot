@@ -17,8 +17,10 @@ import '../../domain/plate_geometry.dart';
 /// or drag the photo to zoom and pan; drag a box to move it, pinch it or
 /// pull a corner to resize it; tap the photo to move the selected blur
 /// there. Add another blur for a second plate, remove one, Reset to what the
-/// recogniser found, Done to keep it. True when Done changed what gets
-/// blurred (the form then shows the new blurred copy).
+/// recogniser found, Done to keep it. A photo that went up blurred with its
+/// original kept gets "Show original": Done then puts the original back
+/// (or a new blur of it) on Save. True when Done changed what gets blurred
+/// (the form then shows the new copy).
 Future<bool> showPlateEditor(BuildContext context, CarFormPhoto photo) async {
   final done = await Navigator.of(context, rootNavigator: true).push<bool>(
     MaterialPageRoute(fullscreenDialog: true, builder: (_) => PlateEditorScreen(photo: photo)),
@@ -41,6 +43,12 @@ class _PlateEditorScreenState extends ConsumerState<PlateEditorScreen> {
   bool _loading = true;
   bool _loadFailed = false;
   bool _applying = false;
+
+  /// Showing the kept original of a saved blurred photo ("Show original").
+  bool _showingOriginal = false;
+
+  /// Fetching the original or the blurred copy for the switch above.
+  bool _switching = false;
   /// Moved, resized, added or removed a box since opening.
   bool _touched = false;
 
@@ -93,7 +101,41 @@ class _PlateEditorScreenState extends ConsumerState<PlateEditorScreen> {
       _px = p.size ?? _px;
       _boxes = p.editorBoxes;
       _selected = _boxes.isEmpty ? null : 0;
+      _showingOriginal = p.restored;
     });
+  }
+
+  /// The photo went up blurred and its original is kept: it can be shown.
+  bool get _hasOriginal => widget.photo.canShowOriginal || widget.photo.restored;
+
+  /// Show original / Keep blurred: swaps what the editor shows. Nothing
+  /// changes on the car until Done (and then Save).
+  Future<void> _toggleOriginal() async {
+    final hider = ref.read(plateHiderProvider);
+    final toOriginal = !_showingOriginal;
+    setState(() => _switching = true);
+    final loaded = toOriginal ? await hider.loadOriginal(widget.photo) : await hider.loadSavedCopy(widget.photo);
+    if (!mounted) return;
+    if (loaded == null) {
+      setState(() => _switching = false);
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(toOriginal ? 'Couldn\'t load the original. Check your connection and try again.' : 'Couldn\'t load the blurred photo. Try again.')));
+      return;
+    }
+    _zoomer.value = Matrix4.identity();
+    setState(() {
+      _switching = false;
+      _showingOriginal = toOriginal;
+      _image = MemoryImage(loaded.$1);
+      _px = loaded.$2;
+      // The original comes back clean (tap the plate to blur it again); the
+      // blurred copy needs nothing on top.
+      _boxes = toOriginal && widget.photo.restored ? widget.photo.editorBoxes : [];
+      _selected = _boxes.isEmpty ? null : 0;
+      _touched = true;
+    });
+    HapticFeedback.selectionClick();
   }
 
   double get _aspect => _px.$2 == 0 ? 4 / 3 : _px.$1 / _px.$2;
@@ -194,7 +236,8 @@ class _PlateEditorScreenState extends ConsumerState<PlateEditorScreen> {
 
   void _reset() {
     setState(() {
-      _boxes = List.of(widget.photo.found ?? const <PlateBox>[]);
+      // On a shown original there's nothing to go back to but no blur.
+      _boxes = _showingOriginal && !widget.photo.restored ? <PlateBox>[] : List.of(widget.photo.found ?? const <PlateBox>[]);
       _selected = _boxes.isEmpty ? null : 0;
       _touched = false;
     });
@@ -203,7 +246,13 @@ class _PlateEditorScreenState extends ConsumerState<PlateEditorScreen> {
 
   Future<void> _done() async {
     setState(() => _applying = true);
-    final ok = await ref.read(plateHiderProvider).applyBoxes(widget.photo, _boxes);
+    final hider = ref.read(plateHiderProvider);
+    final p = widget.photo;
+    final ok = _showingOriginal
+        ? await hider.showOriginal(p, _boxes)
+        : p.restored
+            ? await hider.keepBlurred(p, _boxes)
+            : await hider.applyBoxes(p, _boxes);
     if (!mounted) return;
     if (!ok) {
       setState(() => _applying = false);
@@ -218,11 +267,15 @@ class _PlateEditorScreenState extends ConsumerState<PlateEditorScreen> {
   // ── layout ──
 
   String get _hint {
-    if (_boxes.isEmpty) {
-      return widget.photo.savedBlurred
-          ? 'This photo already went up blurred. If anything still shows, tap it to blur it.'
-          : 'No blur on this photo. Tap the plate to blur it.';
+    final p = widget.photo;
+    if (_showingOriginal && _boxes.isEmpty) {
+      return 'Your original photo, plate showing. Done puts it back without the blur when you save. Tap the plate to blur it again.';
     }
+    if (_boxes.isEmpty && !_showingOriginal && (p.savedBlurred || p.restored)) {
+      if (p.originalLost) return 'The original of this photo isn\'t kept (blurred before 2 Oct). If anything still shows, tap it to blur it.';
+      return 'This photo went up blurred. Show original takes the blur off. If anything still shows, tap it to blur it.';
+    }
+    if (_boxes.isEmpty) return 'No blur on this photo. Tap the plate to blur it.';
     if (widget.photo.guessed && !_touched) return 'I couldn\'t look for the plate, so this blur is a guess. Drag it onto the plate.';
     return 'Drag the blur onto the plate. Pinch it or pull a corner to resize. Tap the photo to move it there.';
   }
@@ -245,7 +298,7 @@ class _PlateEditorScreenState extends ConsumerState<PlateEditorScreen> {
                     IconButton(
                       tooltip: 'Close',
                       icon: const Icon(AppIcons.x, color: Colors.white),
-                      onPressed: _applying ? null : () => Navigator.of(context).pop(false),
+                      onPressed: _applying || _switching ? null : () => Navigator.of(context).pop(false),
                     ),
                     const Expanded(
                       child: Text(
@@ -257,7 +310,7 @@ class _PlateEditorScreenState extends ConsumerState<PlateEditorScreen> {
                       ),
                     ),
                     TextButton(
-                      onPressed: ready && !_applying ? _reset : null,
+                      onPressed: ready && !_applying && !_switching ? _reset : null,
                       style: TextButton.styleFrom(foregroundColor: Colors.white, disabledForegroundColor: Colors.white38),
                       child: const Text('Reset', style: TextStyle(fontWeight: FontWeight.w700)),
                     ),
@@ -273,6 +326,15 @@ class _PlateEditorScreenState extends ConsumerState<PlateEditorScreen> {
                     if (ready) ...[
                       Text(_hint, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.35)),
                       const SizedBox(height: 12),
+                      if (_hasOriginal) ...[
+                        _ToolButton(
+                          icon: _showingOriginal ? AppIcons.eyeSlash : AppIcons.eye,
+                          label: _showingOriginal ? 'Keep blurred' : 'Show original',
+                          loading: _switching,
+                          onTap: !_applying && !_switching ? _toggleOriginal : null,
+                        ),
+                        const SizedBox(height: 10),
+                      ],
                       Row(
                         children: [
                           Expanded(
@@ -294,7 +356,7 @@ class _PlateEditorScreenState extends ConsumerState<PlateEditorScreen> {
                       ),
                       const SizedBox(height: 12),
                     ],
-                    PrimaryButton(label: 'Done', loading: _applying, onPressed: ready ? _done : null),
+                    PrimaryButton(label: 'Done', loading: _applying, onPressed: ready && !_switching ? _done : null),
                   ],
                 ),
               ),
@@ -484,14 +546,15 @@ class _RectClip extends CustomClipper<Rect> {
 
 /// Add another blur / Remove blur: light on the black editor.
 class _ToolButton extends StatelessWidget {
-  const _ToolButton({required this.icon, required this.label, required this.onTap});
+  const _ToolButton({required this.icon, required this.label, required this.onTap, this.loading = false});
   final IconData icon;
   final String label;
   final VoidCallback? onTap;
+  final bool loading;
 
   @override
   Widget build(BuildContext context) {
-    final on = onTap != null;
+    final on = onTap != null || loading;
     return Opacity(
       opacity: on ? 1 : 0.4,
       child: Material(
@@ -508,7 +571,10 @@ class _ToolButton extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(icon, size: 18, color: Colors.white),
+                  if (loading)
+                    const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  else
+                    Icon(icon, size: 18, color: Colors.white),
                   const SizedBox(width: 8),
                   Text(label, maxLines: 1, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700)),
                 ],

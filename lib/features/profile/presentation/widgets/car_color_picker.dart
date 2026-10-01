@@ -43,6 +43,96 @@ class CarColorPicker extends StatelessWidget {
   }
 }
 
+/// "Colour on the map": the label, a top-down preview of the car as it
+/// draws on the map, one line on what the colour is for, and the swatches.
+/// Shared by onboarding, Add car and Edit car (members didn't get what
+/// "Colour" was for).
+class CarMapColourSection extends StatelessWidget {
+  const CarMapColourSection({super.key, required this.value, required this.onChanged, this.note});
+  final String? value;
+  final ValueChanged<String>? onChanged;
+
+  /// Where the colour came from ("Silver · from the photo"), under the line.
+  final String? note;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text('COLOUR ON THE MAP', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1.2, color: AppColors.textSecondary)),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            MapCarPreview(color: value),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('This is how your car shows on the map.', style: TextStyle(fontSize: 13.5, height: 1.35, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+                  if (note != null) ...[
+                    const SizedBox(height: 2),
+                    Text(note!, style: TextStyle(fontSize: 12.5, height: 1.35, color: AppColors.textSecondary)),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        CarColorPicker(value: value, onChanged: onChanged),
+      ],
+    );
+  }
+}
+
+/// The car's map marker in [color] (a kCarColors key; grey when none yet)
+/// on a little bit of road.
+class MapCarPreview extends StatelessWidget {
+  const MapCarPreview({super.key, required this.color, this.size = 64});
+  final String? color;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<Color?>(
+      tween: ColorTween(end: carColor(color)),
+      duration: const Duration(milliseconds: 220),
+      builder: (_, c, _) => Container(
+        width: size,
+        height: size * 1.15,
+        decoration: BoxDecoration(color: AppColors.surfaceGray, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border)),
+        child: CustomPaint(painter: _MapCarPainter(color: c ?? carColor(color), lane: AppColors.border, dim: color == null)),
+      ),
+    );
+  }
+}
+
+class _MapCarPainter extends CustomPainter {
+  const _MapCarPainter({required this.color, required this.lane, required this.dim});
+  final Color color;
+  final Color lane;
+  final bool dim;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // A dashed lane line behind the car, like a street on the map.
+    final dash = Paint()
+      ..color = lane
+      ..strokeWidth = 2
+      ..strokeCap = StrokeCap.round;
+    for (var y = 4.0; y < size.height - 4; y += 12) {
+      canvas.drawLine(Offset(size.width * 0.18, y), Offset(size.width * 0.18, y + 6), dash);
+      canvas.drawLine(Offset(size.width * 0.82, y), Offset(size.width * 0.82, y + 6), dash);
+    }
+    paintCar(canvas, centre: size.center(Offset.zero), size: size.height * 0.82, color: color, dim: dim);
+  }
+
+  @override
+  bool shouldRepaint(_MapCarPainter old) => old.color != color || old.lane != lane || old.dim != dim;
+}
+
 /// "We guessed this, fix anything wrong" once the recogniser has filled a
 /// car form in.
 class CarGuessNote extends StatelessWidget {

@@ -229,7 +229,8 @@ abstract final class Routes {
   static String chatInfo(String conversationId) => '/chat/$conversationId/info';
   static String club(String id) => '/club/$id';
   static String place(String id) => '/place/$id';
-  static String partner(String id) => '/partner/$id';
+  /// [tab]: 'info' | 'products' | 'vouchers' | 'posts' | 'events'.
+  static String partner(String id, {String? tab}) => tab == null ? '/partner/$id' : '/partner/$id?tab=$tab';
 
   // Organizer tools (verified organizers and their crew)
   static const organizerApply = '/organizer/apply';
@@ -328,7 +329,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         },
       ),
       GoRoute(path: Routes.suggestSpot, pageBuilder: (_, s) => page(s, const SuggestSpotScreen())),
-      GoRoute(path: '/partner/:id', pageBuilder: (_, s) => page(s, PartnerScreen(vendorId: s.pathParameters['id']!))),
+      GoRoute(path: '/partner/:id', pageBuilder: (_, s) => page(s, PartnerScreen(vendorId: s.pathParameters['id']!, initialTab: s.uri.queryParameters['tab']))),
       GoRoute(
         path: '/event/:id',
         pageBuilder: (_, s) => page(s, EventDetailsScreen(eventId: s.pathParameters['id']!)),

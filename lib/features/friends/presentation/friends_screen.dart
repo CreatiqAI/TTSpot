@@ -28,6 +28,11 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
   final _query = TextEditingController();
   String _q = '';
 
+  /// People I added from the suggestions on this visit, with where they sat.
+  /// The refreshed suggestions leave out anyone I've asked, so these are put
+  /// back in place (now showing Requested) until I leave the page.
+  final _added = <String, (int, FriendSuggestion)>{};
+
   @override
   void dispose() {
     _query.dispose();
@@ -53,11 +58,15 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
     final outgoing = ref.watch(outgoingRequestIdsProvider).value ?? const <String>{};
     final searching = _q.trim().length >= 2;
     final results = searching ? ref.watch(profileSearchProvider(_q.trim())) : const AsyncValue<List<Profile>>.data([]);
-    final suggestions = ref.watch(friendSuggestionsProvider).value ?? const <FriendSuggestion>[];
+    final suggestions = [...?ref.watch(friendSuggestionsProvider).value];
+    for (final (i, sgg) in _added.values.toList()..sort((a, b) => a.$1.compareTo(b.$1))) {
+      if (!suggestions.any((x) => x.profile.id == sgg.profile.id)) suggestions.insert(i.clamp(0, suggestions.length), sgg);
+    }
     final actions = ref.read(friendActionsProvider);
 
-    Widget addButton(Profile p) => FilledButton(
+    Widget addButton(Profile p, {(int, FriendSuggestion)? keep}) => FilledButton(
           onPressed: () => _run(() async {
+            if (keep != null) setState(() => _added[p.id] = keep);
             final s = await actions.add(p.id);
             _snack(s == FriendshipStatus.friends ? 'You\'re now friends.' : 'Request sent.');
           }),
@@ -204,11 +213,13 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
               ),
               if (suggestions.isNotEmpty) ...[
                 const _Section('PEOPLE YOU MAY KNOW'),
-                for (final sgg in suggestions)
+                for (final (i, sgg) in suggestions.indexed)
                   _PersonTile(
                     profile: sgg.profile,
                     subtitle: sgg.reason,
-                    trailing: outgoing.contains(sgg.profile.id)
+                    trailing: friendIds.contains(sgg.profile.id)
+                        ? const _Chip('Friends')
+                        : outgoing.contains(sgg.profile.id) || _added.containsKey(sgg.profile.id)
                         ? const _Chip('Requested')
                         : requests.any((r) => r.from.id == sgg.profile.id)
                             ? FilledButton(
@@ -216,7 +227,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
                                 style: FilledButton.styleFrom(minimumSize: const Size(0, 36), padding: const EdgeInsets.symmetric(horizontal: 16)),
                                 child: const Text('Accept'),
                               )
-                            : addButton(sgg.profile),
+                            : addButton(sgg.profile, keep: (i, sgg)),
                   ),
               ],
             ],
@@ -252,9 +263,17 @@ class _Chip extends StatelessWidget {
   final String text;
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        constraints: const BoxConstraints(minHeight: 36),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(color: AppColors.surfaceGray, borderRadius: BorderRadius.circular(AppRadius.md)),
-        child: Text(text, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(AppIcons.check, size: 15, color: AppColors.textSecondary),
+            const SizedBox(width: 5),
+            Text(text, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
+          ],
+        ),
       );
 }
 

@@ -143,8 +143,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   /// merge into count bubbles ([_groups]).
   static const _midZoom = 13.0;
   static const _closeZoom = 14.5;
-  /// Below this nobody else is drawn (I always am): the map is a region, not a street.
-  static const _peopleZoom = 11.0;
   int _tier = 0;
   bool get _far => _tier == 0;
   bool get _close => _tier == 2;
@@ -167,7 +165,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
   /// Last position we drew myself at, so a location refresh never blinks me away.
   LatLng? _lastHere;
-  bool get _showPeople => _zoom >= _peopleZoom;
 
   /// Metres per logical pixel at the current zoom, so a ring of so many
   /// metres (the radar around a live meet) can be sized in screen px.
@@ -355,12 +352,12 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     }
   }
 
-  /// Everything about the pins that depends on the zoom: tier, size, whether
-  /// people show, and the count-bubble grouping, redone every quarter zoom
+  /// Everything about the pins that depends on the zoom: tier, size, and the
+  /// count-bubble grouping, redone every quarter zoom
   /// step below street zoom (below zoom 10 the pin size stops changing, the
   /// grouping must not).
-  static (int, double, bool, int) _looksAt(double zoom) =>
-      (_tierFor(zoom), _scaleAt(zoom), zoom >= _peopleZoom, zoom >= _closeZoom ? -1 : (zoom * 4).round());
+  static (int, double, int) _looksAt(double zoom) =>
+      (_tierFor(zoom), _scaleAt(zoom), zoom >= _closeZoom ? -1 : (zoom * 4).round());
 
   void _applyZoom(double zoom) {
     final tier = _tierFor(zoom);
@@ -780,7 +777,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     // photo or a car photo may still be downloading, which on a slow
     // network takes many seconds); until then the ones already on the map
     // stay where they are.
-    final withPeople = mode == MapMode.now && !_far && _showPeople;
+    final withPeople = mode == MapMode.now;
     final withMoments = mode == MapMode.now && !_far;
     bool slow(String id) => id == 'me' || (withPeople && id.startsWith('friend:')) || (withMoments && id.startsWith('moment:'));
     setState(() => _markerSet = [...built, for (final m in _markerSet) if (slow(m.id)) m]);
@@ -964,17 +961,20 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   }
 
   /// Friends, clubmates, nearby strangers and me. Cars when zoomed in, dots
-  /// when zoomed out. Colour = relationship, or the colour I gave a friend.
+  /// at every zoom out from there (never hidden: whoever the "On the map"
+  /// list shows is on the map too). Colour = relationship, or the colour I
+  /// gave a friend.
   Future<void> _addPeople(List<AppMarker> built, Future<bool> Function() stale, List<(LatLng, LegendGlyph)> keyed, {bool onlyMe = false}) async {
     final tags = ref.read(friendTagsProvider).value ?? const <String, String>{};
-    if (!onlyMe && !_far && _showPeople) {
+    if (!onlyMe) {
       for (final f in ref.read(friendPinsProvider).value ?? const <FriendPin>[]) {
         final stranger = f.isStranger;
         final relation = stranger ? kRelationStranger : (kTagColors[tags[f.user.id]] ?? (f.viaClub ? kRelationClub : kRelationFriend));
         final name = stranger ? '@${f.user.username ?? ''}' : (f.user.displayName ?? f.user.username ?? '');
         final photo = f.carPhoto;
         final pin = !_close
-            ? await _carFactory.dot(key: f.user.id, color: relation, scale: _glyphScale)
+            // Never smaller than ~11 px, so a friend far out stays findable.
+            ? await _carFactory.dot(key: f.user.id, color: relation, scale: math.max(_glyphScale, 0.8))
             : photo != null
                 // Their car's portrait in a ring of the relationship colour.
                 ? await _carFactory.badge(

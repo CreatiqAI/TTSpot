@@ -13,6 +13,7 @@ import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart' show MapboxOptions
 
 import 'core/supabase/supabase_client.dart';
 import 'core/theme/app_theme.dart';
+import 'features/settings/application/background_location_controller.dart';
 import 'features/settings/application/settings_providers.dart';
 import 'core/push/firebase_setup.dart';
 import 'core/push/push_service.dart';
@@ -100,7 +101,14 @@ class _TtSpotAppState extends ConsumerState<TtSpotApp> {
     // Auto theme flips at 7 am / 7 pm: check once a minute, and again the
     // moment the app comes back (timers sleep while it is in the background).
     _clock = Timer.periodic(const Duration(minutes: 1), (_) { if (mounted) setState(() {}); });
-    _lifecycle = AppLifecycleListener(onResume: () { if (mounted) setState(() {}); });
+    _lifecycle = AppLifecycleListener(onResume: () {
+      if (mounted) setState(() {});
+      // "Allow all the time" may have been taken away in phone settings.
+      ref.read(backgroundLocationProvider.notifier).sync(fromResume: true);
+    });
+    // Location sharing with the app closed follows sign-in/out and Nobody for
+    // the app's whole life, not only while Settings is open.
+    ref.listenManual(backgroundLocationProvider, (_, _) {});
   }
 
   @override

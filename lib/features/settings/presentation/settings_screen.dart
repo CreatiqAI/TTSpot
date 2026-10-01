@@ -27,6 +27,7 @@ import '../../social/application/chat_providers.dart';
 import '../../social/domain/chat.dart';
 import '../application/settings_providers.dart';
 import '../../../core/push/push_service.dart';
+import 'background_location_screen.dart';
 
 /// Settings: account, notifications, map, privacy, legal, support, danger.
 class SettingsScreen extends ConsumerWidget {
@@ -126,6 +127,7 @@ class SettingsScreen extends ConsumerWidget {
             subtitle: _shareLabel(ref.watch(myLocationProvider).value),
             onTap: () => _openVisibility(context, ref),
           ),
+          const BackgroundLocationTile(),
           _Choice(
             icon: AppIcons.chatText,
             title: 'Who can message me',

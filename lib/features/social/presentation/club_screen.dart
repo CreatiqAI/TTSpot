@@ -154,7 +154,7 @@ class ClubScreen extends ConsumerWidget {
                         secondary: const ArtIcon(AppArt.pin, size: 28),
                         title: const Text('Show me on the club map', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                         subtitle: Text(
-                          sharing ? 'Members of ${c.name} can see where you are while the app is open.' : 'Hidden from this club. Friends still see you.',
+                          sharing ? 'Members of ${c.name} can see where you are on the map.' : 'Hidden from this club. Friends still see you.',
                           style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
                         ),
                       ),

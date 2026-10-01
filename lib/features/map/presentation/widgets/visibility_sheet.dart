@@ -5,6 +5,7 @@ import '../../../../core/theme/app_icons.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/friendly_error.dart';
 import '../../../friends/application/friends_providers.dart';
+import '../../../settings/application/background_location_controller.dart';
 
 /// "Who can see my car": friends · friends + nearby (radius slider) · nobody.
 Future<void> showVisibilitySheet(BuildContext context) {
@@ -57,7 +58,12 @@ class _VisibilitySheetState extends ConsumerState<_VisibilitySheet> {
           children: [
             const Text('Who can see my car', style: TextStyle(fontFamily: AppFonts.display, fontSize: 26, fontWeight: FontWeight.w700, height: 1)),
             const SizedBox(height: 4),
-            Text('Only while the app is open. Change it any time.', style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
+            Text(
+              ref.watch(backgroundLocationProvider).enabled
+                  ? 'Also while TT Spot is closed (Settings › Share location when closed). Change it any time.'
+                  : 'Only while the app is open. Change it any time.',
+              style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
+            ),
             const SizedBox(height: 14),
             _Option(
               icon: AppIcons.users,

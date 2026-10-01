@@ -70,6 +70,9 @@ class LivePositionNotifier extends Notifier<LivePosition?> with WidgetsBindingOb
             activityType: ActivityType.automotiveNavigation,
             distanceFilter: 5,
             pauseLocationUpdatesAutomatically: false,
+            // Foreground only. Sharing with the app closed is the native
+            // manager in AppDelegate.swift (background_location.dart).
+            allowBackgroundLocationUpdates: false,
           ),
         TargetPlatform.android => AndroidSettings(
             accuracy: LocationAccuracy.best,

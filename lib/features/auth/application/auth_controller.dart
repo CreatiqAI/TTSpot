@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/auth_repository.dart';
 import '../../../core/push/push_service.dart';
+import '../../settings/application/background_location_controller.dart';
 
 /// Drives the sign-in screen. State is loading / error / idle; the router
 /// reacts to the resulting auth change, so callers don't navigate manually.
@@ -38,6 +39,8 @@ class AuthController extends AsyncNotifier<void> {
 
   Future<void> signOut() => _run(() async {
         await ref.read(pushServiceProvider).unregister();
+        // Stops "Share location when TT Spot is closed" and revokes this phone's tokens.
+        await ref.read(backgroundLocationProvider.notifier).beforeSignOut();
         await ref.read(authRepositoryProvider).signOut();
       });
 

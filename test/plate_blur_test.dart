@@ -54,6 +54,27 @@ void main() {
     expect(_maxStep(d, w, 50, 20, 200), greaterThan(200));
   });
 
+  test('several boxes (front and rear plate) are each smeared, exactly where given', () async {
+    final src = await _stripes(800, 600);
+    final out = await blurRegions(src, [
+      (x0: 0.1, y0: 0.1, x1: 0.3, y1: 0.2),
+      (x0: 0.6, y0: 0.7, x1: 0.9, y1: 0.8),
+    ]);
+    final (w, h, d) = await _decode(out);
+    expect((w, h), (800, 600));
+    expect(_maxStep(d, w, 90, 100, 220), lessThan(40)); // inside box 1
+    expect(_maxStep(d, w, 450, 500, 700), lessThan(40)); // inside box 2
+    // No padding: just outside a box the stripes are sharp again.
+    expect(_maxStep(d, w, 300, 100, 220), greaterThan(200));
+    expect(_maxStep(d, w, 90, 260, 400), greaterThan(200));
+  });
+
+  test('sigma follows the box height, with a floor', () {
+    expect(plateBlurSigma(100), 60);
+    expect(plateBlurSigma(4), 10);
+    expect(plateBlurSigma(4, min: 2), closeTo(2.4, 1e-9));
+  });
+
   test('big photos are capped at maxSide', () async {
     final src = await _stripes(2000, 1000);
     final out = await blurPlate(src, x0: 0.1, y0: 0.1, x1: 0.2, y1: 0.2, maxSide: 1280);

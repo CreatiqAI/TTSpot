@@ -6,13 +6,13 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/utils/friendly_error.dart';
-import '../../../core/utils/plate_blur.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../auth/domain/profile.dart';
 import '../data/profile_repository.dart';
 import '../domain/car.dart';
 import '../domain/car_recognition.dart';
 import 'cutout_providers.dart';
+import 'plate_hiding.dart';
 
 /// Any user's profile by id (the signed-in user's own is also in currentProfileProvider).
 final profileProvider = FutureProvider.family<Profile?, String>((ref, id) {
@@ -53,90 +53,23 @@ Future<PreparedCarPhoto> prepareCarPhoto(ProfileRepository repo, Uint8List origi
   }
 }
 
-/// A picked car photo for the "Hide my number plate" switch (off by default:
-/// the original goes up). The original is kept so the switch can go back.
-class CarPhotoPick {
-  /// [scan] is the recogniser's answer for this photo, when it already ran
-  /// (it says where the plate is).
-  CarPhotoPick(this.original, {CarRecognition? scan}) : _scanned = scan != null, _plate = scan?.plate;
-  final Uint8List original;
-  bool _scanned;
-  PlateBox? _plate;
-  Uint8List? _hidden;
-  Future<bool>? _pending;
-
-  /// What to show and upload.
-  Uint8List bytes({required bool hidePlate}) => hidePlate ? (_hidden ?? original) : original;
-
-  /// [hidePlateOn] has run: the plate is blurred, or none was seen.
-  bool get plateChecked => _hidden != null;
-
-  /// A plate was found and blurred.
-  bool get plateBlurred => _hidden != null && !identical(_hidden, original);
-}
-
-/// Blurs the plate on [p]. When this photo hasn't been scanned yet, asks the
-/// recogniser where the plate is first (the original goes up as a data URL,
-/// never to storage). False when it couldn't check (offline, say), so the
-/// form can stop instead of uploading a readable plate.
-Future<bool> hidePlateOn(ProfileRepository repo, CarPhotoPick p) {
-  if (p._hidden != null) return Future.value(true);
-  // The switch and Save can both ask while one run is still going.
-  return p._pending ??= _hidePlate(repo, p).whenComplete(() => p._pending = null);
-}
-
-Future<bool> _hidePlate(ProfileRepository repo, CarPhotoPick p) async {
-  if (!p._scanned) {
-    try {
-      p._plate = (await repo.recognizeCar(bytes: p.original)).plate;
-      p._scanned = true;
-    } catch (_) {
-      return false;
-    }
-  }
-  final box = p._plate;
-  if (box == null) {
-    p._hidden = p.original; // no plate seen
-    return true;
-  }
-  try {
-    p._hidden = await blurPlate(p.original, x0: box.x0, y0: box.y0, x1: box.x1, y1: box.y1);
-    return true;
-  } catch (_) {
-    return false;
-  }
-}
-
-/// The recogniser's box can land beside the plate (or it saw none): the
-/// member taps the plate and the blur moves there. [fx], [fy] are the tap as
-/// fractions of the photo; [aspect] is its width / height. Keeps the found
-/// box's size, else a typical plate's (about a sixth of the width).
-Future<void> placePlateAt(CarPhotoPick p, double fx, double fy, {required double aspect}) async {
-  final old = p._plate;
-  final w = old == null ? 0.16 : (old.x1 - old.x0).abs();
-  final h = old == null ? 0.16 * aspect / 4 : (old.y1 - old.y0).abs();
-  final box = PlateBox((fx - w / 2).clamp(0.0, 1.0), (fy - h / 2).clamp(0.0, 1.0), (fx + w / 2).clamp(0.0, 1.0), (fy + h / 2).clamp(0.0, 1.0));
-  final blurred = await blurPlate(p.original, x0: box.x0, y0: box.y0, x1: box.x1, y1: box.y1);
-  p._plate = box;
-  p._scanned = true;
-  p._hidden = blurred;
-}
-
 /// Add / edit / delete a car. [save] returns the car id.
 class CarFormController extends AsyncNotifier<void> {
   @override
   Future<void> build() async {}
 
-  /// [newPhotos] are bytes, not files: the forms read (and possibly blur)
-  /// them as soon as they are picked.
+  /// [photos] in order: URLs to keep and bytes to upload (the forms read,
+  /// and maybe blur, photos as soon as they are picked). An upload that
+  /// [CarPhotoSave.replaces] a saved photo (its blurred copy) takes its
+  /// place, and once the car is saved the original is deleted from storage:
+  /// it shows the plate and the bucket is public.
   Future<String?> save({
     String? carId,
     required String make,
     required String model,
     required String yearText,
     required String description,
-    required List<String> keptPhotoUrls,
-    required List<Uint8List> newPhotos,
+    required List<CarPhotoSave> photos,
     String? color,
     String? specs,
     String? bodyStyle,
@@ -145,6 +78,9 @@ class CarFormController extends AsyncNotifier<void> {
     state = const AsyncLoading();
     String? savedId;
     Car? saved;
+    Uint8List? coverUpload;
+    final replaced = <String>[];
+    String? staleCutout;
     state = await AsyncValue.guard(() async {
       final me = ref.read(currentUserIdProvider);
       if (me == null) throw const AppException('You\'re signed out. Sign in again.');
@@ -157,28 +93,49 @@ class CarFormController extends AsyncNotifier<void> {
           throw const AppException('Enter a valid year.');
         }
       }
-      if (keptPhotoUrls.length + newPhotos.length > 5) throw const AppException('Up to 5 photos per car.');
+      if (photos.length > 5) throw const AppException('Up to 5 photos per car.');
 
       final repo = ref.read(profileRepositoryProvider);
-      final urls = [...keptPhotoUrls];
-      for (var i = 0; i < newPhotos.length; i++) {
-        urls.add(await repo.uploadCarPhoto(userId: me, bytes: newPhotos[i], index: i));
+      final before = carId == null ? null : await repo.fetchCar(carId);
+      final urls = <String>[];
+      for (var i = 0; i < photos.length; i++) {
+        final p = photos[i];
+        if (p.url != null) {
+          urls.add(p.url!);
+          continue;
+        }
+        final bytes = p.plateBlurred ? await compactBlurredPhoto(p.bytes!) : p.bytes!;
+        urls.add(await repo.uploadCarPhoto(userId: me, bytes: bytes, index: i, plateBlurred: p.plateBlurred));
+        if (i == 0) coverUpload = bytes;
+        if (p.replaces != null) replaced.add(p.replaces!);
       }
+      // A new cover (its blurred copy, say): the old cut-out is stale and may
+      // show the plate, so it's cleared and the new cover gets cut.
+      final coverChanged = before != null && before.photoCover != urls.firstOrNull;
+      if (coverChanged && before.cutoutUrl != null && replaced.contains(before.cutoutSource)) staleCutout = before.cutoutUrl;
       final car = carId == null
           ? await repo.insertCar(ownerId: me, make: make, model: model, year: year, description: description, photoUrls: urls, color: color, specs: specs, bodyStyle: bodyStyle)
-          : await repo.updateCar(id: carId, make: make, model: model, year: year, description: description, photoUrls: urls, color: color, specs: specs, bodyStyle: bodyStyle, garageStyle: garageStyle);
+          : await repo.updateCar(id: carId, make: make, model: model, year: year, description: description, photoUrls: urls, color: color, specs: specs, bodyStyle: bodyStyle, garageStyle: garageStyle, clearCutout: coverChanged);
       savedId = car.id;
       saved = car;
+      if (replaced.isNotEmpty || staleCutout != null) {
+        try {
+          final gone = await repo.deleteUnreferencedPhotos(ownerId: me, replaced: replaced, staleCutouts: [?staleCutout]);
+          if (kDebugMode) debugPrint('Plate: deleted ${gone.length} replaced files: $gone');
+        } catch (e) {
+          // The car is saved with the blurred copies either way.
+          if (kDebugMode) debugPrint('Plate: could not delete the replaced originals: $e');
+        }
+      }
       ref.invalidate(userCarsProvider(me));
       ref.invalidate(profileStatsProvider(me));
       ref.invalidate(carProvider(car.id));
     });
     // The garage cut-out, in the background: the form is already done. A
-    // cover that was just picked goes in as bytes, no download.
+    // cover that was just uploaded goes in as bytes, no download.
     final car = saved;
     if (car != null) {
-      final freshCover = keptPhotoUrls.isEmpty && newPhotos.isNotEmpty ? newPhotos.first : null;
-      unawaited(ref.read(cutoutServiceProvider).ensure(car, coverBytes: freshCover));
+      unawaited(ref.read(cutoutServiceProvider).ensure(car, coverBytes: coverUpload));
     }
     return savedId;
   }

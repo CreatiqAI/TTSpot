@@ -1,10 +1,10 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/supabase/supabase_client.dart';
+import '../../../core/utils/http_bytes.dart';
 import '../data/car_cutout_channel.dart';
 import '../data/profile_repository.dart';
 import '../domain/car.dart';
@@ -37,6 +37,9 @@ class CutoutService {
   final _tried = <String>{};
   final _running = <String>{};
   final _retries = <String, int>{};
+  /// A newer cover that came in while the car's cut-out was still running
+  /// (the save that put a blurred copy in front, say): cut that one next.
+  final _queued = <String, (Car, Uint8List?)>{};
 
   /// Cuts [car] out of its cover photo when it has none for that photo.
   /// [coverBytes]: the cover as just uploaded, to skip downloading it again.
@@ -46,14 +49,18 @@ class CutoutService {
     if (me == null || car.ownerId != me || source == null || !needsCutout(car)) return;
     if (CarCutoutChannel.unsupported) return;
     final key = '${car.id}|$source';
-    if (_tried.contains(key) || _running.contains(car.id)) return;
+    if (_tried.contains(key)) return;
+    if (_running.contains(car.id)) {
+      _queued[car.id] = (car, coverBytes);
+      return;
+    }
     _tried.add(key);
     _running.add(car.id);
     final jobs = _ref.read(cutoutJobsProvider.notifier);
     jobs._set(car.id, true);
     var retry = false;
     try {
-      final bytes = coverBytes ?? await _download(source);
+      final bytes = coverBytes ?? await downloadBytes(source);
       final res = await CarCutoutChannel.cut(bytes);
       final report = res.report;
       if (kDebugMode) debugPrint('Cut-out ${car.model}: $report');
@@ -76,7 +83,12 @@ class CutoutService {
       if (reject == null && res.png != null) {
         url = await repo.uploadCutout(userId: me, carId: car.id, photoUrl: source, png: res.png!);
       }
-      await repo.saveCutout(carId: car.id, url: url, source: source);
+      final kept = await repo.saveCutout(carId: car.id, url: url, source: source);
+      if (!kept && url != null) {
+        // The cover changed while this ran: the cut-out belongs to no car
+        // now, and it was made from a photo that may show the plate.
+        await repo.deleteUnreferencedPhotos(ownerId: me, staleCutouts: [url]);
+      }
       _ref.invalidate(userCarsProvider(me));
       _ref.invalidate(carProvider(car.id));
     } catch (e) {
@@ -85,6 +97,8 @@ class CutoutService {
       _running.remove(car.id);
       jobs._set(car.id, false);
       if (retry) _scheduleRetry(car, key);
+      final next = _queued.remove(car.id);
+      if (next != null) unawaited(ensure(next.$1, coverBytes: next.$2));
     }
   }
 
@@ -98,19 +112,6 @@ class CutoutService {
       _tried.remove(key);
       unawaited(ensure(car));
     });
-  }
-
-  /// The cover is public: plain HTTP GET, no storage session needed.
-  static Future<Uint8List> _download(String url) async {
-    final client = HttpClient()..connectionTimeout = const Duration(seconds: 20);
-    try {
-      final req = await client.getUrl(Uri.parse(url));
-      final res = await req.close().timeout(const Duration(seconds: 30));
-      if (res.statusCode != 200) throw HttpException('HTTP ${res.statusCode}', uri: Uri.parse(url));
-      return await consolidateHttpClientResponseBytes(res);
-    } finally {
-      client.close();
-    }
   }
 }
 

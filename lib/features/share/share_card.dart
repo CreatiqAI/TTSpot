@@ -94,7 +94,7 @@ class MeetInviteShareSpec extends ShareCardSpec {
 
   @override
   List<ImageProvider> get images => [
-        event.coverUrl != null ? CachedNetworkImageProvider(event.coverUrl!) : AssetImage(event.defaultCover),
+        event.bundledCover == null ? CachedNetworkImageProvider(event.coverUrl!) : AssetImage(event.bundledCover!),
       ];
 }
 
@@ -320,14 +320,14 @@ class _MeetBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final e = s.event;
-    final fallback = Image.asset(e.defaultCover, fit: BoxFit.cover);
+    final fallback = Image.asset(e.bundledCover ?? e.defaultCover, fit: BoxFit.cover);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Expanded(
           child: ClipRRect(
             borderRadius: BorderRadius.circular(22),
-            child: e.coverUrl != null
+            child: e.bundledCover == null
                 ? Image(image: CachedNetworkImageProvider(e.coverUrl!), fit: BoxFit.cover, errorBuilder: (_, _, _) => fallback)
                 : fallback,
           ),

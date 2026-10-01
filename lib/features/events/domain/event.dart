@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../core/geo/latlng.dart';
 
 import '../../../core/theme/app_images.dart';
+import 'cover_presets.dart';
 
 /// Mirrors the Postgres enum `event_type`.
 enum EventType {
@@ -75,6 +76,11 @@ class Event {
     if (isInstant) return EventType.tt.defaultCover;
     return type.defaultCover;
   }
+
+  /// The bundled file to show as the cover: [defaultCover] with no cover,
+  /// the preset's own file when [coverUrl] is a picked preset, else null
+  /// (an uploaded photo: load [coverUrl]).
+  String? get bundledCover => coverUrl == null ? defaultCover : presetCoverAsset(coverUrl);
 
   final String id;
   final String organizerId;

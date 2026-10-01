@@ -15,7 +15,8 @@ import 'widgets/referral_code_card.dart';
 import '../domain/points.dart';
 import '../domain/verification.dart';
 
-/// Balance, how to earn, and the ledger. Rewards shop lands in a later phase.
+/// Points & rewards in one place: the balance, the way into the rewards
+/// shop / my vouchers / partners, how to earn, and the ledger.
 class PointsScreen extends ConsumerWidget {
   const PointsScreen({super.key});
 
@@ -40,7 +41,7 @@ class PointsScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(icon: const Icon(AppIcons.arrowLeft), onPressed: () => context.pop()),
-        title: const Text('Points'),
+        title: const Text('Points & rewards'),
         actions: [IconButton(tooltip: 'My QR', icon: const Icon(AppIcons.qrCode), onPressed: () => context.push(Routes.myQr))],
       ),
       body: RefreshIndicator(
@@ -69,12 +70,19 @@ class PointsScreen extends ConsumerWidget {
                       ],
                     ),
                   ),
-                  FilledButton.tonalIcon(
-                    onPressed: () => context.push(Routes.rewards),
-                    style: FilledButton.styleFrom(backgroundColor: Colors.black, foregroundColor: Colors.white, visualDensity: VisualDensity.compact, minimumSize: const Size(0, 36), padding: const EdgeInsets.symmetric(horizontal: 14)),
-                    icon: const Icon(AppIcons.gift, size: 16),
-                    label: const Text('Rewards'),
-                  ),
+                ],
+              ),
+            ),
+            // The rewards side of the hub: spend points, show vouchers, find partners.
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: Row(
+                children: [
+                  Expanded(child: _HubTile(icon: AppIcons.gift, label: 'Rewards shop', onTap: () => context.push(Routes.rewards))),
+                  const SizedBox(width: 8),
+                  Expanded(child: _HubTile(icon: AppIcons.ticket, label: 'My vouchers', onTap: () => context.push(Routes.myVouchers))),
+                  const SizedBox(width: 8),
+                  Expanded(child: _HubTile(icon: AppIcons.storefront, label: 'Partners', onTap: () => context.push('${Routes.rewards}?tab=partners'))),
                 ],
               ),
             ),
@@ -154,6 +162,33 @@ class PointsScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+class _HubTile extends StatelessWidget {
+  const _HubTile({required this.icon, required this.label, required this.onTap});
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Material(
+        color: AppColors.surfaceGray,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 12),
+            child: Column(
+              children: [
+                Icon(icon, size: 22, color: AppColors.textPrimary),
+                const SizedBox(height: 6),
+                Text(label, textAlign: TextAlign.center, maxLines: 2, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, height: 1.2)),
+              ],
+            ),
+          ),
+        ),
+      );
 }
 
 class _Section extends StatelessWidget {

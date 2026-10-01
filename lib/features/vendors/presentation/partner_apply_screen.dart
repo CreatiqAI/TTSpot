@@ -20,6 +20,8 @@ import '../../../core/widgets/photo_picker_sheet.dart';
 import '../../../core/widgets/primary_button.dart';
 import '../../auth/application/account_basics.dart' show MyPhoneFormatter;
 import '../../auth/data/auth_repository.dart';
+import '../../social/application/community_providers.dart' show kClubLogoHint;
+import '../../social/presentation/widgets/club_logo.dart';
 import '../application/vendors_providers.dart';
 import '../domain/vendor.dart';
 
@@ -167,6 +169,12 @@ class _PartnerApplyScreenState extends ConsumerState<PartnerApplyScreen> {
             children: [
               GestureDetector(
                 onTap: () async {
+                  // Clubs: a required, round logo (square crop).
+                  if (_club) {
+                    final f = await pickClubLogo(context);
+                    if (f != null) setState(() => _logo = f);
+                    return;
+                  }
                   final files = await pickPhotos(context, max: 1, multi: false, small: true);
                   if (files.isNotEmpty) setState(() => _logo = files.first);
                 },
@@ -182,7 +190,11 @@ class _PartnerApplyScreenState extends ConsumerState<PartnerApplyScreen> {
                 ),
               ),
               const SizedBox(width: 14),
-              Expanded(child: Text(_club ? 'Club logo (optional)' : 'Logo or shopfront photo (optional)', style: TextStyle(color: AppColors.textSecondary, fontSize: 13))),
+              Expanded(
+                child: _club
+                    ? Text('Club logo (required)\n$kClubLogoHint', style: TextStyle(color: _logo == null ? AppColors.textPrimary : AppColors.textSecondary, fontSize: 13, height: 1.35))
+                    : Text('Logo or shopfront photo (optional)', style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+              ),
             ],
           ),
           const SizedBox(height: 16),
@@ -290,7 +302,8 @@ class _PartnerApplyScreenState extends ConsumerState<PartnerApplyScreen> {
             validator: _club ? (v) => (v ?? '').trim().length < 20 ? 'Tell us a bit more about the club' : null : null,
           ),
           const SizedBox(height: 20),
-          PrimaryButton(label: 'Send application', loading: _busy, onPressed: _submit),
+          // A club can't apply without its logo.
+          PrimaryButton(label: _club && _logo == null ? 'Add your club logo first' : 'Send application', loading: _busy, onPressed: _club && _logo == null ? null : _submit),
           const SizedBox(height: 10),
           Text(
             'We usually reply within a few days. You keep using TT Spot as normal in the meantime.',

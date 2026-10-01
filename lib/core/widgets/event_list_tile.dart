@@ -35,8 +35,8 @@ class EventListTile extends StatelessWidget {
               child: SizedBox(
                 width: 60,
                 height: 60,
-                child: e.coverUrl == null
-                    ? Image.asset(e.defaultCover, fit: BoxFit.cover, cacheWidth: 180)
+                child: e.bundledCover != null
+                    ? Image.asset(e.bundledCover!, fit: BoxFit.cover, cacheWidth: 180)
                     : ThumbImage(e.coverUrl!,
                         placeholder: ColoredBox(color: AppColors.surfaceGray, child: Center(child: ArtIcon(e.type.art, size: 36))),
                         error: Image.asset(e.defaultCover, fit: BoxFit.cover, cacheWidth: 180),

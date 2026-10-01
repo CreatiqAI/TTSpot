@@ -435,8 +435,9 @@ class _Cover extends StatelessWidget {
   Widget build(BuildContext context) {
     return AspectRatio(
       aspectRatio: 4 / 3,
-      child: event.coverUrl == null
-          ? Image.asset(event.defaultCover,
+      // A preset (or no cover) shows the bundled file; an uploaded photo loads.
+      child: event.bundledCover != null
+          ? Image.asset(event.bundledCover!,
               fit: BoxFit.cover,
               errorBuilder: (_, _, _) => ColoredBox(
                 color: AppColors.surfaceGray,

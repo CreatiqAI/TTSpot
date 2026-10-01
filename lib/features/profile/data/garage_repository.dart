@@ -7,6 +7,7 @@ import '../../../core/supabase/supabase_client.dart';
 import '../../../core/utils/plate_blur.dart';
 import '../../../core/utils/thumbnails.dart';
 import '../domain/car_documents.dart';
+import '../domain/car_meet.dart';
 import '../domain/car_mod.dart';
 
 /// What hangs off a car besides the car itself: the mods log and the
@@ -68,6 +69,20 @@ class GarageRepository {
       uploadThumb(bucket, path, bytes),
     ]);
     return bucket.getPublicUrl(path);
+  }
+
+  // ----------------------------------------------------------------- meets ---
+
+  /// Meets this car went to (RSVP'd or checked in with it). Two small reads:
+  /// both tables are readable by members, and the `events` embed comes back
+  /// null for a meet the viewer may not see.
+  Future<List<CarMeet>> carMeets(String carId) async {
+    const event = 'events(id, title, starts_at, venue_name, cover_url, status)';
+    final res = await Future.wait([
+      _client.from('event_attendees').select('event_id, $event').eq('car_id', carId).limit(200),
+      _client.from('checkins').select('event_id, $event').eq('car_id', carId).limit(200),
+    ]);
+    return CarMeet.merge(attended: res[0], checkins: res[1]);
   }
 
   // ------------------------------------------------------------- documents ---

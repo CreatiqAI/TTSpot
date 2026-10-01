@@ -10,6 +10,7 @@ import '../../domain/car.dart';
 import '../../domain/garage_look.dart';
 import 'collector_card.dart';
 import 'garage_pager.dart';
+import 'garage_scenery.dart';
 
 /// The roller door plays once per app session; after that the garage opens
 /// with the door up and just a flicker of the ceiling light.
@@ -195,7 +196,7 @@ class _GarageBayStageState extends State<GarageBayStage> with TickerProviderStat
                 fit: StackFit.expand,
                 children: [
                   // The bay itself never moves: one picture.
-                  const RepaintBoundary(child: CustomPaint(painter: _BayPainter())),
+                  const BayBackdrop(),
                   // BAY 0n, big and outlined on the back wall.
                   Positioned(
                     left: 26,
@@ -209,77 +210,14 @@ class _GarageBayStageState extends State<GarageBayStage> with TickerProviderStat
                       animation: _pager.position,
                       builder: (_, _) => AnimatedSwitcher(
                         duration: const Duration(milliseconds: 300),
-                        child: _BayNumber(key: ValueKey(_pager.page), text: bayNumber(_pager.page), size: h * 0.3),
+                        child: BayNumber(key: ValueKey(_pager.page), text: bayNumber(_pager.page), size: h * 0.3),
                       ),
                     ),
                   ),
                   // Ceiling tube and the light it spills.
                   AnimatedBuilder(
                     animation: _intro,
-                    builder: (_, _) => Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        Positioned(
-                          left: 50,
-                          right: 50,
-                          top: 14,
-                          height: 6,
-                          child: DecoratedBox(decoration: BoxDecoration(color: const Color(0xFF2A2E36), borderRadius: BorderRadius.circular(6))),
-                        ),
-                        Positioned(
-                          left: 50,
-                          right: 50,
-                          top: 14,
-                          height: 6,
-                          child: Opacity(
-                            opacity: _tube,
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                color: GarageColors.tube,
-                                borderRadius: BorderRadius.circular(6),
-                                boxShadow: const [BoxShadow(color: Color(0x8CC8E1FF), blurRadius: 18, spreadRadius: 6)],
-                              ),
-                            ),
-                          ),
-                        ),
-                        Positioned.fill(
-                          child: IgnorePointer(
-                            child: Opacity(
-                              opacity: _wash * _tube.clamp(0.35, 1.0),
-                              child: const DecoratedBox(
-                                decoration: BoxDecoration(
-                                  gradient: RadialGradient(
-                                    center: Alignment(0, -1.05),
-                                    radius: 0.95,
-                                    colors: [Color(0x38D2E4FF), Color(0x00D2E4FF)],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        Positioned(
-                          left: w / 2 - 150,
-                          width: 300,
-                          bottom: 0,
-                          height: h * 0.42,
-                          child: IgnorePointer(
-                            child: Opacity(
-                              opacity: _wash,
-                              child: const DecoratedBox(
-                                decoration: BoxDecoration(
-                                  gradient: RadialGradient(
-                                    center: Alignment(0, 0.1),
-                                    radius: 0.6,
-                                    colors: [Color(0x1FFFFFFF), Color(0x00FFFFFF)],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                    builder: (_, _) => CeilingLight(top: 14, tube: _tube, wash: _wash),
                   ),
                   // The cars: the current one in the bay, its neighbours sliding in and out.
                   _ShineScope(
@@ -470,92 +408,22 @@ class _CutoutCarState extends State<_CutoutCar> {
     // The car stands on the floor; its box sits 14.5 % above the stage's bottom.
     final box = h * 0.5;
     final bottom = h * 0.145;
-    final cut = _provider;
     return AnimatedOpacity(
       opacity: _ready ? 1 : 0,
       duration: const Duration(milliseconds: 320),
       curve: Curves.easeOut,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          // Contact shadow under the tyres: a soft ellipse as wide as the car.
-          Positioned(
-            left: w * 0.1,
-            right: w * 0.1,
-            bottom: bottom - h * 0.045,
-            height: h * 0.09,
-            child: const IgnorePointer(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: RadialGradient(
-                    radius: 0.5,
-                    colors: [Color(0xB3000000), Color(0x00000000)],
-                    stops: [0.35, 1],
-                    transform: _Squash(),
-                  ),
-                ),
-              ),
-            ),
-          ),
-          // Reflection on the epoxy: the car upside down, fading out fast.
-          Positioned(
-            left: 10,
-            right: 10,
-            top: h - bottom,
-            height: box,
-            child: IgnorePointer(
-              child: ShaderMask(
-                blendMode: BlendMode.dstIn,
-                shaderCallback: (r) => const LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Color(0x33FFFFFF), Color(0x00FFFFFF)],
-                  stops: [0, 0.55],
-                ).createShader(r),
-                child: Transform.flip(
-                  flipY: true,
-                  child: Image(image: cut, fit: BoxFit.contain, alignment: Alignment.bottomCenter, gaplessPlayback: true, filterQuality: FilterQuality.medium),
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            left: 10,
-            right: 10,
-            bottom: bottom,
-            height: box,
-            child: GestureDetector(
-              onTap: widget.onTap,
-              onLongPress: widget.onLongPress,
-              child: _Shine(
-                child: Image(
-                  image: cut,
-                  fit: BoxFit.contain,
-                  alignment: Alignment.bottomCenter,
-                  gaplessPlayback: true,
-                  filterQuality: FilterQuality.medium,
-                  semanticLabel: widget.car.title,
-                ),
-              ),
-            ),
-          ),
-        ],
+      child: StandingCutout(
+        image: _provider,
+        stageWidth: w,
+        stageHeight: h,
+        box: box,
+        bottom: bottom,
+        semanticLabel: widget.car.title,
+        onTap: widget.onTap,
+        onLongPress: widget.onLongPress,
+        wrap: (car) => _Shine(child: car),
       ),
     );
-  }
-}
-
-/// Stretches a radial gradient to the box's width: a circle becomes an ellipse.
-class _Squash extends GradientTransform {
-  const _Squash();
-
-  @override
-  Matrix4? transform(Rect bounds, {TextDirection? textDirection}) {
-    final c = bounds.center;
-    return Matrix4.identity()
-      ..translateByDouble(c.dx, c.dy, 0, 1)
-      ..scaleByDouble(bounds.width / bounds.height, 1, 1, 1)
-      ..translateByDouble(-c.dx, -c.dy, 0, 1);
   }
 }
 
@@ -732,28 +600,6 @@ class _EmptyBay extends StatelessWidget {
   }
 }
 
-class _BayNumber extends StatelessWidget {
-  const _BayNumber({super.key, required this.text, required this.size});
-  final String text;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) => Text(
-        text,
-        textScaler: TextScaler.noScaling, // wall art, not reading text
-        style: TextStyle(
-          fontFamily: AppFonts.display,
-          fontWeight: FontWeight.w800,
-          fontSize: size,
-          height: 1,
-          foreground: Paint()
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 1.5
-            ..color = Colors.white.withValues(alpha: 0.09),
-        ),
-      );
-}
-
 class _RoundButton extends StatelessWidget {
   const _RoundButton({required this.icon, required this.tooltip, this.onTap});
   final IconData icon;
@@ -905,64 +751,6 @@ class _ShutterPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_ShutterPainter old) => false;
-}
-
-/// Back wall, panel seams, the epoxy floor and the yellow bay lines.
-class _BayPainter extends CustomPainter {
-  const _BayPainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width, h = size.height;
-    final all = Offset.zero & size;
-    canvas.drawRect(
-      all,
-      Paint()
-        ..shader = const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [GarageColors.wallTop, GarageColors.wallMid, GarageColors.wallBottom],
-          stops: [0, 0.58, 1],
-        ).createShader(all),
-    );
-    // Panel seams on the back wall.
-    final seam = Paint()..color = Colors.white.withValues(alpha: 0.025);
-    for (var x = 0.0; x < w; x += 64) {
-      canvas.drawRect(Rect.fromLTWH(x, 0, 1, h * 0.58), seam);
-    }
-    // Floor.
-    final floor = Rect.fromLTWH(0, h * 0.58, w, h * 0.42);
-    canvas.drawRect(
-      floor,
-      Paint()..shader = const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [GarageColors.floorTop, GarageColors.floorBottom]).createShader(floor),
-    );
-    canvas.drawRect(Rect.fromLTWH(0, h * 0.58, w, 1), Paint()..color = Colors.white.withValues(alpha: 0.05));
-    // Yellow bay lines, leaning out towards the viewer.
-    final line = Paint()..color = GarageColors.bayLine.withValues(alpha: 0.55);
-    final lineH = h * 0.4;
-    final lean = lineH * math.tan(24 * math.pi / 180);
-    canvas.drawPath(
-      Path()
-        ..moveTo(34, h)
-        ..lineTo(38, h)
-        ..lineTo(38 + lean, h - lineH)
-        ..lineTo(34 + lean, h - lineH)
-        ..close(),
-      line,
-    );
-    canvas.drawPath(
-      Path()
-        ..moveTo(w - 34, h)
-        ..lineTo(w - 38, h)
-        ..lineTo(w - 38 - lean, h - lineH)
-        ..lineTo(w - 34 - lean, h - lineH)
-        ..close(),
-      line,
-    );
-  }
-
-  @override
-  bool shouldRepaint(_BayPainter old) => false;
 }
 
 /// A painted parking spot on the floor of the empty bay.

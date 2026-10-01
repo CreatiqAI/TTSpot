@@ -17,11 +17,11 @@ import 'empty_state.dart';
 import 'sheet_header.dart';
 import 'user_avatar.dart';
 
-/// Something to share: a meet, a spot, a partner. [type] + [id] make the
-/// public link. With [eventId] or [placeId], "Send in TT Spot" drops the
-/// preview card into the chat instead of a bare link.
+/// Something to share: a meet, a spot, a car, a partner. [type] + [id] make
+/// the public link. With [eventId], [placeId] or [carId], "Send in TT Spot"
+/// drops the preview card into the chat instead of a bare link.
 class ShareItem {
-  const ShareItem({required this.type, required this.id, required this.title, this.text, this.eventId, this.placeId});
+  const ShareItem({required this.type, required this.id, required this.title, this.text, this.eventId, this.placeId, this.carId});
   final String type;
   final String id;
   final String title;
@@ -31,6 +31,7 @@ class ShareItem {
   final String? text;
   final String? eventId;
   final String? placeId;
+  final String? carId;
 
   String get link => shareLink(type, id);
   String get message => text ?? '$title on TT Spot\n$link';
@@ -169,9 +170,9 @@ class _SendSheetState extends ConsumerState<_SendSheet> {
     try {
       for (final key in _picked) {
         final conv = key.startsWith('c:') ? key.substring(2) : await actions.openDm(key.substring(2));
-        if (item.eventId != null || item.placeId != null) {
-          // The meet / spot card, then the note under it.
-          await actions.attach(conv, eventId: item.eventId, placeId: item.placeId);
+        if (item.eventId != null || item.placeId != null || item.carId != null) {
+          // The meet / spot / car card, then the note under it.
+          await actions.attach(conv, eventId: item.eventId, placeId: item.placeId, carId: item.carId);
           if (note.isNotEmpty) await actions.send(conv, note);
         } else {
           await actions.send(conv, note.isEmpty ? item.message : '$note\n${item.link}');

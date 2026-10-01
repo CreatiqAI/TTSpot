@@ -5,11 +5,23 @@ import '../../../core/supabase/supabase_client.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../data/garage_repository.dart';
 import '../domain/car_documents.dart';
+import '../domain/car_meet.dart';
 import '../domain/car_mod.dart';
 
 /// A car's mods, newest first. Private ones and prices come back for the
 /// owner only.
 final carModsProvider = FutureProvider.family<List<CarMod>, String>((ref, carId) => ref.watch(garageRepositoryProvider).carMods(carId));
+
+/// Meets a car went to, newest first (its Meets count and history). Never
+/// fails the page: an error reads as none.
+final carMeetsProvider = FutureProvider.family<List<CarMeet>, String>((ref, carId) async {
+  try {
+    return await ref.watch(garageRepositoryProvider).carMeets(carId);
+  } catch (e) {
+    if (kDebugMode) debugPrint('carMeets($carId) failed: $e');
+    return const <CarMeet>[];
+  }
+});
 
 /// My papers for one car, or null when none are saved.
 final carDocumentsProvider = FutureProvider.family<CarDocuments?, String>((ref, carId) {

@@ -28,6 +28,21 @@ enum ModCategory {
         _ => label,
       };
 
+  /// Three letters for a mod's tile on the car page ("WHL", "EXH").
+  String get code => switch (this) {
+        engine => 'ENG',
+        exhaust => 'EXH',
+        intake => 'AIR',
+        suspension => 'SUS',
+        wheels => 'WHL',
+        brakes => 'BRK',
+        body => 'EXT',
+        lighting => 'LGT',
+        interior => 'INT',
+        audio => 'AUD',
+        other => 'PRT',
+      };
+
   static ModCategory fromDb(String? v) => ModCategory.values.where((c) => c.name == v).firstOrNull ?? other;
 }
 

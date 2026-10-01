@@ -9,18 +9,23 @@ class AuthController extends AsyncNotifier<void> {
   @override
   Future<void> build() async {}
 
-  Future<void> signIn({required String email, required String password}) => _run(
-        () => ref.read(authRepositoryProvider).signInWithEmail(email: email, password: password),
-      );
+  /// True when it worked. Read before the router leaves the page: the
+  /// sign-in screen saves the password to the keychain on true.
+  Future<bool> signIn({required String email, required String password}) async {
+    await _run(() => ref.read(authRepositoryProvider).signInWithEmail(email: email, password: password));
+    return !state.hasError;
+  }
 
-  /// True when a 6-digit code was emailed and still has to be entered.
-  Future<bool> signUp({required String email, required String password}) async {
+  /// [ok] when the account was made; [needsCode] when a 6-digit code was
+  /// emailed and still has to be entered.
+  Future<({bool ok, bool needsCode})> signUp({required String email, required String password}) async {
     state = const AsyncLoading();
     var needsCode = false;
     state = await AsyncValue.guard(() async {
       needsCode = await ref.read(authRepositoryProvider).signUpWithEmail(email: email, password: password);
     });
-    return !state.hasError && needsCode;
+    final ok = !state.hasError;
+    return (ok: ok, needsCode: ok && needsCode);
   }
 
   Future<void> requestPasswordReset(String identifier) => _run(

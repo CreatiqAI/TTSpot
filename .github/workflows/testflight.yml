@@ -80,6 +80,23 @@ jobs:
           keychain add-certificates
           xcode-project use-profiles   # writes ~/export_options.plist
 
+      # Runner.entitlements asks for webcredentials:ttspot.my and www (iCloud Keychain
+      # password AutoFill). fetch-signing-files reuses any ACTIVE profile and
+      # never checks capabilities, so fail early, with the fix, if the profile
+      # it found predates the Associated Domains capability on the App ID.
+      - name: Check the profile has Associated Domains
+        run: |
+          found=0
+          while IFS= read -r p; do
+            security cms -D -i "$p" > "$RUNNER_TEMP/profile.plist" 2>/dev/null || continue
+            if /usr/libexec/PlistBuddy -c 'Print :Entitlements:com.apple.developer.associated-domains' "$RUNNER_TEMP/profile.plist" >/dev/null 2>&1; then found=1; fi
+          done < <(find "$HOME/Library/MobileDevice/Provisioning Profiles" "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles" -name '*.mobileprovision' 2>/dev/null)
+          if [ "$found" != 1 ]; then
+            echo "::error::The App Store profile lacks Associated Domains. Check the capability is on for $BUNDLE_ID, delete its old IOS_APP_STORE profile in App Store Connect (never the certificate), then re-run: --create makes a fresh profile."
+            exit 1
+          fi
+          echo "Profile includes Associated Domains"
+
       - name: Build signed .ipa
         # Build number = workflow run number, so every upload is higher than the
         # last (App Store Connect rejects repeats). Version name stays pubspec's.

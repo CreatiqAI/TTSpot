@@ -154,10 +154,11 @@ class ChatActions {
     _ref.invalidate(inboxProvider);
   }
 
-  Future<void> sendPhoto(String conversationId, XFile file) async {
+  /// [caption] becomes the message text; without one the body stays "Sent a photo".
+  Future<void> sendPhoto(String conversationId, XFile file, {String? caption}) async {
     final repo = _ref.read(chatRepositoryProvider);
     final url = await repo.uploadPhoto(me: _me, bytes: await file.readAsBytes());
-    await repo.send(asClub: _actor(conversationId).asClub, asVendor: _actor(conversationId).asVendor, conversationId: conversationId, me: _me, body: 'Sent a photo', imageUrl: url);
+    await repo.send(asClub: _actor(conversationId).asClub, asVendor: _actor(conversationId).asVendor, conversationId: conversationId, me: _me, body: _captionOr(caption, 'Sent a photo'), imageUrl: url);
     _ref.invalidate(inboxProvider);
   }
 
@@ -168,14 +169,22 @@ class ChatActions {
     _ref.invalidate(inboxProvider);
   }
 
-  Future<void> sendVideo(String conversationId, XFile file) async {
+  /// [poster]: a JPEG still from the send preview; [ms]: the video's length;
+  /// [caption] becomes the message text (else "Sent a video").
+  Future<void> sendVideo(String conversationId, XFile file, {Uint8List? poster, int? ms, String? caption}) async {
     // Library picks can skip maxDuration, so check the size before reading it in.
     if (await file.length() > kChatVideoMaxMb * 1024 * 1024) throw const AppException('That video is too big. Pick one under $kChatVideoMaxMb MB.');
     final bytes = await file.readAsBytes();
     final repo = _ref.read(chatRepositoryProvider);
-    final url = await repo.uploadMedia(me: _me, bytes: bytes, ext: 'mp4', contentType: 'video/mp4');
-    await repo.send(asClub: _actor(conversationId).asClub, asVendor: _actor(conversationId).asVendor, conversationId: conversationId, me: _me, body: 'Sent a video', videoUrl: url);
+    final up = await repo.uploadVideo(me: _me, bytes: bytes, poster: poster);
+    await repo.send(asClub: _actor(conversationId).asClub, asVendor: _actor(conversationId).asVendor, conversationId: conversationId, me: _me, body: _captionOr(caption, 'Sent a video'), videoUrl: up.url, videoPosterUrl: up.posterUrl, videoMs: ms);
     _ref.invalidate(inboxProvider);
+  }
+
+  /// A typed caption, or the auto body that Message.autoBody recognises.
+  static String _captionOr(String? caption, String auto) {
+    final c = caption?.trim() ?? '';
+    return c.isEmpty ? auto : c;
   }
 
   Future<void> sendSticker(String conversationId, String key) async {

@@ -12,6 +12,7 @@ import '../../../core/utils/dates.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../../core/widgets/photo_viewer.dart';
 import '../../../core/widgets/user_avatar.dart';
+import '../../../core/widgets/video_viewer.dart';
 import '../../events/application/event_providers.dart';
 import '../../friends/application/friends_providers.dart';
 import '../../friends/domain/friend.dart';
@@ -310,6 +311,10 @@ class _SharedThumb extends ConsumerWidget {
       url = post?.cover;
       tag = 'Post';
       open = () => context.push(Routes.post(message.postId!));
+    } else if (message.videoUrl != null) {
+      url = message.videoPosterUrl;
+      tag = 'Video';
+      open = () => showVideoViewer(context, url: message.videoUrl!, posterUrl: message.videoPosterUrl);
     } else if (message.storyId != null) {
       final s = ref.watch(storyProvider(message.storyId!)).value;
       url = s?.photoUrl;
@@ -328,7 +333,7 @@ class _SharedThumb extends ConsumerWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            if (url != null) Image(image: CachedNetworkImageProvider(url), fit: BoxFit.cover) else Center(child: Icon(AppIcons.image, color: AppColors.textMuted)),
+            if (url != null) Image(image: CachedNetworkImageProvider(url), fit: BoxFit.cover) else Center(child: Icon(message.videoUrl != null ? AppIcons.videoCamera : AppIcons.image, color: AppColors.textMuted)),
             Positioned(left: 6, bottom: 6, child: Text(tag, style: const TextStyle(color: Colors.white, fontSize: 10.5, fontWeight: FontWeight.w800, shadows: [Shadow(blurRadius: 6, color: Colors.black)]))),
           ],
         ),

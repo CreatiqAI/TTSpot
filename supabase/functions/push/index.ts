@@ -127,7 +127,7 @@ async function fromNotification(id: string): Promise<Push | null> {
 async function fromMessage(id: string): Promise<Push | null> {
   const { data: m } = await admin
     .from("messages")
-    .select("conversation_id, sender_id, body, as_club, as_vendor, sender:profiles!messages_sender_id_fkey(username), conversation:conversations(kind, event:events(title))")
+    .select("conversation_id, sender_id, body, image_url, video_url, as_club, as_vendor, sender:profiles!messages_sender_id_fkey(username), conversation:conversations(kind, event:events(title))")
     .eq("id", id)
     .maybeSingle();
   if (!m) return null;
@@ -151,10 +151,17 @@ async function fromMessage(id: string): Promise<Push | null> {
   userIds = userIds.filter((u) => !blockers.has(u));
 
   const meet = x.conversation?.kind === "meet";
+  // A caption typed under a photo / video says which it was; the auto bodies
+  // ("Sent a photo", "Sent a video") already do.
+  const text: string = x.image_url && x.body !== "Sent a photo"
+    ? `Photo: ${x.body}`
+    : x.video_url && x.body !== "Sent a video"
+      ? `Video: ${x.body}`
+      : x.body;
   return {
     userIds,
     title: meet ? x.conversation?.event?.title ?? "Meet chat" : from,
-    body: meet ? `${from}: ${x.body}` : x.body,
+    body: meet ? `${from}: ${text}` : text,
     route: `/chat/${x.conversation_id}`,
     setting: "notif_messages",
   };

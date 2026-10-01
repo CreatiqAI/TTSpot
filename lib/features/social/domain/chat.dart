@@ -1,7 +1,7 @@
 import '../../auth/domain/profile.dart';
 
 class Message {
-  const Message({required this.id, required this.conversationId, required this.senderId, required this.body, required this.createdAt, this.sender, this.postId, this.storyId, this.imageUrl, this.sticker, this.eventId, this.placeId, this.carId, this.audioUrl, this.audioMs, this.videoUrl, this.asClub, this.asVendor, this.asName, this.asLogo});
+  const Message({required this.id, required this.conversationId, required this.senderId, required this.body, required this.createdAt, this.sender, this.postId, this.storyId, this.imageUrl, this.sticker, this.eventId, this.placeId, this.carId, this.audioUrl, this.audioMs, this.videoUrl, this.asClub, this.asVendor, this.asName, this.asLogo, this.videoPosterUrl, this.videoMs});
   final String id;
   final String conversationId;
   final String senderId;
@@ -24,6 +24,9 @@ class Message {
   final String? asVendor;
   final String? asName;
   final String? asLogo;
+  /// A still of the video (newer sends) and its length.
+  final String? videoPosterUrl;
+  final int? videoMs;
 
   /// Anything other than plain text.
   bool get hasAttachment => postId != null || storyId != null || imageUrl != null || sticker != null || eventId != null || placeId != null || carId != null || audioUrl != null || videoUrl != null;
@@ -51,6 +54,8 @@ class Message {
         audioUrl: m['audio_url'] as String?,
         audioMs: (m['audio_ms'] as num?)?.toInt(),
         videoUrl: m['video_url'] as String?,
+        videoPosterUrl: m['video_poster_url'] as String?,
+        videoMs: (m['video_ms'] as num?)?.toInt(),
       );
 }
 

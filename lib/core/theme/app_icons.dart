@@ -131,6 +131,9 @@ abstract final class AppIcons {
   static const IconData copy = IconData(0xe1ca, fontFamily: _family);
   static const IconData printer = IconData(0xe3dc, fontFamily: _family);
   static const IconData trendUp = IconData(0xe4ae, fontFamily: _family);
+  static const IconData speakerHigh = IconData(0xe44a, fontFamily: _family);
+  static const IconData speakerSlash = IconData(0xe45a, fontFamily: _family);
+  static const IconData arrowCounterClockwise = IconData(0xe038, fontFamily: _family);
   static const IconData forkKnife = IconData(0xe262, fontFamily: _family);
   static const IconData gasPump = IconData(0xe768, fontFamily: _family);
   static const IconData tire = IconData(0xedd2, fontFamily: _family);

@@ -22,6 +22,7 @@ arrows-clockwise medal star confetti seal-check megaphone steering-wheel wrench 
 users-four handshake smiley thumbs-up phone envelope link qr-code export download-simple house globe rocket lightning
 chat-teardrop chat-text record pulse target binoculars footprints signpost map-pin-plus map-pin-area storefront buildings
 toilet elevator door-open microphone-stage stack-simple copy printer trend-up
+speaker-high speaker-slash arrow-counter-clockwise
 fork-knife gas-pump tire traffic-cone police-car siren list-checks caret-up arrow-up arrow-down minus hash tag scan
 chart-bar ticket receipt gift percent coins hand-coins wallet shopping-bag crown map-pin-line share-fat arrows-out corners-out push-pin push-pin-slash microphone pause play google-logo bell-slash paper-plane-right stop whatsapp-logo phone-call video-camera moon device-mobile vibrate
 """.split()

@@ -22,3 +22,6 @@ const kChatVideoMaxDuration = Duration(seconds: 60);
 const kChatVideoMaxMb = 40;
 const kStoryVideoMaxDuration = Duration(seconds: 30);
 const kStoryVideoMaxMb = 25;
+
+/// Photos and videos sent together from the chat preview.
+const kChatMediaMaxItems = 10;

@@ -41,6 +41,9 @@ dependencies:
   # --- approved 2026-09-29 -------------------------------------------------
   flutter_image_compress: ^2.5.1 # ~480 px JPEG thumbnails for grid tiles (less storage egress)
 
+  # --- approved 2026-10-01 -------------------------------------------------
+  camera: ^0.12.1                # in-app chat camera: tap for photo, hold for video
+
   # Not added: intl (dates formatted in lib/core/utils/dates.dart instead),
   # cached_network_image (plain NetworkImage is enough for MVP).
 

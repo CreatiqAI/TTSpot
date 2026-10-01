@@ -25,12 +25,12 @@ import 'widgets/voice_recorder.dart';
 
 import '../../../core/theme/app_art.dart';
 import '../../../core/theme/app_images.dart';
-import '../../events/application/create_event_controller.dart' show pickCoverImage;
 import '../../events/application/event_providers.dart';
 import '../../profile/application/profile_providers.dart';
 import '../application/chat_providers.dart';
 import '../application/community_providers.dart';
 import 'chat_attach.dart';
+import 'chat_camera_screen.dart';
 import 'story_viewer_screen.dart';
 import 'chat_stickers.dart';
 import 'widgets/media_send_preview.dart';
@@ -201,6 +201,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     if (files.isEmpty || !mounted) return;
     final items = await showMediaSendPreview(context, files);
     if (items == null || items.isEmpty) return;
+    await _sendItems(items);
+  }
+
+  /// What the preview (or the camera, which runs it itself) said to send.
+  Future<void> _sendItems(List<MediaSendItem> items) async {
+    if (items.isEmpty || !mounted) return;
     final actions = ref.read(chatActionsProvider);
     await _guardReply((reply) async {
       for (final (i, it) in items.indexed) {
@@ -214,32 +220,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     });
   }
 
-  Future<void> _cameraMenu() async {
-    final what = await showModalBottomSheet<String>(
-      useRootNavigator: true, // above the shell tab bar
-      context: context,
-      showDragHandle: true,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(leading: const Icon(AppIcons.camera), title: const Text('Take a photo'), onTap: () => Navigator.pop(ctx, 'photo')),
-            ListTile(leading: const Icon(AppIcons.record), title: const Text('Record a video'), subtitle: Text('Up to ${kChatVideoMaxDuration.inSeconds} seconds', style: const TextStyle(fontSize: 12)), onTap: () => Navigator.pop(ctx, 'video')),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
-    );
-    if (what == 'photo') await _photo(ImageSource.camera);
-    if (what == 'video') await _video(ImageSource.camera);
+  /// The in-app camera: tap for a photo, hold for a video, or the gallery.
+  /// It runs the send preview itself, so what comes back is ready to go.
+  Future<void> _camera() async {
+    final items = await openChatCamera(context);
+    if (items != null) await _sendItems(items);
   }
 
-  Future<void> _photo(ImageSource source) async {
-    if (source == ImageSource.camera) {
-      final f = await pickCoverImage(source);
-      if (f != null) await _sendMedia([f]);
-      return;
-    }
+  Future<void> _photos() async {
     final picked = await ImagePicker().pickMultiImage(maxWidth: 1600, maxHeight: 1600, imageQuality: 85, limit: kChatMediaMaxItems);
     await _sendMedia(picked);
   }
@@ -261,11 +249,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     if (what == null || !mounted) return;
     switch (what) {
       case ComposerAction.photos:
-        await _photo(ImageSource.gallery);
+        await _photos();
       case ComposerAction.video:
         await _video(ImageSource.gallery);
       case ComposerAction.camera:
-        await _cameraMenu();
+        await _camera();
       case ComposerAction.location:
         await _attach(tab: 1);
       case ComposerAction.meet:
@@ -503,7 +491,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               sending: _sending,
               onSend: _send,
               onPlus: _plus,
-              onCamera: _cameraMenu,
+              onCamera: _camera,
               recorder: _voice,
               focusNode: _focus,
               header: _replyTo == null

@@ -573,7 +573,7 @@ class _ChatCameraScreenState extends State<ChatCameraScreen> with WidgetsBinding
     if (_shutter.phase != ShutterPhase.idle || (_cams?.length ?? 0) < 2 || _covered) return;
     HapticFeedback.selectionClick();
     _set(() {
-      _flipTurns += 0.5;
+      _flipTurns += 1; // a full spin, so the glyph lands upright
       _lens = _isBack ? CameraLensDirection.front : CameraLensDirection.back;
     });
     _serial(() async {

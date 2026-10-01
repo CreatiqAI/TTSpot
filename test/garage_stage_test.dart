@@ -107,8 +107,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(index, 1);
 
-    // The first card now leans in from the left: tap it to bring it forward, tap again to open.
-    await tester.tapAt(tester.getCenter(find.byKey(const ValueKey('a'))));
+    // The first car's card now leans in from the left: tap its visible part
+    // to bring it forward, then tap it again to open it.
+    final a = tester.getRect(find.byKey(const ValueKey('a')));
+    await tester.tapAt(Offset(a.left + a.width * 0.45, a.center.dy + 50));
     await tester.pumpAndSettle();
     expect(index, 0);
     await tester.tap(find.byKey(const ValueKey('a')));

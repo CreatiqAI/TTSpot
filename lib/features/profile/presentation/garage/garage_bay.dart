@@ -329,6 +329,7 @@ class _GarageBayStageState extends State<GarageBayStage> with TickerProviderStat
     final opacity = ((1 - a * 1.5).clamp(0.0, 1.0)) * carIn;
     final scale = 1 - 0.18 * a.clamp(0.0, 1.0);
     return Positioned.fill(
+      key: child.key,
       child: IgnorePointer(
         ignoring: a > 0.5,
         child: Transform(
@@ -379,27 +380,114 @@ class _BaySlot extends StatelessWidget {
   Widget build(BuildContext context) {
     final h = stageHeight;
     if (parking) return _Parking(car: car, stageHeight: h);
-    final look = garageLookFor(car);
-    if (look == GarageLook.cutout) {
-      // The car stands on the floor; its box sits 14.5 % above the stage's bottom.
-      final box = h * 0.5;
-      final bottom = h * 0.145;
-      final cut = garageCutoutProvider(car)!;
-      return Stack(
+    if (garageLookFor(car) == GarageLook.cutout) {
+      return _CutoutCar(car: car, stageWidth: stageWidth, stageHeight: h, onTap: onTap, onLongPress: onLongPress);
+    }
+    return _StandingCard(car: car, stageWidth: stageWidth, stageHeight: h, onTap: onTap, onLongPress: onLongPress);
+  }
+}
+
+/// The car cut out of its photo, standing on the floor with a contact shadow
+/// and its reflection in the epoxy. Fades in once the PNG has loaded; if it
+/// can't load, the car's card stands there instead.
+class _CutoutCar extends StatefulWidget {
+  const _CutoutCar({required this.car, required this.stageWidth, required this.stageHeight, required this.onTap, this.onLongPress});
+  final Car car;
+  final double stageWidth;
+  final double stageHeight;
+  final VoidCallback onTap;
+  final VoidCallback? onLongPress;
+
+  @override
+  State<_CutoutCar> createState() => _CutoutCarState();
+}
+
+class _CutoutCarState extends State<_CutoutCar> {
+  ImageStream? _stream;
+  late final ImageStreamListener _listener = ImageStreamListener(
+    (_, _) => _update(() => _ready = true),
+    onError: (_, _) => _update(() => _failed = true),
+  );
+  bool _ready = false;
+  bool _failed = false;
+  /// A cached image answers inside addListener, mid-build: no setState then.
+  bool _resolving = false;
+
+  void _update(VoidCallback change) {
+    if (_resolving) {
+      change();
+    } else if (mounted) {
+      setState(change);
+    }
+  }
+
+  ImageProvider get _provider => garageCutoutProvider(widget.car)!;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _resolve();
+  }
+
+  @override
+  void didUpdateWidget(_CutoutCar old) {
+    super.didUpdateWidget(old);
+    if (old.car.cutoutUrl != widget.car.cutoutUrl) {
+      _ready = false;
+      _failed = false;
+      _resolve();
+    }
+  }
+
+  void _resolve() {
+    final next = _provider.resolve(createLocalImageConfiguration(context));
+    if (next.key == _stream?.key) return;
+    _stream?.removeListener(_listener);
+    _resolving = true;
+    _stream = next..addListener(_listener);
+    _resolving = false;
+  }
+
+  @override
+  void dispose() {
+    _stream?.removeListener(_listener);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final h = widget.stageHeight;
+    final w = widget.stageWidth;
+    if (_failed) {
+      return _StandingCard(car: widget.car, stageWidth: w, stageHeight: h, onTap: widget.onTap, onLongPress: widget.onLongPress);
+    }
+    // The car stands on the floor; its box sits 14.5 % above the stage's bottom.
+    final box = h * 0.5;
+    final bottom = h * 0.145;
+    final cut = _provider;
+    return AnimatedOpacity(
+      opacity: _ready ? 1 : 0,
+      duration: const Duration(milliseconds: 320),
+      curve: Curves.easeOut,
+      child: Stack(
         fit: StackFit.expand,
         children: [
-          // Contact shadow under the tyres.
+          // Contact shadow under the tyres: a soft ellipse as wide as the car.
           Positioned(
-            left: stageWidth * 0.12,
-            right: stageWidth * 0.12,
-            bottom: bottom - h * 0.05,
-            height: h * 0.11,
+            left: w * 0.1,
+            right: w * 0.1,
+            bottom: bottom - h * 0.045,
+            height: h * 0.09,
             child: const IgnorePointer(
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  gradient: RadialGradient(colors: [Color(0xB3000000), Color(0x00000000)], stops: [0.25, 1]),
+                  gradient: RadialGradient(
+                    radius: 0.5,
+                    colors: [Color(0xB3000000), Color(0x00000000)],
+                    stops: [0.35, 1],
+                    transform: _Squash(),
+                  ),
                 ),
-                child: SizedBox.expand(),
               ),
             ),
           ),
@@ -431,23 +519,35 @@ class _BaySlot extends StatelessWidget {
             bottom: bottom,
             height: box,
             child: GestureDetector(
-              onTap: onTap,
-              onLongPress: onLongPress,
+              onTap: widget.onTap,
+              onLongPress: widget.onLongPress,
               child: Image(
                 image: cut,
                 fit: BoxFit.contain,
                 alignment: Alignment.bottomCenter,
                 gaplessPlayback: true,
                 filterQuality: FilterQuality.medium,
-                semanticLabel: car.title,
-                errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                semanticLabel: widget.car.title,
               ),
             ),
           ),
         ],
-      );
-    }
-    return _StandingCard(car: car, stageWidth: stageWidth, stageHeight: h, onTap: onTap, onLongPress: onLongPress);
+      ),
+    );
+  }
+}
+
+/// Stretches a radial gradient to the box's width: a circle becomes an ellipse.
+class _Squash extends GradientTransform {
+  const _Squash();
+
+  @override
+  Matrix4? transform(Rect bounds, {TextDirection? textDirection}) {
+    final c = bounds.center;
+    return Matrix4.identity()
+      ..translateByDouble(c.dx, c.dy, 0, 1)
+      ..scaleByDouble(bounds.width / bounds.height, 1, 1, 1)
+      ..translateByDouble(-c.dx, -c.dy, 0, 1);
   }
 }
 

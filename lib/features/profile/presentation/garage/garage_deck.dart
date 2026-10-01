@@ -146,18 +146,20 @@ class _GarageCardDeckState extends State<GarageCardDeck> with TickerProviderStat
               final cardW = math.min(252.0, math.min(w * 0.6, (h - 44) * kCollectorAspect));
               final cardH = cardW / kCollectorAspect;
               final top = math.max(12.0, (h - cardH) / 2 - 6);
-              final cards = [
-                for (var i = 0; i < widget.cars.length; i++)
-                  CollectorCard(
-                    key: ValueKey(widget.cars[i].id),
-                    car: widget.cars[i],
-                    index: i,
-                    width: cardW,
-                    today: widget.cars[i].id == widget.todayId,
-                    sheen: _sheen,
-                  ),
-                if (widget.onAdd != null) _AddCard(key: const ValueKey('add'), width: cardW),
-              ];
+              // Two of each card: the front one catches the light (sheen),
+              // the ones at the sides don't, so a tilt only repaints one card.
+              Widget card(int i, {required bool front}) => i < widget.cars.length
+                  ? CollectorCard(
+                      key: ValueKey(widget.cars[i].id),
+                      car: widget.cars[i],
+                      index: i,
+                      width: cardW,
+                      today: widget.cars[i].id == widget.todayId,
+                      sheen: front ? _sheen : null,
+                    )
+                  : _AddCard(key: const ValueKey('add'), width: cardW);
+              final fronts = [for (var i = 0; i < _count; i++) card(i, front: true)];
+              final sides = [for (var i = 0; i < _count; i++) card(i, front: false)];
               return Listener(
                 onPointerDown: (e) {
                   _touching = true;
@@ -188,12 +190,12 @@ class _GarageCardDeckState extends State<GarageCardDeck> with TickerProviderStat
                         animation: Listenable.merge([_pager.position, _deal]),
                         builder: (_, _) {
                           final pos = _pager.position.value;
-                          final order = [for (var i = 0; i < cards.length; i++) if ((i - pos).abs() < 2.3) i]
+                          final order = [for (var i = 0; i < _count; i++) if ((i - pos).abs() < 2.3) i]
                             ..sort((a, b) => (b - pos).abs().compareTo((a - pos).abs()));
                           return Stack(
                             clipBehavior: Clip.none,
                             children: [
-                              for (final i in order) _placed(i, cards[i], i - pos, cardW, cardH, top, w),
+                              for (final i in order) _placed(i, (i - pos).abs() < 0.5 ? fronts[i] : sides[i], i - pos, cardW, cardH, top, w),
                             ],
                           );
                         },
@@ -217,19 +219,23 @@ class _GarageCardDeckState extends State<GarageCardDeck> with TickerProviderStat
     final a = d.abs();
     final s = d.sign;
     // Rest pose for this distance from the front.
-    double tx, ty, scale, rot, opacity;
+    // Side cards sit back (z, away from the viewer), turned 30 degrees with
+    // their outer edge towards the viewer, like a fanned deck.
+    double tx, ty, tz, scale, rot, opacity;
     if (a <= 1) {
       tx = d * cardW * 0.7;
       ty = 18 * a;
+      tz = 120 * a;
       scale = 1 - 0.18 * a;
-      rot = -d * 0.52;
+      rot = d * 0.52;
       opacity = 1 - 0.25 * a;
     } else {
       final e = a - 1;
       tx = s * (cardW * 0.7 + e * cardW * 0.45);
       ty = 18 + 12 * e;
+      tz = 120 + 120 * e;
       scale = 0.82 - 0.12 * e;
-      rot = -s * 0.52;
+      rot = s * 0.52;
       opacity = (0.75 * (1.3 - e) / 1.3).clamp(0.0, 1.0);
     }
     // Dealt in one after another: from below, turned, smaller, faded.
@@ -239,25 +245,32 @@ class _GarageCardDeckState extends State<GarageCardDeck> with TickerProviderStat
     final dt = const Cubic(0.3, 0.7, 0.2, 1).transform(((_deal.value * totalMs - startMs) / _dealMs).clamp(0.0, 1.0));
     final spin = (i.isOdd ? 7 : -7) * math.pi / 180 * (1 - dt);
     final m = Matrix4.identity()
-      ..setEntry(3, 2, 0.0011)
-      ..translateByDouble(tx, ty + 90 * (1 - dt), 0, 1)
+      ..setEntry(3, 2, 1 / 1100)
+      ..translateByDouble(tx, ty + 90 * (1 - dt), tz, 1)
       ..rotateZ(spin)
       ..rotateY(rot)
       ..scaleByDouble(scale * (0.86 + 0.14 * dt), scale * (0.86 + 0.14 * dt), 1, 1);
     final front = a < 0.5;
     return Positioned(
+      key: ValueKey(i),
       left: (w - cardW) / 2,
       top: top,
       width: cardW,
       height: cardH,
-      child: Opacity(
-        opacity: (opacity * dt).clamp(0.0, 1.0),
-        child: Transform(
-          alignment: Alignment.center,
-          transform: m,
-          child: front
-              ? _FrontTilt(sheen: _sheen, child: GestureDetector(onTap: () => _tapFront(i), onLongPress: () => _longPress(i), child: card))
-              : GestureDetector(onTap: () => _go(i), child: card),
+      // The transform goes outside the opacity: hit testing then follows the
+      // card to where it's drawn (a box checks taps against its own layout
+      // rect before any transform inside it).
+      child: Transform(
+        alignment: Alignment.center,
+        transform: m,
+        child: Opacity(
+          opacity: (opacity * dt).clamp(0.0, 1.0),
+          // Same tree front or side, so a card turning to the front isn't rebuilt.
+          child: _FrontTilt(
+            sheen: _sheen,
+            lean: front ? 1 : 0,
+            child: GestureDetector(onTap: front ? () => _tapFront(i) : () => _go(i), onLongPress: front ? () => _longPress(i) : null, child: card),
+          ),
         ),
       ),
     );
@@ -312,10 +325,12 @@ class _GarageCardDeckState extends State<GarageCardDeck> with TickerProviderStat
   }
 }
 
-/// The front card leans a few degrees towards the light.
+/// The front card leans a few degrees towards the light ([lean] 1); the side
+/// cards hold still (0).
 class _FrontTilt extends StatelessWidget {
-  const _FrontTilt({required this.sheen, required this.child});
+  const _FrontTilt({required this.sheen, required this.lean, required this.child});
   final ValueListenable<double> sheen;
+  final double lean;
   final Widget child;
 
   @override
@@ -326,7 +341,7 @@ class _FrontTilt extends StatelessWidget {
           alignment: Alignment.center,
           transform: Matrix4.identity()
             ..setEntry(3, 2, 0.0011)
-            ..rotateY((p - 0.5) * 0.14),
+            ..rotateY((p - 0.5) * 0.14 * lean),
           child: child,
         ),
       );

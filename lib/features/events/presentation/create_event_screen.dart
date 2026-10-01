@@ -54,9 +54,23 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
 
   List<PlanStep> get _steps => _draft.steps;
   PlanStep get _step => _steps[_index];
+  late bool _dirty = _draft.isDirty;
+
+  @override
+  void initState() {
+    super.initState();
+    // Rebuild when the draft goes from empty to started: an empty wizard can
+    // be swiped away (iOS edge swipe, Android back) without a question.
+    _draft.addListener(_onDraft);
+  }
+
+  void _onDraft() {
+    if (_draft.isDirty != _dirty && mounted) setState(() => _dirty = _draft.isDirty);
+  }
 
   @override
   void dispose() {
+    _draft.removeListener(_onDraft);
     _draft.dispose();
     _nearby.dispose();
     super.dispose();
@@ -150,7 +164,7 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
     final primary = last ? (widget.session ? 'Post TT session' : 'Publish meet') : (_fromReview ? 'Back to review' : 'Next');
 
     return PopScope(
-      canPop: false,
+      canPop: _index == 0 && !_dirty && !busy,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop && !busy) _back();
       },

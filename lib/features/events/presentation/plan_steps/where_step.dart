@@ -34,6 +34,7 @@ class WhereStep extends ConsumerStatefulWidget {
 
 class _WhereStepState extends ConsumerState<WhereStep> {
   final _map = AppMapController();
+  final _search = TextEditingController();
   bool _locating = false;
 
   PlanDraft get d => widget.draft;
@@ -41,6 +42,7 @@ class _WhereStepState extends ConsumerState<WhereStep> {
   @override
   void dispose() {
     _map.dispose();
+    _search.dispose();
     super.dispose();
   }
 
@@ -117,9 +119,13 @@ class _WhereStepState extends ConsumerState<WhereStep> {
         children: [
           StepHeading('Where?', subtitle: d.session ? 'The mamak, carpark or spot you\'ll be at.' : 'Where should everyone meet?'),
           PlaceSearchField(
+            controller: _search,
             near: (start.latitude, start.longitude),
             hint: 'Search a place or address',
-            onPicked: (p) => _place(LatLng(p.lat, p.lng), name: p.name, address: p.address),
+            onPicked: (p) {
+              _place(LatLng(p.lat, p.lng), name: p.name, address: p.address);
+              _search.clear(); // the pick shows under THE SPOT; the box is for searching again
+            },
           ),
           const SizedBox(height: 10),
           SizedBox(

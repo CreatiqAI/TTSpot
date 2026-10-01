@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -10,6 +12,7 @@ import '../../auth/domain/profile.dart';
 import '../data/profile_repository.dart';
 import '../domain/car.dart';
 import '../domain/car_recognition.dart';
+import 'cutout_providers.dart';
 
 /// Any user's profile by id (the signed-in user's own is also in currentProfileProvider).
 final profileProvider = FutureProvider.family<Profile?, String>((ref, id) {
@@ -137,9 +140,11 @@ class CarFormController extends AsyncNotifier<void> {
     String? color,
     String? specs,
     String? bodyStyle,
+    String? garageStyle,
   }) async {
     state = const AsyncLoading();
     String? savedId;
+    Car? saved;
     state = await AsyncValue.guard(() async {
       final me = ref.read(currentUserIdProvider);
       if (me == null) throw const AppException('You\'re signed out. Sign in again.');
@@ -161,13 +166,30 @@ class CarFormController extends AsyncNotifier<void> {
       }
       final car = carId == null
           ? await repo.insertCar(ownerId: me, make: make, model: model, year: year, description: description, photoUrls: urls, color: color, specs: specs, bodyStyle: bodyStyle)
-          : await repo.updateCar(id: carId, make: make, model: model, year: year, description: description, photoUrls: urls, color: color, specs: specs, bodyStyle: bodyStyle);
+          : await repo.updateCar(id: carId, make: make, model: model, year: year, description: description, photoUrls: urls, color: color, specs: specs, bodyStyle: bodyStyle, garageStyle: garageStyle);
       savedId = car.id;
+      saved = car;
       ref.invalidate(userCarsProvider(me));
       ref.invalidate(profileStatsProvider(me));
       ref.invalidate(carProvider(car.id));
     });
+    // The garage cut-out, in the background: the form is already done. A
+    // cover that was just picked goes in as bytes, no download.
+    final car = saved;
+    if (car != null) {
+      final freshCover = keptPhotoUrls.isEmpty && newPhotos.isNotEmpty ? newPhotos.first : null;
+      unawaited(ref.read(cutoutServiceProvider).ensure(car, coverBytes: freshCover));
+    }
     return savedId;
+  }
+
+  /// "Garage look": 'auto' (cut-out when there is a good one) or 'card'.
+  Future<void> setGarageStyle(Car car, String style) async {
+    final me = ref.read(currentUserIdProvider);
+    if (me == null) throw const AppException('You\'re signed out. Sign in again.');
+    await ref.read(profileRepositoryProvider).setGarageStyle(car.id, style);
+    ref.invalidate(userCarsProvider(me));
+    ref.invalidate(carProvider(car.id));
   }
 
   /// The car that fronts my profile and drives on the map.

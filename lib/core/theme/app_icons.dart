@@ -183,6 +183,8 @@ abstract final class AppIcons {
   static const IconData lightningSlash = IconData(0xe2e0, fontFamily: _family);
   static const IconData lightningA = IconData(0xea84, fontFamily: _family);
   static const IconData microphoneSlash = IconData(0xe328, fontFamily: _family);
+  static const IconData cards = IconData(0xe0f8, fontFamily: _family);
+  static const IconData scissors = IconData(0xeae0, fontFamily: _family);
 
   // ---- filled twins ----
   static const IconData mapTrifoldFill = IconData(0xe31a, fontFamily: _fill);

@@ -25,7 +25,7 @@ toilet elevator door-open microphone-stage stack-simple copy printer trend-up
 speaker-high speaker-slash arrow-counter-clockwise
 fork-knife gas-pump tire traffic-cone police-car siren list-checks caret-up arrow-up arrow-down minus hash tag scan
 chart-bar ticket receipt gift percent coins hand-coins wallet shopping-bag crown map-pin-line share-fat arrows-out corners-out push-pin push-pin-slash microphone pause play arrow-bend-up-left google-logo bell-slash paper-plane-right stop whatsapp-logo phone-call video-camera moon device-mobile vibrate
-camera-rotate camera-slash lightning-slash lightning-a microphone-slash
+camera-rotate camera-slash lightning-slash lightning-a microphone-slash cards scissors
 """.split()
 
 FILL = """

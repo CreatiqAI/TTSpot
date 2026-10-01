@@ -10,6 +10,7 @@ import '../../../core/utils/plate_blur.dart';
 import '../../../core/utils/thumbnails.dart';
 import '../domain/car.dart';
 import '../domain/car_recognition.dart';
+import '../domain/garage_look.dart';
 
 /// `cars` reads/writes, car photo uploads, and profile stats.
 class ProfileRepository {
@@ -85,10 +86,12 @@ class ProfileRepository {
     String? color,
     String? specs,
     String? bodyStyle,
+    String? garageStyle,
   }) async {
     final row = await _client
         .from('cars')
         .update({
+          'garage_style': ?garageStyle,
           'color': color,
           'make': make.trim(),
           'model': model.trim(),
@@ -120,6 +123,33 @@ class ProfileRepository {
     ]);
     return bucket.getPublicUrl(path);
   }
+
+  /// Puts a cut-out next to the photo it was made from
+  /// (`car-photos/<uid>/123_0.jpg` → `…/123_0_cut.png`), returns its public URL.
+  /// A photo from somewhere else gets `<uid>/cutouts/<car>.png`. The same
+  /// photo always gives the same cut-out, so a retry may overwrite it.
+  Future<String> uploadCutout({required String userId, required String carId, required String photoUrl, required Uint8List png}) async {
+    final bucket = _client.storage.from('car-photos');
+    final prefix = bucket.getPublicUrl('');
+    final inBucket = photoUrl.startsWith(prefix) && !photoUrl.contains('?') && photoUrl.substring(prefix.length).startsWith('$userId/');
+    final path = inBucket ? cutoutPath(Uri.decodeComponent(photoUrl.substring(prefix.length))) : '$userId/cutouts/$carId.png';
+    await bucket.uploadBinary(path, png, fileOptions: const FileOptions(contentType: 'image/png', cacheControl: kImmutableCacheControl, upsert: true));
+    return bucket.getPublicUrl(path);
+  }
+
+  /// Records a cut-out attempt for [source] (the cover photo): [url] is null
+  /// when it didn't pass the quality check, so the car shows as a card and
+  /// isn't cut again until the cover changes. Skipped when the cover changed
+  /// meanwhile (the next garage visit cuts the new one).
+  Future<void> saveCutout({required String carId, required String? url, required String source}) async {
+    final row = await _client.from('cars').select('photo_urls').eq('id', carId).maybeSingle();
+    final photos = ((row?['photo_urls'] as List?) ?? const []).cast<String>();
+    if (photos.isEmpty || photos.first != source) return;
+    await _client.from('cars').update({'cutout_url': url, 'cutout_source': source}).eq('id', carId);
+  }
+
+  /// 'auto' (cut-out when there is a good one) or 'card'.
+  Future<void> setGarageStyle(String carId, String style) => _client.from('cars').update({'garage_style': style}).eq('id', carId);
 
   /// Asks the `recognize-car` edge function what the photo shows. The bytes go
   /// up as a data URL, so the unblurred original never touches storage;

@@ -32,6 +32,8 @@ import '../application/chat_providers.dart';
 import '../application/community_providers.dart';
 import 'chat_attach.dart';
 import 'story_viewer_screen.dart';
+import 'chat_stickers.dart';
+import 'widgets/media_send_preview.dart';
 import '../domain/post.dart';
 import '../application/social_providers.dart';
 import '../domain/chat.dart';
@@ -183,8 +185,33 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   Future<void> _video(ImageSource source) async {
     final f = await ImagePicker().pickVideo(source: source, maxDuration: kChatVideoMaxDuration);
-    if (f == null) return;
-    await _guardReply((r) => ref.read(chatActionsProvider).sendVideo(widget.conversationId, f, replyTo: r));
+    if (f == null || !mounted) return;
+    // Library picks can skip maxDuration: refuse a huge file before previewing it.
+    if (await f.length() > kChatVideoMaxMb * 1024 * 1024) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('That video is too big. Pick one under $kChatVideoMaxMb MB.')));
+      return;
+    }
+    await _sendMedia([f]);
+  }
+
+  /// WhatsApp style: picked photos and videos open in a full-screen preview
+  /// first (captions, add / remove more), then go out one message each. A
+  /// reply being written goes with the first of them.
+  Future<void> _sendMedia(List<XFile> files) async {
+    if (files.isEmpty || !mounted) return;
+    final items = await showMediaSendPreview(context, files);
+    if (items == null || items.isEmpty) return;
+    final actions = ref.read(chatActionsProvider);
+    await _guardReply((reply) async {
+      for (final (i, it) in items.indexed) {
+        final replyTo = i == 0 ? reply : null;
+        if (it.isVideo) {
+          await actions.sendVideo(widget.conversationId, it.file, replyTo: replyTo, poster: it.poster, ms: it.ms, caption: it.caption);
+        } else {
+          await actions.sendPhoto(widget.conversationId, it.file, replyTo: replyTo, caption: it.caption);
+        }
+      }
+    });
   }
 
   Future<void> _cameraMenu() async {
@@ -208,9 +235,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   Future<void> _photo(ImageSource source) async {
-    final f = await pickCoverImage(source);
-    if (f == null) return;
-    await _guardReply((r) => ref.read(chatActionsProvider).sendPhoto(widget.conversationId, f, replyTo: r));
+    if (source == ImageSource.camera) {
+      final f = await pickCoverImage(source);
+      if (f != null) await _sendMedia([f]);
+      return;
+    }
+    final picked = await ImagePicker().pickMultiImage(maxWidth: 1600, maxHeight: 1600, imageQuality: 85, limit: kChatMediaMaxItems);
+    await _sendMedia(picked);
   }
 
   Future<void> _sticker() async {
@@ -568,22 +599,28 @@ class _Bubble extends StatelessWidget {
 
     // A shared post / moment sits on its own, no bubble around it. A note, if any, follows underneath.
     // Each piece takes the time or null; only the last one gets it.
+    // A caption typed under a photo or video sits inside the media's own bubble, WhatsApp style.
+    final caption = !auto && (message.imageUrl != null || message.videoUrl != null) ? message.body : null;
     final pieces = <Widget Function(String? t)>[
       if (quote != null && message.audioUrl == null) (_) => quoteCard(quote!),
       if (message.postId != null) (t) => under(_SharedPost(postId: message.postId!, mine: mine), t),
       if (message.storyId != null) (t) => under(_SharedMoment(storyId: message.storyId!, mine: mine), t),
-      if (message.imageUrl != null) (t) => _Photo(url: message.imageUrl!, time: t),
+      if (message.imageUrl != null)
+        (t) => caption == null ? _Photo(url: message.imageUrl!, time: t) : _Captioned(mine: mine, caption: caption, time: time, media: _Photo(url: message.imageUrl!, fill: true)),
       if (message.audioUrl != null)
         (t) => Padding(
               padding: const EdgeInsets.only(bottom: 4),
               child: VoiceBubble(url: message.audioUrl!, ms: message.audioMs ?? 0, mine: mine, time: t, wave: message.audioWave, seed: message.id, avatarUrl: avatarUrl, avatarSeed: avatarSeed, avatarName: senderName, quote: quote),
             ),
-      if (message.videoUrl != null) (t) => VideoBubble(url: message.videoUrl!, time: t),
-      if (message.sticker != null) (t) => under(Padding(padding: const EdgeInsets.only(bottom: 4), child: ArtIcon(kStickers[message.sticker!] ?? AppArt.car, size: 96)), t),
+      if (message.videoUrl != null)
+        (t) => caption == null
+            ? VideoBubble(key: ValueKey('video-${message.id}'), url: message.videoUrl!, time: t, poster: message.videoPosterUrl, ms: message.videoMs)
+            : _Captioned(mine: mine, caption: caption, time: time, media: VideoBubble(key: ValueKey('video-${message.id}'), url: message.videoUrl!, poster: message.videoPosterUrl, ms: message.videoMs)),
+      if (message.sticker != null) (t) => under(Padding(padding: const EdgeInsets.only(bottom: 4), child: ChatSticker(message.sticker!)), t),
       if (message.eventId != null) (t) => under(_SharedEvent(eventId: message.eventId!), t),
       if (message.placeId != null) (t) => under(_SharedPlace(placeId: message.placeId!), t),
       if (message.carId != null) (t) => under(_SharedCar(carId: message.carId!), t),
-      if (!auto) (_) => textBubble(message.body),
+      if (!auto && caption == null) (_) => textBubble(message.body),
     ];
     final bubble = isShare
         ? Column(
@@ -818,23 +855,62 @@ class _SharedMoment extends ConsumerWidget {
 /// A photo sent in chat, with the send [time] in a pill at the bottom right
 /// when given. Tap to see it full screen.
 class _Photo extends StatelessWidget {
-  const _Photo({required this.url, this.time});
+  const _Photo({required this.url, this.time, this.fill = false});
   final String url;
   final String? time;
+  /// Fill the width it is given (inside a captioned bubble), cropping a tall photo.
+  final bool fill;
   @override
   Widget build(BuildContext context) => GestureDetector(
         onTap: () => showPhotoViewer(context, [url]),
         child: Container(
-          margin: const EdgeInsets.only(bottom: 4),
-          constraints: const BoxConstraints(maxWidth: 240, maxHeight: 320),
+          margin: EdgeInsets.only(bottom: fill ? 0 : 4),
+          constraints: BoxConstraints(maxWidth: 240, maxHeight: 320, minHeight: fill ? 120 : 0),
           clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(color: AppColors.surfaceGray, borderRadius: BorderRadius.circular(14)),
-          child: Stack(
-            children: [
-              Image(image: CachedNetworkImageProvider(url), fit: BoxFit.cover),
-              if (time != null) Positioned(right: 8, bottom: 8, child: ChatTimePill(time!)),
-            ],
+          child: fill
+              ? Image(image: CachedNetworkImageProvider(url), fit: BoxFit.cover, width: double.infinity)
+              : Stack(
+                  children: [
+                    Image(image: CachedNetworkImageProvider(url), fit: BoxFit.cover),
+                    if (time != null) Positioned(right: 8, bottom: 8, child: ChatTimePill(time!)),
+                  ],
+                ),
+        ),
+      );
+}
+
+/// A photo or video with the caption typed under it, in one bubble: the media
+/// on top, then the text with the send time at the end of its last line.
+class _Captioned extends StatelessWidget {
+  const _Captioned({required this.media, required this.caption, required this.time, required this.mine});
+  final Widget media;
+  final String caption;
+  final String time;
+  final bool mine;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: 246,
+        margin: const EdgeInsets.only(bottom: 2),
+        padding: const EdgeInsets.all(3),
+        decoration: BoxDecoration(
+          color: mine ? AppColors.surfaceGray : AppColors.surface,
+          border: mine ? null : Border.all(color: AppColors.border),
+          borderRadius: BorderRadius.only(
+            topLeft: const Radius.circular(18),
+            topRight: const Radius.circular(18),
+            bottomLeft: Radius.circular(mine ? 18 : 4),
+            bottomRight: Radius.circular(mine ? 4 : 18),
           ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            media,
+            Padding(padding: const EdgeInsets.fromLTRB(9, 6, 7, 3), child: _TimedText(text: caption, time: time)),
+          ],
         ),
       );
 }

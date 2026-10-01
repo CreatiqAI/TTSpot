@@ -2,7 +2,7 @@ import '../../auth/domain/profile.dart';
 import 'voice_wave.dart';
 
 class Message {
-  const Message({required this.id, required this.conversationId, required this.senderId, required this.body, required this.createdAt, this.sender, this.postId, this.storyId, this.imageUrl, this.sticker, this.eventId, this.placeId, this.carId, this.audioUrl, this.audioMs, this.videoUrl, this.asClub, this.asVendor, this.asName, this.asLogo, this.replyTo, this.audioWave});
+  const Message({required this.id, required this.conversationId, required this.senderId, required this.body, required this.createdAt, this.sender, this.postId, this.storyId, this.imageUrl, this.sticker, this.eventId, this.placeId, this.carId, this.audioUrl, this.audioMs, this.videoUrl, this.asClub, this.asVendor, this.asName, this.asLogo, this.replyTo, this.audioWave, this.videoPosterUrl, this.videoMs});
   final String id;
   final String conversationId;
   final String senderId;
@@ -29,6 +29,9 @@ class Message {
   final String? replyTo;
   /// Voice note loudness, ~50 bars of 0..100 (null for older notes).
   final List<int>? audioWave;
+  /// A still of the video (newer sends) and its length.
+  final String? videoPosterUrl;
+  final int? videoMs;
 
   /// Anything other than plain text.
   bool get hasAttachment => postId != null || storyId != null || imageUrl != null || sticker != null || eventId != null || placeId != null || carId != null || audioUrl != null || videoUrl != null;
@@ -58,6 +61,8 @@ class Message {
         videoUrl: m['video_url'] as String?,
         replyTo: m['reply_to'] as String?,
         audioWave: parseWave(m['audio_wave']),
+        videoPosterUrl: m['video_poster_url'] as String?,
+        videoMs: (m['video_ms'] as num?)?.toInt(),
       );
 }
 

@@ -12,69 +12,7 @@ import '../../events/application/my_events_provider.dart';
 import '../../profile/application/profile_providers.dart';
 import '../application/community_providers.dart';
 
-/// Sticker keys → art. Sent as the key, drawn from [AppArt] on both ends.
-const kStickers = <String, String>{
-  'car': AppArt.car,
-  'racing': AppArt.racing,
-  'coffee': AppArt.coffee,
-  'flag': AppArt.flag,
-  'fire': AppArt.fire,
-  'thumbsUp': AppArt.thumbsUp,
-  'wave': AppArt.wave,
-  'party': AppArt.party,
-  'cool': AppArt.cool,
-  'handshake': AppArt.handshake,
-  'trophy': AppArt.trophy,
-  'heartYellow': AppArt.heartYellow,
-  'rocket': AppArt.rocket,
-  'sparkles': AppArt.sparkles,
-  'confetti': AppArt.confetti,
-  'road': AppArt.road,
-  'night': AppArt.night,
-  'fuel': AppArt.fuel,
-  'wrench': AppArt.wrench,
-  'police': AppArt.police,
-};
-
-/// Pick a sticker. Returns its key.
-Future<String?> showStickerSheet(BuildContext context) {
-  return showModalBottomSheet<String>(
-    useRootNavigator: true, // above the shell tab bar
-    context: context,
-    showDragHandle: true,
-    builder: (ctx) => SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Stickers', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
-            const SizedBox(height: 12),
-            GridView.count(
-              crossAxisCount: 5,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              mainAxisSpacing: 8,
-              crossAxisSpacing: 8,
-              children: [
-                for (final e in kStickers.entries)
-                  InkWell(
-                    onTap: () => Navigator.pop(ctx, e.key),
-                    borderRadius: BorderRadius.circular(12),
-                    child: Container(
-                      decoration: BoxDecoration(color: AppColors.surfaceGray, borderRadius: BorderRadius.circular(12)),
-                      child: Center(child: ArtIcon(e.value, size: 40)),
-                    ),
-                  ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
-}
+// Stickers (packs, picker, legacy keys) live in chat_stickers.dart.
 
 /// What "+" attaches: one of my meets, a spot, or one of my cars.
 class ChatAttachment {

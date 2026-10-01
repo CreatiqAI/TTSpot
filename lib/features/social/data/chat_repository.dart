@@ -178,6 +178,8 @@ class ChatRepository {
     String? asVendor,
     String? replyTo,
     List<int>? audioWave,
+    String? videoPosterUrl,
+    int? videoMs,
   }) =>
       _client.from('messages').insert({
         'as_club': ?asClub,
@@ -197,6 +199,8 @@ class ChatRepository {
         'car_id': ?carId,
         'reply_to': ?replyTo,
         'audio_wave': ?audioWave,
+        'video_poster_url': ?videoPosterUrl,
+        'video_ms': ?videoMs,
       });
 
   Future<String> uploadMedia({required String me, required Uint8List bytes, required String ext, required String contentType}) async {
@@ -209,6 +213,29 @@ class ChatRepository {
     final path = '$me/${DateTime.now().millisecondsSinceEpoch}.jpg';
     await _client.storage.from('chat-photos').uploadBinary(path, bytes, fileOptions: const FileOptions(contentType: 'image/jpeg', cacheControl: kImmutableCacheControl));
     return _client.storage.from('chat-photos').getPublicUrl(path);
+  }
+
+  /// A video and its poster frame side by side in chat-media:
+  /// `<me>/<ts>.mp4` and `<me>/<ts>.jpg`. The poster is best effort: if it
+  /// fails, the video still goes and the bubble loads its first frame instead.
+  Future<({String url, String? posterUrl})> uploadVideo({required String me, required Uint8List bytes, Uint8List? poster}) async {
+    final stem = '$me/${DateTime.now().millisecondsSinceEpoch}';
+    final bucket = _client.storage.from('chat-media');
+    Future<String?> posterUp() async {
+      if (poster == null) return null;
+      try {
+        await bucket.uploadBinary('$stem.jpg', poster, fileOptions: const FileOptions(contentType: 'image/jpeg', cacheControl: kImmutableCacheControl));
+        return bucket.getPublicUrl('$stem.jpg');
+      } catch (_) {
+        return null;
+      }
+    }
+
+    final results = await Future.wait<String?>([
+      bucket.uploadBinary('$stem.mp4', bytes, fileOptions: const FileOptions(contentType: 'video/mp4', cacheControl: kImmutableCacheControl)).then((_) => bucket.getPublicUrl('$stem.mp4')),
+      posterUp(),
+    ]);
+    return (url: results[0]!, posterUrl: results[1]);
   }
 
   RealtimeChannel subscribe(String conversationId, void Function(Message) onMessage) {

@@ -68,6 +68,8 @@ flutter:
     - assets/prizes/
     - assets/event_types/
     - assets/vouchers/
+    - assets/stickers/titi/
+    - assets/stickers/car/
   fonts:
     - family: Phosphor
       fonts:

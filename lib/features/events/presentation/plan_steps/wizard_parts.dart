@@ -175,7 +175,8 @@ class PillChip extends StatelessWidget {
           onTap: onTap,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 140),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+            constraints: const BoxConstraints(minWidth: 64),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
             decoration: BoxDecoration(
               color: on ? AppColors.textPrimary : AppColors.surfaceGray,
               borderRadius: BorderRadius.circular(AppRadius.pill),

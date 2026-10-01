@@ -35,6 +35,8 @@ class WhereStep extends ConsumerStatefulWidget {
 class _WhereStepState extends ConsumerState<WhereStep> {
   final _map = AppMapController();
   final _search = TextEditingController();
+  final _scroll = ScrollController();
+  final _spotKey = GlobalKey();
   bool _locating = false;
 
   PlanDraft get d => widget.draft;
@@ -43,6 +45,7 @@ class _WhereStepState extends ConsumerState<WhereStep> {
   void dispose() {
     _map.dispose();
     _search.dispose();
+    _scroll.dispose();
     super.dispose();
   }
 
@@ -53,19 +56,28 @@ class _WhereStepState extends ConsumerState<WhereStep> {
   void _place(LatLng at, {required String name, String? address}) {
     d.setPlace(at, name: name, address: address);
     _map.animateTo(at, zoom: 16);
+    // Bring the spot (map + name) into view once it has laid out.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final ctx = _spotKey.currentContext;
+      if (ctx != null && ctx.mounted) Scrollable.ensureVisible(ctx, alignment: 0.05, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+    });
   }
 
   /// GPS fix → pin there → the place I'm at (within 80 m), else "Near …".
   Future<void> _useMyLocation() async {
     setState(() => _locating = true);
     try {
+      // The live position (kept fresh by the map) answers at once; a cold
+      // GPS fix is only the fallback, it can take seconds.
+      final live = ref.read(userLocationProvider).value;
       Position? pos;
-      try {
-        pos = await Geolocator.getCurrentPosition(locationSettings: const LocationSettings(accuracy: LocationAccuracy.high, timeLimit: Duration(seconds: 10)));
-      } catch (_) {}
-      final fallback = ref.read(userLocationProvider).value;
-      final lat = pos?.latitude ?? fallback?.latitude;
-      final lng = pos?.longitude ?? fallback?.longitude;
+      if (live == null) {
+        try {
+          pos = await Geolocator.getCurrentPosition(locationSettings: const LocationSettings(accuracy: LocationAccuracy.high, timeLimit: Duration(seconds: 10)));
+        } catch (_) {}
+      }
+      final lat = live?.latitude ?? pos?.latitude;
+      final lng = live?.longitude ?? pos?.longitude;
       if (lat == null || lng == null) throw const AppException('Turn on location first, or search the place.');
       final here = LatLng(lat, lng);
       // The pin drops right away; the name follows when the lookup returns.
@@ -115,6 +127,7 @@ class _WhereStepState extends ConsumerState<WhereStep> {
     return ListenableBuilder(
       listenable: d,
       builder: (context, _) => ListView(
+        controller: _scroll,
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
         children: [
           StepHeading('Where?', subtitle: d.session ? 'The mamak, carpark or spot you\'ll be at.' : 'Where should everyone meet?'),
@@ -138,6 +151,9 @@ class _WhereStepState extends ConsumerState<WhereStep> {
               style: FilledButton.styleFrom(
                 backgroundColor: AppColors.brand.withValues(alpha: 0.10),
                 foregroundColor: AppColors.brand,
+                // Same look while it's finding you, so "Finding you…" stays readable.
+                disabledBackgroundColor: AppColors.brand.withValues(alpha: 0.10),
+                disabledForegroundColor: AppColors.brand,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
               ),
             ),
@@ -162,7 +178,7 @@ class _WhereStepState extends ConsumerState<WhereStep> {
           ],
           if (d.pin != null) ...[
             const SizedBox(height: 18),
-            const SectionLabel('THE SPOT'),
+            SectionLabel('THE SPOT', key: _spotKey),
             if (widget.showMap)
               ClipRRect(
                 borderRadius: BorderRadius.circular(AppRadius.lg),

@@ -111,18 +111,16 @@ class WhenStep extends StatelessWidget {
             if (draft.session) ...[
               const SizedBox(height: 18),
               const SectionLabel('HOW LONG'),
-              Row(
+              // Natural widths in a Wrap: no label ever breaks mid-word at big text sizes.
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
                 children: [
-                  for (final m in presets) ...[
-                    Expanded(child: PillChip(label: durationLabel(m), on: draft.minutes == m, onTap: () => draft.setMinutes(m))),
-                    const SizedBox(width: 6),
-                  ],
-                  Expanded(
-                    child: PillChip(
-                      label: presets.contains(draft.minutes) ? 'Custom' : durationLabel(draft.minutes),
-                      on: !presets.contains(draft.minutes),
-                      onTap: () => _customDuration(context),
-                    ),
+                  for (final m in presets) PillChip(label: durationLabel(m), on: draft.minutes == m, onTap: () => draft.setMinutes(m)),
+                  PillChip(
+                    label: presets.contains(draft.minutes) ? 'Custom' : durationLabel(draft.minutes),
+                    on: !presets.contains(draft.minutes),
+                    onTap: () => _customDuration(context),
                   ),
                 ],
               ),

@@ -14,6 +14,8 @@ import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/thumb_image.dart';
 import '../../../core/widgets/user_avatar.dart';
 import '../../friends/application/friends_providers.dart';
+import '../../friends/presentation/friend_request_buttons.dart';
+import '../application/chat_providers.dart';
 import '../application/notification_providers.dart';
 import '../domain/notification.dart';
 
@@ -43,10 +45,54 @@ class ActivityList extends ConsumerStatefulWidget {
 }
 
 class _ActivityListState extends ConsumerState<ActivityList> {
+  /// Friend requests answered here. Their rows stay put, showing what
+  /// happened, until the member leaves: the server drops an answered
+  /// request's notification, so [_kept] holds the row meanwhile.
+  final _answers = FriendRequestAnswers();
+  final _kept = <String, AppNotification>{};
+
   @override
   void initState() {
     super.initState();
+    _answers.addListener(_changed);
     WidgetsBinding.instance.addPostFrameCallback((_) => ref.read(notificationActionsProvider).markAllRead());
+  }
+
+  @override
+  void dispose() {
+    _answers.dispose();
+    super.dispose();
+  }
+
+  void _changed() {
+    if (mounted) setState(() {});
+  }
+
+  void _snack(Object e) {
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
+  }
+
+  /// Accept or Delete: the row changes at once and goes back if it fails.
+  Future<void> _answer(AppNotification n, RequestAnswer a) async {
+    final from = n.actor?.id;
+    if (from == null) return;
+    _kept[n.id] = n;
+    final actions = ref.read(friendActionsProvider);
+    try {
+      // Keyed by the notification: a new request from the same person is a new row.
+      await _answers.answer(n.id, a, () => a == RequestAnswer.accepted ? actions.accept(from) : actions.decline(from));
+    } catch (e) {
+      _snack(e);
+    }
+  }
+
+  Future<void> _message(String userId) async {
+    try {
+      final conv = await ref.read(chatActionsProvider).openDm(userId);
+      if (mounted) context.push(Routes.chat(conv));
+    } catch (e) {
+      _snack(e);
+    }
   }
 
   @override
@@ -64,20 +110,34 @@ class _ActivityListState extends ConsumerState<ActivityList> {
         child: list.when(
           loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
           error: (e, _) => Center(child: Text(friendlyError(e))),
-          data: (items) => items.isEmpty
-              ? LayoutBuilder(
-                  builder: (_, c) => SingleChildScrollView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    child: SizedBox(
-                      height: c.maxHeight,
-                      child: const EmptyState(art: AppArt.bell, title: 'No activity yet', subtitle: 'Likes, comments, joins and badges land here.'),
+          data: (fresh) {
+            final items = keepAnsweredRows(fresh, _kept.values, id: (n) => n.id, newerFirst: (a, b) => b.createdAt.compareTo(a.createdAt));
+            return items.isEmpty
+                ? LayoutBuilder(
+                    builder: (_, c) => SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      child: SizedBox(
+                        height: c.maxHeight,
+                        child: const EmptyState(art: AppArt.bell, title: 'No activity yet', subtitle: 'Likes, comments, joins and badges land here.'),
+                      ),
                     ),
-                  ),
-                )
-              : ListView.builder(
-                  itemCount: items.length,
-                  itemBuilder: (_, i) => _Row(n: items[i], badges: badges, me: me),
-                ),
+                  )
+                : ListView.builder(
+                    itemCount: items.length,
+                    itemBuilder: (_, i) {
+                      final n = items[i];
+                      final from = n.type == NotificationType.friendRequest ? n.actor?.id : null;
+                      return _Row(
+                        n: n,
+                        badges: badges,
+                        me: me,
+                        answer: from == null ? null : _answers.of(n.id),
+                        onAnswer: from == null ? null : (a) => _answer(n, a),
+                        onMessage: from == null ? null : () => _message(from),
+                      );
+                    },
+                  );
+          },
         ),
     );
   }
@@ -111,10 +171,15 @@ class _ActivityListState extends ConsumerState<ActivityList> {
 }
 
 class _Row extends ConsumerWidget {
-  const _Row({required this.n, required this.badges, required this.me});
+  const _Row({required this.n, required this.badges, required this.me, this.answer, this.onAnswer, this.onMessage});
   final AppNotification n;
   final List<AppBadge> badges;
   final String? me;
+
+  /// Friend requests: what the member did with it on this visit (null: waiting).
+  final RequestAnswer? answer;
+  final ValueChanged<RequestAnswer>? onAnswer;
+  final VoidCallback? onMessage;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -135,7 +200,9 @@ class _Row extends ConsumerWidget {
         ),
       NotificationType.carOfWeek => (n.body ?? 'Your build is Car of the Week!', n.postId == null ? null : Routes.post(n.postId!)),
       NotificationType.clubJoin => (n.body == null ? 'joined ${n.clubName ?? 'your club'}.' : 'is now ${n.body == 'vp' ? 'Vice President' : n.body == 'secretary' ? 'Secretary' : 'an officer'} of ${n.clubName ?? 'your club'}.', n.clubId == null ? null : Routes.club(n.clubId!)),
-      NotificationType.friendRequest => ('wants to be friends.', Routes.friends),
+      NotificationType.friendRequest => answer == RequestAnswer.accepted
+          ? ('is now your friend.', Routes.profile(n.actor?.id ?? ''))
+          : ('wants to be friends.', Routes.friends),
       NotificationType.friendAccepted => ('accepted your friend request. You\'ll see each other on the map.', Routes.profile(n.actor?.id ?? '')),
       NotificationType.ttNow => ('started TT now${n.body == null ? '' : ' @ ${n.body}'}. Otw?', n.eventId == null ? null : Routes.event(n.eventId!)),
       NotificationType.checkin => ('checked in at ${n.eventTitle ?? 'your meet'}.', n.eventId == null ? null : Routes.event(n.eventId!)),
@@ -251,12 +318,13 @@ class _Row extends ConsumerWidget {
                 ),
               ),
             ),
-            if (n.type == NotificationType.friendRequest && n.actor != null) ...[
+            if (n.type == NotificationType.friendRequest && n.actor != null && onAnswer != null) ...[
               const SizedBox(width: 8),
-              FilledButton(
-                onPressed: () => ref.read(friendActionsProvider).accept(n.actor!.id),
-                style: FilledButton.styleFrom(minimumSize: const Size(0, 34), padding: const EdgeInsets.symmetric(horizontal: 12)),
-                child: const Text('Accept'),
+              FriendRequestButtons(
+                answer: answer,
+                onAccept: () => onAnswer!(RequestAnswer.accepted),
+                onDelete: () => onAnswer!(RequestAnswer.removed),
+                onMessage: onMessage ?? () {},
               ),
             ],
             if (n.type == NotificationType.ttNow && n.eventId != null) ...[

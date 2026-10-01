@@ -12,6 +12,7 @@ import '../../../core/utils/dates.dart';
 import '../../../core/widgets/thumb_image.dart';
 import '../domain/titi_message.dart';
 import 'titi_action_card.dart';
+import 'titi_background.dart';
 import 'titi_text.dart';
 import 'titi_thinking.dart';
 
@@ -318,7 +319,7 @@ class TitiDayPill extends StatelessWidget {
         child: Container(
           margin: const EdgeInsets.fromLTRB(0, 8, 0, 12),
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(color: AppColors.surfaceGray, borderRadius: BorderRadius.circular(AppRadius.pill)),
+          decoration: BoxDecoration(color: TitiBackground.pillFill, borderRadius: BorderRadius.circular(AppRadius.pill)),
           child: Text(formatDayLabel(day), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
         ),
       );
@@ -488,7 +489,14 @@ class TitiErrorRow extends StatelessWidget {
         children: [
           const TitiAvatar(TitiPose.sad, size: 32),
           const SizedBox(width: 8),
-          Expanded(child: Text(text, style: TextStyle(fontSize: 13.5, color: AppColors.textSecondary))),
+          Flexible(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(color: TitiBackground.pillFill, borderRadius: BorderRadius.circular(AppRadius.md)),
+              child: Text(text, style: TextStyle(fontSize: 13.5, color: AppColors.textSecondary)),
+            ),
+          ),
+          const SizedBox(width: 4),
           TextButton.icon(onPressed: onRetry, icon: const Icon(AppIcons.arrowsClockwise, size: 16), label: const Text('Retry')),
         ],
       );

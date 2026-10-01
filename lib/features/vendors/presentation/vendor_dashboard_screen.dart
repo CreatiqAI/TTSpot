@@ -7,6 +7,7 @@ import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_art.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/titi.dart';
 import '../../../core/utils/dates.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../../core/widgets/empty_state.dart';
@@ -46,9 +47,13 @@ class VendorDashboardScreen extends ConsumerWidget {
           IconButton(tooltip: 'Statement', icon: const Icon(AppIcons.chartBar), onPressed: () => context.push(Routes.vendorReport)),
         ],
       ),
-      body: vendor.when(
+      // A failed load shows at once with Try again, also while Riverpod
+      // retries in the background (which would read as loading).
+      body: vendor.hasError && !vendor.hasValue
+          ? _loadError(ref, vendor.error!)
+          : vendor.when(
         loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
-        error: (e, _) => Center(child: Text(friendlyError(e))),
+        error: (e, _) => _loadError(ref, e),
         data: (v) => v == null
             ? EmptyState(art: AppArt.handshake, title: 'Not a partner yet', subtitle: 'Apply and an admin will review it.', actionLabel: 'Apply', onAction: () => context.pushReplacement(Routes.partnerApply))
             : _Body(vendor: v, embedded: embedded),
@@ -56,6 +61,17 @@ class VendorDashboardScreen extends ConsumerWidget {
     );
   }
 }
+
+Widget _loadError(WidgetRef ref, Object e) => SingleChildScrollView(
+      padding: const EdgeInsets.only(top: 40),
+      child: EmptyState(
+        titi: TitiPose.sad,
+        title: 'Couldn\'t load your dashboard',
+        subtitle: friendlyError(e),
+        actionLabel: 'Try again',
+        onAction: () => ref.invalidate(myVendorProvider),
+      ),
+    );
 
 class _Body extends ConsumerWidget {
   const _Body({required this.vendor, required this.embedded});

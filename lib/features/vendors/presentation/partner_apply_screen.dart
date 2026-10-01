@@ -13,6 +13,7 @@ import '../../../core/widgets/picker_field.dart';
 import '../../../core/widgets/place_search_field.dart';
 import '../../map/application/map_providers.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/titi.dart';
 import '../../../core/utils/dates.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../../core/widgets/photo_picker_sheet.dart';
@@ -98,29 +99,42 @@ class _PartnerApplyScreenState extends ConsumerState<PartnerApplyScreen> {
     }
   }
 
+  void _retry() {
+    ref.invalidate(myPartnerApplicationProvider(widget.kind));
+    if (!_club) ref.invalidate(myVendorProvider);
+  }
+
   @override
   Widget build(BuildContext context) {
     final app = ref.watch(myPartnerApplicationProvider(widget.kind));
-    final vendor = ref.watch(myVendorProvider).value;
+    // Partners land on "already a partner" (with the way to the dashboard),
+    // so the form waits until we know whether I am one.
+    final vendorState = _club ? const AsyncValue<Vendor?>.data(null) : ref.watch(myVendorProvider);
     final clubOwner = ref.watch(currentProfileProvider).value?.canRunClubs ?? false;
+    final failed = app.hasError ? app.error : (vendorState.hasError && !vendorState.hasValue ? vendorState.error : null);
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(icon: const Icon(AppIcons.arrowLeft), onPressed: () => context.pop()),
         title: Text(_club ? 'Run a car club' : 'Become a partner'),
       ),
-      body: app.when(
-        loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
-        error: (e, _) => Center(child: Text(friendlyError(e))),
-        data: (a) {
-          if (!_club && vendor != null) return _Approved(kind: widget.kind, name: vendor.name);
-          if (_club && clubOwner) return _Approved(kind: widget.kind, name: a?.businessName ?? 'Your club');
-          if (a != null && !_reapply && (a.status == ApplicationStatus.pending || a.status == ApplicationStatus.rejected)) {
-            return _Status(app: a, onReapply: a.status == ApplicationStatus.rejected ? () => setState(() => _reapply = true) : null);
-          }
-          return _buildForm();
-        },
-      ),
+      body: _body(app, vendorState, failed, clubOwner),
     );
+  }
+
+  Widget _body(AsyncValue<PartnerApplication?> app, AsyncValue<Vendor?> vendorState, Object? failed, bool clubOwner) {
+    // A failed load shows at once with Retry, also while Riverpod quietly
+    // retries in the background (that reads as loading, which used to keep
+    // the spinner going for half a minute).
+    if (failed != null && !(app.hasValue && vendorState.hasValue)) return _LoadError(error: failed, onRetry: _retry);
+    if (!app.hasValue || !vendorState.hasValue) return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+    final a = app.value;
+    final vendor = vendorState.value;
+    if (!_club && vendor != null) return _Approved(kind: widget.kind, name: vendor.name);
+    if (_club && clubOwner) return _Approved(kind: widget.kind, name: a?.businessName ?? 'Your club');
+    if (a != null && !_reapply && (a.status == ApplicationStatus.pending || a.status == ApplicationStatus.rejected)) {
+      return _Status(app: a, onReapply: a.status == ApplicationStatus.rejected ? () => setState(() => _reapply = true) : null);
+    }
+    return _buildForm();
   }
 
   Widget _buildForm() {
@@ -336,6 +350,32 @@ class _Status extends StatelessWidget {
       ],
     );
   }
+}
+
+/// Couldn't load the application (offline, server trouble): say so, with Retry.
+class _LoadError extends StatelessWidget {
+  const _LoadError({required this.error, required this.onRetry});
+  final Object error;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) => Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Titi(TitiPose.sad, height: 96),
+              const SizedBox(height: 14),
+              const Text('Couldn\'t load this page', textAlign: TextAlign.center, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+              const SizedBox(height: 6),
+              Text(friendlyError(error), textAlign: TextAlign.center, style: TextStyle(fontSize: 13.5, height: 1.4, color: AppColors.textSecondary)),
+              const SizedBox(height: 18),
+              SecondaryButton(label: 'Try again', icon: AppIcons.arrowsClockwise, onPressed: onRetry),
+            ],
+          ),
+        ),
+      );
 }
 
 class _Approved extends StatelessWidget {

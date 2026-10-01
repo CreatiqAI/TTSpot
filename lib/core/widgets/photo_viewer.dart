@@ -6,8 +6,10 @@ import 'package:flutter/services.dart';
 import '../theme/app_icons.dart';
 
 /// Full-screen photos on black: pinch or double-tap to zoom, swipe between
-/// them. Pull the photo away to close (down or up, or sideways off the only,
-/// first or last photo), or X or back.
+/// them. Tap once to close (once the double-tap window has passed, so a
+/// double-tap still zooms; a zoomed photo zooms back out first), pull the
+/// photo away (down or up, or sideways off the only, first or last photo),
+/// or X or back.
 Future<void> showPhotoViewer(BuildContext context, List<String> urls, {int initial = 0}) {
   return Navigator.of(context, rootNavigator: true).push(
     PageRouteBuilder<void>(
@@ -20,9 +22,13 @@ Future<void> showPhotoViewer(BuildContext context, List<String> urls, {int initi
 }
 
 class PhotoViewer extends StatefulWidget {
-  const PhotoViewer({super.key, required this.urls, this.initial = 0});
+  const PhotoViewer({super.key, required this.urls, this.initial = 0, this.imageFor});
   final List<String> urls;
   final int initial;
+
+  /// The picture for a url; cached network images by default (tests pass
+  /// in-memory ones).
+  final ImageProvider Function(String url)? imageFor;
 
   @override
   State<PhotoViewer> createState() => _PhotoViewerState();
@@ -146,6 +152,13 @@ class _PhotoViewerState extends State<PhotoViewer> with SingleTickerProviderStat
     }
   }
 
+  /// A single tap on the photo (not part of a double-tap): close.
+  void _tapClose() {
+    if (_closing || _drag != null) return;
+    _closing = true;
+    Navigator.of(context).pop();
+  }
+
   /// The photo carries on the way it was going while the viewer fades out.
   void _close(Offset direction) {
     _closing = true;
@@ -208,10 +221,11 @@ class _PhotoViewerState extends State<PhotoViewer> with SingleTickerProviderStat
                   itemCount: widget.urls.length,
                   onPageChanged: (i) => setState(() => _page = i),
                   itemBuilder: (_, i) => _ZoomablePhoto(
-                    url: widget.urls[i],
+                    image: widget.imageFor?.call(widget.urls[i]) ?? CachedNetworkImageProvider(widget.urls[i]),
                     onZoom: (z) {
                       if (z != _zoomed) setState(() => _zoomed = z);
                     },
+                    onTap: _tapClose,
                   ),
                 ),
               ),
@@ -293,11 +307,14 @@ class _PullRecognizer extends PanGestureRecognizer {
 }
 
 /// One photo: pinch to zoom, double-tap to zoom in on a spot and back out.
-/// Tells the viewer when it is zoomed, so drags pan instead.
+/// Tells the viewer when it is zoomed, so drags pan instead. A single tap
+/// (no second tap within the double-tap timeout) zooms a zoomed photo back
+/// out, else asks the viewer to close.
 class _ZoomablePhoto extends StatefulWidget {
-  const _ZoomablePhoto({required this.url, required this.onZoom});
-  final String url;
+  const _ZoomablePhoto({required this.image, required this.onZoom, required this.onTap});
+  final ImageProvider image;
   final ValueChanged<bool> onZoom;
+  final VoidCallback onTap;
 
   @override
   State<_ZoomablePhoto> createState() => _ZoomablePhotoState();
@@ -337,8 +354,20 @@ class _ZoomablePhotoState extends State<_ZoomablePhoto> {
       ..scaleByDouble(s, s, 1, 1);
   }
 
+  /// Single tap: out of a zoom first, else close.
+  void _tap() {
+    if (_zoomed) {
+      _zoom.value = Matrix4.identity();
+      return;
+    }
+    widget.onTap();
+  }
+
   @override
   Widget build(BuildContext context) => GestureDetector(
+        // With a double-tap handler beside it, onTap only fires once the
+        // double-tap timeout passes without a second tap.
+        onTap: _tap,
         onDoubleTapDown: (d) => _tapAt = d.localPosition,
         onDoubleTap: _toggleZoom,
         child: InteractiveViewer(
@@ -346,7 +375,7 @@ class _ZoomablePhotoState extends State<_ZoomablePhoto> {
           maxScale: 5,
           child: SizedBox.expand(
             child: Image(
-              image: CachedNetworkImageProvider(widget.url),
+              image: widget.image,
               fit: BoxFit.contain,
               loadingBuilder: (_, child, prog) => prog == null ? child : const Center(child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
               errorBuilder: (_, _, _) => const Center(child: Icon(AppIcons.imageBroken, color: Colors.white54, size: 40)),

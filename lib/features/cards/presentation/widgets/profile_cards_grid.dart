@@ -10,10 +10,12 @@ import '../../../../core/utils/friendly_error.dart';
 import '../../application/cards_providers.dart';
 import '../../domain/cards.dart';
 import 'card_face.dart';
+import 'get_box_banner.dart';
 
 /// The Cards tab on a profile: all 7 designs, owned ones in colour with a
-/// count, missing ones greyed. Mine links to boxes and trades; a friend's
-/// offers a trade; a stranger's suggests adding them first.
+/// count, missing ones greyed. Mine leads with the "Get a blind box" banner
+/// (or the boxes waiting to open) and small links to Trades and Prizes; a
+/// friend's offers a trade; a stranger's suggests adding them first.
 class ProfileCardsGrid extends ConsumerWidget {
   const ProfileCardsGrid({super.key, required this.userId, required this.isMe, required this.isFriend, this.onAddFriend});
   final String userId;
@@ -28,6 +30,8 @@ class ProfileCardsGrid extends ConsumerWidget {
         ? ref.watch(myCollectionProvider).whenData((c) => c.counts)
         : ref.watch(userCardCountsProvider(userId));
     final sealed = isMe ? ref.watch(sealedBoxesProvider) : const <CardBox>[];
+    final boxCost = isMe ? ref.watch(cardSettingsProvider).value?.boxCost : null;
+    final incomingTrades = isMe ? ref.watch(incomingTradeCountProvider) : 0;
 
     return types.when(
       loading: () => const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
@@ -42,6 +46,22 @@ class ProfileCardsGrid extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (isMe) ...[
+                GetBoxBanner(
+                  waiting: sealed.length,
+                  cost: boxCost,
+                  onTap: () => context.push(sealed.isNotEmpty ? Routes.openBox(sealed.first.id) : Routes.cards),
+                ),
+                const SizedBox(height: 4),
+                Wrap(
+                  spacing: 4,
+                  children: [
+                    _SmallLink(icon: AppIcons.handshake, label: incomingTrades > 0 ? 'Trades · $incomingTrades' : 'Trades', onTap: () => context.push(Routes.cardTrades)),
+                    _SmallLink(icon: AppIcons.trophy, label: 'Prizes', onTap: () => context.push(Routes.cardPrizes)),
+                  ],
+                ),
+                const SizedBox(height: 6),
+              ],
               Row(
                 children: [
                   Expanded(
@@ -59,27 +79,14 @@ class ProfileCardsGrid extends ConsumerWidget {
                       ],
                     ),
                   ),
-                  if (isMe)
-                    FilledButton.icon(
-                      style: FilledButton.styleFrom(
-                        backgroundColor: sealed.isNotEmpty ? AppColors.brand : AppColors.textPrimary,
-                        foregroundColor: sealed.isNotEmpty ? Colors.white : AppColors.onInk,
-                        visualDensity: VisualDensity.compact,
-                        minimumSize: const Size(0, 36),
-                        padding: const EdgeInsets.symmetric(horizontal: 14),
-                      ),
-                      onPressed: () => context.push(sealed.isNotEmpty ? Routes.openBox(sealed.first.id) : Routes.cards),
-                      icon: Icon(sealed.isNotEmpty ? AppIcons.gift : AppIcons.handshake, size: 16),
-                      label: Text(sealed.isNotEmpty ? 'Open box${sealed.length > 1 ? ' (${sealed.length})' : ''}' : 'Trade & prizes'),
-                    )
-                  else if (isFriend)
+                  if (!isMe && isFriend)
                     FilledButton.icon(
                       style: FilledButton.styleFrom(backgroundColor: AppColors.textPrimary, foregroundColor: AppColors.onInk, visualDensity: VisualDensity.compact, minimumSize: const Size(0, 36), padding: const EdgeInsets.symmetric(horizontal: 14)),
                       onPressed: () => context.push(Routes.newTradeWith(userId)),
                       icon: const Icon(AppIcons.handshake, size: 16),
                       label: const Text('Trade'),
                     )
-                  else if (onAddFriend != null)
+                  else if (!isMe && onAddFriend != null)
                     OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact, minimumSize: const Size(0, 36), padding: const EdgeInsets.symmetric(horizontal: 14)),
                       onPressed: onAddFriend,
@@ -122,4 +129,25 @@ class ProfileCardsGrid extends ConsumerWidget {
       },
     );
   }
+}
+
+/// A small secondary link under the box banner (Trades, Prizes).
+class _SmallLink extends StatelessWidget {
+  const _SmallLink({required this.icon, required this.label, required this.onTap});
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => TextButton.icon(
+        style: TextButton.styleFrom(
+          foregroundColor: AppColors.textSecondary,
+          visualDensity: VisualDensity.compact,
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+        ),
+        onPressed: onTap,
+        icon: Icon(icon, size: 16),
+        label: Text(label),
+      );
 }

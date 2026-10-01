@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/titi.dart';
+import 'titi_background.dart';
 
 /// TiTi's pose for what he is doing: a calendar for meets, a pin for spots…
 TitiPose titiPoseFor(String? tool) => switch (tool) {
@@ -58,8 +59,15 @@ class TitiThinkingBubble extends StatelessWidget {
                   ? const SizedBox(key: ValueKey('none'), height: 0, width: 0)
                   : Padding(
                       key: ValueKey(status),
-                      padding: const EdgeInsets.only(top: 5, left: 4),
-                      child: Text(status!, style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
+                      padding: const EdgeInsets.only(top: 5),
+                      // A soft pill so it reads on TiTi's background.
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(color: TitiBackground.pillFill, borderRadius: BorderRadius.circular(AppRadius.pill)),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          child: Text(status!, style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
+                        ),
+                      ),
                     ),
             ),
           ),

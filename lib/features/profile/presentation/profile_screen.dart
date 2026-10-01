@@ -86,7 +86,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final points = isMe ? ref.watch(pointsBalanceProvider).value : adminView ? ref.watch(adminMemberPointsProvider(id)).value : null;
     final tabs = [
       (AppIcons.squaresFour, 'Posts'),
-      (AppIcons.sparkle, 'Cards'),
+      (AppIcons.cards, 'Cards'),
     ];
 
     Future<void> refresh() async {
@@ -409,7 +409,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           children: [
             ListTile(leading: const Icon(AppIcons.shareFat), title: const Text('Share profile'), onTap: () => Navigator.pop(ctx, 'share')),
             if (ref.read(friendIdsProvider).contains(p.id)) ...[
-              ListTile(leading: const Icon(AppIcons.sparkle), title: const Text('Trade cards'), subtitle: const Text('Swap blind box cards with them', style: TextStyle(fontSize: 12)), onTap: () => Navigator.pop(ctx, 'trade')),
+              ListTile(leading: const Icon(AppIcons.cards), title: const Text('Trade cards'), subtitle: const Text('Swap blind box cards with them', style: TextStyle(fontSize: 12)), onTap: () => Navigator.pop(ctx, 'trade')),
               ListTile(leading: const Icon(AppIcons.mapPin), title: const Text('Colour on the map'), subtitle: const Text('Pick a colour so you spot them fast', style: TextStyle(fontSize: 12)), onTap: () => Navigator.pop(ctx, 'colour')),
             ],
             ListTile(leading: const Icon(AppIcons.flag), title: const Text('Report profile'), onTap: () => Navigator.pop(ctx, 'report')),

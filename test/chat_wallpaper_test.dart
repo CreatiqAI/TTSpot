@@ -38,14 +38,17 @@ void main() {
     }
   });
 
-  test('chat_wallpaper defaults to TT Spot and ignores unknown values', () {
-    expect(const AppSettings({}).chatWallpaper, 'ttspot');
+  test('chat_wallpaper defaults to TiTi, keeps explicit picks and ignores unknown values', () {
+    expect(const AppSettings({}).chatWallpaper, 'titi');
     expect(const AppSettings({'chat_wallpaper': 'night'}).chatWallpaper, 'night');
     expect(const AppSettings({'chat_wallpaper': 'titi'}).chatWallpaper, 'titi');
-    expect(const AppSettings({'chat_wallpaper': 'vaporwave'}).chatWallpaper, 'ttspot');
-    expect(const AppSettings({'chat_wallpaper': 3}).chatWallpaper, 'ttspot');
+    expect(const AppSettings({'chat_wallpaper': 'ttspot'}).chatWallpaper, 'ttspot'); // picked it: stays
+    expect(const AppSettings({'chat_wallpaper': 'vaporwave'}).chatWallpaper, 'titi');
+    expect(const AppSettings({'chat_wallpaper': 3}).chatWallpaper, 'titi');
     expect(ChatWallpaper.fromId('night'), ChatWallpaper.night);
-    expect(ChatWallpaper.fromId('nope'), ChatWallpaper.ttspot);
+    expect(ChatWallpaper.fromId('ttspot'), ChatWallpaper.ttspot);
+    expect(ChatWallpaper.fromId('nope'), ChatWallpaper.titi);
+    expect(ChatWallpaper.fallback, ChatWallpaper.titi);
   });
 
   test('tiles repeat, Night drive covers', () {

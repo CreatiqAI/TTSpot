@@ -329,7 +329,9 @@ class _Action extends StatelessWidget {
   }
 }
 
-/// Sticky tab strip: icon + label, thin underline that slides between tabs.
+/// Sticky tab strip: icon + label, a brand-red underline that slides to the
+/// selected tab. The selected tab is bold and full strength, the others
+/// dimmed, so it reads in light and dark.
 class ProfileTabBar extends SliverPersistentHeaderDelegate {
   const ProfileTabBar({required this.tabs, required this.selected, required this.onSelect});
   final List<(IconData, String)> tabs;
@@ -337,6 +339,7 @@ class ProfileTabBar extends SliverPersistentHeaderDelegate {
   final ValueChanged<int> onSelect;
 
   static const height = 46.0;
+  static const indicatorHeight = 3.0;
 
   @override
   double get minExtent => height;
@@ -357,16 +360,31 @@ class ProfileTabBar extends SliverPersistentHeaderDelegate {
                 children: [
                   for (var i = 0; i < tabs.length; i++)
                     Expanded(
-                      child: InkWell(
-                        onTap: () => onSelect(i),
-                        child: Center(
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(tabs[i].$1, size: 17, color: i == selected ? AppColors.textPrimary : AppColors.textMuted),
-                              const SizedBox(width: 6),
-                              Text(tabs[i].$2, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: i == selected ? AppColors.textPrimary : AppColors.textMuted)),
-                            ],
+                      child: Semantics(
+                        selected: i == selected,
+                        button: true,
+                        child: InkWell(
+                          onTap: () => onSelect(i),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(tabs[i].$1, size: 17, color: i == selected ? AppColors.textPrimary : AppColors.textMuted),
+                                const SizedBox(width: 6),
+                                Flexible(
+                                  child: AnimatedDefaultTextStyle(
+                                    duration: const Duration(milliseconds: 180),
+                                    style: TextStyle(
+                                      fontSize: 13.5,
+                                      fontWeight: i == selected ? FontWeight.w800 : FontWeight.w500,
+                                      color: i == selected ? AppColors.textPrimary : AppColors.textMuted,
+                                    ),
+                                    child: Text(tabs[i].$2, maxLines: 1, overflow: TextOverflow.ellipsis),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
@@ -374,13 +392,16 @@ class ProfileTabBar extends SliverPersistentHeaderDelegate {
                 ],
               ),
               AnimatedPositioned(
-                duration: const Duration(milliseconds: 220),
+                duration: const Duration(milliseconds: 240),
                 curve: Curves.easeOutCubic,
-                left: w * selected + w * 0.22,
+                left: w * selected + w * 0.18,
                 bottom: 0,
-                width: w * 0.56,
-                height: 2,
-                child: const DecoratedBox(decoration: BoxDecoration(color: AppColors.ink, borderRadius: BorderRadius.vertical(top: Radius.circular(2)))),
+                width: w * 0.64,
+                height: indicatorHeight,
+                child: const DecoratedBox(
+                  key: ValueKey('profile-tab-indicator'),
+                  decoration: BoxDecoration(color: AppColors.brand, borderRadius: BorderRadius.vertical(top: Radius.circular(indicatorHeight))),
+                ),
               ),
             ],
           );

@@ -122,7 +122,7 @@ class _LocationGateScreenState extends ConsumerState<LocationGateScreen> with Wi
                     const SizedBox(height: 18),
                     const _Point(icon: AppIcons.mapPin, title: 'Check in at meets and spots', text: 'One tap when you arrive. That\'s how you earn points.'),
                     const _Point(icon: AppIcons.usersThree, title: 'See friends on the road', text: 'Only friends you choose see you. Off by default.'),
-                    const _Point(icon: AppIcons.navigationArrow, title: 'Navigate to the meet', text: 'Turn-by-turn inside TT Spot, or open Waze.'),
+                    const _Point(icon: AppIcons.navigationArrow, title: 'Get to the meet', text: 'Post your ETA, then go with Waze or Maps.'),
                     const Spacer(),
                     const SizedBox(height: 20),
                     if (_deniedForever)

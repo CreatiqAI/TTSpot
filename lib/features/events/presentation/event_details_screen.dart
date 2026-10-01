@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../map/presentation/widgets/static_pin_map.dart';
 
 import '../../../core/config/features.dart';
+import '../../../core/directions/directions.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/theme/app_art.dart';
@@ -28,10 +29,12 @@ import '../../social/domain/post.dart';
 import '../../social/presentation/story_viewer_screen.dart';
 import '../../social/presentation/widgets/masonry_grid.dart';
 import '../application/event_providers.dart';
+import '../application/on_my_way.dart' show onMyWayWindowOpen;
 import '../domain/event.dart';
 import '../domain/event_detail.dart';
 import '../../profile/presentation/widgets/car_picker_sheet.dart';
 import 'event_car_widgets.dart';
+import 'on_my_way_button.dart';
 import 'whos_here_sheet.dart';
 import '../../floorplan/presentation/floorplan_entry.dart';
 import '../../organizer/presentation/widgets/lucky_draw_card.dart';
@@ -289,7 +292,12 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                                 child: Text(d.event.address!, style: TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.35)),
                               ),
                             const SizedBox(height: 10),
-                            _QuickActions(event: d.event),
+                            _QuickActions(
+                              event: d.event,
+                              onMyWay: (d.isAttending || d.event.organizerId == ref.watch(currentUserIdProvider)) &&
+                                  !d.event.isCancelled &&
+                                  onMyWayWindowOpen(startsAt: d.event.startsAt, closesAt: d.event.closesAt, now: DateTime.now()),
+                            ),
                             if (d.event.clubId != null) ...[
                               const SizedBox(height: 8),
                               _ClubRow(clubId: d.event.clubId!),
@@ -1188,10 +1196,14 @@ class _RecapCard extends ConsumerWidget {
 }
 
 
-/// Directions (in-app, Waze or Google Maps) and Share, side by side.
+/// Directions (the remembered app, or the chooser; long-press always asks)
+/// and Share, side by side. For members and the host from 3 h before the
+/// start until the end, "I'm on my way" takes Share's place (Share stays in
+/// the app bar).
 class _QuickActions extends StatelessWidget {
-  const _QuickActions({required this.event});
+  const _QuickActions({required this.event, this.onMyWay = false});
   final Event event;
+  final bool onMyWay;
 
   @override
   Widget build(BuildContext context) => Row(
@@ -1200,11 +1212,16 @@ class _QuickActions extends StatelessWidget {
             child: SecondaryButton(
               label: 'Directions',
               icon: AppIcons.navigationArrow,
-              onPressed: () => showDirectionsSheet(context, lat: event.lat, lng: event.lng, label: event.venueName),
+              onPressed: () => openDirections(context, lat: event.lat, lng: event.lng, label: event.venueName),
+              onLongPress: () => openDirections(context, lat: event.lat, lng: event.lng, label: event.venueName, choose: true),
             ),
           ),
           const SizedBox(width: 8),
-          Expanded(child: SecondaryButton(label: 'Share', icon: AppIcons.shareFat, onPressed: () => showEventShareOptions(context, event))),
+          Expanded(
+            child: onMyWay
+                ? OnMyWayButton(event: event)
+                : SecondaryButton(label: 'Share', icon: AppIcons.shareFat, onPressed: () => showEventShareOptions(context, event)),
+          ),
         ],
       );
 }

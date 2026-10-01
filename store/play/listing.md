@@ -15,7 +15,7 @@ ONE LIVE MAP
 • Car meets, TT sessions, convoys and track days near you
 • Car cafés and good spots, with the ones you save always on your map
 • Start a "TT now" and let your friends know where you are
-• Turn-by-turn directions to the meet, or open Waze
+• One tap to the meet in Waze or Google Maps, and "I'm on my way" posts your ETA to the meet chat
 
 YOUR CAR, YOUR PROFILE
 • Snap one photo and TT Spot works out the make, model, year and specs

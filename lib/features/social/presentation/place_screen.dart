@@ -12,7 +12,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/dates.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../../core/utils/geo.dart';
-import '../../../core/utils/open_external.dart';
+import '../../../core/directions/directions.dart';
 import '../../../core/widgets/event_list_tile.dart';
 import '../../../core/widgets/primary_button.dart';
 import '../../../core/widgets/user_avatar.dart';
@@ -231,7 +231,8 @@ class _PlaceScreenState extends ConsumerState<PlaceScreen> {
                                 child: PrimaryButton(
                                   label: 'Go now',
                                   icon: AppIcons.navigationArrow,
-                                  onPressed: () => showDirectionsSheet(context, lat: p.lat, lng: p.lng, label: p.name),
+                                  onPressed: () => openDirections(context, lat: p.lat, lng: p.lng, label: p.name),
+                                  onLongPress: () => openDirections(context, lat: p.lat, lng: p.lng, label: p.name, choose: true),
                                 ),
                               ),
                               const SizedBox(width: 8),

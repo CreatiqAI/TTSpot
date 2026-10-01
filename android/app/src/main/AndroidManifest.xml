@@ -95,5 +95,8 @@
         <intent><action android:name="android.intent.action.VIEW"/><data android:scheme="https"/></intent>
         <intent><action android:name="android.intent.action.VIEW"/><data android:scheme="whatsapp"/></intent>
         <package android:name="com.whatsapp"/>
+        <!-- Directions: is Waze / Google Maps installed (core/directions/directions.dart) -->
+        <intent><action android:name="android.intent.action.VIEW"/><data android:scheme="waze"/></intent>
+        <intent><action android:name="android.intent.action.VIEW"/><data android:scheme="google.navigation"/></intent>
     </queries>
 </manifest>

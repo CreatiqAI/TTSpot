@@ -335,7 +335,7 @@ const V2_TOOLS = [
   fn("save_spot", "Offer a Save button for a spot (bookmarks it; saved spots always show on their map).", {
     type: "object", properties: { spot_id: { type: "string" }, after: AFTER }, required: ["spot_id"], additionalProperties: false,
   }),
-  fn("open_directions", "Offer a Directions button to a meet or a spot (in-app navigation, Waze or Google Maps).", {
+  fn("open_directions", "Offer a Directions button to a meet or a spot (opens Waze, Google Maps or Apple Maps).", {
     type: "object", properties: { meet_id: { type: "string" }, spot_id: { type: "string" } }, additionalProperties: false,
   }),
   fn("tt_here", "Offer a TT here button for a spot: tells friends the member is there now (TT now) when they're within 1 km, else plans a TT session there.", {

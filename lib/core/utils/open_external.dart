@@ -1,16 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../geo/latlng.dart';
-import '../navigation/app_navigation.dart';
-import '../theme/app_icons.dart';
-import 'friendly_error.dart';
 import '../theme/app_theme.dart';
 import '../widgets/primary_button.dart';
 
-/// Opens another app (Waze, Google Maps, WhatsApp, the dialler) or a web page.
+/// Opens another app (WhatsApp, the dialler, a map) or a web page. Directions
+/// go through `openDirections` in core/directions/directions.dart instead.
 ///
-/// Pass [appName] to ask first ("Open Waze?") so nobody leaves TT Spot by
+/// Pass [appName] to ask first ("Open WhatsApp?") so nobody leaves TT Spot by
 /// accident; Cancel does nothing. When the app is installed we hand off once
 /// and stop. The browser fallback is only for phones without the app.
 Future<void> openExternal(BuildContext context, String url, {String? fallbackUrl, String? appName}) async {
@@ -47,7 +44,6 @@ Future<void> openExternal(BuildContext context, String url, {String? fallbackUrl
 }
 
 String wazeUrl(double lat, double lng) => 'https://waze.com/ul?ll=$lat,$lng&navigate=yes';
-String googleMapsUrl(double lat, double lng) => 'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng';
 String whatsappUrl(String text) => 'https://wa.me/?text=${Uri.encodeComponent(text)}';
 
 
@@ -94,67 +90,4 @@ Future<bool> confirmSheet(BuildContext context, {required String title, String? 
     ),
   );
   return ok == true;
-}
-
-/// "Directions" chooser: in-app navigation, Waze or Google Maps (the last two
-/// confirmed by [openExternal]). When in-app navigation cannot start, the
-/// chooser comes straight back with [note] saying why and only the other
-/// apps ([inApp] false), so a failed start never leaves the member stuck.
-Future<void> showDirectionsSheet(BuildContext context, {required double lat, required double lng, String? label, String? note, bool inApp = true}) {
-  return showModalBottomSheet<void>(
-    useRootNavigator: true, // above the shell tab bar
-    context: context,
-    showDragHandle: true,
-    builder: (ctx) => SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 6),
-            child: Align(alignment: Alignment.centerLeft, child: Text(label == null ? 'Directions' : 'Directions to $label', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800))),
-          ),
-          if (note != null)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 6),
-              child: Align(alignment: Alignment.centerLeft, child: Text(note, style: TextStyle(fontSize: 13.5, height: 1.35, color: AppColors.textSecondary))),
-            ),
-          if (inApp)
-          ListTile(
-            leading: const NavigateTileIcon(icon: AppIcons.car),
-            title: const Text('Navigate in TT Spot', style: TextStyle(fontWeight: FontWeight.w700)),
-            subtitle: Text('Turn-by-turn without leaving the app', style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
-            onTap: () async {
-              Navigator.pop(ctx);
-              try {
-                await AppNavigation.start(to: LatLng(lat, lng), name: label ?? 'Destination');
-              } catch (e) {
-                // No fix, no route, or the navigation screen would not open:
-                // offer Waze and Google Maps right away, with the reason.
-                if (context.mounted) showDirectionsSheet(context, lat: lat, lng: lng, label: label, note: friendlyError(e), inApp: false);
-              }
-            },
-          ),
-          ListTile(
-            leading: Container(width: 40, height: 40, alignment: Alignment.center, decoration: BoxDecoration(color: const Color(0xFF33CCFF).withValues(alpha: 0.18), borderRadius: BorderRadius.circular(12)), child: const Icon(AppIcons.navigationArrow, color: Color(0xFF0B7FA6))),
-            title: const Text('Waze', style: TextStyle(fontWeight: FontWeight.w700)),
-            subtitle: Text('Live traffic, the usual', style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
-            onTap: () {
-              Navigator.pop(ctx);
-              openExternal(context, 'waze://?ll=$lat,$lng&navigate=yes', fallbackUrl: wazeUrl(lat, lng), appName: 'Waze');
-            },
-          ),
-          ListTile(
-            leading: Container(width: 40, height: 40, alignment: Alignment.center, decoration: BoxDecoration(color: const Color(0xFF34A853).withValues(alpha: 0.16), borderRadius: BorderRadius.circular(12)), child: const Icon(AppIcons.mapTrifold, color: Color(0xFF1E7E34))),
-            title: const Text('Google Maps', style: TextStyle(fontWeight: FontWeight.w700)),
-            subtitle: Text('Street view, transit', style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
-            onTap: () {
-              Navigator.pop(ctx);
-              openExternal(context, 'comgooglemaps://?daddr=$lat,$lng', fallbackUrl: googleMapsUrl(lat, lng), appName: 'Google Maps');
-            },
-          ),
-          const SizedBox(height: 8),
-        ],
-      ),
-    ),
-  );
 }

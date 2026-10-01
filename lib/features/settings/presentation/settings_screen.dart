@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/config/app_version.dart';
+import '../../../core/directions/directions.dart';
 import '../../../core/legal/legal_text.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/supabase/supabase_client.dart';
@@ -29,6 +30,8 @@ import '../../social/presentation/widgets/chat_wallpaper.dart';
 import '../application/settings_providers.dart';
 import '../../../core/push/push_service.dart';
 import 'background_location_screen.dart';
+
+bool get _isIOS => defaultTargetPlatform == TargetPlatform.iOS;
 
 /// Settings: account, notifications, map, privacy, legal, support, danger.
 class SettingsScreen extends ConsumerWidget {
@@ -126,6 +129,18 @@ class SettingsScreen extends ConsumerWidget {
           _Toggle(icon: AppIcons.car, title: 'Show my car colour', subtitle: 'Friends see your car in its real colour', value: s.showCarColor, onChanged: (v) => set({'show_car_color': v})),
           _Toggle(icon: AppIcons.checkCircle, title: 'Auto check-in', subtitle: 'Check in by itself when you arrive at a meet you joined', value: s.autoCheckin, onChanged: (v) => set({'auto_checkin': v})),
           _Choice(icon: AppIcons.gauge, title: 'Distances', value: s.units, options: const [('km', 'Kilometres'), ('mi', 'Miles')], onChanged: (v) => set({'units': v})),
+          _Choice(
+            icon: AppIcons.navigationArrow,
+            title: 'Directions app',
+            // Apple Maps picked on an iPhone means "ask" on Android.
+            value: !_isIOS && s.directionsApp == DirectionsApp.apple.key ? kDirectionsAsk : s.directionsApp,
+            options: [
+              (kDirectionsAsk, 'Ask every time'),
+              for (final a in directionsAppsFor(iOS: _isIOS)) (a.key, a.label),
+            ],
+            onChanged: (v) => set({'directions_app': v}),
+          ),
+          const _Note('Directions and Go now open this app. Long-press them to pick another.'),
 
           const _Head('PRIVACY'),
           _Row(

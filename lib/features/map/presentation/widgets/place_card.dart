@@ -12,6 +12,7 @@ import '../../../../core/theme/app_icons.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/dates.dart';
 import '../../../../core/utils/geo.dart';
+import '../../../../core/directions/directions.dart';
 import '../../../../core/utils/open_external.dart';
 import '../../../../core/widgets/glass.dart';
 import '../../../../core/widgets/primary_button.dart';
@@ -113,7 +114,12 @@ class PlacePreviewCard extends ConsumerWidget {
           const SizedBox(height: 12),
           Row(
             children: [
-              Expanded(child: PrimaryButton(label: 'Go now', icon: AppIcons.navigationArrow, onPressed: () => showDirectionsSheet(context, lat: p.lat, lng: p.lng, label: name))),
+              Expanded(child: PrimaryButton(
+                  label: 'Go now',
+                  icon: AppIcons.navigationArrow,
+                  onPressed: () => openDirections(context, lat: p.lat, lng: p.lng, label: name),
+                  onLongPress: () => openDirections(context, lat: p.lat, lng: p.lng, label: name, choose: true),
+                )),
               const SizedBox(width: 8),
               Expanded(child: _OutlineButton(label: 'TT here', icon: AppIcons.flag, onPressed: () => ttHere(context, ref, p, name))),
             ],

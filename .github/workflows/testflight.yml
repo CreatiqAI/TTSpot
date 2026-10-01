@@ -60,11 +60,12 @@ jobs:
             echo "MAPS_API_KEY=${MAPS_API_KEY}"
             echo "GOOGLE_IOS_CLIENT_ID=${GOOGLE_IOS_CLIENT_ID}"
             echo "GOOGLE_IOS_REVERSED_CLIENT_ID=${REV}"
-            echo "MAPBOX_PUBLIC_TOKEN=$(python3 -c "import json; print(json.load(open('env.json')).get('MAPBOX_PUBLIC_TOKEN', ''))")"
           } > ios/Flutter/Secrets.xcconfig
           python3 -c "import json; json.load(open('env.json')); print('env.json ok')"
 
-      - name: Pub get with Swift Package Manager (the navigation SDK ships via SwiftPM)
+      # Plugins (mapbox_maps_flutter, Firebase, ...) build through Swift Package
+      # Manager; the Runner project already references FlutterGeneratedPluginSwiftPackage.
+      - name: Pub get with Swift Package Manager
         run: |
           flutter config --enable-swift-package-manager
           flutter pub get

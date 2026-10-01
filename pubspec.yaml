@@ -35,8 +35,8 @@ dependencies:
   firebase_core: ^4.15.0
   firebase_messaging: ^16.7.0
   firebase_crashlytics: ^5.4.0
-  flutter_mapbox:                # in-app navigation (approved 2026-09-28); local copy, see packages/flutter_mapbox/PATCHES.md
-    path: packages/flutter_mapbox
+  # flutter_mapbox (in-app navigation) removed 2026-10-01: owner's call,
+  # Directions hand off to Waze / Google Maps / Apple Maps instead.
 
   # --- approved 2026-09-29 -------------------------------------------------
   flutter_image_compress: ^2.5.1 # ~480 px JPEG thumbnails for grid tiles (less storage egress)

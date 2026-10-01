@@ -20,6 +20,10 @@ import '../domain/verification.dart';
 
 /// My balance. Invalidate after anything that earns or spends.
 final pointsBalanceProvider = FutureProvider<int>((ref) async {
+  // Also re-read on every auth event: on a cold start with an old session
+  // the first read can go out before the token refresh and fail, and the
+  // user id alone doesn't change afterwards, so nothing would re-ask.
+  ref.watch(authStateProvider);
   final me = ref.watch(currentUserIdProvider);
   if (me == null) return 0;
   return ref.watch(pointsRepositoryProvider).balance(me);

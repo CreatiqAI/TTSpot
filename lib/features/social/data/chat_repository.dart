@@ -253,7 +253,8 @@ class ChatRepository {
 
   Future<int> totalUnread(String me) async {
     final all = await inbox(me);
-    return all.fold<int>(0, (sum, c) => sum + c.unread);
+    // Chats with a deleted account aren't shown, so they don't count either.
+    return all.where((c) => !c.otherGone).fold<int>(0, (sum, c) => sum + c.unread);
   }
 }
 

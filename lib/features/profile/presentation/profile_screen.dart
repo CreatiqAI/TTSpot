@@ -82,7 +82,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final blocked = ref.watch(blockedUserIdsProvider).value?.contains(id) ?? false;
     // Points stay private: my own, or anyone's when an admin is looking.
     final adminView = !isMe && (ref.watch(currentProfileProvider).value?.isAdmin ?? false);
-    final points = isMe ? (ref.watch(pointsBalanceProvider).value ?? 0) : adminView ? ref.watch(adminMemberPointsProvider(id)).value : null;
+    // Null (no pill) until the balance is known, never a wrong 0.
+    final points = isMe ? ref.watch(pointsBalanceProvider).value : adminView ? ref.watch(adminMemberPointsProvider(id)).value : null;
     final tabs = [
       (AppIcons.squaresFour, 'Posts'),
       (AppIcons.sparkle, 'Cards'),

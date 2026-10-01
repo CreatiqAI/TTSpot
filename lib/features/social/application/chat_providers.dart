@@ -29,7 +29,10 @@ final inboxScopeProvider = Provider<InboxScope>((ref) {
 final inboxProvider = FutureProvider<List<Conversation>>((ref) async {
   final me = ref.watch(currentUserIdProvider);
   if (me == null) return const [];
-  return ref.watch(chatRepositoryProvider).inbox(me, scope: ref.watch(inboxScopeProvider));
+  final all = await ref.watch(chatRepositoryProvider).inbox(me, scope: ref.watch(inboxScopeProvider));
+  // A one-to-one chat whose other person deleted their account is left out
+  // everywhere (list, unread badge, share targets): nothing to reply to.
+  return [for (final c in all) if (!c.otherGone) c];
 });
 
 final conversationProvider = FutureProvider.family<Conversation?, String>((ref, id) async {

@@ -155,7 +155,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     onGarage: () => context.push(isMe ? Routes.myGarage : Routes.userGarage(id)),
                     onFriendAction: () => _friendAction(id, friendship, p.displayName ?? '@${p.username}'),
                     onMessage: () => _message(id),
-                    onCall: () => showCallSheet(context, ref, userId: id, name: p.displayName ?? '@${p.username}'),
+                    onCall: !isMe && friendship == FriendshipStatus.friends && ref.watch(friendPhoneProvider(id)).value != null
+                        ? () => showCallSheet(context, ref, userId: id, name: p.displayName ?? '@${p.username}')
+                        : null,
                   ),
                 ),
                 if (isMe && ref.watch(sealedBoxesProvider).isNotEmpty)

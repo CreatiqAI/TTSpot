@@ -121,6 +121,7 @@ class ChatActions {
   Future<void> setMute(String conversationId, bool muted) async {
     await _ref.read(chatRepositoryProvider).setMute(conversationId, muted);
     _ref.invalidate(inboxProvider);
+    _ref.invalidate(conversationProvider(conversationId));
   }
 
   Future<String> openDm(String otherUserId) async {

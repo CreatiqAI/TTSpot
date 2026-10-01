@@ -8,6 +8,15 @@ import '../../../core/utils/friendly_error.dart';
 import '../../../core/utils/open_external.dart';
 import '../../auth/application/account_basics.dart' show prettyPhone;
 
+/// A friend's number, only when they switched on "Friends can call me";
+/// null otherwise. The Call buttons show only when this has a number, so
+/// nobody taps Call just to be told it's off.
+final friendPhoneProvider = FutureProvider.autoDispose.family<String?, String>((ref, userId) async {
+  final v = await ref.watch(supabaseProvider).rpc('friend_phone', params: {'p_user': userId}) as String?;
+  final s = v?.trim() ?? '';
+  return s.isEmpty ? null : s;
+});
+
 /// Call a friend: their number comes back only if they switched on
 /// "Friends can call me" (Settings → Privacy). Then Phone or WhatsApp.
 Future<void> showCallSheet(BuildContext context, WidgetRef ref, {required String userId, required String name}) async {

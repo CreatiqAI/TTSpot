@@ -100,7 +100,9 @@ class _DmInfo extends ConsumerWidget {
             children: [
               Expanded(child: _Btn(icon: AppIcons.user, label: 'Profile', onTap: () => context.push(Routes.profile(p.id)))),
               const SizedBox(width: 8),
-              if (friendship == FriendshipStatus.friends) ...[
+              // A phone call (their phone app or WhatsApp), not an in-app call;
+              // only when they let friends call them.
+              if (friendship == FriendshipStatus.friends && ref.watch(friendPhoneProvider(p.id)).value != null) ...[
                 Expanded(child: _Btn(icon: AppIcons.phoneCall, label: 'Call', onTap: () => showCallSheet(context, ref, userId: p.id, name: name))),
                 const SizedBox(width: 8),
               ],
@@ -247,22 +249,17 @@ class _MeetInfo extends ConsumerWidget {
 
 // --------------------------------------------------------------- pieces ---
 
-class _MuteTile extends ConsumerWidget {
+class _MuteTile extends StatelessWidget {
   const _MuteTile({required this.conv});
   final Conversation conv;
   @override
-  Widget build(BuildContext context, WidgetRef ref) => SwitchListTile(
-        secondary: Icon(conv.muted ? AppIcons.bellSlash : AppIcons.bell, color: AppColors.textPrimary),
-        title: const Text('Mute', style: TextStyle(fontWeight: FontWeight.w600)),
-        subtitle: const Text('No badge for new messages here', style: TextStyle(fontSize: 12)),
+  Widget build(BuildContext context) => _SwitchTile(
+        conv: conv,
         value: conv.muted,
-        onChanged: (v) async {
-          try {
-            await ref.read(chatActionsProvider).setMute(conv.id, v);
-          } catch (e) {
-            if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
-          }
-        },
+        icon: conv.muted ? AppIcons.bellSlash : AppIcons.bell,
+        title: 'Mute',
+        subtitle: 'No badge for new messages here',
+        set: (actions, v) => actions.setMute(conv.id, v),
       );
 }
 
@@ -342,15 +339,57 @@ class _SharedThumb extends ConsumerWidget {
   }
 }
 
-class _PinTile extends ConsumerWidget {
+class _PinTile extends StatelessWidget {
   const _PinTile({required this.conv});
   final Conversation conv;
   @override
-  Widget build(BuildContext context, WidgetRef ref) => ListTile(
-        leading: Icon(conv.pinned ? AppIcons.pushPinSlash : AppIcons.pushPin),
-        title: Text(conv.pinned ? 'Unpin chat' : 'Pin chat', style: const TextStyle(fontWeight: FontWeight.w600)),
-        subtitle: const Text('Pinned chats stay at the top. Up to 3.', style: TextStyle(fontSize: 12)),
-        onTap: () => _run(context, () => ref.read(chatActionsProvider).setPin(conv.id, !conv.pinned)),
+  Widget build(BuildContext context) => _SwitchTile(
+        conv: conv,
+        value: conv.pinned,
+        icon: AppIcons.pushPin,
+        title: 'Pin chat',
+        subtitle: 'Pinned chats stay at the top. Up to 3.',
+        set: (actions, v) => actions.setPin(conv.id, v),
+      );
+}
+
+/// A chat setting as a switch: it flips the moment it's tapped, waits for
+/// the saved chat to come back, and flips back with the reason if saving
+/// failed (e.g. a 4th pin).
+class _SwitchTile extends ConsumerStatefulWidget {
+  const _SwitchTile({required this.conv, required this.value, required this.icon, required this.title, required this.subtitle, required this.set});
+  final Conversation conv;
+  final bool value;
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Future<void> Function(ChatActions actions, bool value) set;
+
+  @override
+  ConsumerState<_SwitchTile> createState() => _SwitchTileState();
+}
+
+class _SwitchTileState extends ConsumerState<_SwitchTile> {
+  bool? _pending;
+
+  Future<void> _change(bool v) async {
+    setState(() => _pending = v);
+    try {
+      await widget.set(ref.read(chatActionsProvider), v);
+      await ref.read(conversationProvider(widget.conv.id).future);
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
+    }
+    if (mounted) setState(() => _pending = null);
+  }
+
+  @override
+  Widget build(BuildContext context) => SwitchListTile(
+        secondary: Icon(widget.icon, color: AppColors.textPrimary),
+        title: Text(widget.title, style: const TextStyle(fontWeight: FontWeight.w600)),
+        subtitle: Text(widget.subtitle, style: const TextStyle(fontSize: 12)),
+        value: _pending ?? widget.value,
+        onChanged: _pending == null ? _change : null,
       );
 }
 

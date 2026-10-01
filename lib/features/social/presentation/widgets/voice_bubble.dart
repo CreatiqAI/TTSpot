@@ -211,7 +211,7 @@ class _VoiceBubbleState extends State<VoiceBubble> {
     Widget? lead;
     if (!widget.mine) {
       lead = started
-          ? ConstrainedBox(constraints: const BoxConstraints(minWidth: 44, minHeight: 44), child: Center(child: speedChip))
+          ? SizedBox(width: 44, height: 44, child: Center(child: FittedBox(fit: BoxFit.scaleDown, child: speedChip)))
           : SizedBox(
               width: 44,
               height: 44,
@@ -251,71 +251,72 @@ class _VoiceBubbleState extends State<VoiceBubble> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (widget.quote != null) Padding(padding: const EdgeInsets.only(bottom: 6), child: widget.quote),
+          // Play button, waveform and dot on one centred line (as WhatsApp);
+          // the length and the send time on a line under the waveform.
           Row(
             children: [
               if (lead != null) ...[lead, const SizedBox(width: 4)],
               playButton,
               const SizedBox(width: 4),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const SizedBox(height: 4),
-                    LayoutBuilder(
-                      builder: (context, box) {
-                        double at(Offset p) => (p.dx / box.maxWidth).clamp(0.0, 1.0);
-                        return GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTapUp: (d) => _seekTo(at(d.localPosition)),
-                          onHorizontalDragStart: (d) => setState(() => _scrub = at(d.localPosition)),
-                          onHorizontalDragUpdate: (d) => setState(() => _scrub = at(d.localPosition)),
-                          onHorizontalDragEnd: (_) {
-                            final s = _scrub;
-                            setState(() => _scrub = null);
-                            if (s != null) _seekTo(s);
-                          },
-                          onHorizontalDragCancel: () => setState(() => _scrub = null),
-                          child: SizedBox(
-                            height: 30,
-                            child: CustomPaint(
-                              painter: VoiceWavePainter(
-                                bars: _bars,
-                                progress: frac,
-                                played: fg.withValues(alpha: 0.8),
-                                unplayed: fg.withValues(alpha: 0.25),
-                                thumb: AppColors.brand,
-                              ),
-                            ),
-                          ),
-                        );
+                child: LayoutBuilder(
+                  builder: (context, box) {
+                    // The bars sit inset by the dot's radius, so the dot
+                    // starts on the first bar, not over it.
+                    final track = box.maxWidth - 2 * VoiceWavePainter.thumbRadius;
+                    double at(Offset p) => ((p.dx - VoiceWavePainter.thumbRadius) / track).clamp(0.0, 1.0);
+                    return GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTapUp: (d) => _seekTo(at(d.localPosition)),
+                      onHorizontalDragStart: (d) => setState(() => _scrub = at(d.localPosition)),
+                      onHorizontalDragUpdate: (d) => setState(() => _scrub = at(d.localPosition)),
+                      onHorizontalDragEnd: (_) {
+                        final s = _scrub;
+                        setState(() => _scrub = null);
+                        if (s != null) _seekTo(s);
                       },
-                    ),
-                    const SizedBox(height: 2),
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            fmtMs(shown.inMilliseconds),
-                            maxLines: 1,
-                            overflow: TextOverflow.fade,
-                            softWrap: false,
-                            style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: AppColors.textSecondary, fontFeatures: const [FontFeature.tabularFigures()]),
+                      onHorizontalDragCancel: () => setState(() => _scrub = null),
+                      child: SizedBox(
+                        height: 32,
+                        child: CustomPaint(
+                          painter: VoiceWavePainter(
+                            bars: _bars,
+                            progress: frac,
+                            played: fg.withValues(alpha: 0.8),
+                            unplayed: fg.withValues(alpha: 0.25),
+                            thumb: AppColors.brand,
                           ),
                         ),
-                        if (widget.time != null) ...[
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(widget.time!, textAlign: TextAlign.end, maxLines: 1, softWrap: false, overflow: TextOverflow.fade, style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ],
+                      ),
+                    );
+                  },
                 ),
               ),
               if (widget.mine && started) ...[const SizedBox(width: 8), speedChip],
             ],
+          ),
+          Padding(
+            // Under the waveform: past the lead, the play button and the dot's inset.
+            padding: EdgeInsets.only(left: (lead != null ? 48 : 0) + 42 + VoiceWavePainter.thumbRadius, top: 1),
+            child: Row(
+              children: [
+                Flexible(
+                  child: Text(
+                    fmtMs(shown.inMilliseconds),
+                    maxLines: 1,
+                    overflow: TextOverflow.fade,
+                    softWrap: false,
+                    style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: AppColors.textSecondary, fontFeatures: const [FontFeature.tabularFigures()]),
+                  ),
+                ),
+                if (widget.time != null) ...[
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(widget.time!, textAlign: TextAlign.end, maxLines: 1, softWrap: false, overflow: TextOverflow.fade, style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                  ),
+                ],
+              ],
+            ),
           ),
         ],
       ),
@@ -332,25 +333,31 @@ class VoiceWavePainter extends CustomPainter {
   final Color unplayed;
   final Color? thumb;
 
+  /// The playhead dot; the bars are inset by this much at both ends so the
+  /// dot sits exactly on the first bar at 0:00 and the last at the end.
+  static const thumbRadius = 6.0;
+
   @override
   void paint(Canvas canvas, Size size) {
     if (bars.isEmpty || size.width <= 0) return;
+    const r = thumbRadius;
+    final track = size.width - 2 * r;
     final n = bars.length;
-    final slot = size.width / n;
+    final slot = track / n;
     final w = math.max(1.5, slot * 0.6);
     final mid = size.height / 2;
-    final cut = progress * size.width;
+    final cut = r + progress * track;
     final paint = Paint()
       ..strokeCap = StrokeCap.round
       ..strokeWidth = w;
     for (var i = 0; i < n; i++) {
-      final x = i * slot + slot / 2;
+      final x = r + i * slot + slot / 2;
       final h = math.max(w, bars[i].clamp(0, 100) / 100 * (size.height - 4));
       paint.color = x <= cut ? played : unplayed;
       canvas.drawLine(Offset(x, mid - h / 2), Offset(x, mid + h / 2), paint);
     }
     if (thumb != null) {
-      canvas.drawCircle(Offset(cut.clamp(6.0, size.width - 6), mid), 6, Paint()..color = thumb!);
+      canvas.drawCircle(Offset(cut, mid), r, Paint()..color = thumb!);
     }
   }
 

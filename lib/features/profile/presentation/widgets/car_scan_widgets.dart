@@ -312,6 +312,7 @@ class HidePlateSwitch extends StatelessWidget {
     if (failed) return 'Couldn\'t load a photo to hide its plate. Check your connection and try again.';
     if (photos == 0) return 'The plate gets blurred on each photo before it goes up.';
     if (guessed > 0) return 'Couldn\'t look for the plate, so the blur is a guess. Tap the photo to check it.';
+    if (blurred == 0 && restoring > 0) return photos == 1 ? 'Nothing blurred. Tap the photo to blur the plate again.' : 'Tap a photo to blur its plate again.';
     if (blurred == 0) return photos == 1 ? 'No plate seen. Tap the photo to blur it yourself.' : 'No plate seen. Tap a photo to blur it yourself.';
     if (photos == 1) return 'Plate blurred. Tap the photo to check it.';
     return 'Plate blurred on $blurred of $photos photos. Tap one to check it.';

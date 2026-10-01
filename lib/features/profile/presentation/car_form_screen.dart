@@ -65,6 +65,8 @@ class _CarFormScreenState extends ConsumerState<CarFormScreen> {
   /// The colour was picked from the photo (recogniser or our own look), not
   /// by the member.
   bool _colorFromPhoto = false;
+  /// The member tapped a swatch on this form (a saved colour says neither).
+  bool _colorPicked = false;
   final _description = TextEditingController();
   /// The car's photos in order: saved ones first, then new picks.
   final _photos = <CarFormPhoto>[];
@@ -826,10 +828,15 @@ class _CarFormScreenState extends ConsumerState<CarFormScreen> {
       const SizedBox(height: 18),
       CarMapColourSection(
         value: _color,
-        note: _color == null ? 'Pick the closest colour below.' : carColourNote(_color, fromPhoto: _colorFromPhoto),
+        note: _color == null
+            ? 'Pick the closest colour below.'
+            : _colorFromPhoto || _colorPicked
+                ? carColourNote(_color, fromPhoto: _colorFromPhoto)
+                : kCarColorLabels[_color] ?? _color,
         onChanged: (v) => setState(() {
           _color = v;
           _colorFromPhoto = false;
+          _colorPicked = true;
         }),
       ),
     ];

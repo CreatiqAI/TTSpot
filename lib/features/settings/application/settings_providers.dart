@@ -40,6 +40,9 @@ class AppSettings {
 
   /// Units: 'km' | 'mi'
   String get units => (_m['units'] as String?) ?? 'km';
+
+  /// My garage's look: 'bay' (roller-door bay, the default) | 'cards'.
+  String get garageView => (_m['garage_view'] as String?) ?? 'bay';
 }
 
 /// Profile settings plus anything saved this session, so a toggle flips at

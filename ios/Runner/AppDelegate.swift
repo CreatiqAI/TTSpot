@@ -1,8 +1,10 @@
+import CoreImage
 import CoreLocation
 import CoreMotion
 import Flutter
 import Security
 import UIKit
+import Vision
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
@@ -26,6 +28,13 @@ import UIKit
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "TTSpotMotion") {
       let channel = FlutterEventChannel(name: "my.ttspot.app/motion", binaryMessenger: registrar.messenger())
       channel.setStreamHandler(MotionStreamHandler(motion: motion))
+    }
+    // Garage cut-outs (Vision, iOS 17+); Dart side: lib/features/profile/data/car_cutout_channel.dart.
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "TTSpotCutout") {
+      let channel = FlutterMethodChannel(name: "my.ttspot.app/cutout", binaryMessenger: registrar.messenger())
+      channel.setMethodCallHandler { call, result in
+        CarCutout.handle(call, result: result)
+      }
     }
     // Background location; Dart side: lib/core/location/background_location.dart.
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "TTSpotBgLocation") {
@@ -389,5 +398,182 @@ private enum Keychain {
 
   static func delete() {
     SecItemDelete(query as CFDictionary)
+  }
+}
+
+// MARK: - Garage cut-outs
+
+/// The car cut out of the member's own photo, on the phone: Vision's
+/// foreground instance mask (iOS 17+), largest subject only. Mirrors
+/// CarCutout.kt. "cutout" {bytes, maxSide} → {status, png?, areaRatio,
+/// edgeLeft/Right/Top/Bottom, subjects, secondRatio, width, height}.
+/// Older iOS answers "unsupported" and the garage shows the photo card.
+enum CarCutout {
+  private static let maxInput: CGFloat = 1600
+  private static let queue = DispatchQueue(label: "my.ttspot.app.cutout", qos: .userInitiated)
+
+  static func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
+    guard call.method == "cutout" else {
+      result(FlutterMethodNotImplemented)
+      return
+    }
+    let args = call.arguments as? [String: Any] ?? [:]
+    guard let data = (args["bytes"] as? FlutterStandardTypedData)?.data else {
+      result(FlutterError(code: "bad_args", message: "bytes are required", details: nil))
+      return
+    }
+    let maxSide = (args["maxSide"] as? NSNumber)?.intValue ?? 1080
+    guard #available(iOS 17.0, *) else {
+      result(["status": "unsupported", "message": "needs iOS 17"])
+      return
+    }
+    queue.async {
+      let out = autoreleasepool { run(data, maxSide: maxSide) }
+      DispatchQueue.main.async { result(out) }
+    }
+  }
+
+  @available(iOS 17.0, *)
+  private static func run(_ data: Data, maxSide: Int) -> [String: Any] {
+    guard let image = UIImage(data: data), let photo = upright(image) else {
+      return ["status": "error", "message": "can't read the photo"]
+    }
+    let handler = VNImageRequestHandler(cgImage: photo, orientation: .up, options: [:])
+    let request = VNGenerateForegroundInstanceMaskRequest()
+    do {
+      try handler.perform([request])
+    } catch {
+      return ["status": "error", "message": error.localizedDescription]
+    }
+    guard let obs = request.results?.first, !obs.allInstances.isEmpty else {
+      return ["status": "no_subject", "subjects": 0]
+    }
+
+    // Instance labels per pixel (0 = background), at the mask's own resolution.
+    let mask = obs.instanceMask
+    CVPixelBufferLockBaseAddress(mask, .readOnly)
+    let mw = CVPixelBufferGetWidth(mask)
+    let mh = CVPixelBufferGetHeight(mask)
+    let rowBytes = CVPixelBufferGetBytesPerRow(mask)
+    guard mw > 0, mh > 0, let raw = CVPixelBufferGetBaseAddress(mask) else {
+      CVPixelBufferUnlockBaseAddress(mask, .readOnly)
+      return ["status": "error", "message": "empty mask"]
+    }
+    let base = raw.assumingMemoryBound(to: UInt8.self)
+    var counts = [Int](repeating: 0, count: 256)
+    var minX = [Int](repeating: Int.max, count: 256)
+    var maxX = [Int](repeating: -1, count: 256)
+    var minY = [Int](repeating: Int.max, count: 256)
+    var maxY = [Int](repeating: -1, count: 256)
+    for y in 0..<mh {
+      let row = base + y * rowBytes
+      for x in 0..<mw {
+        let l = Int(row[x])
+        if l == 0 { continue }
+        counts[l] += 1
+        if x < minX[l] { minX[l] = x }
+        if x > maxX[l] { maxX[l] = x }
+        if y < minY[l] { minY[l] = y }
+        if y > maxY[l] { maxY[l] = y }
+      }
+    }
+    let labels = obs.allInstances.filter { $0 > 0 && $0 < 256 }.sorted { counts[$0] > counts[$1] }
+    guard let main = labels.first, counts[main] > 0 else {
+      CVPixelBufferUnlockBaseAddress(mask, .readOnly)
+      return ["status": "no_subject", "subjects": 0]
+    }
+    let second = labels.count > 1 ? counts[labels[1]] : 0
+
+    // How much of each edge the subject runs into (share of rows / columns
+    // with a subject pixel within 1 % of that edge).
+    let bandX = max(1, Int((Double(mw) * 0.01).rounded()))
+    let bandY = max(1, Int((Double(mh) * 0.01).rounded()))
+    let label = UInt8(main)
+    var left = 0, right = 0, top = 0, bottom = 0
+    for y in 0..<mh {
+      let row = base + y * rowBytes
+      var l = false, r = false
+      for k in 0..<min(bandX, mw) {
+        if row[k] == label { l = true }
+        if row[mw - 1 - k] == label { r = true }
+      }
+      if l { left += 1 }
+      if r { right += 1 }
+    }
+    for x in 0..<mw {
+      var t = false, b = false
+      for k in 0..<min(bandY, mh) {
+        if (base + k * rowBytes)[x] == label { t = true }
+        if (base + (mh - 1 - k) * rowBytes)[x] == label { b = true }
+      }
+      if t { top += 1 }
+      if b { bottom += 1 }
+    }
+    CVPixelBufferUnlockBaseAddress(mask, .readOnly)
+
+    let sx = Double(photo.width) / Double(mw)
+    let sy = Double(photo.height) / Double(mh)
+    let boxW = Int((Double(maxX[main] - minX[main] + 1) * sx).rounded())
+    let boxH = Int((Double(maxY[main] - minY[main] + 1) * sy).rounded())
+
+    let png: Data
+    do {
+      let buffer = try obs.generateMaskedImage(ofInstances: IndexSet(integer: main), from: handler, croppedToInstancesExtent: true)
+      let ci = CIImage(cvPixelBuffer: buffer)
+      guard let cut = CIContext(options: nil).createCGImage(ci, from: ci.extent),
+            let encoded = encode(cut, maxSide: maxSide) else {
+        return ["status": "error", "message": "can't draw the cut-out"]
+      }
+      png = encoded
+    } catch {
+      return ["status": "error", "message": error.localizedDescription]
+    }
+
+    return [
+      "status": "ok",
+      "png": FlutterStandardTypedData(bytes: png),
+      "areaRatio": Double(counts[main]) / Double(mw * mh),
+      "edgeLeft": Double(left) / Double(mh),
+      "edgeRight": Double(right) / Double(mh),
+      "edgeTop": Double(top) / Double(mw),
+      "edgeBottom": Double(bottom) / Double(mw),
+      "subjects": labels.count,
+      "secondRatio": Double(second) / Double(counts[main]),
+      "width": boxW,
+      "height": boxH,
+    ]
+  }
+
+  /// The photo drawn upright (EXIF orientation applied), longest side at most 1600.
+  private static func upright(_ image: UIImage) -> CGImage? {
+    let size = image.size
+    guard size.width > 0, size.height > 0 else { return nil }
+    let k = min(1, maxInput / max(size.width, size.height))
+    if k == 1, image.imageOrientation == .up, let cg = image.cgImage { return cg }
+    let target = CGSize(width: floor(size.width * k), height: floor(size.height * k))
+    let format = UIGraphicsImageRendererFormat()
+    format.scale = 1
+    format.opaque = true
+    return UIGraphicsImageRenderer(size: target, format: format).image { _ in
+      image.draw(in: CGRect(origin: .zero, size: target))
+    }.cgImage
+  }
+
+  /// A little transparent room left, right and above the car, none below (the
+  /// tyres sit on the PNG's bottom edge, so the bay can stand it on the floor
+  /// and hang the reflection straight under it). Longest side at most maxSide, as PNG.
+  private static func encode(_ cut: CGImage, maxSide: Int) -> Data? {
+    let pad = max(2, CGFloat(max(cut.width, cut.height)) * 0.03)
+    let pw = CGFloat(cut.width) + pad * 2
+    let ph = CGFloat(cut.height) + pad
+    let k = min(1, CGFloat(maxSide) / max(pw, ph))
+    let size = CGSize(width: max(1, (pw * k).rounded()), height: max(1, (ph * k).rounded()))
+    let format = UIGraphicsImageRendererFormat()
+    format.scale = 1
+    format.opaque = false
+    let rect = CGRect(x: pad * k, y: pad * k, width: CGFloat(cut.width) * k, height: CGFloat(cut.height) * k)
+    return UIGraphicsImageRenderer(size: size, format: format).pngData { _ in
+      UIImage(cgImage: cut).draw(in: rect)
+    }
   }
 }

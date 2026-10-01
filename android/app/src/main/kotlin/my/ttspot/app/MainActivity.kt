@@ -77,6 +77,9 @@ class MainActivity : FlutterActivity() {
                 result.success(false)
             }
         }
+        // Garage cut-outs (ML Kit subject segmentation); see CarCutout.kt.
+        CarCutout.register(flutterEngine.dartExecutor.binaryMessenger, this)
+
         // Accelerometer in g (gravity included), ~50 Hz, only while Dart listens.
         // Used by the blind-box shake-to-open and the tilt parallax; see lib/core/motion/motion.dart.
         EventChannel(flutterEngine.dartExecutor.binaryMessenger, "my.ttspot.app/motion").setStreamHandler(object : EventChannel.StreamHandler {

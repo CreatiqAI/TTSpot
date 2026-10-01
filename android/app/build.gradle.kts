@@ -84,4 +84,7 @@ dependencies {
     // Fused location for BgLocationService. The same artifact and version
     // geolocator_android already ships, declared so app code can compile against it.
     implementation("com.google.android.gms:play-services-location:21.2.0")
+    // Garage cut-outs (CarCutout.kt): subject segmentation inside Google Play
+    // services; the model is an optional module downloaded on first use.
+    implementation("com.google.android.gms:play-services-mlkit-subject-segmentation:16.0.0-beta1")
 }

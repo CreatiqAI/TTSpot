@@ -16,6 +16,7 @@ import '../application/profile_providers.dart';
 import '../data/profile_repository.dart';
 import '../domain/car.dart';
 import '../domain/car_recognition.dart';
+import 'widgets/car_actions_sheet.dart' show GarageLookOption;
 import 'widgets/car_color_picker.dart';
 import 'widgets/car_scan_widgets.dart';
 
@@ -43,6 +44,8 @@ class _CarFormScreenState extends ConsumerState<CarFormScreen> {
   final _new = <CarPhotoPick>[];
   bool _loaded = false;
   Car? _loadedCar;
+  /// Garage look (edit only): 'auto' (cut-out) or 'card'.
+  String _garageStyle = 'auto';
 
   // "Hide my number plate": off unless the member turned it on before.
   late bool _hidePlate = ref.read(settingsProvider).hidePlate;
@@ -83,6 +86,7 @@ class _CarFormScreenState extends ConsumerState<CarFormScreen> {
     _color = c.color;
     _description.text = c.description ?? '';
     _kept.addAll(c.photoUrls);
+    _garageStyle = c.garageStyle;
   }
 
   void _snack(String msg) {
@@ -242,6 +246,7 @@ class _CarFormScreenState extends ConsumerState<CarFormScreen> {
           newPhotos: [for (final p in _new) p.bytes(hidePlate: _hidePlate)],
           specs: specs,
           bodyStyle: bodyStyle,
+          garageStyle: _isEdit ? _garageStyle : null,
         );
     if (id != null && mounted) {
       if (_isEdit) {
@@ -440,6 +445,35 @@ class _CarFormScreenState extends ConsumerState<CarFormScreen> {
                 counterText: '',
               ),
             ),
+            if (_isEdit) ...[
+              const SizedBox(height: 18),
+              Text('GARAGE LOOK', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1, color: AppColors.textSecondary)),
+              const SizedBox(height: 4),
+              Text('How this car stands in your garage.', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+              const SizedBox(height: 8),
+              Container(
+                decoration: BoxDecoration(border: Border.all(color: AppColors.border), borderRadius: BorderRadius.circular(AppRadius.md)),
+                child: Column(
+                  children: [
+                    GarageLookOption(
+                      selected: _garageStyle != 'card',
+                      icon: AppIcons.scissors,
+                      title: 'Cut-out',
+                      subtitle: 'Your car stands in the bay, cut out of its cover photo on your phone.',
+                      onTap: busy ? () {} : () => setState(() => _garageStyle = 'auto'),
+                    ),
+                    Divider(height: 1, color: AppColors.divider),
+                    GarageLookOption(
+                      selected: _garageStyle == 'card',
+                      icon: AppIcons.cards,
+                      title: 'Photo card',
+                      subtitle: 'The cover photo in a silver frame. Pick this if the cut-out looks wrong.',
+                      onTap: busy ? () {} : () => setState(() => _garageStyle = 'card'),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
       ),

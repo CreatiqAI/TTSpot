@@ -14,6 +14,9 @@ class Car {
     this.portraitUrl,
     this.specs,
     this.bodyStyle,
+    this.cutoutUrl,
+    this.cutoutSource,
+    this.garageStyle = 'auto',
   });
 
   final String id;
@@ -34,11 +37,21 @@ class Car {
   final String? specs;
   /// hatchback, sedan, SUV… from the recogniser.
   final String? bodyStyle;
+  /// The car cut out of its cover photo (PNG with alpha) for the garage bay;
+  /// null when none was made or it failed the quality check.
+  final String? cutoutUrl;
+  /// The photo [cutoutUrl] was made from: a new cover photo makes it stale.
+  final String? cutoutSource;
+  /// 'auto' (cut-out when there is a good one) | 'card' (always the photo card).
+  final String garageStyle;
 
   String get title => '$make $model';
   /// Spec line worth showing, or null.
   String? get specLine => (specs ?? '').trim().isEmpty ? null : specs!.trim();
   String? get cover => portraitUrl ?? (photoUrls.isEmpty ? null : photoUrls.first);
+  /// The member's own cover photo (never the AI portrait): what the garage
+  /// cuts out and frames.
+  String? get photoCover => photoUrls.isEmpty ? null : photoUrls.first;
 
   factory Car.fromMap(Map<String, dynamic> m) => Car(
         id: m['id'] as String,
@@ -54,6 +67,9 @@ class Car {
         portraitUrl: m['portrait_url'] as String?,
         specs: m['specs'] as String?,
         bodyStyle: m['body_style'] as String?,
+        cutoutUrl: m['cutout_url'] as String?,
+        cutoutSource: m['cutout_source'] as String?,
+        garageStyle: m['garage_style'] as String? ?? 'auto',
       );
 }
 

@@ -16,74 +16,37 @@ import '../../social/data/community_repository.dart';
 import '../../social/data/social_repository.dart';
 import '../../social/domain/club.dart';
 import '../../social/domain/post.dart';
+import 'map_filters.dart';
+
+export 'map_filters.dart';
 
 // ----------------------------------------------------------------- filters ---
 
-enum DateRange {
-  today('Today'),
-  weekend('This weekend'),
-  month('This month'),
-  all('Upcoming');
-
-  const DateRange(this.label);
-  final String label;
-
-  /// Inclusive start / exclusive end, in local time. `end == null` = no limit.
-  ({DateTime start, DateTime? end}) window({DateTime? now}) {
-    final n = now ?? DateTime.now();
-    final today = DateTime(n.year, n.month, n.day);
-    switch (this) {
-      case DateRange.today:
-        return (start: n, end: today.add(const Duration(days: 1)));
-      case DateRange.weekend:
-        // Saturday of this week (or last Saturday if today is Sunday).
-        final sat = n.weekday == DateTime.sunday
-            ? today.subtract(const Duration(days: 1))
-            : today.add(Duration(days: (DateTime.saturday - n.weekday) % 7));
-        final start = sat.isAfter(n) ? sat : n;
-        return (start: start, end: sat.add(const Duration(days: 2)));
-      case DateRange.month:
-        return (start: n, end: DateTime(n.year, n.month + 1, 1));
-      case DateRange.all:
-        return (start: n, end: null);
-    }
-  }
-}
-
-class MapFilters {
-  const MapFilters({this.range = DateRange.all, this.types = const {}});
-  final DateRange range;
-  final Set<EventType> types;
-
-  bool get isDefault => range == DateRange.all && types.isEmpty;
-
-  /// Text for the floating pill, e.g. "This weekend · 2 types".
-  String get label {
-    if (types.isEmpty) return range.label;
-    if (types.length == 1) return '${range.label} · ${types.first.label}';
-    return '${range.label} · ${types.length} types';
-  }
-
-  MapFilters copyWith({DateRange? range, Set<EventType>? types}) =>
-      MapFilters(range: range ?? this.range, types: types ?? this.types);
-}
-
-class MapFiltersNotifier extends Notifier<MapFilters> {
+/// The Events tab's chips (all hosts, all types, this week to start with).
+class EventFilterNotifier extends Notifier<EventFilter> {
   @override
-  MapFilters build() => const MapFilters();
-
-  void setRange(DateRange r) => state = state.copyWith(range: r);
-
-  void toggleType(EventType t) {
-    final next = {...state.types};
-    next.contains(t) ? next.remove(t) : next.add(t);
-    state = state.copyWith(types: next);
-  }
-
-  void clear() => state = const MapFilters();
+  EventFilter build() => EventFilter.initial;
+  void set(EventFilter f) => state = f;
+  void toggleHost(HostChip c) => state = state.toggleHost(c);
+  void toggleType(TypeChip c) => state = state.toggleType(c);
+  void toggleWhen(WhenChip c) => state = state.toggleWhen(c);
+  void allHosts() => state = state.copyWith(hosts: const {});
+  void allTypes() => state = state.copyWith(types: const {});
+  void reset() => state = EventFilter.initial;
 }
 
-final mapFiltersProvider = NotifierProvider<MapFiltersNotifier, MapFilters>(MapFiltersNotifier.new);
+final eventFilterProvider = NotifierProvider<EventFilterNotifier, EventFilter>(EventFilterNotifier.new);
+
+/// A chip row on the Now or Spots tab: the picked chips, empty = All.
+class ChipSetNotifier<T> extends Notifier<Set<T>> {
+  @override
+  Set<T> build() => <T>{};
+  void toggle(T c) => state = state.contains(c) ? ({...state}..remove(c)) : {...state, c};
+  void all() => state = <T>{};
+}
+
+final spotChipsProvider = NotifierProvider<ChipSetNotifier<SpotChip>, Set<SpotChip>>(ChipSetNotifier<SpotChip>.new);
+final nowChipsProvider = NotifierProvider<ChipSetNotifier<NowChip>, Set<NowChip>>(ChipSetNotifier<NowChip>.new);
 
 // ---------------------------------------------------------------- viewport ---
 
@@ -133,20 +96,33 @@ final mapOriginProvider = Provider<LatLng>((ref) => ref.watch(userLocationProvid
 
 // ------------------------------------------------------------------ events ---
 
-/// Events matching the filters inside the current viewport, minus blocked organizers.
+/// Every meet in the viewport that is not over yet (under way or to come),
+/// minus blocked organizers. The Events tab's chips filter it on the phone
+/// ([filteredMapEventsProvider]), so a chip never waits for the network.
 final mapEventsProvider = FutureProvider<List<Event>>((ref) async {
-  final filters = ref.watch(mapFiltersProvider);
   final bounds = ref.watch(mapViewportProvider) ?? klangValleyBounds;
   final blocked = await ref.watch(blockedUserIdsProvider.future);
-  final window = filters.range.window();
+  // Meets under way started up to 8 h ago (the live window's longest).
+  final from = DateTime.now().subtract(const Duration(hours: 8));
+  final events = await ref.watch(eventsRepositoryProvider).fetchUpcomingInBounds(bounds: bounds, from: from, limit: 200);
+  return events.where((e) => !e.isPast && !blocked.contains(e.organizerId)).toList();
+});
 
-  final events = await ref.watch(eventsRepositoryProvider).fetchUpcomingInBounds(
-        bounds: bounds,
-        from: window.start,
-        to: window.end,
-        types: filters.types,
-      );
-  return events.where((e) => !blocked.contains(e.organizerId)).toList();
+/// The viewport's meets that pass the Events tab's chips (zoom aside: the
+/// map hides the small tiers when zoomed out, the list does not).
+final filteredMapEventsProvider = Provider<AsyncValue<List<Event>>>((ref) {
+  final filter = ref.watch(eventFilterProvider);
+  return ref.watch(mapEventsProvider).whenData((events) {
+    final now = DateTime.now();
+    return events.where((e) => filter.matches(e, now)).toList();
+  });
+});
+
+/// What each Events chip would show right now (the numbers on the chips).
+final eventChipCountsProvider = Provider<EventChipCounts?>((ref) {
+  final events = ref.watch(mapEventsProvider).value;
+  if (events == null) return null;
+  return ref.watch(eventFilterProvider).counts(events, DateTime.now());
 });
 
 class MapSearchNotifier extends Notifier<String> {
@@ -161,7 +137,7 @@ final mapSearchProvider = NotifierProvider<MapSearchNotifier, String>(MapSearchN
 final visibleMapEventsProvider = Provider<AsyncValue<List<Event>>>((ref) {
   final origin = ref.watch(mapOriginProvider);
   final query = ref.watch(mapSearchProvider).trim().toLowerCase();
-  return ref.watch(mapEventsProvider).whenData((events) {
+  return ref.watch(filteredMapEventsProvider).whenData((events) {
     var list = events;
     if (query.isNotEmpty) {
       list = list
@@ -176,10 +152,11 @@ final visibleMapEventsProvider = Provider<AsyncValue<List<Event>>>((ref) {
 
 // ------------------------------------------------------------------- modes ---
 
-/// The three time layers of the map.
+/// The map's three tabs: what is happening right now (people, live meets,
+/// moments), every event, and places.
 enum MapMode {
   now('Now'),
-  upcoming('Upcoming'),
+  events('Events'),
   spots('Spots');
 
   const MapMode(this.label);
@@ -246,12 +223,15 @@ bool spotMatches(Place p, String query) {
   return q.isEmpty || p.name.toLowerCase().contains(q) || p.tags.any((t) => t.toLowerCase().contains(q));
 }
 
-/// Search-filtered spots in the viewport for the sheet: nearest to me first.
+/// Search-filtered spots in the viewport for the sheet (the Spots chips
+/// apply too): nearest to me first.
 final visibleSpotsProvider = Provider<AsyncValue<List<Place>>>((ref) {
   final origin = ref.watch(mapOriginProvider);
   final query = ref.watch(mapSearchProvider);
+  final chips = ref.watch(spotChipsProvider);
+  final saved = ref.watch(savedPlaceIdsProvider);
   return ref.watch(spotsProvider).whenData((places) {
-    final list = places.where((p) => spotMatches(p, query)).toList();
+    final list = places.where((p) => spotMatches(p, query) && spotChipsMatch(p, chips, saved)).toList();
     return list..sort((a, b) => distanceKm(origin, a.latLng).compareTo(distanceKm(origin, b.latLng)));
   });
 });
@@ -280,9 +260,9 @@ final nearestSpotsProvider = FutureProvider<List<Place>>((ref) async {
   }
 });
 
-/// What the map draws as places: the viewport's spots plus every saved spot
-/// (wherever it is), once each.
-final mapPlacesProvider = Provider<List<Place>>((ref) {
+/// Every place the Spots tab could draw: the viewport's spots plus every
+/// saved spot (wherever it is), once each, before the chips.
+final mapAllPlacesProvider = Provider<List<Place>>((ref) {
   final inView = ref.watch(spotsProvider).value ?? const <Place>[];
   final saved = ref.watch(savedPlacesProvider).value ?? const <Place>[];
   final seen = <String>{};
@@ -290,6 +270,18 @@ final mapPlacesProvider = Provider<List<Place>>((ref) {
     for (final p in [...saved, ...inView])
       if (seen.add(p.id)) p,
   ];
+});
+
+/// What the Spots tab draws: [mapAllPlacesProvider] through its chips.
+final mapPlacesProvider = Provider<List<Place>>((ref) {
+  final chips = ref.watch(spotChipsProvider);
+  final saved = ref.watch(savedPlaceIdsProvider);
+  return [for (final p in ref.watch(mapAllPlacesProvider)) if (spotChipsMatch(p, chips, saved)) p];
+});
+
+/// What each Spots chip would show in the viewport (plus saved spots).
+final spotChipCountsProvider = Provider<(int, Map<SpotChip, int>)>((ref) {
+  return spotChipCounts(ref.watch(mapAllPlacesProvider), ref.watch(savedPlaceIdsProvider));
 });
 
 /// The member closed the "spots nearby" pill: it stays away for the session.

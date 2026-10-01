@@ -50,11 +50,45 @@ final friendSuggestionsProvider = FutureProvider<List<FriendSuggestion>>((ref) a
 });
 
 /// Colours I assigned to friends on the map (friend id -> key).
-final friendTagsProvider = FutureProvider<Map<String, String>>((ref) async {
-  final me = ref.watch(currentUserIdProvider);
-  if (me == null) return const {};
-  return ref.watch(friendsRepositoryProvider).friendTags(me);
-});
+class FriendTagsNotifier extends AsyncNotifier<Map<String, String>> {
+  @override
+  Future<Map<String, String>> build() async {
+    final me = ref.watch(currentUserIdProvider);
+    if (me == null) return const {};
+    return ref.watch(friendsRepositoryProvider).friendTags(me);
+  }
+
+  /// Give [userId] the colour [color] (null = back to the default). The map
+  /// and the lists change at once; the save follows, and only a failed save
+  /// puts that friend's old colour back (and rethrows).
+  Future<void> set(String userId, String? color) async {
+    final me = ref.read(currentUserIdProvider);
+    if (me == null) return;
+    final before = state.value ?? const <String, String>{};
+    final old = before[userId];
+    if (old == color) return;
+    state = AsyncData(_with(before, userId, color));
+    try {
+      await ref.read(friendsRepositoryProvider).setFriendTag(me, userId, color);
+    } catch (_) {
+      // Another friend's colour may have changed meanwhile: undo only this one.
+      state = AsyncData(_with(state.value ?? before, userId, old));
+      rethrow;
+    }
+  }
+
+  static Map<String, String> _with(Map<String, String> m, String userId, String? color) {
+    final next = {...m};
+    if (color == null) {
+      next.remove(userId);
+    } else {
+      next[userId] = color;
+    }
+    return next;
+  }
+}
+
+final friendTagsProvider = AsyncNotifierProvider<FriendTagsNotifier, Map<String, String>>(FriendTagsNotifier.new);
 
 final friendIdsProvider = Provider<Set<String>>((ref) {
   return ref.watch(friendsProvider).value?.map((p) => p.id).toSet() ?? const {};
@@ -66,12 +100,8 @@ class FriendActions {
 
   FriendsRepository get _repo => _ref.read(friendsRepositoryProvider);
 
-  Future<void> setTag(String userId, String? color) async {
-    final me = _ref.read(currentUserIdProvider);
-    if (me == null) return;
-    await _repo.setFriendTag(me, userId, color);
-    _ref.invalidate(friendTagsProvider);
-  }
+  /// Optimistic: see [FriendTagsNotifier.set].
+  Future<void> setTag(String userId, String? color) => _ref.read(friendTagsProvider.notifier).set(userId, color);
 
   Future<FriendshipStatus> add(String userId) async {
     final s = await _repo.sendRequest(userId);

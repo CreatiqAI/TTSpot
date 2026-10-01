@@ -34,6 +34,7 @@ class AppMarker {
     this.anchor = const Offset(0.5, 1),
     this.zIndex = 0,
     this.onTap,
+    this.onLongPress,
   });
   final String id;
   final LatLng position;
@@ -42,9 +43,11 @@ class AppMarker {
   final Offset anchor;
   final int zIndex;
   final VoidCallback? onTap;
+  /// A long press on the pin (e.g. a friend's colour picker).
+  final VoidCallback? onLongPress;
 
   AppMarker copyWith({LatLng? position}) =>
-      AppMarker(id: id, position: position ?? this.position, image: image, size: size, anchor: anchor, zIndex: zIndex, onTap: onTap);
+      AppMarker(id: id, position: position ?? this.position, image: image, size: size, anchor: anchor, zIndex: zIndex, onTap: onTap, onLongPress: onLongPress);
 }
 
 /// A filled circle with a real-world radius.
@@ -207,6 +210,10 @@ class AppMapController {
     points.tapEvents(onTap: (a) {
       final id = _byAnnotation[a.id];
       if (id != null) _live[id]?.$2.onTap?.call();
+    });
+    points.longPressEvents(onLongPress: (a) {
+      final id = _byAnnotation[a.id];
+      if (id != null) _live[id]?.$2.onLongPress?.call();
     });
   }
 

@@ -1,8 +1,8 @@
-import 'dart:io';
+import 'dart:async';
 import 'dart:math' as math;
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -253,6 +253,14 @@ class MapPinFactory {
 
   // Public wrappers so other marker factories can share the canvas helpers.
   Future<ui.Image?> image(String url, {required int targetWidth}) => _image(url, targetWidth: targetWidth);
+
+  /// Whether [url] has been fetched (or failed) already: [cachedImage] then
+  /// answers without waiting. Pins that must never wait on the network draw
+  /// a stand-in until this is true (see EventPinFactory).
+  bool isLoaded(String url) => _images.containsKey(url);
+
+  /// The decoded image for [url] if it is loaded, else null.
+  ui.Image? cachedImage(String url) => _images[url];
   TextPainter text(String t, double size, FontWeight weight, Color color) => _text(t, size, weight, color);
   void drawCover(Canvas canvas, ui.Image image, Rect dst, {bool dimmed = false}) => _drawCover(canvas, image, dst, dimmed: dimmed);
   Future<MapPin> finish(ui.PictureRecorder recorder, double w, double h, {required double anchorY, double anchorX = 0.5}) => _finish(recorder, w, h, anchorY: anchorY, anchorX: anchorX);
@@ -315,7 +323,12 @@ class MapPinFactory {
 
   Future<ui.Image?> _image(String url, {required int targetWidth}) {
     if (_images.containsKey(url)) return Future.value(_images[url]);
-    return _loading[url] ??= _load(url, targetWidth: targetWidth).whenComplete(() => _loading.remove(url));
+    // A block body, not `=> _loading.remove(url)`: that returns this very
+    // future to whenComplete, which then waits on itself forever (the first
+    // caller never got its image; only a later redraw found it cached).
+    return _loading[url] ??= _load(url, targetWidth: targetWidth).whenComplete(() {
+      _loading.remove(url);
+    });
   }
 
   Future<ui.Image?> _load(String url, {required int targetWidth}) async {
@@ -335,23 +348,37 @@ class MapPinFactory {
     }
     ui.Image? img;
     try {
-      final client = HttpClient()..connectionTimeout = const Duration(seconds: 8);
-      final req = await client.getUrl(Uri.parse(url));
-      final res = await req.close();
-      if (res.statusCode == 200) {
-        final builder = BytesBuilder(copy: false);
-        await for (final chunk in res) {
-          builder.add(chunk);
-        }
-        final codec = await ui.instantiateImageCodec(builder.takeBytes(), targetWidth: (targetWidth * devicePixelRatio).round());
-        img = (await codec.getNextFrame()).image;
-      }
-      client.close();
+      // The app's cached network image plumbing: the same disk cache as the
+      // feed and the event pages, so a cover seen anywhere in the app is
+      // usually already on the phone; decoded small for a pin.
+      img = await _resolve(ResizeImage(CachedNetworkImageProvider(url), width: (targetWidth * devicePixelRatio).round(), policy: ResizeImagePolicy.fit))
+          .timeout(const Duration(seconds: 15), onTimeout: () => null);
     } catch (_) {
       img = null;
     }
     _images[url] = img;
     return img;
+  }
+
+  /// The first frame of [provider] as a [ui.Image] this factory owns (a
+  /// clone, so the image cache can drop its own copy), or null on error.
+  static Future<ui.Image?> _resolve(ImageProvider provider) {
+    final done = Completer<ui.Image?>();
+    final stream = provider.resolve(ImageConfiguration.empty);
+    late final ImageStreamListener listener;
+    listener = ImageStreamListener(
+      (info, _) {
+        if (!done.isCompleted) done.complete(info.image.clone());
+        info.dispose();
+        stream.removeListener(listener);
+      },
+      onError: (_, _) {
+        if (!done.isCompleted) done.complete(null);
+        stream.removeListener(listener);
+      },
+    );
+    stream.addListener(listener);
+    return done.future;
   }
 
   void dispose() {

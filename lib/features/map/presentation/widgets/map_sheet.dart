@@ -25,11 +25,11 @@ import '../../application/map_providers.dart';
 import 'map_event_sheet.dart' show EventRow;
 import 'car_marker.dart';
 import '../../../friends/presentation/friend_colour_sheet.dart';
-import 'map_filter_sheet.dart';
 
 /// Draggable dark sheet over the map. Closed by default (the glass toolbar
-/// stands in for it); a chip or a pull opens it. Content follows the map mode:
-/// Now → friends, live meets, moments · Upcoming → meets · Spots → places to check in.
+/// stands in for it); a chip or a pull opens it. Content follows the map tab
+/// and its quick-filter chips: Now → friends, live meets, moments · Events →
+/// every meet in view · Spots → places to check in.
 class MapSheet extends ConsumerWidget {
   const MapSheet({super.key, required this.controller, required this.onFocus, required this.onPlace});
   final DraggableScrollableController controller;
@@ -65,7 +65,7 @@ class MapSheet extends ConsumerWidget {
               const SliverToBoxAdapter(child: _Handle()),
               switch (mode) {
                 MapMode.now => _NowContent(onFocus: onFocus, expand: () => _expand(controller)),
-                MapMode.upcoming => _UpcomingContent(expand: () => _expand(controller)),
+                MapMode.events => _EventsContent(expand: () => _expand(controller)),
                 MapMode.spots => _SpotsContent(expand: () => _expand(controller), onFocus: onFocus, onPlace: onPlace),
               },
               // The glass tab bar floats over the sheet: leave room under the last row.
@@ -102,11 +102,13 @@ class _NowContent extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final pins = ref.watch(friendPinsProvider);
-    final live = ref.watch(liveEventsProvider).value ?? const <Event>[];
-    final moments = ref.watch(liveMomentsProvider).value ?? const <Story>[];
+    final chips = ref.watch(nowChipsProvider);
+    final live = nowShowsMeets(chips) ? ref.watch(liveEventsProvider).value ?? const <Event>[] : const <Event>[];
+    final moments = nowShowsMoments(chips) ? ref.watch(liveMomentsProvider).value ?? const <Story>[] : const <Story>[];
     final origin = ref.watch(mapOriginProvider);
     final friendCount = ref.watch(friendsProvider).value?.length ?? 0;
-    final list = [...pins.value ?? const <FriendPin>[]]..sort((a, b) {
+    final everyone = pins.value ?? const <FriendPin>[];
+    final list = [for (final f in everyone) if (nowShowsPerson(chips, stranger: f.isStranger, viaClub: f.viaClub)) f]..sort((a, b) {
         if (a.isFresh != b.isFresh) return a.isFresh ? -1 : 1;
         return distanceKm(origin, a.latLng).compareTo(distanceKm(origin, b.latLng));
       });
@@ -121,6 +123,8 @@ class _NowContent extends ConsumerWidget {
         ),
         if (pins.isLoading && list.isEmpty)
           const _Hint('Finding your friends…')
+        else if (list.isEmpty && everyone.isNotEmpty)
+          const _Hint('Nobody on the map matches the chips above.')
         else if (list.isEmpty)
           _Hint(friendCount == 0
               ? 'No friends yet. Add friends and see them here when they open the app.'
@@ -159,6 +163,7 @@ class _FriendRow extends ConsumerWidget {
             ? (f.isFresh ? 'At ${f.placeName}' : 'Last seen at ${f.placeName}')
             : (f.isFresh ? 'On the move' : 'Last seen');
     if (f.viaClub && f.clubName != null) where = '$where · ${f.clubName}';
+    final colour = personColor(tag: ref.watch(friendTagsProvider).value?[f.user.id], viaClub: f.viaClub, stranger: f.isStranger);
     return InkWell(
       onTap: onTap,
       onLongPress: () => context.push(Routes.profile(f.user.id)),
@@ -200,15 +205,15 @@ class _FriendRow extends ConsumerWidget {
                 message: 'Colour on the map',
                 child: InkWell(
                   customBorder: const CircleBorder(),
-                  onTap: () => showFriendColourSheet(context, ref, userId: f.user.id, name: name),
+                  onTap: () => showFriendColourSheet(context, ref, userId: f.user.id, name: name, defaultColor: f.viaClub ? kRelationClub : kRelationFriend),
                   child: Padding(
-                    padding: const EdgeInsets.all(8),
+                    padding: const EdgeInsets.all(10),
                     child: Container(
-                      width: 16,
-                      height: 16,
+                      width: 20,
+                      height: 20,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: kTagColors[ref.watch(friendTagsProvider).value?[f.user.id]] ?? (f.viaClub ? kRelationClub : kRelationFriend),
+                        color: colour,
                         border: Border.all(color: MapPalette.of(context).surface, width: 2),
                         boxShadow: const [BoxShadow(color: Color(0x33000000), blurRadius: 2)],
                       ),
@@ -289,17 +294,19 @@ class _MomentsStrip extends StatelessWidget {
   }
 }
 
-// ----------------------------------------------------------------- upcoming ---
+// ------------------------------------------------------------------- events ---
 
-class _UpcomingContent extends ConsumerWidget {
-  const _UpcomingContent({required this.expand});
+/// Every meet in view that passes the Events chips, nearest first. The list
+/// keeps the small ones the map hides when zoomed out.
+class _EventsContent extends ConsumerWidget {
+  const _EventsContent({required this.expand});
   final VoidCallback expand;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final events = ref.watch(visibleMapEventsProvider);
     final origin = ref.watch(mapOriginProvider);
-    final filters = ref.watch(mapFiltersProvider);
+    final filtered = !ref.watch(eventFilterProvider).isInitial;
     final hasSearch = ref.watch(mapSearchProvider).isNotEmpty;
 
     return SliverMainAxisGroup(
@@ -307,32 +314,34 @@ class _UpcomingContent extends ConsumerWidget {
         SliverToBoxAdapter(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: Row(
-              children: [
-                Expanded(child: _SearchField(hint: 'Search meets or venues', onTap: expand)),
-                const SizedBox(width: 8),
-                _FilterChip(label: filters.label, active: !filters.isDefault, onTap: () => showMapFilterSheet(context)),
-              ],
-            ),
+            child: _SearchField(hint: 'Search events or venues', onTap: expand),
           ),
         ),
         events.when(
-          loading: () => const SliverToBoxAdapter(child: _Hint('Loading meets…')),
+          loading: () => const SliverToBoxAdapter(child: _Hint('Loading events…')),
           error: (e, _) => SliverToBoxAdapter(
-            child: _Message(title: 'Couldn\'t load meets', subtitle: 'Check your connection.', actionLabel: 'Retry', onAction: () => ref.invalidate(mapEventsProvider)),
+            child: _Message(title: 'Couldn\'t load events', subtitle: 'Check your connection.', actionLabel: 'Retry', onAction: () => ref.invalidate(mapEventsProvider)),
           ),
           data: (list) => list.isEmpty
               ? SliverToBoxAdapter(
                   child: hasSearch
                       ? const _Message(titi: TitiPose.binoculars, title: 'No matches', subtitle: 'Try a different name or venue.')
-                      : _Message(title: 'No meets planned here yet', subtitle: 'Plan one and your friends will come.', actionLabel: 'Plan a meet', onAction: () => context.push(Routes.createEvent)),
+                      : filtered
+                          ? _Message(
+                              titi: TitiPose.binoculars,
+                              title: 'Nothing matches here',
+                              subtitle: 'Try other chips, or zoom out to see further.',
+                              actionLabel: 'Show all this week',
+                              onAction: () => ref.read(eventFilterProvider.notifier).reset(),
+                            )
+                          : _Message(title: 'No events planned here yet', subtitle: 'Plan one and your friends will come.', actionLabel: 'Plan a meet', onAction: () => context.push(Routes.createEvent)),
                 )
               : SliverPadding(
                   padding: const EdgeInsets.only(bottom: 24),
                   sliver: SliverList.separated(
                     itemCount: list.length,
                     separatorBuilder: (_, _) => Divider(height: 1, indent: 88, color: MapPalette.of(context).divider),
-                    itemBuilder: (_, i) => EventRow(event: list[i], distanceKm: distanceKm(origin, list[i].latLng), onTap: () => context.push(Routes.event(list[i].id))),
+                    itemBuilder: (_, i) => EventRow(event: list[i], distanceKm: distanceKm(origin, list[i].latLng), onTap: () => context.push(Routes.event(list[i].id)), live: list[i].isLive),
                   ),
                 ),
         ),
@@ -357,9 +366,10 @@ class _SpotsContent extends ConsumerWidget {
     final searching = query.length >= 2;
     int byDistance(Place a, Place b) => distanceKm(origin, a.latLng).compareTo(distanceKm(origin, b.latLng));
     // My saved spots come first, wherever they are, nearest first.
+    final chips = ref.watch(spotChipsProvider);
     final savedAll = ref.watch(savedPlacesProvider).value ?? const <Place>[];
     final savedIds = {for (final p in savedAll) p.id};
-    final saved = savedAll.where((p) => spotMatches(p, query)).toList()..sort(byDistance);
+    final saved = savedAll.where((p) => spotMatches(p, query) && spotChipsMatch(p, chips, savedIds)).toList()..sort(byDistance);
     final nearest = ref.watch(nearestSpotsProvider).value ?? const <Place>[];
 
     // Tap: the map, zoomed in on it, with its card (the card links to the page).
@@ -412,7 +422,7 @@ class _SpotsContent extends ConsumerWidget {
             // Nothing in the viewport (the map opens zoomed in on me): list
             // the spots nearest to me instead, however far they are.
             final fallback = inView.isEmpty;
-            final list = (fallback ? nearest.where((p) => spotMatches(p, query)) : inView).where((p) => !savedIds.contains(p.id)).toList()..sort(byDistance);
+            final list = (fallback ? nearest.where((p) => spotMatches(p, query) && spotChipsMatch(p, chips, savedIds)) : inView).where((p) => !savedIds.contains(p.id)).toList()..sort(byDistance);
             final title = fallback ? 'NEAREST SPOTS' : 'SPOTS NEAR YOU';
             final suggest = searching
                 ? null
@@ -694,36 +704,6 @@ class _SearchFieldState extends ConsumerState<_SearchField> {
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
           enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
           focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-        ),
-      ),
-    );
-  }
-}
-
-class _FilterChip extends StatelessWidget {
-  const _FilterChip({required this.label, required this.active, required this.onTap});
-  final String label;
-  final bool active;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 44,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        decoration: BoxDecoration(
-          color: active ? MapPalette.of(context).accentBg : MapPalette.of(context).tile,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(AppIcons.slidersHorizontal, size: 18, color: active ? MapPalette.of(context).accentFg : MapPalette.of(context).text),
-            const SizedBox(width: 6),
-            Text(label, style: TextStyle(color: active ? MapPalette.of(context).accentFg : MapPalette.of(context).text, fontSize: 13.5, fontWeight: FontWeight.w600)),
-          ],
         ),
       ),
     );

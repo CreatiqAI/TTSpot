@@ -7,7 +7,9 @@ import '../../../../core/theme/app_icons.dart';
 import '../../../../core/widgets/glass.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../settings/application/settings_providers.dart';
+import '../../application/map_filters.dart' show PinTier;
 import 'car_marker.dart';
+import 'event_pins.dart';
 import 'map_glyphs.dart';
 
 /// The map key: a small glass panel on the left of the map that lists the
@@ -15,11 +17,14 @@ import 'map_glyphs.dart';
 /// map with its name; group headings only when there are three or more. Open the first time you see the map; folded to a "KEY"
 /// pill after that. Tap it to fold or unfold; the choice holds for the session.
 class MapLegend extends ConsumerStatefulWidget {
-  const MapLegend({super.key, required this.light, required this.present});
+  const MapLegend({super.key, required this.light, required this.present, this.tagged = const []});
   /// White glass on the day map.
   final bool light;
   /// Pin kinds currently on the map. Empty = nothing to explain, key hidden.
   final Set<LegendGlyph> present;
+  /// Friends in view that I gave a colour, one row per colour: the colour
+  /// and their names ("Ali, Ben").
+  final List<({Color color, String names})> tagged;
 
   @override
   ConsumerState<MapLegend> createState() => _MapLegendState();
@@ -53,7 +58,7 @@ class _MapLegendState extends ConsumerState<MapLegend> {
   @override
   Widget build(BuildContext context) {
     final rows = _items.where((i) => widget.present.contains(i.glyph)).toList();
-    if (rows.isEmpty) return const SizedBox.shrink();
+    if (rows.isEmpty && widget.tagged.isEmpty) return const SizedBox.shrink();
     final open = _open ?? true;
     // Seen it open for a while: next launch starts folded.
     if (open) {
@@ -71,7 +76,10 @@ class _MapLegendState extends ConsumerState<MapLegend> {
   }
 
   Widget _panel(bool open, List<_KeyItem> rows, MapPalette p, Size screen) {
-    final sections = [for (final s in _Section.values) if (rows.any((i) => i.section == s)) s];
+    final sections = [
+      for (final s in _Section.values)
+        if (rows.any((i) => i.section == s) || (s == _Section.people && widget.tagged.isNotEmpty)) s,
+    ];
     return ConstrainedBox(
       // Compact: under half the width. The map screen also stops it above the bottom chrome.
       constraints: BoxConstraints(maxWidth: screen.width * 0.45, maxHeight: screen.height * 0.6),
@@ -119,6 +127,8 @@ class _MapLegendState extends ConsumerState<MapLegend> {
                                   child: Text(s.title.toUpperCase(), style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, letterSpacing: 0.6, color: p.text2.withValues(alpha: 0.8))),
                                 ),
                               for (final i in rows.where((i) => i.section == s)) _KeyRow(item: i, palette: p),
+                              if (s == _Section.people)
+                                for (final t in widget.tagged) _ColourRow(color: t.color, names: t.names, palette: p),
                             ],
                           ],
                         ),
@@ -159,10 +169,9 @@ const _items = [
   _KeyItem(LegendGlyph.club, _Section.people, 'Clubmate'),
   _KeyItem(LegendGlyph.nearby, _Section.people, 'Nearby driver'),
   _KeyItem(LegendGlyph.moment, _Section.people, 'Moment'),
-  _KeyItem(LegendGlyph.flag, _Section.events, 'TT session'),
-  _KeyItem(LegendGlyph.balloon, _Section.events, 'Event'),
-  _KeyItem(LegendGlyph.officialEvent, _Section.events, 'Official club'),
-  _KeyItem(LegendGlyph.partnerEvent, _Section.events, 'Partner event'),
+  _KeyItem(LegendGlyph.eventMajor, _Section.events, 'Official event'),
+  _KeyItem(LegendGlyph.eventPartner, _Section.events, 'Partner event'),
+  _KeyItem(LegendGlyph.eventMinor, _Section.events, 'Club meet · TT'),
   _KeyItem(LegendGlyph.savedSpot, _Section.spots, 'Saved spot'),
   _KeyItem(LegendGlyph.topSpot, _Section.spots, 'Top spot'),
   _KeyItem(LegendGlyph.cafe, _Section.spots, 'Car café'),
@@ -176,6 +185,47 @@ const _items = [
   _KeyItem(LegendGlyph.partner, _Section.partners, 'Partner shop'),
   _KeyItem(LegendGlyph.cluster, _Section.groups, 'Group · tap to zoom'),
 ];
+
+/// A friend colour I picked, and who has it.
+class _ColourRow extends StatelessWidget {
+  const _ColourRow({required this.color, required this.names, required this.palette});
+  final Color color;
+  final String names;
+  final MapPalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 1),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(width: 18, height: 23, child: CustomPaint(painter: _DotPainter(color))),
+          const SizedBox(width: 7),
+          Flexible(
+            child: Text(
+              names,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, height: 1.1, color: palette.text),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DotPainter extends CustomPainter {
+  const _DotPainter(this.color);
+  final Color color;
+
+  @override
+  void paint(Canvas c, Size s) => paintDot(c, Offset(s.width / 2, s.height / 2), r: 4.5, color: color);
+
+  @override
+  bool shouldRepaint(_DotPainter old) => old.color != color;
+}
 
 class _KeyRow extends StatelessWidget {
   const _KeyRow({required this.item, required this.palette});
@@ -206,7 +256,7 @@ class _KeyRow extends StatelessWidget {
   }
 }
 
-enum LegendGlyph { balloon, officialEvent, partnerEvent, flag, spot, topSpot, savedSpot, cafe, mamak, carpark, route, circuit, mall, workshop, partner, cluster, moment, me, friend, club, nearby }
+enum LegendGlyph { eventMajor, eventPartner, eventMinor, spot, topSpot, savedSpot, cafe, mamak, carpark, route, circuit, mall, workshop, partner, cluster, moment, me, friend, club, nearby }
 
 /// The key row for a place of this kind.
 LegendGlyph legendGlyphForSpot(SpotKind k) => switch (k) {
@@ -236,15 +286,19 @@ class LegendGlyphPainter extends CustomPainter {
       paintTeardrop(c, Offset(centre.dx - teardropTip.dx * k, 0), scale: k, color: color, outline: outline, kind: kind, glyph: glyph);
     }
     void spot(SpotKind k) => drop(color: spotKindColor(k), kind: k);
+    void event(PinTier t, double side, IconData glyph) {
+      final h = side + eventPinTail(side);
+      paintEventPin(c, Offset(centre.dx - side / 2, (s.height - h) / 2), side: side, ring: tierRingColor(t), glyph: glyph, badge: false);
+    }
     switch (glyph) {
-      case LegendGlyph.balloon:
-        drop(glyph: AppIcons.flagFill);
-      case LegendGlyph.officialEvent:
-        drop(color: kGold, glyph: AppIcons.crownFill);
-      case LegendGlyph.partnerEvent:
-        drop(color: kInk, glyph: AppIcons.storefrontFill);
-      case LegendGlyph.flag:
-        drop(glyph: AppIcons.flagPennantFill);
+      // The map's picture pins, smaller as the tier goes down (no photo in
+      // the key: the tier's colour with the event mark inside).
+      case LegendGlyph.eventMajor:
+        event(PinTier.major, s.width, AppIcons.crownFill);
+      case LegendGlyph.eventPartner:
+        event(PinTier.partner, s.width * 0.84, AppIcons.storefrontFill);
+      case LegendGlyph.eventMinor:
+        event(PinTier.minor, s.width * 0.7, AppIcons.flagPennantFill);
       case LegendGlyph.spot:
         spot(SpotKind.other);
       // Top and saved are badges on a spot's pin, whatever its kind: the key

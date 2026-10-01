@@ -348,7 +348,11 @@ class GlyphMarkerFactory {
   Future<MapPin> _build(String k, Size icon, Offset anchorPx, void Function(Canvas) paint, String? label, String? sub) {
     final cached = _cache[k];
     if (cached != null) return Future.value(cached);
-    return _painting[k] ??= _paint(k, icon, anchorPx, paint, label, sub).whenComplete(() => _painting.remove(k));
+    // A block body: `=> _painting.remove(k)` would hand whenComplete this very
+    // future to wait on, and the first caller would wait forever.
+    return _painting[k] ??= _paint(k, icon, anchorPx, paint, label, sub).whenComplete(() {
+      _painting.remove(k);
+    });
   }
 
   Future<MapPin> _paint(String k, Size icon, Offset anchorPx, void Function(Canvas) paint, String? label, String? sub) async {

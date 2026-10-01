@@ -26,7 +26,9 @@ typedef QuickTime = ({String label, DateTime at});
 /// wizard, so going back and forth between steps never loses an answer.
 class PlanDraft extends ChangeNotifier {
   PlanDraft({required this.session, this.underground = false, LatLng? at, String? venue, DateTime? now})
-      : type = session ? EventType.tt : EventType.meet {
+      : type = session ? EventType.tt : EventType.meet,
+        // As before: TT sessions start friends-only, hosted meets public.
+        friendsOnly = session {
     final t = now ?? DateTime.now();
     startsAt = session ? _defaultSessionStart(t) : _defaultMeetStart(t);
     pin = at;
@@ -56,7 +58,7 @@ class PlanDraft extends ChangeNotifier {
   int minutes = 120;
 
   // ---- who
-  bool friendsOnly = true;
+  bool friendsOnly;
   final Set<String> invitees = {};
 
   // ---- make it yours

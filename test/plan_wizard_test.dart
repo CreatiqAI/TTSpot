@@ -56,6 +56,11 @@ void main() {
       expect(m.title, 'Convoy @ Sunway');
     });
 
+    test('TT sessions start friends-only, hosted meets public', () {
+      expect(PlanDraft(session: true, now: wed).friendsOnly, isTrue);
+      expect(PlanDraft(session: false, now: wed).friendsOnly, isFalse);
+    });
+
     test('TT sessions end after the chosen duration; meets keep no end', () {
       final d = PlanDraft(session: true, now: wed)..setMinutes(180);
       expect(d.endsAt, d.startsAt.add(const Duration(hours: 3)));

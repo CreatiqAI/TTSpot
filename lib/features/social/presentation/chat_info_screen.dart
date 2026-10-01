@@ -26,6 +26,7 @@ import '../domain/chat.dart';
 import '../domain/club.dart';
 import '../domain/post.dart';
 import 'story_viewer_screen.dart';
+import 'widgets/chat_wallpaper.dart';
 
 /// The ⋯ page of a chat. A person: who they are, what you've shared, clubs
 /// in common, then pin / delete / block / report. A meet chat: the meet,
@@ -136,6 +137,7 @@ class _DmInfo extends ConsumerWidget {
         const _Section('THIS CHAT'),
         _PinTile(conv: conv),
         _MuteTile(conv: conv),
+        const ChatWallpaperTile(),
         ListTile(
           leading: const Icon(AppIcons.trash, color: AppColors.danger),
           title: const Text('Delete chat', style: TextStyle(color: AppColors.danger, fontWeight: FontWeight.w600)),
@@ -229,6 +231,7 @@ class _MeetInfo extends ConsumerWidget {
           ),
         const _Section('THIS CHAT'),
         _MuteTile(conv: conv),
+        const ChatWallpaperTile(),
         _PinTile(conv: conv),
         ListTile(
           leading: const Icon(AppIcons.trash, color: AppColors.danger),

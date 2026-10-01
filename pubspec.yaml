@@ -70,6 +70,7 @@ flutter:
     - assets/vouchers/
     - assets/stickers/titi/
     - assets/stickers/car/
+    - assets/wallpapers/
   fonts:
     - family: Phosphor
       fonts:

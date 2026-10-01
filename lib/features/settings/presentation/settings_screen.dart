@@ -25,6 +25,7 @@ import '../../map/presentation/widgets/visibility_sheet.dart';
 import '../../safety/data/safety_repository.dart';
 import '../../social/application/chat_providers.dart';
 import '../../social/domain/chat.dart';
+import '../../social/presentation/widgets/chat_wallpaper.dart';
 import '../application/settings_providers.dart';
 import '../../../core/push/push_service.dart';
 import 'background_location_screen.dart';
@@ -114,6 +115,12 @@ class SettingsScreen extends ConsumerWidget {
             onChanged: (v) => set({'theme': v, 'map_theme': v}),
           ),
           const _Note('The whole app follows this, map included.'),
+          _Row(
+            icon: AppIcons.image,
+            title: 'Chat background',
+            subtitle: ChatWallpaper.fromId(s.chatWallpaper).label,
+            onTap: () => showChatWallpaperPicker(context),
+          ),
 
           const _Head('MAP'),
           _Toggle(icon: AppIcons.car, title: 'Show my car colour', subtitle: 'Friends see your car in its real colour', value: s.showCarColor, onChanged: (v) => set({'show_car_color': v})),

@@ -20,6 +20,7 @@ import 'package:image_picker/image_picker.dart';
 import 'widgets/chat_media.dart';
 import 'widgets/chat_composer.dart';
 import 'widgets/chat_reply.dart';
+import 'widgets/chat_wallpaper.dart';
 import 'widgets/voice_bubble.dart';
 import 'widgets/voice_recorder.dart';
 
@@ -376,9 +377,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         children: [
           if (conv != null && conv.isMeet && conv.eventId != null) _HostingCard(eventId: conv.eventId!, me: me),
           Expanded(
-            child: messages.when(
+            child: ChatWallpaperBackground(child: messages.when(
               loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
-              error: (e, _) => Center(child: Text(friendlyError(e))),
+              error: (e, _) => Center(child: Padding(padding: const EdgeInsets.all(24), child: ChatWallpaperPanel(child: Text(friendlyError(e), textAlign: TextAlign.center)))),
               data: (all) {
                 final list = all.where((m) => !blocked.contains(m.senderId)).toList();
                 if (list.isEmpty && (conv?.otherGone ?? false)) return const SizedBox.shrink();
@@ -389,9 +390,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       ? const ['Who\'s coming tonight?', 'Where to park?', 'Otw, 10 min', 'Anyone need a ride?']
                       : ['Hey $first, TT tonight?', 'Coming TTDI Thursday?', 'Nice ride, what mods?', 'Otw, 10 min', 'Where you usually TT?'];
                   return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                      child: Column(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                      child: ChatWallpaperPanel(child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           if (other != null) UserAvatar(url: other.avatarUrl, name: other.displayName ?? other.username, seed: other.id, size: 72),
@@ -416,7 +417,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                             ],
                           ),
                         ],
-                      ),
+                      )),
                     ),
                   );
                 }
@@ -483,7 +484,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   },
                 );
               },
-            ),
+            )),
           ),
           if (conv?.otherGone ?? false)
             SafeArea(
@@ -540,6 +541,7 @@ class _Bubble extends StatelessWidget {
     final auto = message.autoBody;
     final maxW = MediaQuery.sizeOf(context).width * 0.72;
     final time = formatTime(message.createdAt);
+    final wp = ChatWallpaperStyle.of(context);
 
     // The text bubble is always the message's last piece, so it always carries the time.
     // A plain-text reply carries its quote inside, on top, the bubble as wide as the wider of the two.
@@ -547,8 +549,8 @@ class _Bubble extends StatelessWidget {
           constraints: BoxConstraints(maxWidth: maxW),
           padding: quote == null ? const EdgeInsets.fromLTRB(14, 9, 12, 7) : const EdgeInsets.fromLTRB(5, 5, 5, 7),
           decoration: BoxDecoration(
-            color: mine ? AppColors.surfaceGray : AppColors.surface,
-            border: mine ? null : Border.all(color: AppColors.border),
+            color: wp.bubbleFill(mine),
+            border: wp.bubbleBorder(mine),
             borderRadius: BorderRadius.only(
               topLeft: const Radius.circular(18),
               topRight: const Radius.circular(18),
@@ -575,8 +577,8 @@ class _Bubble extends StatelessWidget {
           constraints: BoxConstraints(maxWidth: maxW),
           padding: const EdgeInsets.all(4),
           decoration: BoxDecoration(
-            color: mine ? AppColors.surfaceGray : AppColors.surface,
-            border: mine ? null : Border.all(color: AppColors.border),
+            color: wp.bubbleFill(mine),
+            border: wp.bubbleBorder(mine),
             borderRadius: BorderRadius.circular(14),
           ),
           child: IntrinsicWidth(child: q),
@@ -590,9 +592,10 @@ class _Bubble extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               w,
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: Text(t, maxLines: 1, softWrap: false, style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1),
+                decoration: BoxDecoration(color: wp.chipFill, borderRadius: BorderRadius.circular(AppRadius.pill)),
+                child: Text(t, maxLines: 1, softWrap: false, style: TextStyle(fontSize: 11, color: wp.chipText)),
               ),
             ],
           );
@@ -640,7 +643,7 @@ class _Bubble extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(senderName ?? '', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                  Text(senderName ?? '', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: wp.label)),
                   if (host) ...[
                     const SizedBox(width: 6),
                     Container(
@@ -709,14 +712,17 @@ class _DayDivider extends StatelessWidget {
   final DateTime day;
 
   @override
-  Widget build(BuildContext context) => Center(
-        child: Container(
-          margin: const EdgeInsets.fromLTRB(0, 8, 0, 12),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(color: AppColors.surfaceGray, borderRadius: BorderRadius.circular(AppRadius.pill)),
-          child: Text(formatDayLabel(day), maxLines: 1, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
-        ),
-      );
+  Widget build(BuildContext context) {
+    final wp = ChatWallpaperStyle.of(context);
+    return Center(
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(0, 8, 0, 12),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(color: wp.chipFill, borderRadius: BorderRadius.circular(AppRadius.pill)),
+        child: Text(formatDayLabel(day), maxLines: 1, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: wp.chipText)),
+      ),
+    );
+  }
 }
 
 
@@ -895,8 +901,8 @@ class _Captioned extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 2),
         padding: const EdgeInsets.all(3),
         decoration: BoxDecoration(
-          color: mine ? AppColors.surfaceGray : AppColors.surface,
-          border: mine ? null : Border.all(color: AppColors.border),
+          color: ChatWallpaperStyle.of(context).bubbleFill(mine),
+          border: ChatWallpaperStyle.of(context).bubbleBorder(mine),
           borderRadius: BorderRadius.only(
             topLeft: const Radius.circular(18),
             topRight: const Radius.circular(18),

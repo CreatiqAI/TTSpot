@@ -9,6 +9,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/user_avatar.dart';
 import '../../domain/voice_wave.dart';
 import 'chat_media.dart' show fmtMs;
+import 'chat_wallpaper.dart';
 
 /// A voice note, WhatsApp style: play / pause, a waveform that fills as it
 /// plays (tap or drag it to seek), the length or the position, a 1x / 1.5x /
@@ -237,8 +238,8 @@ class _VoiceBubbleState extends State<VoiceBubble> {
       width: width,
       padding: const EdgeInsets.fromLTRB(6, 6, 10, 5),
       decoration: BoxDecoration(
-        color: widget.mine ? AppColors.surfaceGray : AppColors.surface,
-        border: widget.mine ? null : Border.all(color: AppColors.border),
+        color: ChatWallpaperStyle.of(context).bubbleFill(widget.mine),
+        border: ChatWallpaperStyle.of(context).bubbleBorder(widget.mine),
         borderRadius: BorderRadius.only(
           topLeft: const Radius.circular(18),
           topRight: const Radius.circular(18),

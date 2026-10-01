@@ -21,6 +21,9 @@ class AppSettings {
   String get theme => (_m['theme'] as String?) ?? (_m['map_theme'] as String?) ?? 'auto';
   String get mapTheme => theme;
 
+  /// Background behind every chat's messages: 'ttspot' (default) | 'night' | 'titi'.
+  String get chatWallpaper => switch (_m['chat_wallpaper']) { 'night' => 'night', 'titi' => 'titi', _ => 'ttspot' };
+
   /// Who can start a chat with me: 'everyone' | 'friends'
   String get dmFrom => (_m['dm_from'] as String?) ?? 'everyone';
   /// Who can fetch my phone number to call me: 'nobody' | 'friends'

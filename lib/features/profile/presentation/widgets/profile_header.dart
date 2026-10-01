@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_icons.dart';
@@ -65,6 +67,9 @@ class ProfileHeader extends StatelessWidget {
     final name = p.displayName ?? '@${p.username}';
     final where = (p.homeState ?? '').isNotEmpty ? ' · ${p.homeState}' : '';
     final live = moments.any((m) => m.isLive);
+    final showGarage = isMe || cars.isNotEmpty;
+    // Width of the numbers column beside the 88 px avatar (16 px gutters and gap).
+    final column = MediaQuery.sizeOf(context).width - 16 - 88 - 16 - 16;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -101,9 +106,28 @@ class ProfileHeader extends StatelessWidget {
                         _Stat(value: stats?.cars ?? cars.length, label: 'Cars'),
                       ],
                     ),
-                    if (points != null) ...[
+                    // One row under the numbers: the garage on the left, my
+                    // points on the right, the same height.
+                    if (showGarage || points != null) ...[
                       const SizedBox(height: 8),
-                      Center(child: _PointsCard(points: points!, onTap: onPoints)),
+                      IntrinsicHeight(
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            // The garage label shows whole (up to ~60 % of the
+                            // column); the points take the rest and a big
+                            // balance shrinks to fit.
+                            if (showGarage)
+                              ConstrainedBox(
+                                constraints: BoxConstraints(maxWidth: math.max(110, column * 0.6)),
+                                child: _GaragePill(label: isMe ? 'My garage' : garageTitle(p), onTap: onGarage),
+                              ),
+                            if (showGarage && points != null) const SizedBox(width: 8),
+                            if (points != null) Flexible(child: _PointsCard(points: points!, onTap: onPoints)),
+                          ],
+                        ),
+                      ),
                     ],
                   ],
                 ),
@@ -158,25 +182,16 @@ class ProfileHeader extends StatelessWidget {
                   ],
                 ),
         ),
-        // ---------------------------------------------------------- garage ---
-        if (isMe || cars.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-            child: _GarageButton(
-              label: isMe ? 'My garage' : garageTitle(p),
-              count: isMe ? stats?.cars ?? cars.length : cars.length,
-              onTap: onGarage,
-            ),
-          ),
         const SizedBox(height: 14),
       ],
     );
   }
 }
 
-/// My points: a pill as wide as what it says, centred under the numbers.
-/// Coin, balance, "points" and the arrow sit close together with the same
-/// gap on either side. Tap for the Points page (history and how to earn).
+/// My points: a pill as wide as what it says, at the right end of the row
+/// under the numbers. Coin, balance, "points" and the arrow sit close
+/// together with the same gap on either side; a long balance shrinks to fit.
+/// Tap for the Points page (history and how to earn).
 class _PointsCard extends StatelessWidget {
   const _PointsCard({required this.points, required this.onTap});
   final int points;
@@ -192,12 +207,12 @@ class _PointsCard extends StatelessWidget {
           onTap: onTap,
           borderRadius: BorderRadius.circular(AppRadius.md),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 6, 10, 6),
+            padding: const EdgeInsets.fromLTRB(10, 6, 8, 6),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const PointsCoin(size: 22),
-                const SizedBox(width: 7),
+                const PointsCoin(size: 20),
+                const SizedBox(width: 6),
                 Flexible(
                   child: FittedBox(
                     fit: BoxFit.scaleDown,
@@ -206,14 +221,14 @@ class _PointsCard extends StatelessWidget {
                       textBaseline: TextBaseline.alphabetic,
                       children: [
                         Text(_grouped(points), style: const TextStyle(fontFamily: AppFonts.display, fontSize: 22, fontWeight: FontWeight.w700, height: 1, color: AppColors.brand)),
-                        const SizedBox(width: 5),
-                        Text('points', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
+                        const SizedBox(width: 4),
+                        Text('points', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
                       ],
                     ),
                   ),
                 ),
-                const SizedBox(width: 6),
-                Icon(AppIcons.caretRight, size: 14, color: AppColors.textMuted),
+                const SizedBox(width: 4),
+                Icon(AppIcons.caretRight, size: 13, color: AppColors.textMuted),
               ],
             ),
           ),
@@ -221,12 +236,11 @@ class _PointsCard extends StatelessWidget {
       );
 }
 
-/// One full-width button into a garage: mine, where cars are added,
-/// switched and opened, or someone else's to look through.
-class _GarageButton extends StatelessWidget {
-  const _GarageButton({required this.label, required this.count, required this.onTap});
+/// Into a garage: mine (add, switch and open cars) or someone else's to look
+/// through. A pill at the left end of the row under the numbers.
+class _GaragePill extends StatelessWidget {
+  const _GaragePill({required this.label, required this.onTap});
   final String label;
-  final int count;
   final VoidCallback onTap;
 
   @override
@@ -236,29 +250,22 @@ class _GarageButton extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(AppRadius.md),
-          child: SizedBox(
-            height: 40,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Row(
-                children: [
-                  Icon(AppIcons.garage, size: 18, color: AppColors.textPrimary),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(count == 0 ? 'Add your first car' : '$count ${count == 1 ? 'car' : 'cars'}', style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
-                  const SizedBox(width: 4),
-                  Icon(AppIcons.caretRight, size: 14, color: AppColors.textMuted),
-                ],
-              ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(AppIcons.garage, size: 17, color: AppColors.textPrimary),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                ),
+              ],
             ),
           ),
         ),
       );
 }
-
 class _Stat extends StatelessWidget {
   const _Stat({required this.value, required this.label, this.onTap});
   final int? value;

@@ -10,6 +10,19 @@ class ReleaseNote {
 
 const kReleaseNotes = <ReleaseNote>[
   ReleaseNote(
+    version: '0.3.48',
+    date: '2 Oct 2026',
+    title: 'A new car page',
+    points: [
+      'Every car page opens in its own garage bay: your car stands on the floor, or your photo hangs as a framed print.',
+      'Swipe through photos and AI portraits in the strip under the bay; tap to see them full screen.',
+      'A proper spec sheet, and tabs for your build, your papers and your posts.',
+      'Papers show how many days are left on road tax and insurance, and turn amber when it is time to renew.',
+      'Your build becomes a timeline once you have logged a few mods and meets.',
+      "Visiting someone's car: Message owner right at the bottom.",
+    ],
+  ),
+  ReleaseNote(
     version: '0.3.47',
     date: '2 Oct 2026',
     title: 'Hide your plate, properly',

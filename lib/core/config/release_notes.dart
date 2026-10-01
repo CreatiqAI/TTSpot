@@ -10,6 +10,24 @@ class ReleaseNote {
 
 const kReleaseNotes = <ReleaseNote>[
   ReleaseNote(
+    version: '0.3.45',
+    date: '1 Oct 2026',
+    title: 'Reply, voice notes and stickers',
+    points: [
+      'Reply to any message: swipe it right, or long-press it and tap Reply.',
+      'Voice notes like WhatsApp: tap the mic to start recording, or hold it and let go to send. Pause, bin it or send.',
+      'Play voice notes at 1x, 1.5x or 2x, and drag along the wave to skip.',
+      'Photos and videos open a preview first, so you can add a caption before you send.',
+      'Videos show a picture before you play them. Tap one to watch it full screen.',
+      'New stickers: 18 TiTi and 9 car talk, from JOM TT! and OTW! to TEH TARIK SATU!',
+      'Pinch a post photo to zoom in. Let go and it springs back.',
+      'Friends show on the map at every zoom, not only up close.',
+      'Adding someone from People you may know keeps them on the list as Requested.',
+      'New Log in and Sign up pages, and your iPhone can fill in your saved password with Face ID.',
+      'New: share your location while TT Spot is closed. It stays off unless you turn it on in Settings, Privacy.',
+    ],
+  ),
+  ReleaseNote(
     version: '0.3.44',
     date: '1 Oct 2026',
     title: 'New cards, tidier profile',

@@ -10,6 +10,23 @@ class ReleaseNote {
 
 const kReleaseNotes = <ReleaseNote>[
   ReleaseNote(
+    version: '0.3.46',
+    date: '1 Oct 2026',
+    title: 'New garage, camera and chat backgrounds',
+    points: [
+      'Your garage is a real garage now: the roller door opens, your car stands in its bay, and you swipe to the next one. Prefer cards? Tap the switch at the top.',
+      'Your car is cut out of your own photo for the bay, nothing redrawn. If a photo does not work, it shows as a card.',
+      'New camera in chats: tap for a photo, hold for a video, slide up to keep recording.',
+      'Pick a chat background: TT Spot, Night drive or TiTi, in Settings, Appearance or in Chat info.',
+      'Every paint style shows a real sample on a Porsche 911, and you can preview it full screen before you paint.',
+      'Share your painted car; the shared picture carries a small TT Spot logo.',
+      'Directions open Waze, Google Maps or Apple Maps in one tap and remember your choice. In-app navigation is gone, so the app is much smaller.',
+      "I'm on my way: post your ETA to the meet chat from the meet page.",
+      'Mute and Pin are switches in Chat info, and Call only shows when your friend allows calls.',
+      'My garage and your points sit side by side on your profile, voice notes line up neatly, and chats with deleted accounts are gone.',
+    ],
+  ),
+  ReleaseNote(
     version: '0.3.45',
     date: '1 Oct 2026',
     title: 'Reply, voice notes and stickers',

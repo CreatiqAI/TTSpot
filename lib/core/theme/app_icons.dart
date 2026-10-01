@@ -178,6 +178,11 @@ abstract final class AppIcons {
   static const IconData moon = IconData(0xe330, fontFamily: _family);
   static const IconData deviceMobile = IconData(0xe1e0, fontFamily: _family);
   static const IconData vibrate = IconData(0xe4d8, fontFamily: _family);
+  static const IconData cameraRotate = IconData(0xe7a4, fontFamily: _family);
+  static const IconData cameraSlash = IconData(0xe110, fontFamily: _family);
+  static const IconData lightningSlash = IconData(0xe2e0, fontFamily: _family);
+  static const IconData lightningA = IconData(0xea84, fontFamily: _family);
+  static const IconData microphoneSlash = IconData(0xe328, fontFamily: _family);
 
   // ---- filled twins ----
   static const IconData mapTrifoldFill = IconData(0xe31a, fontFamily: _fill);
@@ -198,6 +203,7 @@ abstract final class AppIcons {
   static const IconData playFill = IconData(0xe3d0, fontFamily: _fill);
   static const IconData pauseFill = IconData(0xe39e, fontFamily: _fill);
   static const IconData microphoneFill = IconData(0xe326, fontFamily: _fill);
+  static const IconData lightningFill = IconData(0xe2de, fontFamily: _fill);
   static const IconData calendarBlankFill = IconData(0xe10a, fontFamily: _fill);
   static const IconData houseFill = IconData(0xe2c2, fontFamily: _fill);
   static const IconData usersFill = IconData(0xe4d6, fontFamily: _fill);

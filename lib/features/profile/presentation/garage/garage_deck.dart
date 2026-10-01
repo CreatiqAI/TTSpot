@@ -11,9 +11,10 @@ import '../../domain/car.dart';
 import 'collector_card.dart';
 import 'garage_pager.dart';
 
-/// Concept C, "collector cards": every car as a silver-framed card in a
-/// cover-flow deck. The side cards turn away in 3D; a band of light slides
-/// over the front card with the finger, or with the phone's tilt when nobody
+/// Concept C, "collector cards", full screen: every car as a silver-framed
+/// card in a cover-flow deck, as big as the room between the top bar and the
+/// panel allows. The side cards turn away in 3D; a band of light slides over
+/// the front card with the finger, or with the phone's tilt when nobody
 /// touches it. The cards deal in when the deck opens.
 class GarageCardDeck extends StatefulWidget {
   const GarageCardDeck({
@@ -21,8 +22,9 @@ class GarageCardDeck extends StatefulWidget {
     required this.cars,
     required this.index,
     required this.onIndex,
-    required this.height,
     required this.onOpen,
+    this.insets = EdgeInsets.zero,
+    this.lift,
     this.todayId,
     this.onLongPress,
     this.onAdd,
@@ -31,8 +33,14 @@ class GarageCardDeck extends StatefulWidget {
   final List<Car> cars;
   final int index;
   final ValueChanged<int> onIndex;
-  final double height;
   final ValueChanged<Car> onOpen;
+
+  /// What floats over the deck: the top bar (top) and the collapsed panel (bottom).
+  final EdgeInsets insets;
+
+  /// How far the panel has been pulled up past its collapsed height, in px:
+  /// the deck shrinks to stay in view above it.
+  final ValueListenable<double>? lift;
   final String? todayId;
   final ValueChanged<Car>? onLongPress;
   /// Adds a "Park another car" card at the end (owner only).
@@ -52,6 +60,7 @@ class _GarageCardDeckState extends State<GarageCardDeck> with TickerProviderStat
   bool _touching = false;
   bool _active = false;
   bool _dragged = false;
+  static const _noLift = AlwaysStoppedAnimation<double>(0);
 
   static const _dealMs = 700;
   static const _stagger = 120;
@@ -126,65 +135,85 @@ class _GarageCardDeckState extends State<GarageCardDeck> with TickerProviderStat
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: widget.height,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
-        child: DecoratedBox(
-          decoration: const BoxDecoration(
-            gradient: RadialGradient(
-              center: Alignment(0, -0.4),
-              radius: 1.05,
-              colors: [GarageColors.deckCenter, GarageColors.deckEdge],
-              stops: [0, 0.75],
-            ),
+    final lift = widget.lift ?? _noLift;
+    return ClipRect(
+      child: DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: RadialGradient(
+            center: Alignment(0, -0.3),
+            radius: 1.1,
+            colors: [GarageColors.deckCenter, GarageColors.deckEdge],
+            stops: [0, 0.8],
           ),
-          child: LayoutBuilder(
-            builder: (context, c) {
-              final w = c.maxWidth;
-              final h = widget.height;
-              final cardW = math.min(252.0, math.min(w * 0.6, (h - 44) * kCollectorAspect));
-              final cardH = cardW / kCollectorAspect;
-              final top = math.max(12.0, (h - cardH) / 2 - 6);
-              // Two of each card: the front one catches the light (sheen),
-              // the ones at the sides don't, so a tilt only repaints one card.
-              Widget card(int i, {required bool front}) => i < widget.cars.length
-                  ? CollectorCard(
-                      key: ValueKey(widget.cars[i].id),
-                      car: widget.cars[i],
-                      index: i,
-                      width: cardW,
-                      today: widget.cars[i].id == widget.todayId,
-                      sheen: front ? _sheen : null,
-                    )
-                  : _AddCard(key: const ValueKey('add'), width: cardW);
-              final fronts = [for (var i = 0; i < _count; i++) card(i, front: true)];
-              final sides = [for (var i = 0; i < _count; i++) card(i, front: false)];
-              return Listener(
-                onPointerDown: (e) {
-                  _touching = true;
-                  _sheen.value = (e.localPosition.dx / w).clamp(0.0, 1.0);
+        ),
+        child: LayoutBuilder(
+          builder: (context, c) {
+            final w = c.maxWidth;
+            final h = c.maxHeight;
+            final k = (c.biggest.shortestSide / 390).clamp(0.82, 1.3);
+            final top = widget.insets.top;
+            final panelTop = math.max(top + 60, h - widget.insets.bottom);
+            final margin = 14 * k;
+            // The front card fills the room between the top bar and the
+            // panel (the side cards fan out past the edges).
+            final cardW = math.max(60.0, math.min(math.min(w * 0.7, 380 * k), (panelTop - top - margin * 2) * kCollectorAspect));
+            final cardH = cardW / kCollectorAspect;
+            final cardTop = top + (panelTop - top - cardH) / 2;
+            final cy = cardTop + cardH / 2;
+            // Two of each card: the front one catches the light (sheen),
+            // the ones at the sides don't, so a tilt only repaints one card.
+            Widget card(int i, {required bool front}) => i < widget.cars.length
+                ? CollectorCard(
+                    key: ValueKey(widget.cars[i].id),
+                    car: widget.cars[i],
+                    index: i,
+                    width: cardW,
+                    today: widget.cars[i].id == widget.todayId,
+                    sheen: front ? _sheen : null,
+                  )
+                : _AddCard(key: const ValueKey('add'), width: cardW);
+            final fronts = [for (var i = 0; i < _count; i++) card(i, front: true)];
+            final sides = [for (var i = 0; i < _count; i++) card(i, front: false)];
+            return Listener(
+              onPointerDown: (e) {
+                _touching = true;
+                _sheen.value = (e.localPosition.dx / w).clamp(0.0, 1.0);
+              },
+              onPointerMove: (e) => _sheen.value = (e.localPosition.dx / w).clamp(0.0, 1.0),
+              onPointerUp: (_) => _touching = false,
+              onPointerCancel: (_) => _touching = false,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onHorizontalDragStart: (_) {
+                  _dragged = true;
+                  _pager.dragStart();
                 },
-                onPointerMove: (e) => _sheen.value = (e.localPosition.dx / w).clamp(0.0, 1.0),
-                onPointerUp: (_) => _touching = false,
-                onPointerCancel: (_) => _touching = false,
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onHorizontalDragStart: (_) {
-                    _dragged = true;
-                    _pager.dragStart();
-                  },
-                  onHorizontalDragUpdate: (d) => _pager.dragUpdate(-(d.primaryDelta ?? 0) / (cardW * 0.8)),
-                  onHorizontalDragEnd: (d) {
-                    _dragged = false;
-                    final target = _pager.dragEnd(-(d.primaryVelocity ?? 0) / (cardW * 0.8));
-                    if (target != widget.index) {
-                      garageSwipeHaptic();
-                      widget.onIndex(target);
-                    }
+                onHorizontalDragUpdate: (d) => _pager.dragUpdate(-(d.primaryDelta ?? 0) / (cardW * 0.8)),
+                onHorizontalDragEnd: (d) {
+                  _dragged = false;
+                  final target = _pager.dragEnd(-(d.primaryVelocity ?? 0) / (cardW * 0.8));
+                  if (target != widget.index) {
+                    garageSwipeHaptic();
+                    widget.onIndex(target);
+                  }
+                },
+                // Pulled up, the panel takes room from the bottom: the deck
+                // shrinks into what is left, centred in it.
+                child: ValueListenableBuilder<double>(
+                  valueListenable: lift,
+                  builder: (_, lifted, child) {
+                    final up = math.min(lifted, (panelTop - top) * 0.6);
+                    final room = panelTop - up - top - margin * 2;
+                    final s = (room / cardH).clamp(0.45, 1.0);
+                    final cy2 = top + (panelTop - up - top) / 2;
+                    final m = Matrix4.translationValues(w / 2, cy2, 0)
+                      ..multiply(Matrix4.diagonal3Values(s, s, 1))
+                      ..multiply(Matrix4.translationValues(-w / 2, -cy, 0));
+                    return Transform(transform: m, child: child);
                   },
                   child: Stack(
                     clipBehavior: Clip.none,
+                    fit: StackFit.expand,
                     children: [
                       AnimatedBuilder(
                         animation: Listenable.merge([_pager.position, _deal]),
@@ -195,21 +224,21 @@ class _GarageCardDeckState extends State<GarageCardDeck> with TickerProviderStat
                           return Stack(
                             clipBehavior: Clip.none,
                             children: [
-                              for (final i in order) _placed(i, (i - pos).abs() < 0.5 ? fronts[i] : sides[i], i - pos, cardW, cardH, top, w),
+                              for (final i in order) _placed(i, (i - pos).abs() < 0.5 ? fronts[i] : sides[i], i - pos, cardW, cardH, cardTop, w),
                             ],
                           );
                         },
                       ),
                       if (_count > 1) ...[
-                        _arrow(left: true, top: top + cardH / 2 - 22),
-                        _arrow(left: false, top: top + cardH / 2 - 22),
+                        _arrow(left: true, top: cy - 22, lift: lift),
+                        _arrow(left: false, top: cy - 22, lift: lift),
                       ],
                     ],
                   ),
                 ),
-              );
-            },
-          ),
+              ),
+            );
+          },
         ),
       ),
     );
@@ -289,18 +318,22 @@ class _GarageCardDeckState extends State<GarageCardDeck> with TickerProviderStat
     if (i < widget.cars.length) widget.onLongPress?.call(widget.cars[i]);
   }
 
-  Widget _arrow({required bool left, required double top}) {
+  Widget _arrow({required bool left, required double top, required ValueListenable<double> lift}) {
     return Positioned(
       left: left ? 6 : null,
       right: left ? null : 6,
       top: top,
       child: AnimatedBuilder(
-        animation: _pager.position,
+        animation: Listenable.merge([_pager.position, lift]),
         builder: (_, _) {
           final page = _pager.page;
           final enabled = left ? page > 0 : page < _count - 1;
-          return Opacity(
-            opacity: enabled ? 1 : 0.35,
+          // Out of the way once the panel is pulled up (swiping still works).
+          final shown = (1 - lift.value / 60).clamp(0.0, 1.0);
+          return IgnorePointer(
+            ignoring: shown < 0.5,
+            child: Opacity(
+            opacity: (enabled ? 1 : 0.35) * shown,
             child: Semantics(
               button: true,
               label: left ? 'Previous car' : 'Next car',
@@ -317,6 +350,7 @@ class _GarageCardDeckState extends State<GarageCardDeck> with TickerProviderStat
                   child: Icon(left ? AppIcons.caretLeft : AppIcons.caretRight, size: 18, color: GarageColors.text),
                 ),
               ),
+            ),
             ),
           );
         },

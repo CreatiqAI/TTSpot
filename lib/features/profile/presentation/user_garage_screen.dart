@@ -18,9 +18,10 @@ String garageTitle(Profile? p) {
 }
 
 /// Someone else's garage, read-only, from the garage row on their profile:
-/// the same bay or card deck as mine (Bay ⇄ Cards follows my setting), tap a
-/// car for its page. No edit, today's car or add. Only what anyone may see:
-/// `car_mod_list` leaves out private mods and prices, and papers never show.
+/// the same full-screen bay or card deck as mine (Bay ⇄ Cards follows my
+/// setting), tap a car for its page. No edit, today's car or add. Only what
+/// anyone may see: `car_mod_list` leaves out private mods and prices, and
+/// papers never show.
 class UserGarageScreen extends ConsumerWidget {
   const UserGarageScreen({super.key, required this.userId});
   final String userId;
@@ -28,32 +29,32 @@ class UserGarageScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final profile = ref.watch(profileProvider(userId)).value;
-    final count = ref.watch(userCarsProvider(userId)).value?.length ?? 0;
     final blocked = ref.watch(blockedUserIdsProvider).value?.contains(userId) ?? false;
 
+    if (blocked) {
+      return Scaffold(
+        appBar: AppBar(
+          leading: IconButton(icon: const Icon(AppIcons.arrowLeft), onPressed: () => context.pop()),
+          title: Text(garageTitle(profile)),
+        ),
+        body: const EmptyState(art: AppArt.prohibited, title: 'You blocked this user', subtitle: 'Unblock from their profile to see their cars.'),
+      );
+    }
     return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(icon: const Icon(AppIcons.arrowLeft), onPressed: () => context.pop()),
-        title: Text(garageTitle(profile)),
-        actions: [
-          if (!blocked && count > 0) const GarageViewToggle(),
-          const SizedBox(width: 4),
-        ],
+      body: GarageBody(
+        ownerId: userId,
+        title: garageTitle(profile),
+        onBack: () => context.pop(),
+        bottomPadding: MediaQuery.paddingOf(context).bottom + 12,
+        empty: Padding(
+          padding: const EdgeInsets.only(top: 80),
+          child: EmptyState(
+            titi: TitiPose.binoculars,
+            title: 'No cars yet',
+            subtitle: '${profile?.displayName ?? profile?.username ?? 'They'} hasn\'t parked a car here yet.',
+          ),
+        ),
       ),
-      body: blocked
-          ? const EmptyState(art: AppArt.prohibited, title: 'You blocked this user', subtitle: 'Unblock from their profile to see their cars.')
-          : GarageBody(
-              ownerId: userId,
-              bottomPadding: MediaQuery.paddingOf(context).bottom + 24,
-              empty: Padding(
-                padding: const EdgeInsets.only(top: 80),
-                child: EmptyState(
-                  titi: TitiPose.binoculars,
-                  title: 'No cars yet',
-                  subtitle: '${profile?.displayName ?? profile?.username ?? 'They'} hasn\'t parked a car here yet.',
-                ),
-              ),
-            ),
     );
   }
 }

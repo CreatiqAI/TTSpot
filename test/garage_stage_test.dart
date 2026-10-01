@@ -34,6 +34,7 @@ void main() {
   final cars = [_car('a', 'Myvi 1.5 AV', today: true), _car('b', 'Civic Type R FL5 with a very long name')];
 
   testWidgets('bay: the door rolls up, arrows move between bays, the last bay parks another car', (tester) async {
+    GarageBayStage.debugResetDoor();
     var index = 0;
     var added = 0;
     final opened = <String>[];
@@ -41,7 +42,6 @@ void main() {
       builder: (context, setState) => GarageBayStage(
         cars: cars,
         index: index,
-        height: 380,
         onIndex: (i) => setState(() => index = i),
         onOpen: (c) => opened.add(c.id),
         onAdd: () => added++,
@@ -78,7 +78,7 @@ void main() {
   });
 
   testWidgets('bay: a second visit skips the door', (tester) async {
-    await tester.pumpWidget(_host(tester, GarageBayStage(cars: cars, index: 0, height: 380, onIndex: (_) {}, onOpen: (_) {})));
+    await tester.pumpWidget(_host(tester, GarageBayStage(cars: cars, index: 0, onIndex: (_) {}, onOpen: (_) {})));
     await tester.pump(const Duration(milliseconds: 100));
     expect(find.text('PRIVATE GARAGE'), findsNothing);
     await tester.pumpAndSettle();
@@ -92,7 +92,6 @@ void main() {
       builder: (context, setState) => GarageCardDeck(
         cars: cars,
         index: index,
-        height: 420,
         todayId: 'a',
         onIndex: (i) => setState(() => index = i),
         onOpen: (c) => opened.add(c.id),

@@ -111,7 +111,17 @@ class BayNumber extends StatelessWidget {
 /// light on the floor. Fills its stack. [tube] and [wash] (0–1) let the
 /// garage flicker it on; the car page keeps both at 1.
 class CeilingLight extends StatelessWidget {
-  const CeilingLight({super.key, required this.top, this.inset = 50, this.tube = 1, this.wash = 1, this.washCenter = const Alignment(0, -1.05), this.floorPoolHeight});
+  const CeilingLight({
+    super.key,
+    required this.top,
+    this.inset = 50,
+    this.tube = 1,
+    this.wash = 1,
+    this.washCenter = const Alignment(0, -1.05),
+    this.floorPoolHeight,
+    this.floorPoolBottom = 0,
+    this.floorPoolWidth = 300,
+  });
 
   /// The tube's distance from the top.
   final double top;
@@ -126,6 +136,11 @@ class CeilingLight extends StatelessWidget {
 
   /// Height of the pool of light on the floor; 42 % of the stack when null.
   final double? floorPoolHeight;
+
+  /// How far the pool's box sits above the stack's bottom (the full-screen
+  /// garage lifts it to where the car stands, clear of its panel).
+  final double floorPoolBottom;
+  final double floorPoolWidth;
 
   @override
   Widget build(BuildContext context) {
@@ -176,9 +191,9 @@ class CeilingLight extends StatelessWidget {
               ),
             ),
             Positioned(
-              left: w / 2 - 150,
-              width: 300,
-              bottom: 0,
+              left: w / 2 - floorPoolWidth / 2,
+              width: floorPoolWidth,
+              bottom: floorPoolBottom,
               height: floorPoolHeight ?? h * 0.42,
               child: IgnorePointer(
                 child: Opacity(
@@ -215,6 +230,7 @@ class StandingCutout extends StatelessWidget {
     required this.box,
     required this.bottom,
     this.side = 10,
+    this.shadowHeight,
     this.semanticLabel,
     this.onTap,
     this.onLongPress,
@@ -233,6 +249,9 @@ class StandingCutout extends StatelessWidget {
 
   /// Space left and right of the car's slot.
   final double side;
+
+  /// Height of the soft contact shadow; 9 % of the stack when null.
+  final double? shadowHeight;
   final String? semanticLabel;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
@@ -241,6 +260,7 @@ class StandingCutout extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final w = stageWidth, h = stageHeight;
+    final shadow = shadowHeight ?? h * 0.09;
     final car = Image(
       image: image,
       fit: BoxFit.contain,
@@ -256,8 +276,8 @@ class StandingCutout extends StatelessWidget {
         Positioned(
           left: w * 0.1,
           right: w * 0.1,
-          bottom: bottom - h * 0.045,
-          height: h * 0.09,
+          bottom: bottom - shadow / 2,
+          height: shadow,
           child: const IgnorePointer(
             child: DecoratedBox(
               decoration: BoxDecoration(

@@ -31,7 +31,7 @@ Future<void> main() async {
   MapboxOptions.setAccessToken(Env.mapboxPublicToken);
   await initSupabase();
   await initFirebase();
-  runApp(const ProviderScope(child: TtSpotApp()));
+  runApp(const ProviderScope(retry: _retry, child: TtSpotApp()));
 }
 
 /// Debug builds only: trust an extra root certificate supplied via env.json so
@@ -163,3 +163,8 @@ class _TtSpotAppState extends ConsumerState<TtSpotApp> {
     );
   }
 }
+
+/// Failed loads retry twice, quickly (a network blip), then show their error.
+/// Riverpod's default keeps retrying with back-off for ~40 s, which reads as
+/// an endless spinner (the "Become a partner" bug).
+Duration? _retry(int retryCount, Object error) => retryCount < 2 ? Duration(milliseconds: 600 * (retryCount + 1)) : null;

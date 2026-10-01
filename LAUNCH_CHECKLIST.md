@@ -77,6 +77,12 @@ So shared links open the app directly instead of the GitHub Pages landing page.
 - [ ] Approve the description, keywords and screenshots Claude prepares
 - [ ] Answer Apple **App Privacy** and Google **Data safety** forms using the list Claude prepares
 - [ ] Demo account for reviewers: keep `testing` / `12341234` working with a car, meets, points and a voucher
+- [ ] **Background location** ("Share location when TT Spot is closed", off by default):
+  - Google Play → App content → **Sensitive app permissions → Location permissions**: declare background location. Core feature: "Members choose to keep showing their position on the map to the friends and clubmates their visibility allows while the app is closed." Add a 30-second **demo video** (YouTube unlisted): Settings → Privacy → the switch → the full-screen disclosure → Turn on → "Allow all the time" → the "TT Spot is sharing your location" notification → swipe the app away → the pin still moves → Stop
+  - Play → **Foreground service** declaration: type `location`, same video
+  - Play **Data safety**: Location (approximate + precise), collected, shared with other members, optional, "App functionality"
+  - App Store review notes: "Background location is opt-in: Settings → Privacy → Share location when TT Spot is closed. It shows the member on friends' map while the app is closed; off by default, can be turned off any time. Demo login testing / 12341234." Apple **App Privacy**: Precise Location, linked to the user, App Functionality
+  - Update the website privacy page (ttspotwebsite) with the new Location text from `lib/core/legal/legal_text.dart`
 
 ## 8. Content and testing (before the public beta)
 

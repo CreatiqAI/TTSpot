@@ -110,7 +110,8 @@ class BackgroundLocationController extends Notifier<BgLocationState> {
         break;
     }
     if (action != BgAction.none) st = await BgLocationNative.status();
-    state = BgLocationState(native: st, shareMode: mode, loaded: true, waitingForAlways: before.waitingForAlways && !st.enabled && me != null);
+    // state, not before: enable() may have set waitingForAlways meanwhile.
+    state = BgLocationState(native: st, shareMode: mode, loaded: true, waitingForAlways: state.waitingForAlways && !st.enabled && me != null);
 
     if (state.waitingForAlways && st.background) {
       // Back from phone settings with "Allow all the time": finish the job.
@@ -121,7 +122,11 @@ class BackgroundLocationController extends Notifier<BgLocationState> {
       }
       return;
     }
-    if (fromResume && st.enabled && before.loaded && before.native.background && !st.background) _warnDowngraded();
+    // "Allow all the time" was taken away: on resume (it was there before) or
+    // on the first look after a launch (Android restarts the app when a
+    // permission is revoked, so there is no "before").
+    final downgraded = fromResume ? before.loaded && before.native.background : !before.loaded;
+    if (st.enabled && !st.background && downgraded) _warnDowngraded();
   }
 
   /// After the member accepted the disclosure. Walks the phone's permission
@@ -205,13 +210,17 @@ class BackgroundLocationController extends Notifier<BgLocationState> {
     }
   }
 
+  /// Once the app has drawn (on a cold start the messenger isn't there yet).
   void _warnDowngraded() {
     final what = defaultTargetPlatform == TargetPlatform.iOS ? '"Always" location' : '"Allow all the time"';
-    rootMessengerKey.currentState?.showSnackBar(SnackBar(
-      content: Text('TT Spot can\'t share your location while closed: $what was turned off.'),
-      duration: const Duration(seconds: 8),
-      action: SnackBarAction(label: 'Fix', onPressed: () => ref.read(appRouterProvider).push(Routes.settings)),
-    ));
+    Future<void>.delayed(const Duration(seconds: 2), () {
+      if (ref.read(currentUserIdProvider) == null) return;
+      rootMessengerKey.currentState?.showSnackBar(SnackBar(
+        content: Text('TT Spot can\'t share your location while closed: $what was turned off.'),
+        duration: const Duration(seconds: 8),
+        action: SnackBarAction(label: 'Fix', onPressed: () => ref.read(appRouterProvider).push(Routes.settings)),
+      ));
+    });
   }
 }
 

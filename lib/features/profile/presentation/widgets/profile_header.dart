@@ -208,24 +208,21 @@ class _PointsCard extends StatelessWidget {
 }
 
 /// Into a garage: mine (add, switch and open cars) or someone else's to look
-/// through. The twin of the points pill: a round badge where the coin is.
+/// through. The twin of the points pill: the blue garage badge where the
+/// coin is, the label in the same display face, tinted blue as points are red.
 class _GaragePill extends StatelessWidget {
   const _GaragePill({required this.label, required this.onTap, this.fit = false});
   final String label;
   final VoidCallback onTap;
   final bool fit;
 
+  static Color get _blue => AppColors.dark ? const Color(0xFF7FB2FF) : const Color(0xFF1D4ED8);
+
   @override
   Widget build(BuildContext context) => _HeaderPill(
-        color: AppColors.textPrimary.withValues(alpha: 0.06),
+        color: const Color(0xFF2563EB).withValues(alpha: AppColors.dark ? 0.18 : 0.09),
         onTap: onTap,
-        leading: Container(
-          width: 21,
-          height: 21,
-          decoration: BoxDecoration(color: AppColors.textPrimary, shape: BoxShape.circle),
-          alignment: Alignment.center,
-          child: Icon(AppIcons.garage, size: 13, color: AppColors.bg),
-        ),
+        leading: const GarageBadge(size: 21),
         // "My garage" shrinks a touch rather than lose letters; a long
         // "Muhammad Hafiz's garage" ends in "…" instead.
         label: fit
@@ -233,7 +230,7 @@ class _GaragePill extends StatelessWidget {
             : Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: _style),
       );
 
-  TextStyle get _style => TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: AppColors.textPrimary);
+  TextStyle get _style => TextStyle(fontFamily: AppFonts.display, fontSize: 18, fontWeight: FontWeight.w700, height: 1, color: _blue);
 }
 
 /// The shared shape of the two pills under the numbers: tinted, rounded,

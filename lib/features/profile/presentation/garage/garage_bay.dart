@@ -18,7 +18,7 @@ bool _doorPlayedThisSession = false;
 /// Concept A, "roller door": a dark garage bay (back wall, big outlined bay
 /// number, epoxy floor with yellow bay lines). The first visit rolls the
 /// shutter up, the light tube flickers on and the car fades in on the floor
-/// with its reflection and a streak of light. Swipe, the arrows or the dots
+/// with its reflection and a streak of light across it. Swipe, the arrows or the dots
 /// move to the next car. Cars with a good cut-out stand in the bay; the rest
 /// stand there as their collector card. The owner's last bay is empty, to
 /// park another car.
@@ -59,6 +59,15 @@ class _GarageBayStageState extends State<GarageBayStage> with TickerProviderStat
   bool _openHaptic = false;
   bool _topHaptic = false;
 
+  /// Where the streak of light is (0–1, 0 = none). The car itself draws it,
+  /// on its own pixels only (see [_Shine]).
+  final _shine = ValueNotifier<double>(0);
+
+  void _updateShine() {
+    final t = _sweep.isAnimating ? _sweep.value : _introSweep;
+    _shine.value = (t <= 0 || t >= 1) ? 0 : t;
+  }
+
   // Timeline of the first visit, in ms (from the concept): door rolls 650–1800,
   // tube flickers 1150–2150, light spills 1550–2750, car fades 1550–2000,
   // a streak crosses the car 2250–3550.
@@ -75,6 +84,8 @@ class _GarageBayStageState extends State<GarageBayStage> with TickerProviderStat
     _doorPlayedThisSession = true;
     _intro = AnimationController(vsync: this, duration: Duration(milliseconds: (_fullIntro ? _fullMs : _quickMs).round()));
     if (_fullIntro) _intro.addListener(_doorHaptics);
+    _intro.addListener(_updateShine);
+    _sweep.addListener(_updateShine);
     _intro.forward();
   }
 
@@ -93,6 +104,7 @@ class _GarageBayStageState extends State<GarageBayStage> with TickerProviderStat
   void dispose() {
     _intro.dispose();
     _sweep.dispose();
+    _shine.dispose();
     _pager.dispose();
     super.dispose();
   }
@@ -270,7 +282,9 @@ class _GarageBayStageState extends State<GarageBayStage> with TickerProviderStat
                     ),
                   ),
                   // The cars: the current one in the bay, its neighbours sliding in and out.
-                  AnimatedBuilder(
+                  _ShineScope(
+                    notifier: _shine,
+                    child: AnimatedBuilder(
                     animation: Listenable.merge([_pager.position, _intro]),
                     builder: (_, _) {
                       final pos = _pager.position.value;
@@ -284,15 +298,7 @@ class _GarageBayStageState extends State<GarageBayStage> with TickerProviderStat
                         ],
                       );
                     },
-                  ),
-                  // A streak of light across the car.
-                  AnimatedBuilder(
-                    animation: Listenable.merge([_sweep, _intro]),
-                    builder: (_, _) {
-                      final t = _sweep.isAnimating ? _sweep.value : _introSweep;
-                      if (t <= 0 || t >= 1) return const SizedBox.shrink();
-                      return _Streak(t: t, stageWidth: w, stageHeight: h);
-                    },
+                    ),
                   ),
                   if (_count > 1) ...[
                     _arrow(left: true, h: h),
@@ -521,13 +527,15 @@ class _CutoutCarState extends State<_CutoutCar> {
             child: GestureDetector(
               onTap: widget.onTap,
               onLongPress: widget.onLongPress,
-              child: Image(
-                image: cut,
-                fit: BoxFit.contain,
-                alignment: Alignment.bottomCenter,
-                gaplessPlayback: true,
-                filterQuality: FilterQuality.medium,
-                semanticLabel: widget.car.title,
+              child: _Shine(
+                child: Image(
+                  image: cut,
+                  fit: BoxFit.contain,
+                  alignment: Alignment.bottomCenter,
+                  gaplessPlayback: true,
+                  filterQuality: FilterQuality.medium,
+                  semanticLabel: widget.car.title,
+                ),
               ),
             ),
           ),
@@ -595,7 +603,7 @@ class _StandingCard extends StatelessWidget {
           width: cardW,
           bottom: bottom,
           height: realH,
-          child: GestureDetector(onTap: onTap, onLongPress: onLongPress, child: card),
+          child: GestureDetector(onTap: onTap, onLongPress: onLongPress, child: _Shine(child: card)),
         ),
       ],
     );
@@ -772,38 +780,45 @@ class _RoundButton extends StatelessWidget {
       );
 }
 
-/// The light streak that crosses the car after it lands or moves.
-class _Streak extends StatelessWidget {
-  const _Streak({required this.t, required this.stageWidth, required this.stageHeight});
-  final double t;
-  final double stageWidth;
-  final double stageHeight;
+/// Carries the streak position ([_GarageBayStageState._shine]) down to the
+/// cars in the bay.
+class _ShineScope extends InheritedNotifier<ValueNotifier<double>> {
+  const _ShineScope({required super.notifier, required super.child});
+}
+
+/// The streak of light that crosses a car after it lands or moves. Drawn on
+/// the car's own pixels (srcATop over its cut-out or card), so it follows the
+/// car's shape and never shows as a box over the wall and floor.
+class _Shine extends StatelessWidget {
+  const _Shine({required this.child});
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    final bandW = stageWidth * 0.46;
-    final x = -1.4 * bandW + t * (stageWidth + 3.0 * bandW);
-    final opacity = t < 0.2 ? t / 0.2 * 0.5 : 0.5 * (1 - (t - 0.2) / 0.8);
-    return Positioned(
-      left: x,
-      top: stageHeight * 0.3,
-      width: bandW,
-      height: stageHeight * 0.475,
-      child: IgnorePointer(
-        child: Opacity(
-          opacity: opacity.clamp(0.0, 1.0),
-          child: Transform(
-            transform: Matrix4.skewX(-0.31),
-            child: const DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(colors: [Color(0x00FFFFFF), Color(0x59FFFFFF), Color(0x00FFFFFF)]),
-              ),
-            ),
-          ),
-        ),
-      ),
+    final t = context.dependOnInheritedWidgetOfExactType<_ShineScope>()?.notifier?.value ?? 0;
+    if (t <= 0 || t >= 1) return child;
+    final strength = t < 0.2 ? t / 0.2 : 1 - (t - 0.2) / 0.8;
+    return ShaderMask(
+      blendMode: BlendMode.srcATop,
+      shaderCallback: (r) => LinearGradient(
+        begin: const Alignment(-1, -0.35),
+        end: const Alignment(1, 0.35),
+        colors: [const Color(0x00FFFFFF), Color.fromRGBO(255, 255, 255, 0.5 * strength), const Color(0x00FFFFFF)],
+        stops: const [0.4, 0.5, 0.6],
+        transform: _Slide((t * 2.4 - 1.2) * r.width),
+      ).createShader(r),
+      child: child,
     );
   }
+}
+
+/// Moves a gradient sideways by [dx] px.
+class _Slide extends GradientTransform {
+  const _Slide(this.dx);
+  final double dx;
+
+  @override
+  Matrix4? transform(Rect bounds, {TextDirection? textDirection}) => Matrix4.translationValues(dx, 0, 0);
 }
 
 /// The corrugated roller shutter with the TT Spot logo.

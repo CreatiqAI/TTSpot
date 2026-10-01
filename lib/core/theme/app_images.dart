@@ -224,3 +224,22 @@ class AssetThumb extends StatelessWidget {
         ),
       );
 }
+
+/// The garage badge: the points coin's twin (blue enamel, garage emblem),
+/// for the My garage pill. Made with tool/art_garage_icon.py.
+const kGarageAsset = 'assets/prizes/garage.png';
+
+class GarageBadge extends StatelessWidget {
+  const GarageBadge({super.key, this.size = 18});
+  final double size;
+
+  @override
+  Widget build(BuildContext context) => Image.asset(
+        kGarageAsset,
+        width: size,
+        height: size,
+        fit: BoxFit.contain,
+        filterQuality: FilterQuality.medium,
+        cacheWidth: (size * MediaQuery.devicePixelRatioOf(context)).round().clamp(32, 256),
+      );
+}

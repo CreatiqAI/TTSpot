@@ -15,12 +15,15 @@ import '../../../../core/widgets/photo_viewer.dart';
 import '../../../../core/widgets/pinch_zoom.dart';
 import '../../../../core/widgets/pop_icon.dart';
 import '../../../../core/widgets/user_avatar.dart';
+import '../../../../core/widgets/video_viewer.dart';
+import '../../../../core/directions/directions.dart';
 import '../../../safety/data/safety_repository.dart';
 import '../../../safety/presentation/report_sheet.dart';
 import '../../application/social_providers.dart';
 import '../../domain/post.dart';
 import '../share_sheet.dart';
 import 'poll_widget.dart';
+import 'video_badge.dart';
 import '../../../../core/utils/share_links.dart';
 
 /// Instagram feed card. [expanded] shows the full caption (post detail).
@@ -221,7 +224,18 @@ class _PostCardState extends ConsumerState<PostCard> {
         ),
 
         // ---- media / body
-        if (p.photoUrls.isNotEmpty)
+        if (p.isVideo)
+          _Media(
+            post: p,
+            page: 0,
+            onPage: (_) {},
+            onDoubleTap: _doubleTapLike,
+            burst: _heartBurst,
+            whole: widget.expanded,
+            // A video plays full screen, from the feed and from the post page.
+            onTap: () => showVideoViewer(context, url: p.videoUrl!, posterUrl: p.videoPoster, aspectRatio: p.coverAspect),
+          )
+        else if (p.photoUrls.isNotEmpty)
           _Media(
             post: p,
             page: _page,
@@ -260,7 +274,7 @@ class _PostCardState extends ConsumerState<PostCard> {
                   onPressed: () => context.go(Routes.map),
                 ),
               const Spacer(),
-              if (p.photoUrls.length > 1)
+              if (p.photoUrls.length > 1 && !p.isVideo)
                 Row(
                   children: [
                     for (var i = 0; i < p.photoUrls.length; i++)
@@ -369,7 +383,8 @@ class _Subtitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Each tagged thing is a link: the car, the spot, the meet, the club.
-    final parts = <(String, String?)>[];
+    final parts = <(String, VoidCallback?)>[];
+    void link(String label, String route) => parts.add((label, () => context.push(route)));
     switch (post.kind) {
       case PostKind.spotted:
         parts.add(('👀 Spotted', null));
@@ -380,10 +395,18 @@ class _Subtitle extends StatelessWidget {
       case PostKind.post:
         break;
     }
-    if (post.car != null) parts.add(('🚗 ${post.car!.title}', Routes.car(post.car!.id)));
-    if (post.place != null) parts.add(('📍 ${post.place!.name}', Routes.place(post.place!.id)));
-    if (post.event != null) parts.add(('🏁 ${post.event!.name}', Routes.event(post.event!.id)));
-    if (post.club != null && !post.asClub) parts.add(('🛡️ ${post.club!.name}', Routes.club(post.club!.id)));
+    if (post.car != null) link('🚗 ${post.car!.title}', Routes.car(post.car!.id));
+    if (post.place != null) {
+      link('📍 ${post.place!.name}', Routes.place(post.place!.id));
+    } else if ((post.placeName ?? '').isNotEmpty) {
+      // A place from the address search opens directions; "Near <area>" is
+      // only an area, so it is not a link.
+      final at = post.latLng;
+      final named = at != null && (post.placeAddress ?? '').isNotEmpty;
+      parts.add(('📍 ${post.placeName}', named ? () => openDirections(context, lat: at.latitude, lng: at.longitude, label: post.placeName) : null));
+    }
+    if (post.event != null) link('🏁 ${post.event!.name}', Routes.event(post.event!.id));
+    if (post.club != null && !post.asClub) link('🛡️ ${post.club!.name}', Routes.club(post.club!.id));
     if (parts.isEmpty) return SizedBox.shrink();
     final style = TextStyle(fontSize: 12, color: AppColors.textSecondary);
     return Wrap(
@@ -392,7 +415,7 @@ class _Subtitle extends StatelessWidget {
         for (var i = 0; i < parts.length; i++) ...[
           if (i > 0) Text(' · ', style: style),
           GestureDetector(
-            onTap: parts[i].$2 == null ? null : () => context.push(parts[i].$2!),
+            onTap: parts[i].$2,
             child: Text(parts[i].$1, style: parts[i].$2 == null ? style : style.copyWith(fontWeight: FontWeight.w600, decoration: TextDecoration.underline, decorationColor: AppColors.border)),
           ),
         ],
@@ -449,7 +472,52 @@ class _Media extends StatelessWidget {
   Widget _stack() => Stack(
         fit: StackFit.expand,
         children: [
-          if (whole) ColoredBox(color: AppColors.surfaceGray),
+          if (post.isVideo)
+            ..._video()
+          else ...[
+            if (whole) ColoredBox(color: AppColors.surfaceGray),
+            ..._photos(),
+          ],
+          IgnorePointer(
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 200),
+              opacity: burst ? 1 : 0,
+              child: const Center(child: Icon(AppIcons.heartFill, color: Colors.white, size: 96, shadows: [Shadow(color: Colors.black38, blurRadius: 16)])),
+            ),
+          ),
+        ],
+      );
+
+  /// A video post: its still with a play button and the length; a tap plays
+  /// it full screen.
+  List<Widget> _video() {
+    final poster = post.videoPoster;
+    return [
+      const ColoredBox(color: Colors.black),
+      if (poster != null)
+        Image(
+          image: CachedNetworkImageProvider(poster),
+          fit: whole ? BoxFit.contain : BoxFit.cover,
+          loadingBuilder: (_, child, prog) => prog == null ? child : const SizedBox.shrink(),
+          errorBuilder: (_, _, _) => const SizedBox.shrink(),
+        ),
+      Center(
+        child: Semantics(
+          button: true,
+          label: 'Play video',
+          child: Container(
+            width: 64,
+            height: 64,
+            decoration: const BoxDecoration(color: Colors.black45, shape: BoxShape.circle),
+            child: const Icon(AppIcons.playFill, color: Colors.white, size: 30),
+          ),
+        ),
+      ),
+      Positioned(right: 10, bottom: 10, child: VideoBadge(ms: post.videoMs)),
+    ];
+  }
+
+  List<Widget> _photos() => [
           PageView.builder(
             itemCount: post.photoUrls.length,
             onPageChanged: onPage,
@@ -474,15 +542,7 @@ class _Media extends StatelessWidget {
                 child: Text('${page + 1}/${post.photoUrls.length}', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
               ),
             ),
-          IgnorePointer(
-            child: AnimatedOpacity(
-              duration: const Duration(milliseconds: 200),
-              opacity: burst ? 1 : 0,
-              child: const Center(child: Icon(AppIcons.heartFill, color: Colors.white, size: 96, shadows: [Shadow(color: Colors.black38, blurRadius: 16)])),
-            ),
-          ),
-        ],
-      );
+        ];
 }
 
 class _GuideStrip extends StatelessWidget {

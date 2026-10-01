@@ -26,6 +26,7 @@ import 'widgets/hours_editor.dart';
 import 'widgets/product_sheet.dart';
 import '../../../core/widgets/share_options_sheet.dart';
 import '../../../core/widgets/thumb_image.dart';
+import '../../social/presentation/widgets/video_badge.dart';
 
 /// A partner's page for members. Cover + logo on top, then sections you can
 /// jump to from the sticky chip bar: Info · Products · Vouchers · Posts ·
@@ -364,7 +365,13 @@ class _BodyState extends ConsumerState<_Body> {
                                             alignment: Alignment.bottomLeft,
                                             child: Text(f.post.title ?? f.post.caption ?? 'Post', maxLines: 3, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
                                           )
-                                        : ThumbImage(f.post.photoUrls.first),
+                                        : Stack(
+                                            fit: StackFit.expand,
+                                            children: [
+                                              ThumbImage(f.post.photoUrls.first),
+                                              if (f.post.isVideo) const Positioned(right: 6, top: 6, child: VideoBadge(compact: true)),
+                                            ],
+                                          ),
                                   ),
                                 ),
                               );

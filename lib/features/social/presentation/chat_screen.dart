@@ -35,6 +35,7 @@ import 'chat_camera_screen.dart';
 import 'story_viewer_screen.dart';
 import 'chat_stickers.dart';
 import 'widgets/media_send_preview.dart';
+import 'widgets/video_badge.dart';
 import '../domain/post.dart';
 import '../application/social_providers.dart';
 import '../domain/chat.dart';
@@ -788,7 +789,18 @@ class _SharedPost extends ConsumerWidget {
             : Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (post.cover != null) AspectRatio(aspectRatio: 4 / 3, child: Image(image: CachedNetworkImageProvider(post.cover!), fit: BoxFit.cover)),
+                  if (post.cover != null)
+                    AspectRatio(
+                      aspectRatio: 4 / 3,
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          Image(image: CachedNetworkImageProvider(post.cover!), fit: BoxFit.cover),
+                          // A video post: its still, marked as a video.
+                          if (post.isVideo) Positioned(left: 8, bottom: 8, child: VideoBadge(ms: post.videoMs)),
+                        ],
+                      ),
+                    ),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
                     child: Column(

@@ -7,6 +7,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/thumb_image.dart';
 import '../../../../core/widgets/user_avatar.dart';
 import '../../domain/post.dart';
+import 'video_badge.dart';
 
 /// RedNote-style two-column waterfall. Items go to whichever column is shorter.
 class MasonryGrid extends StatelessWidget {
@@ -90,6 +91,7 @@ class PostTile extends StatelessWidget {
                         fit: StackFit.expand,
                         children: [
                           ThumbImage(p.cover!, placeholder: ColoredBox(color: AppColors.surfaceGray), error: ColoredBox(color: AppColors.surfaceGray)),
+                          if (p.isVideo) Positioned(top: 8, right: 8, child: VideoBadge(ms: p.videoMs)),
                           if (p.kind != PostKind.post)
                             Positioned(
                               top: 8,

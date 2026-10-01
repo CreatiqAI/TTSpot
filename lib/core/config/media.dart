@@ -23,5 +23,11 @@ const kChatVideoMaxMb = 40;
 const kStoryVideoMaxDuration = Duration(seconds: 30);
 const kStoryVideoMaxMb = 25;
 
+/// A post holds up to [kPostMaxPhotos] photos or one video. Post videos sit
+/// in the post-photos bucket, which refuses anything over 50 MB.
+const kPostMaxPhotos = 10;
+const kPostVideoMaxDuration = Duration(seconds: 60);
+const kPostVideoMaxMb = 50;
+
 /// Photos and videos sent together from the chat preview.
 const kChatMediaMaxItems = 10;

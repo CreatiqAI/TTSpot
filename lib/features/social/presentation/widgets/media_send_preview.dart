@@ -1,18 +1,16 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
-import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../../../core/config/media.dart';
 import '../../../../core/theme/app_icons.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/video_frame.dart';
 import 'chat_media.dart' show fmtMs;
 
 /// One picked photo or video, ready to send: its caption (may be empty), and
@@ -145,42 +143,9 @@ class _MediaSendPreviewState extends State<MediaSendPreview> {
     if (identical(d, _current)) setState(() {});
   }
 
-  /// The video frame on screen as a JPEG (long side ~720 px), or null when
-  /// the capture comes back blank (some phones can't read the video surface).
-  Future<Uint8List?> _grab(_Draft d) async {
-    try {
-      final boundary = d.frameKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
-      if (boundary == null || !boundary.hasSize) return null;
-      final longest = math.max(boundary.size.width, boundary.size.height);
-      if (longest <= 0) return null;
-      final img = await boundary.toImage(pixelRatio: 720 / longest);
-      try {
-        final raw = await img.toByteData(format: ui.ImageByteFormat.rawRgba);
-        if (raw == null || _blank(raw)) return null;
-        final png = await img.toByteData(format: ui.ImageByteFormat.png);
-        if (png == null) return null;
-        return await FlutterImageCompress.compressWithList(png.buffer.asUint8List(), minWidth: img.width, minHeight: img.height, quality: 80, format: CompressFormat.jpeg);
-      } finally {
-        img.dispose();
-      }
-    } catch (_) {
-      return null;
-    }
-  }
-
-  /// Nearly every sampled pixel black or see-through: the capture missed the video.
-  static bool _blank(ByteData rgba) {
-    final n = rgba.lengthInBytes ~/ 4;
-    if (n == 0) return true;
-    final step = math.max(1, n ~/ 2000);
-    var lit = 0, seen = 0;
-    for (var i = 0; i < n; i += step) {
-      final o = i * 4;
-      seen++;
-      if (rgba.getUint8(o + 3) > 0 && rgba.getUint8(o) + rgba.getUint8(o + 1) + rgba.getUint8(o + 2) > 36) lit++;
-    }
-    return lit < seen * 0.02;
-  }
+  /// The video frame on screen as a JPEG, or null when the capture comes
+  /// back blank (see [grabVideoFrame]).
+  Future<Uint8List?> _grab(_Draft d) => grabVideoFrame(d.frameKey);
 
   void _goTo(int i) {
     if (i == _page) return;

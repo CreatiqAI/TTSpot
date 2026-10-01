@@ -1,18 +1,21 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/geo/latlng.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:video_player/video_player.dart';
 
+import '../../../core/config/media.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/supabase/supabase_client.dart';
-import '../../../core/theme/app_art.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../../core/utils/geo.dart';
+import '../../../core/utils/video_frame.dart';
 import '../../../core/widgets/photo_picker_sheet.dart';
 import '../../../core/widgets/pin_map.dart';
 import '../../events/application/my_events_provider.dart';
@@ -25,8 +28,14 @@ import '../application/social_providers.dart';
 import '../data/social_repository.dart';
 import '../domain/club.dart';
 import '../domain/post.dart';
+import '../domain/post_place.dart';
+import '../domain/post_video.dart';
+import 'widgets/chat_media.dart' show fmtMs;
+import 'widgets/post_place_picker.dart';
+import 'widgets/video_badge.dart';
 
 /// New post / spotted / poll / guide. Instagram "New post" style: X, title, blue Share.
+/// A post carries up to 10 photos or one video (60 s, 50 MB), and a place.
 class CreatePostScreen extends ConsumerStatefulWidget {
   const CreatePostScreen({super.key, required this.kind, this.eventId, this.carId, this.placeId, this.clubId, this.asClub = false, this.vendorId});
   final PostKind kind;
@@ -43,6 +52,8 @@ class CreatePostScreen extends ConsumerStatefulWidget {
   ConsumerState<CreatePostScreen> createState() => _CreatePostScreenState();
 }
 
+enum _Media { photoLibrary, photoCamera, videoLibrary, videoCamera }
+
 class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
   final _photos = <XFile>[];
   final _caption = TextEditingController();
@@ -55,8 +66,18 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
   String? _carId;
   String? _eventId;
   String? _clubId;
-  Place? _place;
+  PostPlace? _place;
   bool _busy = false;
+
+  // ---- the video, when the post is one
+  XFile? _video;
+  VideoPlayerController? _player;
+  /// The still for grids and the feed, grabbed from the preview as it plays.
+  Uint8List? _poster;
+  final _frameKey = GlobalKey();
+  bool _grabbing = false;
+  int _grabTries = 0;
+  bool _muted = true;
 
   PostKind get _kind => widget.kind;
 
@@ -68,11 +89,11 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
     _clubId = widget.clubId;
     if (widget.placeId != null) {
       ref.read(placeProvider(widget.placeId!).future).then((p) {
-        if (mounted && p != null) setState(() => _place = p);
+        if (mounted && p != null && _place == null) setState(() => _place = PostPlace.spot(p));
       });
     }
     if (_kind != PostKind.poll) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _addPhotos());
+      WidgetsBinding.instance.addPostFrameCallback((_) => _addMedia());
     }
   }
 
@@ -83,21 +104,173 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
     for (final c in _pollOptions) {
       c.dispose();
     }
+    _disposeVideo();
     super.dispose();
+  }
+
+  void _disposeVideo() {
+    final c = _player;
+    _player = null;
+    c?.removeListener(_onVideoTick);
+    c?.dispose();
   }
 
   void _snack(String msg) => ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()
     ..showSnackBar(SnackBar(content: Text(msg)));
 
-  Future<void> _addPhotos() async {
-    final room = 10 - _photos.length;
+  /// Photos or a video, from the library or the camera. Once there are
+  /// photos only more photos can go in; a video is the whole post.
+  Future<void> _addMedia() async {
+    if (_busy || _video != null) return;
+    final room = kPostMaxPhotos - _photos.length;
     if (room <= 0) {
-      _snack('Up to 10 photos per post.');
+      _snack('Up to $kPostMaxPhotos photos per post.');
       return;
     }
-    final files = await pickPhotos(context, max: room);
-    if (files.isNotEmpty) setState(() => _photos.addAll(files));
+    final withVideo = _photos.isEmpty;
+    final secs = kPostVideoMaxDuration.inSeconds;
+    final choice = await showModalBottomSheet<_Media>(
+      useRootNavigator: true, // above the shell tab bar
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(AppIcons.images),
+                title: const Text('Photos from library'),
+                subtitle: Text('Up to $room', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                onTap: () => Navigator.pop(ctx, _Media.photoLibrary),
+              ),
+              ListTile(leading: const Icon(AppIcons.camera), title: const Text('Take a photo'), onTap: () => Navigator.pop(ctx, _Media.photoCamera)),
+              if (withVideo) ...[
+                ListTile(
+                  leading: const Icon(AppIcons.play),
+                  title: const Text('Video from library'),
+                  subtitle: Text('One video, up to $secs seconds', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                  onTap: () => Navigator.pop(ctx, _Media.videoLibrary),
+                ),
+                ListTile(
+                  leading: const Icon(AppIcons.videoCamera),
+                  title: const Text('Record a video'),
+                  subtitle: Text('Up to $secs seconds', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                  onTap: () => Navigator.pop(ctx, _Media.videoCamera),
+                ),
+              ],
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (choice == null || !mounted) return;
+    switch (choice) {
+      case _Media.photoLibrary:
+      case _Media.photoCamera:
+        final files = await pickPhotos(context, max: room, source: choice == _Media.photoLibrary ? ImageSource.gallery : ImageSource.camera);
+        if (files.isNotEmpty && mounted) setState(() => _photos.addAll(files.take(room)));
+      case _Media.videoLibrary:
+        await _pickVideo(ImageSource.gallery);
+      case _Media.videoCamera:
+        await _pickVideo(ImageSource.camera);
+    }
+  }
+
+  Future<void> _pickVideo(ImageSource source) async {
+    final XFile? f;
+    try {
+      f = await ImagePicker().pickVideo(source: source, maxDuration: kPostVideoMaxDuration);
+    } catch (e) {
+      if (mounted) _snack(friendlyError(e));
+      return;
+    }
+    if (f == null || !mounted) return;
+    // Size first: no point opening a file that can't go up.
+    final bytes = await f.length();
+    final tooBig = postVideoProblem(bytes: bytes);
+    if (tooBig != null) {
+      _snack(tooBig);
+      return;
+    }
+    final c = VideoPlayerController.file(File(f.path));
+    try {
+      await c.initialize();
+    } catch (_) {
+      await c.dispose();
+      if (mounted) _snack('That video could not be opened. Try another.');
+      return;
+    }
+    // Library picks can skip the picker's 60 s cap.
+    final problem = postVideoProblem(bytes: bytes, length: c.value.duration);
+    if (problem != null || !mounted) {
+      await c.dispose();
+      if (problem != null && mounted) _snack(problem);
+      return;
+    }
+    await c.setLooping(true);
+    await c.setVolume(0);
+    _disposeVideo();
+    c.addListener(_onVideoTick);
+    setState(() {
+      _video = f;
+      _player = c;
+      _poster = null;
+      _grabbing = false;
+      _grabTries = 0;
+      _muted = true;
+    });
+    await c.play();
+  }
+
+  /// While the preview plays: a frame from just after the start becomes the
+  /// still, like the chat preview does.
+  void _onVideoTick() {
+    final c = _player;
+    if (c == null || !mounted) return;
+    if (_poster != null || _grabbing || _grabTries >= 3) return;
+    if (!c.value.isPlaying || c.value.position < const Duration(milliseconds: 250)) return;
+    _grabbing = true;
+    _grabTries++;
+    grabVideoFrame(_frameKey).then((b) {
+      if (!mounted || !identical(c, _player)) return;
+      _grabbing = false;
+      if (b != null) setState(() => _poster = b);
+    });
+  }
+
+  /// The still to upload: the grabbed one, one more try now, or a drawn card.
+  Future<Uint8List> _ensurePoster() async {
+    if (_poster != null) return _poster!;
+    final c = _player;
+    if (c != null && c.value.isInitialized) {
+      try {
+        if (!c.value.isPlaying) {
+          await c.play();
+          await Future<void>.delayed(const Duration(milliseconds: 450));
+        }
+        await c.pause();
+        await Future<void>.delayed(const Duration(milliseconds: 80));
+        final b = await grabVideoFrame(_frameKey);
+        if (b != null) return _poster = b;
+      } catch (_) {}
+    }
+    return placeholderVideoPoster(aspect: c?.value.aspectRatio ?? 9 / 16);
+  }
+
+  void _removeVideo() {
+    _disposeVideo();
+    setState(() {
+      _video = null;
+      _poster = null;
+    });
+  }
+
+  void _toggleMute() {
+    setState(() => _muted = !_muted);
+    _player?.setVolume(_muted ? 0 : 1);
   }
 
   Future<double> _aspectOf(XFile f) async {
@@ -116,14 +289,15 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
     FocusScope.of(context).unfocus();
     final me = ref.read(currentUserIdProvider);
     if (me == null) return;
+    final hasMedia = _photos.isNotEmpty || _video != null;
 
     // Validation per kind
-    if (_kind == PostKind.post && _photos.isEmpty && _caption.text.trim().isEmpty) {
-      _snack('Add a photo or write something.');
+    if (_kind == PostKind.post && !hasMedia && _caption.text.trim().isEmpty) {
+      _snack('Add a photo or video, or write something.');
       return;
     }
-    if (_kind == PostKind.spotted && _photos.isEmpty) {
-      _snack('A spotted needs a photo.');
+    if (_kind == PostKind.spotted && !hasMedia) {
+      _snack('A spotted needs a photo or a video.');
       return;
     }
     if (_kind == PostKind.poll) {
@@ -145,10 +319,28 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
     try {
       final repo = ref.read(socialRepositoryProvider);
       final urls = <String>[];
-      for (final f in _photos) {
-        urls.add(await repo.uploadPhoto(userId: me, bytes: await f.readAsBytes()));
+      var aspect = 1.0;
+      String? videoUrl;
+      String? posterUrl;
+      int? videoMs;
+      final c = _player;
+      if (_video != null && c != null) {
+        final poster = await _ensurePoster();
+        await c.pause();
+        final up = await repo.uploadPostVideo(userId: me, path: _video!.path, poster: poster);
+        videoUrl = up.url;
+        posterUrl = up.posterUrl;
+        videoMs = c.value.duration.inMilliseconds;
+        // The poster doubles as the cover, so every grid shows the still.
+        urls.add(up.posterUrl);
+        final a = c.value.aspectRatio;
+        aspect = a.isFinite && a > 0 ? a : 1.0;
+      } else {
+        for (final f in _photos) {
+          urls.add(await repo.uploadPhoto(userId: me, bytes: await f.readAsBytes()));
+        }
+        if (_photos.isNotEmpty) aspect = await _aspectOf(_photos.first);
       }
-      final aspect = _photos.isEmpty ? 1.0 : await _aspectOf(_photos.first);
 
       List<PollOption>? options;
       if (_kind == PostKind.poll) {
@@ -163,6 +355,12 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
         }
       }
 
+      // A TT Spot goes by id. Any other place is kept on the post: its name,
+      // address and where it is (the spotted pin wins for a spotted).
+      final place = _place;
+      final freePlace = place != null && !place.isSpot ? place : null;
+      final where = _kind == PostKind.spotted ? (_pin ?? freePlace?.latLng) : freePlace?.latLng;
+
       final post = await repo.createPost(
         authorId: me,
         kind: _kind,
@@ -172,12 +370,17 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
         coverAspect: aspect,
         carId: _carId,
         eventId: _eventId,
-        placeId: _place?.id,
+        placeId: place?.spotId,
+        placeName: freePlace?.name,
+        placeAddress: (freePlace?.address ?? '').isEmpty ? null : freePlace!.address,
         clubId: _clubId,
         asClub: widget.asClub && _clubId == widget.clubId,
         vendorId: widget.vendorId,
         asVendor: widget.vendorId != null,
-        location: _kind == PostKind.spotted ? _pin : null,
+        location: where,
+        videoUrl: videoUrl,
+        videoPosterUrl: posterUrl,
+        videoMs: videoMs,
         pollOptions: options,
         pollEndsAt: _kind == PostKind.poll ? DateTime.now().add(Duration(days: _pollDays)) : null,
         guideStops: _kind == PostKind.guide && _stops.isNotEmpty ? _stops : null,
@@ -185,6 +388,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
       ref.read(socialActionsProvider).refreshPost(post.id, authorId: me);
       if (_eventId != null) ref.invalidate(postsWhereProvider((column: 'event_id', value: _eventId!)));
       if (widget.vendorId != null) ref.invalidate(postsWhereProvider((column: 'vendor_id', value: widget.vendorId!)));
+      if (place?.spotId != null) ref.invalidate(postsWhereProvider((column: 'place_id', value: place!.spotId!)));
       if (mounted) context.pushReplacement(Routes.post(post.id));
     } catch (e) {
       if (mounted) {
@@ -211,13 +415,26 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
               ? const Padding(padding: EdgeInsets.only(right: 20), child: Center(child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))))
               : TextButton(onPressed: _submit, child: const Text('Share')),
         ],
+        bottom: _busy && _video != null
+            ? const PreferredSize(preferredSize: Size.fromHeight(2), child: LinearProgressIndicator(minHeight: 2))
+            : null,
       ),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
           children: [
             if (_kind != PostKind.poll) ...[
-              _PhotoStrip(photos: _photos, onAdd: _busy ? null : _addPhotos, onRemove: (i) => setState(() => _photos.removeAt(i))),
+              if (_video != null && _player != null)
+                _VideoPreview(
+                  player: _player!,
+                  frameKey: _frameKey,
+                  poster: _poster,
+                  muted: _muted,
+                  onMute: _toggleMute,
+                  onRemove: _busy ? null : _removeVideo,
+                )
+              else
+                _PhotoStrip(photos: _photos, onAdd: _busy ? null : _addMedia, onRemove: (i) => setState(() => _photos.removeAt(i))),
               const SizedBox(height: 16),
             ],
 
@@ -349,18 +566,21 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
               const SizedBox(height: 8),
             ],
 
+            const _Label('LOCATION'),
+            const SizedBox(height: 8),
+            PostPlacePicker(value: _place, enabled: !_busy, onChanged: (p) => setState(() => _place = p)),
+            const SizedBox(height: 16),
+
             const _Label('TAG'),
             const SizedBox(height: 8),
             _TagRow(
               carId: _carId,
               eventId: _eventId,
               clubId: _clubId,
-              place: _place,
               showClub: widget.vendorId == null,
               onCar: (v) => setState(() => _carId = v),
               onEvent: (v) => setState(() => _eventId = v),
               onClub: (v) => setState(() => _clubId = v),
-              onPlace: (v) => setState(() => _place = v),
             ),
           ],
         ),
@@ -424,13 +644,26 @@ class _PhotoStrip extends StatelessWidget {
           aspectRatio: 4 / 3,
           child: Container(
             decoration: BoxDecoration(color: AppColors.surfaceGray, borderRadius: BorderRadius.circular(AppRadius.md)),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(AppIcons.cameraPlus, size: 36, color: AppColors.textSecondary),
-                SizedBox(height: 8),
-                Text('Add photos', style: TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.w600)),
-              ],
+            padding: const EdgeInsets.all(12),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(AppIcons.cameraPlus, size: 34, color: AppColors.textSecondary),
+                      const SizedBox(width: 14),
+                      Icon(AppIcons.videoCamera, size: 34, color: AppColors.textSecondary),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text('Add photos or a video', style: TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 2),
+                  Text('Up to $kPostMaxPhotos photos, or one video up to ${kPostVideoMaxDuration.inSeconds} s', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                ],
+              ),
             ),
           ),
         ),
@@ -466,7 +699,7 @@ class _PhotoStrip extends StatelessWidget {
                     ],
                   ),
                 ),
-              if (photos.length < 10)
+              if (photos.length < kPostMaxPhotos)
                 GestureDetector(
                   onTap: onAdd,
                   child: Container(
@@ -480,35 +713,140 @@ class _PhotoStrip extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 4),
-        Text('${photos.length} of 10 · first photo is the cover', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+        Text('${photos.length} of $kPostMaxPhotos · first photo is the cover', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
       ],
     );
   }
 }
 
-/// Tag chips: car (my garage), meet (my events), club (my clubs), place (search).
+/// The picked video, playing muted in a loop in the box the feed will show
+/// (tap to pause, speaker to unmute, X to take it off), with the still the
+/// grids will use once it has been grabbed.
+class _VideoPreview extends StatelessWidget {
+  const _VideoPreview({required this.player, required this.frameKey, required this.poster, required this.muted, required this.onMute, required this.onRemove});
+  final VideoPlayerController player;
+  final GlobalKey frameKey;
+  final Uint8List? poster;
+  final bool muted;
+  final VoidCallback onMute;
+  final VoidCallback? onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final v = player.value;
+    final ratio = v.aspectRatio.isFinite && v.aspectRatio > 0 ? v.aspectRatio : 9 / 16;
+    final size = v.size.width > 0 && v.size.height > 0 ? v.size : Size(ratio * 1000, 1000);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AspectRatio(
+          aspectRatio: ratio.clamp(0.8, 1.91),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(AppRadius.md),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                const ColoredBox(color: Colors.black),
+                // Only the video inside the boundary: the still has no buttons on it.
+                FittedBox(
+                  fit: BoxFit.cover,
+                  clipBehavior: Clip.hardEdge,
+                  child: SizedBox(width: size.width, height: size.height, child: RepaintBoundary(key: frameKey, child: VideoPlayer(player))),
+                ),
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => player.value.isPlaying ? player.pause() : player.play(),
+                  child: ValueListenableBuilder<VideoPlayerValue>(
+                    valueListenable: player,
+                    builder: (_, value, _) => value.isPlaying
+                        ? const SizedBox.expand()
+                        : Center(
+                            child: Container(
+                              width: 60,
+                              height: 60,
+                              decoration: const BoxDecoration(color: Colors.black45, shape: BoxShape.circle),
+                              child: const Icon(AppIcons.playFill, color: Colors.white, size: 28),
+                            ),
+                          ),
+                  ),
+                ),
+                Positioned(left: 8, bottom: 8, child: VideoBadge(ms: v.duration.inMilliseconds)),
+                Positioned(
+                  right: 6,
+                  bottom: 6,
+                  child: _RoundIcon(icon: muted ? AppIcons.speakerSlash : AppIcons.speakerHigh, label: muted ? 'Unmute' : 'Mute', onTap: onMute),
+                ),
+                if (onRemove != null) Positioned(right: 6, top: 6, child: _RoundIcon(icon: AppIcons.x, label: 'Remove video', onTap: onRemove!)),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: SizedBox(
+                width: 36,
+                height: 36,
+                child: poster == null ? ColoredBox(color: AppColors.surfaceGray) : Image.memory(poster!, fit: BoxFit.cover, cacheWidth: 120, gaplessPlayback: true),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                '1 video · ${fmtMs(v.duration.inMilliseconds)} · ${poster == null ? 'getting the cover…' : 'this still is the cover'}',
+                style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _RoundIcon extends StatelessWidget {
+  const _RoundIcon({required this.icon, required this.label, required this.onTap});
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+        button: true,
+        label: label,
+        child: GestureDetector(
+          onTap: onTap,
+          child: Container(
+            width: 34,
+            height: 34,
+            decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
+            child: Icon(icon, size: 18, color: Colors.white),
+          ),
+        ),
+      );
+}
+
+/// Tag chips: car (my garage), meet (my events), club (my clubs).
 class _TagRow extends ConsumerWidget {
   const _TagRow({
     required this.carId,
     required this.eventId,
     required this.clubId,
-    required this.place,
     this.showClub = true,
     required this.onCar,
     required this.onEvent,
     required this.onClub,
-    required this.onPlace,
   });
 
   final String? carId;
   final String? eventId;
   final String? clubId;
-  final Place? place;
   final bool showClub;
   final ValueChanged<String?> onCar;
   final ValueChanged<String?> onEvent;
   final ValueChanged<String?> onClub;
-  final ValueChanged<Place?> onPlace;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -537,12 +875,6 @@ class _TagRow extends ConsumerWidget {
           label: eventName ?? 'Meet',
           active: eventId != null,
           onTap: () => _pickFrom<Event>(context, 'Tag a meet', allEvents, (e) => e.title, (e) => onEvent(e?.id)),
-        ),
-        _TagChip(
-          icon: AppIcons.mapPin,
-          label: place?.name ?? 'Place',
-          active: place != null,
-          onTap: () => _pickPlace(context, ref),
         ),
         if (showClub) _TagChip(
           icon: AppIcons.shield,
@@ -573,59 +905,6 @@ class _TagRow extends ConsumerWidget {
     );
     if (choice == null) return;
     onPick(choice is _None ? null : choice as T);
-  }
-
-  Future<void> _pickPlace(BuildContext context, WidgetRef ref) async {
-    final query = TextEditingController();
-    final picked = await showModalBottomSheet<Object>(
-      useRootNavigator: true, // above the shell tab bar
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(ctx).bottom),
-        child: StatefulBuilder(
-          builder: (ctx, setSheet) => SizedBox(
-            height: 420,
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                  child: TextField(
-                    controller: query,
-                    autofocus: true,
-                    decoration: const InputDecoration(hintText: 'Search places', prefixIcon: Icon(AppIcons.magnifyingGlass)),
-                    onChanged: (_) => setSheet(() {}),
-                  ),
-                ),
-                Expanded(
-                  child: Consumer(
-                    builder: (ctx, ref, _) {
-                      final results = ref.watch(placeSearchProvider(query.text)).value ?? const <Place>[];
-                      return ListView(
-                        children: [
-                          for (final p in results)
-                            ListTile(
-                              leading: ArtIcon(p.kindIcon, size: 30),
-                              title: Text(p.name),
-                              subtitle: Text(p.kindLabel),
-                              onTap: () => Navigator.pop(ctx, p),
-                            ),
-                          ListTile(leading: const Icon(AppIcons.x), title: const Text('No place'), onTap: () => Navigator.pop(ctx, const _None())),
-                        ],
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-    query.dispose();
-    if (picked == null) return;
-    onPlace(picked is _None ? null : picked as Place);
   }
 }
 

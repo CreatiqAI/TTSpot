@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/geo/latlng.dart';
@@ -9,6 +11,7 @@ import '../../../core/utils/thumbnails.dart';
 import '../../auth/domain/profile.dart';
 import '../domain/album.dart';
 import '../domain/post.dart';
+import '../domain/post_video.dart';
 
 const profileCols = 'id, username, display_name, bio, avatar_url, home_state, created_at';
 const _storySelect = '*, profiles:profiles!stories_author_id_fkey($profileCols), events(title), places(name)';
@@ -143,6 +146,25 @@ class SocialRepository {
     return bucket.getPublicUrl(path);
   }
 
+  /// A post's video and its still, side by side with the photos in
+  /// post-photos: `<uid>/posts/<ts>.mp4` (or .mov), `<uid>/posts/<ts>.jpg`
+  /// and the still's grid thumbnail `<uid>/posts/<ts>_t.jpg`. The video
+  /// streams from the file instead of loading 50 MB into memory.
+  Future<({String url, String posterUrl})> uploadPostVideo({required String userId, required String path, required Uint8List poster}) async {
+    final stem = '$userId/posts/${DateTime.now().microsecondsSinceEpoch}';
+    final format = postVideoFormat(path);
+    final bucket = _client.storage.from('post-photos');
+    // A JPEG still normally; the drawn fallback may come back as PNG.
+    final png = poster.length > 4 && poster[0] == 0x89 && poster[1] == 0x50 && poster[2] == 0x4E && poster[3] == 0x47;
+    final posterPath = '$stem.${png ? 'png' : 'jpg'}';
+    await Future.wait([
+      bucket.upload('$stem.${format.ext}', File(path), fileOptions: FileOptions(contentType: format.contentType, cacheControl: kImmutableCacheControl)),
+      bucket.uploadBinary(posterPath, poster, fileOptions: FileOptions(contentType: png ? 'image/png' : 'image/jpeg', cacheControl: kImmutableCacheControl)),
+      uploadThumb(bucket, posterPath, poster),
+    ]);
+    return (url: bucket.getPublicUrl('$stem.${format.ext}'), posterUrl: bucket.getPublicUrl(posterPath));
+  }
+
   Future<Post> createPost({
     required String authorId,
     required PostKind kind,
@@ -158,6 +180,11 @@ class SocialRepository {
     String? vendorId,
     bool asVendor = false,
     LatLng? location,
+    String? placeName,
+    String? placeAddress,
+    String? videoUrl,
+    String? videoPosterUrl,
+    int? videoMs,
     List<PollOption>? pollOptions,
     DateTime? pollEndsAt,
     List<GuideStop>? guideStops,
@@ -180,6 +207,11 @@ class SocialRepository {
           'club_id': ?clubId,
           'lat': ?location?.latitude,
           'lng': ?location?.longitude,
+          'place_name': ?placeName?.trim(),
+          'place_address': ?placeAddress?.trim(),
+          'video_url': ?videoUrl,
+          'video_poster_url': ?videoPosterUrl,
+          'video_ms': ?videoMs,
           'poll_options': ?pollOptions?.map((o) => o.toJson()).toList(),
           'poll_ends_at': ?pollEndsAt?.toUtc().toIso8601String(),
           'guide_stops': ?guideStops?.map((s) => s.toJson()).toList(),

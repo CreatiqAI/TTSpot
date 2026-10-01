@@ -266,6 +266,15 @@ class CommunityRepository {
     return rows.map(Place.fromMap).toList();
   }
 
+  /// TT Spots whose name matches [query], best first (the post place search
+  /// lists them above the address suggestions).
+  Future<List<Place>> searchSpots(String query, {int limit = 3}) async {
+    final s = query.trim().replaceAll(RegExp(r'[%,()*]'), '');
+    if (s.length < 2) return const [];
+    final rows = await _client.from('places_with_counts').select().eq('is_spot', true).ilike('name', '%$s%').order('score', ascending: false).limit(limit);
+    return rows.map(Place.fromMap).toList();
+  }
+
   Future<Place> createPlace({required String me, required String name, required String kind, required double lat, required double lng}) async {
     final row = await _client.from('places').insert({'name': name.trim(), 'kind': kind, 'lat': lat, 'lng': lng, 'created_by': me}).select().single();
     return Place.fromMap(row);

@@ -97,7 +97,9 @@ class _PostSquare extends StatelessWidget {
                 ),
               if (kindIcon != null)
                 Positioned(left: 6, top: 6, child: _Badge(icon: kindIcon)),
-              if (p.photoUrls.length > 1)
+              if (p.isVideo)
+                const Positioned(right: 6, top: 6, child: _Badge(icon: AppIcons.playFill))
+              else if (p.photoUrls.length > 1)
                 const Positioned(right: 6, top: 6, child: _Badge(icon: AppIcons.copy)),
             ],
           ),

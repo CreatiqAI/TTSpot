@@ -73,6 +73,11 @@ class Post {
     this.asVendor = false,
     this.lat,
     this.lng,
+    this.placeName,
+    this.placeAddress,
+    this.videoUrl,
+    this.videoPosterUrl,
+    this.videoMs,
     this.claimedBy,
     this.claimer,
     this.pollOptions,
@@ -101,8 +106,21 @@ class Post {
   /// Posted as a partner business.
   final NamedRef? vendor;
   final bool asVendor;
+  /// Where it is: the spotted pin, or the tagged place when that is not a
+  /// TT Spot ([place] is null then and [placeName] says what it is).
   final double? lat;
   final double? lng;
+
+  /// A place from the address search or "Use my location" ("Mamak Sri
+  /// Melur", "Near Taman Tun Dr Ismail"). TT Spots come as [place] instead.
+  final String? placeName;
+  final String? placeAddress;
+
+  /// A video post: [photoUrls] holds just its poster, so anything showing a
+  /// cover shows the still. [videoMs] is its length.
+  final String? videoUrl;
+  final String? videoPosterUrl;
+  final int? videoMs;
   final String? claimedBy;
   final Profile? claimer;
   final List<PollOption>? pollOptions;
@@ -114,7 +132,14 @@ class Post {
   final int commentCount;
   final int voteCount;
 
-  String? get cover => photoUrls.isEmpty ? null : photoUrls.first;
+  bool get isVideo => (videoUrl ?? '').isNotEmpty;
+  String? get cover => photoUrls.isNotEmpty ? photoUrls.first : videoPosterUrl;
+
+  /// The still to show for a video post.
+  String? get videoPoster => videoPosterUrl ?? (photoUrls.isEmpty ? null : photoUrls.first);
+
+  /// The place's name, whichever kind it is.
+  String? get placeLabel => place?.name ?? placeName;
   LatLng? get latLng => lat == null || lng == null ? null : LatLng(lat!, lng!);
   bool get pollClosed => pollEndsAt != null && pollEndsAt!.isBefore(DateTime.now());
 
@@ -149,6 +174,11 @@ class Post {
       asVendor: m['as_vendor'] as bool? ?? false,
       lat: (m['lat'] as num?)?.toDouble(),
       lng: (m['lng'] as num?)?.toDouble(),
+      placeName: m['place_name'] as String?,
+      placeAddress: m['place_address'] as String?,
+      videoUrl: m['video_url'] as String?,
+      videoPosterUrl: m['video_poster_url'] as String?,
+      videoMs: (m['video_ms'] as num?)?.toInt(),
       claimedBy: m['claimed_by'] as String?,
       claimer: claimerM == null ? null : Profile.fromMap(claimerM),
       pollOptions: (m['poll_options'] as List?)?.map((o) => PollOption.fromJson(o as Map<String, dynamic>)).toList(),

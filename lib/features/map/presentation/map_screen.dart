@@ -1379,9 +1379,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                         ),
                       ),
                     ),
-                    // Quick filters for the tab, clear of the round buttons on the right.
+                    // Quick filters for the tab, clear of the round buttons on
+                    // the right (14 margin + 46 button + 4).
                     Padding(
-                      padding: const EdgeInsets.only(top: 10, right: 70 - 12),
+                      padding: const EdgeInsets.only(top: 10, right: 64),
                       child: MapChipBar(mode: mode, light: !_isNight),
                     ),
                     // The key: what the pins on the map right now mean. Its

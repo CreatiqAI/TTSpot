@@ -10,6 +10,14 @@ class ReleaseNote {
 
 const kReleaseNotes = <ReleaseNote>[
   ReleaseNote(
+    version: '0.3.50',
+    date: '2 Oct 2026',
+    title: 'Fix for TT Spot closing on open',
+    points: [
+      'Fixed: 0.3.49 closed by itself right after you opened it. Everything from 0.3.49 is still here.',
+    ],
+  ),
+  ReleaseNote(
     version: '0.3.49',
     date: '2 Oct 2026',
     title: 'New map, full-screen garage and more',

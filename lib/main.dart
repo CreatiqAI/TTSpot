@@ -35,11 +35,16 @@ Future<void> main() async {
   runApp(const ProviderScope(retry: _retry, child: TtSpotApp()));
 }
 
+const _localReleaseTest = bool.fromEnvironment('LOCAL_RELEASE_TEST');
+
 /// Debug builds only: trust an extra root certificate supplied via env.json so
 /// HTTPS works on dev machines where antivirus (Avast) re-signs traffic.
-/// Must run before any HttpClient is created. No-op in release.
+/// Must run before any HttpClient is created. No-op in release, except a local
+/// release smoke test built with --dart-define=LOCAL_RELEASE_TEST=true (store
+/// builds never set it): release-only compiler bugs need a release build to
+/// show, and that build has to reach the server from this PC.
 void _trustDevCertificateIfConfigured() {
-  if (!kDebugMode || Env.devExtraCaPemB64.isEmpty) return;
+  if ((!kDebugMode && !_localReleaseTest) || Env.devExtraCaPemB64.isEmpty) return;
   try {
     SecurityContext.defaultContext.setTrustedCertificatesBytes(base64Decode(Env.devExtraCaPemB64));
     debugPrint('[dev] Extra root certificate trusted for this debug build.');

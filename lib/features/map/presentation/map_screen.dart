@@ -921,12 +921,28 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   /// screen, not the ones folded into a count bubble), and one row per
   /// friend colour in view with who has it.
   void _updateKey() {
+    // Two plain loops per branch, no closure over the nullable bounds: in
+    // 0.3.49 `inView(at) => view == null || view.contains(at)` let the
+    // release compiler hoist contains()'s field reads above the null test,
+    // so the first redraw (before the map reports its bounds) read through
+    // null and killed the app on every launch. Debug builds never showed it.
     final view = ref.read(mapViewportProvider);
-    bool inView(LatLng at) => view == null || view.contains(at);
-    final present = {for (final (at, g) in _keyed) if (inView(at)) g};
+    final present = <LegendGlyph>{};
     final byTag = <String, List<String>>{};
-    for (final (at, tag, name) in _taggedKeyed) {
-      if (inView(at)) (byTag[tag] ??= []).add(name);
+    if (view == null) {
+      for (final k in _keyed) {
+        present.add(k.$2);
+      }
+      for (final t in _taggedKeyed) {
+        (byTag[t.$2] ??= []).add(t.$3);
+      }
+    } else {
+      for (final k in _keyed) {
+        if (view.contains(k.$1)) present.add(k.$2);
+      }
+      for (final t in _taggedKeyed) {
+        if (view.contains(t.$1)) (byTag[t.$2] ??= []).add(t.$3);
+      }
     }
     final tagged = [
       for (final e in kTagColors.entries)

@@ -35,16 +35,21 @@ abstract final class GarageColors {
 /// Width over height of a collector card (252 x 370 in the concept).
 const kCollectorAspect = 252 / 370;
 
+/// Turns a stored URL into an image: cached from the network in the app;
+/// widget tests swap in bundled assets (there is no network there).
+@visibleForTesting
+ImageProvider Function(String url) garageImageFor = (url) => CachedNetworkImageProvider(url);
+
 /// The member's own cover photo (never the AI portrait), else the portrait,
 /// decoded at about the size a card shows it.
 ImageProvider? garagePhotoProvider(Car car, {int decodeWidth = 820}) {
   final url = car.photoCover ?? car.portraitUrl;
   if (url == null) return null;
-  return ResizeImage(CachedNetworkImageProvider(url), width: decodeWidth, policy: ResizeImagePolicy.fit);
+  return ResizeImage(garageImageFor(url), width: decodeWidth, policy: ResizeImagePolicy.fit);
 }
 
 /// A car's cut-out, as stored (already sized for the bay).
-ImageProvider? garageCutoutProvider(Car car) => car.cutoutUrl == null ? null : CachedNetworkImageProvider(car.cutoutUrl!);
+ImageProvider? garageCutoutProvider(Car car) => car.cutoutUrl == null ? null : garageImageFor(car.cutoutUrl!);
 
 /// "01", "02"…
 String bayNumber(int index) => (index + 1).toString().padLeft(2, '0');

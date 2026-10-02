@@ -1,4 +1,9 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/scheduler.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -14,11 +19,13 @@ import '../../application/garage_providers.dart';
 import '../../application/profile_providers.dart';
 import '../../domain/car.dart';
 import '../../domain/garage_look.dart';
-import '../car_page/car_papers_tab.dart' show DocChip, DocChipData, docChips;
 import '../widgets/car_actions_sheet.dart';
 import 'collector_card.dart';
 import 'garage_bay.dart';
 import 'garage_deck.dart';
+import 'garage_panel.dart';
+
+export 'garage_panel.dart' show GarageFacts, compactMoney;
 
 /// The car that fronts everything: the flagged default, else the first.
 Car? todaysCar(List<Car> cars) => cars.where((c) => c.isDefault).firstOrNull ?? cars.firstOrNull;
@@ -27,16 +34,28 @@ Car? todaysCar(List<Car> cars) => cars.where((c) => c.isDefault).firstOrNull ?? 
 /// where the garage opens, not a reshuffle.)
 List<Car> garageOrder(List<Car> cars) => [...cars]..sort((a, b) => a.createdAt.compareTo(b.createdAt));
 
-/// A garage, mine or someone else's: the stage (roller-door bay or card deck,
-/// per my `garage_view` setting), the dots, then the car's panel. Read-only
-/// for someone else's: no edit, today's car or add.
+/// Height of the floating top bar (back, title, Bay ⇄ Cards, add).
+const kGarageBarHeight = 56.0;
+
+/// A garage, mine or someone else's, full screen: the bay (or the card
+/// deck, per my `garage_view` setting) from edge to edge, the top bar
+/// floating over it and the car's panel at the bottom. Read-only for someone
+/// else's: no edit, today's car or add.
 class GarageBody extends ConsumerStatefulWidget {
-  const GarageBody({super.key, required this.ownerId, this.header, this.bottomPadding = 24, this.empty});
+  const GarageBody({super.key, required this.ownerId, required this.title, this.onBack, this.bottomPadding = 0, this.empty});
 
   final String ownerId;
-  /// Above the stage (the Home tab's own title row).
-  final Widget? header;
+
+  /// "My garage", "Keith's garage".
+  final String title;
+
+  /// Shows the back button (the full-screen routes; not the Home tab).
+  final VoidCallback? onBack;
+
+  /// Room the panel keeps clear at the bottom: the home indicator, or the
+  /// floating tab bar on Home.
   final double bottomPadding;
+
   /// Shown when the garage has no cars.
   final Widget? empty;
 
@@ -117,6 +136,7 @@ class _GarageBodyState extends ConsumerState<GarageBody> {
     final cars = ref.read(userCarsProvider(widget.ownerId)).value ?? const <Car>[];
     for (final c in cars) {
       ref.invalidate(carModsProvider(c.id));
+      ref.invalidate(carMeetsProvider(c.id));
       ref.invalidate(postsWhereProvider((column: 'car_id', value: c.id)));
       if (_mine) ref.invalidate(carDocumentsProvider(c.id));
     }
@@ -141,394 +161,546 @@ class _GarageBodyState extends ConsumerState<GarageBody> {
     final carsAsync = ref.watch(userCarsProvider(widget.ownerId));
     final view = GarageView.parse(ref.watch(settingsProvider).garageView);
     final parking = mine ? ref.watch(cutoutJobsProvider) : const <String>{};
-    final screenH = MediaQuery.sizeOf(context).height;
-    final stageH = (screenH * (widget.header != null ? 0.44 : 0.48)).clamp(300.0, 420.0);
+    void add() => context.push(Routes.newCar);
 
-    return RefreshIndicator(
-      onRefresh: _refresh,
-      child: carsAsync.when(
-        skipLoadingOnRefresh: true,
-        skipLoadingOnReload: true,
-        loading: () => ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          children: [
-            ?widget.header,
-            const SizedBox(height: 120),
-            const Center(child: CircularProgressIndicator(strokeWidth: 2)),
-          ],
+    Widget plain(Widget child) => GaragePlainPage(
+          title: widget.title,
+          onBack: widget.onBack,
+          onAdd: mine ? add : null,
+          onRefresh: _refresh,
+          bottomPadding: widget.bottomPadding,
+          child: child,
+        );
+
+    return carsAsync.when(
+      skipLoadingOnRefresh: true,
+      skipLoadingOnReload: true,
+      loading: () => plain(const Padding(padding: EdgeInsets.only(top: 120), child: Center(child: CircularProgressIndicator(strokeWidth: 2)))),
+      error: (e, _) => plain(
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 120, 24, 0),
+          child: Text(friendlyError(e), textAlign: TextAlign.center, style: TextStyle(color: AppColors.textSecondary)),
         ),
-        error: (e, _) => ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          children: [
-            ?widget.header,
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 120, 24, 0),
-              child: Text(friendlyError(e), textAlign: TextAlign.center, style: TextStyle(color: AppColors.textSecondary)),
-            ),
-          ],
-        ),
-        data: (raw) {
-          if (raw.isEmpty) {
-            return ListView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              children: [?widget.header, ?widget.empty],
-            );
-          }
-          final cars = garageOrder(raw);
-          _sync(cars, mine);
-          if (mine) _backfill(cars);
-          _precache(cars);
-          final today = todaysCar(cars);
-          final count = cars.length + (mine ? 1 : 0);
-          void onIndex(int i) => _setIndex(i, cars);
-          void open(Car c) => context.push(Routes.car(c.id));
-          void more(Car c) => showCarActionsSheet(context, ref, c);
-          void add() => context.push(Routes.newCar);
-
-          final stage = view == GarageView.bay
-              ? GarageBayStage(
-                  key: const ValueKey('bay'),
-                  cars: cars,
-                  index: _index,
-                  onIndex: onIndex,
-                  height: stageH,
-                  onOpen: open,
-                  onLongPress: mine ? more : null,
-                  onAdd: mine ? add : null,
-                  parking: parking,
-                )
-              : GarageCardDeck(
-                  key: const ValueKey('cards'),
-                  cars: cars,
-                  index: _index,
-                  onIndex: onIndex,
-                  height: stageH,
-                  onOpen: open,
-                  todayId: today?.id,
-                  onLongPress: mine ? more : null,
-                  onAdd: mine ? add : null,
-                );
-
-          return ListView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: EdgeInsets.only(bottom: widget.bottomPadding),
-            children: [
-              ?widget.header,
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 350),
-                  switchInCurve: Curves.easeOut,
-                  switchOutCurve: Curves.easeIn,
-                  child: stage,
-                ),
-              ),
-              const SizedBox(height: 4),
-              _Dots(count: count, index: _index, onTap: onIndex),
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 260),
-                transitionBuilder: (child, a) => FadeTransition(
-                  opacity: a,
-                  child: SlideTransition(position: Tween(begin: const Offset(0, 0.04), end: Offset.zero).animate(a), child: child),
-                ),
-                layoutBuilder: (current, previous) => Stack(alignment: Alignment.topCenter, children: [...previous, ?current]),
-                child: _index < cars.length
-                    ? _CarPanel(
-                        key: ValueKey(cars[_index].id),
-                        car: cars[_index],
-                        mine: mine,
-                        today: cars[_index].id == today?.id,
-                        onOpen: () => open(cars[_index]),
-                        onMakeToday: () => _makeToday(cars[_index]),
-                        onMore: () => more(cars[_index]),
-                      )
-                    : _AddPanel(key: const ValueKey('add'), onAdd: add),
-              ),
-            ],
+      ),
+      data: (raw) {
+        if (raw.isEmpty) return plain(widget.empty ?? const SizedBox.shrink());
+        final cars = garageOrder(raw);
+        _sync(cars, mine);
+        if (mine) _backfill(cars);
+        _precache(cars);
+        final today = todaysCar(cars);
+        // The panel's numbers, for the car in the bay.
+        final cur = _index < cars.length ? cars[_index] : null;
+        var facts = const GarageFacts();
+        if (cur != null) {
+          final docs = mine ? ref.watch(carDocumentsProvider(cur.id)) : null;
+          facts = GarageFacts(
+            mods: ref.watch(carModsProvider(cur.id)).value,
+            meets: ref.watch(carMeetsProvider(cur.id)).value?.length,
+            posts: ref.watch(postsWhereProvider((column: 'car_id', value: cur.id))).value?.length,
+            papers: docs?.value,
+            papersLoaded: docs?.hasValue ?? false,
           );
-        },
-      ),
-    );
-  }
-}
-
-/// Bay ⇄ Cards, remembered in my settings (`garage_view`).
-class GarageViewToggle extends ConsumerWidget {
-  const GarageViewToggle({super.key, this.color});
-  final Color? color;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final view = GarageView.parse(ref.watch(settingsProvider).garageView);
-    final cards = view == GarageView.cards;
-    return IconButton(
-      tooltip: cards ? 'Bay view' : 'Cards view',
-      color: color,
-      icon: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 200),
-        child: Icon(cards ? AppIcons.garage : AppIcons.cards, key: ValueKey(cards)),
-      ),
-      onPressed: () {
-        final next = cards ? GarageView.bay : GarageView.cards;
-        ref.read(settingsActionsProvider).patch({'garage_view': next.name}).catchError((_) {});
+        }
+        return GarageScene(
+          cars: cars,
+          index: _index,
+          onIndex: (i) => _setIndex(i, cars),
+          mine: mine,
+          view: view,
+          title: widget.title,
+          todayId: today?.id,
+          parking: parking,
+          facts: facts,
+          bottomPadding: widget.bottomPadding,
+          onBack: widget.onBack,
+          onToggleView: () {
+            final next = view == GarageView.cards ? GarageView.bay : GarageView.cards;
+            ref.read(settingsActionsProvider).patch({'garage_view': next.name}).catchError((_) {});
+          },
+          onAdd: mine ? add : null,
+          onOpen: (c) => context.push(Routes.car(c.id)),
+          onMore: mine ? (c) => showCarActionsSheet(context, ref, c) : null,
+          onMakeToday: mine ? _makeToday : null,
+          onEdit: mine ? (c) => context.push(Routes.editCar(c.id)) : null,
+          onPapers: mine ? (c) => context.push(Routes.carDocuments(c.id)) : null,
+          onRefresh: _refresh,
+        );
       },
     );
   }
 }
 
-class _Dots extends StatelessWidget {
-  const _Dots({required this.count, required this.index, required this.onTap});
-  final int count;
+/// The garage on the whole screen, from plain data (no providers), so it can
+/// be pumped in tests: the bay or the card deck edge to edge, the top bar
+/// floating over it, and the slim panel at the bottom. The panel names the
+/// car and holds its buttons; pulled up (to ~60 %) it shows the numbers,
+/// papers and latest mods while the bay rises and the car shrinks to stay in
+/// view. Swiping the bay changes car and the panel cross-fades to it.
+class GarageScene extends StatefulWidget {
+  const GarageScene({
+    super.key,
+    required this.cars,
+    required this.index,
+    required this.onIndex,
+    required this.mine,
+    required this.view,
+    required this.title,
+    required this.onOpen,
+    this.todayId,
+    this.parking = const {},
+    this.facts = const GarageFacts(),
+    this.bottomPadding = 0,
+    this.onBack,
+    this.onToggleView,
+    this.onAdd,
+    this.onMore,
+    this.onMakeToday,
+    this.onEdit,
+    this.onPapers,
+    this.onRefresh,
+  });
+
+  final List<Car> cars;
   final int index;
-  final ValueChanged<int> onTap;
+  final ValueChanged<int> onIndex;
+  final bool mine;
+  final GarageView view;
+  final String title;
+  final ValueChanged<Car> onOpen;
+  final String? todayId;
+  final Set<String> parking;
+
+  /// The numbers for the car in the bay ([index]).
+  final GarageFacts facts;
+  final double bottomPadding;
+  final VoidCallback? onBack;
+  final VoidCallback? onToggleView;
+
+  /// The owner's: the + in the top bar and the empty bay at the end.
+  final VoidCallback? onAdd;
+
+  /// The owner's: the car's menu (long-press, or More in the panel).
+  final ValueChanged<Car>? onMore;
+  final ValueChanged<Car>? onMakeToday;
+  final ValueChanged<Car>? onEdit;
+  final ValueChanged<Car>? onPapers;
+  final Future<void> Function()? onRefresh;
+
+  @override
+  State<GarageScene> createState() => _GarageSceneState();
+}
+
+class _GarageSceneState extends State<GarageScene> {
+  final _sheet = DraggableScrollableController();
+
+  /// How far the panel is pulled up past its collapsed height, in px.
+  final _lift = ValueNotifier<double>(0);
+
+  /// The roller door (0 shut, 1 up): the panel slides in as it opens.
+  late final _door = ValueNotifier<double>(widget.view == GarageView.bay && GarageBayStage.doorWillPlay ? 0 : 1);
+
+  /// Measured heights of the collapsed part and of the rest of the panel.
+  double? _peek;
+  double? _rest;
+  double _height = 0;
+  double _minSize = 0.2;
+  double _maxSize = 0.6;
+  double? _lastMin;
+  double? _lastMax;
+
+  bool get _onAddBay => widget.index >= widget.cars.length;
+
+  @override
+  void didUpdateWidget(GarageScene old) {
+    super.didUpdateWidget(old);
+    // Bay chosen again before the door has played this session: it rolls,
+    // and the panel waits for it.
+    if (old.view != widget.view && widget.view == GarageView.bay && GarageBayStage.doorWillPlay) _door.value = 0;
+  }
+
+  @override
+  void dispose() {
+    _sheet.dispose();
+    _lift.dispose();
+    _door.dispose();
+    super.dispose();
+  }
+
+  void _onPeek(Size s) {
+    if (!mounted) return;
+    if (_peek == null || (s.height - _peek!).abs() > 0.5) setState(() => _peek = s.height);
+  }
+
+  void _onRest(Size s) {
+    if (!mounted) return;
+    if (_rest == null || (s.height - _rest!).abs() > 0.5) setState(() => _rest = s.height);
+  }
+
+  bool _onSheet(DraggableScrollableNotification n) {
+    _lift.value = math.max(0, (n.extent - n.minExtent) * _height);
+    return false;
+  }
+
+  void _toggle() {
+    if (!_sheet.isAttached) return;
+    final open = _lift.value > 8;
+    _sheet.animateTo(open ? _minSize : _maxSize, duration: const Duration(milliseconds: 320), curve: Curves.easeOutCubic);
+  }
+
+  /// When the sizes change under it (a new car, data arriving, a new text
+  /// size) the panel keeps its state: collapsed stays collapsed, open grows
+  /// or shrinks to the new content.
+  void _track(double min, double max) {
+    final lastMin = _lastMin, lastMax = _lastMax;
+    _lastMin = min;
+    _lastMax = max;
+    if (lastMin == null || lastMax == null) return;
+    if ((min - lastMin).abs() < 0.0005 && (max - lastMax).abs() < 0.0005) return;
+    final wasOpen = _lift.value > 8;
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_sheet.isAttached) return;
+      final size = _sheet.size;
+      if (!wasOpen && (size - min).abs() > 0.0005) {
+        _sheet.jumpTo(min);
+      } else if (wasOpen && (size - lastMax).abs() < 0.01 && (max - size).abs() > 0.0005 && max > min) {
+        _sheet.animateTo(max, duration: const Duration(milliseconds: 260), curve: Curves.easeOutCubic);
+      }
+      _lift.value = math.max(0, (_sheet.size - min) * _height);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    if (count < 2) return const SizedBox(height: 14);
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        for (var i = 0; i < count; i++)
-          Semantics(
-            button: true,
-            label: 'Bay ${i + 1}',
-            selected: i == index,
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => onTap(i),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 12),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeOut,
-                  width: i == index ? 22 : 6,
-                  height: 6,
-                  decoration: BoxDecoration(
-                    color: i == index ? AppColors.brand : AppColors.textMuted.withValues(alpha: 0.45),
-                    borderRadius: BorderRadius.circular(3),
+    return LayoutBuilder(
+      builder: (context, c) {
+        final size = c.biggest;
+        final h = size.height;
+        _height = h;
+        final k = garageScale(size);
+        final padTop = MediaQuery.paddingOf(context).top;
+        final topInset = padTop + kGarageBarHeight;
+        final pad = widget.bottomPadding;
+        // Until the panel has been measured (the first frame): a fair guess.
+        final peek = _peek ?? (150 + 72 * MediaQuery.textScalerOf(context).scale(1)) * k;
+        final collapsed = peek + pad;
+        final min = (collapsed / h).clamp(0.1, 0.9);
+        // Pulled up: ~60 % of the screen, more on a short one, never more
+        // than the content, and a strip of the bay always shows.
+        final scene = math.max(80.0, h * 0.16);
+        final cap = math.max(min, math.min(math.max(0.6, min + 0.3), (h - topInset - scene) / h));
+        final rest = _onAddBay ? 0.0 : (_rest ?? double.infinity);
+        final max = rest < 1 ? min : ((collapsed + rest) / h).clamp(min, cap);
+        _minSize = min;
+        _maxSize = max;
+        _track(min, max);
+
+        final insets = EdgeInsets.only(top: topInset, bottom: collapsed);
+        final stage = widget.view == GarageView.bay
+            ? GarageBayStage(
+                key: const ValueKey('bay'),
+                cars: widget.cars,
+                index: widget.index,
+                onIndex: widget.onIndex,
+                onOpen: widget.onOpen,
+                insets: insets,
+                lift: _lift,
+                door: _door,
+                onLongPress: widget.onMore,
+                onAdd: widget.onAdd,
+                parking: widget.parking,
+              )
+            : GarageCardDeck(
+                key: const ValueKey('cards'),
+                cars: widget.cars,
+                index: widget.index,
+                onIndex: widget.onIndex,
+                onOpen: widget.onOpen,
+                insets: insets,
+                lift: _lift,
+                todayId: widget.todayId,
+                onLongPress: widget.onMore,
+                onAdd: widget.onAdd,
+              );
+
+        Widget bay = AnimatedSwitcher(
+          duration: const Duration(milliseconds: 350),
+          switchInCurve: Curves.easeOut,
+          switchOutCurve: Curves.easeIn,
+          layoutBuilder: (current, previous) => Stack(fit: StackFit.expand, children: [...previous, ?current]),
+          child: stage,
+        );
+        final refresh = widget.onRefresh;
+        if (refresh != null) {
+          // Pull the bay down to refresh (it never moves itself).
+          bay = RefreshIndicator(
+            onRefresh: refresh,
+            edgeOffset: topInset,
+            child: ScrollConfiguration(
+              behavior: ScrollConfiguration.of(context).copyWith(overscroll: false),
+              child: SingleChildScrollView(
+                primary: false,
+                physics: const AlwaysScrollableScrollPhysics(parent: ClampingScrollPhysics()),
+                child: SizedBox(width: size.width, height: h, child: bay),
+              ),
+            ),
+          );
+        }
+
+        final count = widget.cars.length + (widget.onAdd != null ? 1 : 0);
+        final car = _onAddBay ? null : widget.cars[widget.index];
+        final id = car?.id ?? 'add';
+        final peekChild = car == null
+            ? GarageAddPeek(key: const ValueKey('peek-add'), k: k, onAdd: widget.onAdd ?? () {})
+            : GarageCarPeek(
+                key: ValueKey('peek-$id'),
+                car: car,
+                mine: widget.mine,
+                today: car.id == widget.todayId,
+                k: k,
+                onOpen: () => widget.onOpen(car),
+                onMakeToday: widget.onMakeToday == null ? null : () => widget.onMakeToday!(car),
+                onEdit: widget.onEdit == null ? null : () => widget.onEdit!(car),
+                onMore: widget.onMore == null ? null : () => widget.onMore!(car),
+              );
+        final restChild = car == null
+            ? const SizedBox.shrink(key: ValueKey('more-add'))
+            : GarageCarMore(
+                key: ValueKey('more-$id'),
+                car: car,
+                mine: widget.mine,
+                facts: widget.facts,
+                k: k,
+                onOpen: () => widget.onOpen(car),
+                onPapers: widget.onPapers == null ? null : () => widget.onPapers!(car),
+              );
+
+        final sheet = DraggableScrollableSheet(
+          controller: _sheet,
+          initialChildSize: min,
+          minChildSize: min,
+          maxChildSize: max,
+          snap: max > min + 0.01,
+          builder: (context, scroll) => PanelGlass(
+            child: SingleChildScrollView(
+              controller: scroll,
+              physics: const ClampingScrollPhysics(),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _SizeReporter(
+                    onSize: _onPeek,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        ValueListenableBuilder<double>(
+                          valueListenable: _lift,
+                          builder: (_, up, _) => PanelHandle(
+                            count: count,
+                            index: widget.index,
+                            onDot: widget.onIndex,
+                            expanded: up > 8,
+                            onToggle: max > min + 0.01 ? _toggle : null,
+                          ),
+                        ),
+                        _crossFade(peekChild),
+                      ],
+                    ),
                   ),
-                ),
+                  // Out of sight (and reach) until the panel is pulled up.
+                  _SizeReporter(
+                    onSize: _onRest,
+                    child: ValueListenableBuilder<double>(
+                      valueListenable: _lift,
+                      builder: (_, up, child) => IgnorePointer(
+                        ignoring: up < 8,
+                        child: Opacity(opacity: (up / 48).clamp(0.0, 1.0), child: child),
+                      ),
+                      child: _crossFade(restChild),
+                    ),
+                  ),
+                  SizedBox(height: pad),
+                ],
               ),
             ),
           ),
-      ],
+        );
+
+        return AnnotatedRegion<SystemUiOverlayStyle>(
+          value: AppTheme.systemOverlay.copyWith(statusBarIconBrightness: Brightness.light, statusBarBrightness: Brightness.dark),
+          child: ColoredBox(
+            color: GarageColors.wallBottom,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                bay,
+                // The panel slides up as the roller door finishes.
+                NotificationListener<DraggableScrollableNotification>(
+                  onNotification: _onSheet,
+                  child: ValueListenableBuilder<double>(
+                    valueListenable: _door,
+                    builder: (_, door, child) {
+                      final t = widget.view == GarageView.cards ? 1.0 : Curves.easeOutCubic.transform(((door - 0.45) / 0.55).clamp(0.0, 1.0));
+                      // One shape whatever the door does: the sheet must
+                      // never be rebuilt from scratch (it owns the controller).
+                      return IgnorePointer(
+                        ignoring: t < 1,
+                        child: Transform.translate(offset: Offset(0, (1 - t) * (collapsed + 40)), child: child),
+                      );
+                    },
+                    child: Align(
+                      alignment: Alignment.bottomCenter,
+                      child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 640), child: sheet),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  top: padTop,
+                  left: 0,
+                  right: 0,
+                  child: GarageTopBar(
+                    title: widget.title,
+                    onDark: true,
+                    onBack: widget.onBack,
+                    view: widget.view,
+                    onToggleView: widget.onToggleView,
+                    onAdd: widget.onAdd,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _crossFade(Widget child) => AnimatedSwitcher(
+        duration: const Duration(milliseconds: 260),
+        switchInCurve: Curves.easeOut,
+        switchOutCurve: Curves.easeIn,
+        layoutBuilder: (current, previous) => Stack(alignment: Alignment.topCenter, fit: StackFit.passthrough, children: [...previous, ?current]),
+        child: child,
+      );
+}
+
+/// The floating bar over the bay: back, the title, Bay ⇄ Cards and add, as
+/// white glass buttons ([onDark]), or plain ones on a light page.
+class GarageTopBar extends StatelessWidget {
+  const GarageTopBar({super.key, required this.title, required this.onDark, this.onBack, this.view = GarageView.bay, this.onToggleView, this.onAdd});
+  final String title;
+  final bool onDark;
+  final VoidCallback? onBack;
+  final GarageView view;
+  final VoidCallback? onToggleView;
+  final VoidCallback? onAdd;
+
+  @override
+  Widget build(BuildContext context) {
+    final fg = onDark ? Colors.white : AppColors.textPrimary;
+    Widget button(IconData icon, String tooltip, VoidCallback onTap) => onDark
+        ? PanelIconButton(icon: icon, tooltip: tooltip, onTap: onTap, size: 40)
+        : IconButton(tooltip: tooltip, onPressed: onTap, icon: Icon(icon, color: fg));
+    final cards = view == GarageView.cards;
+    return SizedBox(
+      height: kGarageBarHeight,
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: onDark ? 12 : 4),
+        child: Row(
+          children: [
+            if (onBack != null) ...[
+              button(AppIcons.arrowLeft, 'Back', onBack!),
+              SizedBox(width: onDark ? 10 : 2),
+            ] else
+              SizedBox(width: onDark ? 6 : 16),
+            Expanded(
+              child: Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textScaler: MediaQuery.textScalerOf(context).clamp(maxScaleFactor: 1.2),
+                style: TextStyle(
+                  fontFamily: AppFonts.display,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  height: 1.1,
+                  letterSpacing: 0.2,
+                  color: fg,
+                  shadows: onDark ? const [Shadow(color: Color(0x99000000), blurRadius: 8)] : null,
+                ),
+              ),
+            ),
+            if (onToggleView != null) ...[
+              const SizedBox(width: 8),
+              button(cards ? AppIcons.garage : AppIcons.cards, cards ? 'Bay view' : 'Cards view', onToggleView!),
+            ],
+            if (onAdd != null) ...[
+              const SizedBox(width: 8),
+              button(AppIcons.plus, 'Add a car', onAdd!),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }
 
-/// Under the stage: make, name, specs, the Mods / Spent / Posts card, papers
-/// due soon, then Open car and today's car / Edit (the owner's).
-class _CarPanel extends ConsumerWidget {
-  const _CarPanel({super.key, required this.car, required this.mine, required this.today, required this.onOpen, required this.onMakeToday, required this.onMore});
-  final Car car;
-  final bool mine;
-  final bool today;
-  final VoidCallback onOpen;
-  final VoidCallback onMakeToday;
-  final VoidCallback onMore;
+/// While the cars load, or when there are none: the top bar on a plain
+/// page over [child], pull to refresh.
+class GaragePlainPage extends StatelessWidget {
+  const GaragePlainPage({super.key, required this.title, required this.child, this.onBack, this.onAdd, this.onRefresh, this.bottomPadding = 0});
+  final String title;
+  final Widget child;
+  final VoidCallback? onBack;
+  final VoidCallback? onAdd;
+  final Future<void> Function()? onRefresh;
+  final double bottomPadding;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final c = car;
-    final mods = ref.watch(carModsProvider(c.id));
-    final posts = ref.watch(postsWhereProvider((column: 'car_id', value: c.id)));
-    final spent = mods.value?.fold<double>(0, (s, m) => s + (m.cost ?? 0));
-    // Papers that need attention soon (expired or under two weeks away): mine only.
-    final docs = mine ? ref.watch(carDocumentsProvider(c.id)).value : null;
-    final dueSoon = docs == null ? const <DocChipData>[] : docChips(docs).where((d) => d.urgent).toList();
-    final make = [c.make.toUpperCase(), if (c.year != null) '${c.year}'].join(' · ');
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 2, 20, 0),
+  Widget build(BuildContext context) {
+    final list = ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: EdgeInsets.only(bottom: bottomPadding),
+      children: [child],
+    );
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: AppTheme.systemOverlay,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Wrap(
-            spacing: 8,
-            runSpacing: 4,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              Text(make, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 2.5, color: AppColors.textSecondary)),
-              if (today)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(color: AppColors.brand, borderRadius: BorderRadius.circular(AppRadius.pill)),
-                  child: Text(mine ? 'TODAY\'S CAR' : 'DAILY', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white)),
-                ),
-            ],
-          ),
-          const SizedBox(height: 2),
-          Text(
-            c.model,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontFamily: AppFonts.display, fontSize: 38, fontWeight: FontWeight.w800, height: 1.05, color: AppColors.textPrimary),
-          ),
-          if (c.specLine != null) ...[
-            const SizedBox(height: 2),
-            Text(c.specLine!, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 14, color: AppColors.textSecondary)),
-          ],
-          const SizedBox(height: 14),
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            decoration: BoxDecoration(color: AppColors.surfaceGray, borderRadius: BorderRadius.circular(16)),
-            child: Row(
-              children: [
-                _Stat(value: mods.value?.length.toString(), label: 'Mods'),
-                const _StatDivider(),
-                if (mine)
-                  _Stat(value: spent == null ? null : 'RM ${compactMoney(spent)}', label: 'Spent')
-                else
-                  _Stat(value: '${c.photoUrls.length}', label: 'Photos'),
-                const _StatDivider(),
-                _Stat(value: posts.value?.length.toString(), label: 'Posts'),
-              ],
-            ),
-          ),
-          if (dueSoon.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            GestureDetector(
-              onTap: () => context.push(Routes.carDocuments(c.id)),
-              child: Wrap(spacing: 6, runSpacing: 6, children: [for (final d in dueSoon) DocChip(chip: d)]),
-            ),
-          ],
-          const SizedBox(height: 14),
-          if (mine)
-            Row(
-              children: [
-                Expanded(child: _FilledAction(label: 'Open car', onTap: onOpen)),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: today
-                      ? _OutlinedAction(label: 'Edit', icon: AppIcons.pencilSimple, onTap: () => context.push(Routes.editCar(c.id)))
-                      : _OutlinedAction(label: 'Make today\'s car', onTap: onMakeToday),
-                ),
-                const SizedBox(width: 4),
-                IconButton(
-                  tooltip: 'More',
-                  onPressed: onMore,
-                  icon: Icon(AppIcons.dotsThree, color: AppColors.textPrimary),
-                ),
-              ],
-            )
-          else
-            _FilledAction(label: 'Open car', onTap: onOpen),
-          const SizedBox(height: 8),
+          SizedBox(height: MediaQuery.paddingOf(context).top),
+          GarageTopBar(title: title, onDark: false, onBack: onBack, onAdd: onAdd),
+          Expanded(child: onRefresh == null ? list : RefreshIndicator(onRefresh: onRefresh!, child: list)),
         ],
       ),
     );
   }
 }
 
-/// Under the empty bay: what it's for and the Add button.
-class _AddPanel extends StatelessWidget {
-  const _AddPanel({super.key, required this.onAdd});
-  final VoidCallback onAdd;
+/// Reports its child's size after each layout that changes it (the panel
+/// measures itself to know how far to collapse and open).
+class _SizeReporter extends SingleChildRenderObjectWidget {
+  const _SizeReporter({required this.onSize, super.child});
+  final ValueChanged<Size> onSize;
 
   @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.fromLTRB(20, 2, 20, 8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('EMPTY BAY', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 2.5, color: AppColors.textSecondary)),
-            const SizedBox(height: 2),
-            Text(
-              'Park another car',
-              style: TextStyle(fontFamily: AppFonts.display, fontSize: 38, fontWeight: FontWeight.w800, height: 1.05, color: AppColors.textPrimary),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Your daily, your project, your weekend toy. Each car gets its own bay.',
-              style: TextStyle(fontSize: 14, height: 1.35, color: AppColors.textSecondary),
-            ),
-            const SizedBox(height: 16),
-            _FilledAction(label: 'Add a car', icon: AppIcons.plus, onTap: onAdd),
-          ],
-        ),
-      );
-}
-
-/// RM 850 · RM 12.5k · RM 1.2m: fits a third of a phone width.
-String compactMoney(double v) {
-  String trim(double x) => x.toStringAsFixed(x >= 100 || x == x.roundToDouble() ? 0 : 1);
-  if (v >= 1000000) return '${trim(v / 1000000)}m';
-  if (v >= 10000) return '${trim(v / 1000)}k';
-  final s = v.toStringAsFixed(0);
-  return s.replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (_) => ',');
-}
-
-class _Stat extends StatelessWidget {
-  const _Stat({required this.value, required this.label});
-  final String? value;
-  final String label;
+  RenderObject createRenderObject(BuildContext context) => _RenderSizeReporter(onSize);
 
   @override
-  Widget build(BuildContext context) => Expanded(
-        child: Column(
-          children: [
-            Text(
-              value ?? '–',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontFamily: AppFonts.display, fontSize: 22, fontWeight: FontWeight.w700, height: 1.1, color: AppColors.textPrimary),
-            ),
-            const SizedBox(height: 2),
-            Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-          ],
-        ),
-      );
+  void updateRenderObject(BuildContext context, _RenderSizeReporter renderObject) => renderObject.onSize = onSize;
 }
 
-class _StatDivider extends StatelessWidget {
-  const _StatDivider();
+class _RenderSizeReporter extends RenderProxyBox {
+  _RenderSizeReporter(this.onSize);
+  ValueChanged<Size> onSize;
+  Size? _last;
 
   @override
-  Widget build(BuildContext context) => Container(width: 1, height: 28, color: AppColors.border);
-}
-
-class _FilledAction extends StatelessWidget {
-  const _FilledAction({required this.label, required this.onTap, this.icon});
-  final String label;
-  final VoidCallback onTap;
-  final IconData? icon;
-
-  @override
-  Widget build(BuildContext context) {
-    final style = FilledButton.styleFrom(
-      minimumSize: const Size.fromHeight(48),
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      backgroundColor: AppColors.textPrimary,
-      foregroundColor: AppColors.onInk,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-    );
-    final text = Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, softWrap: false);
-    return icon == null
-        ? FilledButton(onPressed: onTap, style: style, child: text)
-        : FilledButton.icon(onPressed: onTap, style: style, icon: Icon(icon, size: 18), label: text);
-  }
-}
-
-class _OutlinedAction extends StatelessWidget {
-  const _OutlinedAction({required this.label, required this.onTap, this.icon});
-  final String label;
-  final VoidCallback onTap;
-  final IconData? icon;
-
-  @override
-  Widget build(BuildContext context) {
-    final style = OutlinedButton.styleFrom(
-      minimumSize: const Size.fromHeight(48),
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      foregroundColor: AppColors.textPrimary,
-      side: BorderSide(color: AppColors.border),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-    );
-    final text = Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, softWrap: false);
-    return icon == null
-        ? OutlinedButton(onPressed: onTap, style: style, child: text)
-        : OutlinedButton.icon(onPressed: onTap, style: style, icon: Icon(icon, size: 16), label: text);
+  void performLayout() {
+    super.performLayout();
+    if (size == _last) return;
+    _last = size;
+    final s = size;
+    SchedulerBinding.instance.addPostFrameCallback((_) => onSize(s));
   }
 }

@@ -43,11 +43,21 @@ import 'widgets/map_toolbar.dart';
 import 'widgets/place_card.dart';
 import 'widgets/car_marker.dart';
 import 'widgets/visibility_sheet.dart';
+import 'widgets/event_pins.dart';
+import 'widgets/map_chips.dart';
+import '../../friends/presentation/friend_colour_sheet.dart';
 import '../../settings/application/settings_providers.dart';
 
-/// Home. One map, three layers: Now (friends, live meets, moments), Upcoming
-/// (meets on the calendar) and Spots (places to check in, shown big and
-/// named). Spots and partner shops also sit quietly under every other layer.
+/// Home. One map, three tabs, each with quick-filter chips under the switch:
+/// Now (friends, clubmates, nearby drivers, live meets, moments), Events
+/// (every meet in view, live or to come, as picture pins sized by tier) and
+/// Spots (places to check in and partner shops).
+///
+/// Event pins come in three tiers (see map_filters.dart): official clubs and
+/// approved organizers big and visible from far out, partners medium, TT
+/// sessions and the rest small and only from district zoom. A smaller pin
+/// that would sit under a bigger one is left out until the zoom pulls them
+/// apart; pins of one tier that crowd together become a count bubble.
 class MapScreen extends ConsumerStatefulWidget {
   const MapScreen({super.key});
 
@@ -60,6 +70,14 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   GlyphMarkerFactory? _glyphs;
   MapPinFactory? _pins;
   CarMarkerFactory? _cars;
+  EventPinFactory? _events;
+  /// A batch of event photos arrived: one redraw for the lot.
+  Timer? _imageRedraw;
+  /// Events tab: meets in view (through the chips) that the zoom keeps off
+  /// the map, for the toolbar's "N more up close".
+  int _moreUpClose = 0;
+  /// Key rows for friends I gave a colour, from [_updateKey].
+  List<({Color color, String names})> _tagged = const [];
   List<AppMarker> _markerSet = const [];
   /// What kinds of pin are on the map right now; feeds the key.
   Set<LegendGlyph> _present = const {};
@@ -187,7 +205,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
           ? null
           : AppPulse(points: [here], color: kRelationMe, fromPx: _close ? 26 : 9, toPx: _close ? 62 : 36),
     );
-    final live = ref.read(mapModeProvider) == MapMode.now ? (ref.read(liveEventsProvider).value ?? const <Event>[]) : const <Event>[];
+    // A radar on each live meet whose pin is on the Now tab at this zoom.
+    final live = ref.read(mapModeProvider) == MapMode.now && nowShowsMeets(ref.read(nowChipsProvider))
+        ? [for (final e in ref.read(liveEventsProvider).value ?? const <Event>[]) if (tierVisibleAt(pinTierOf(e), _zoom)) e]
+        : const <Event>[];
     // 350 m of ground at the current zoom (re-sized when the zoom settles).
     final radarPx = (350 / _metresPerPx).clamp(24.0, 400.0);
     _map.setPulse(
@@ -249,6 +270,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   void dispose() {
     _settle?.cancel();
     _homingTimer?.cancel();
+    _imageRedraw?.cancel();
+    _events?.dispose();
     _glyphs?.dispose();
     _pins?.dispose();
     _sheet.dispose();
@@ -352,19 +375,20 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     }
   }
 
-  /// Everything about the pins that depends on the zoom: tier, size, and the
-  /// count-bubble grouping, redone every quarter zoom
-  /// step below street zoom (below zoom 10 the pin size stops changing, the
-  /// grouping must not).
-  static (int, double, int) _looksAt(double zoom) =>
-      (_tierFor(zoom), _scaleAt(zoom), zoom >= _closeZoom ? -1 : (zoom * 4).round());
+  /// Everything about the pins that depends on the zoom: tier, size, which
+  /// event tiers show and carry names ([tierBandAt]), and the count-bubble
+  /// grouping, redone every quarter zoom step below street zoom (below zoom
+  /// 10 the pin size stops changing, the grouping must not).
+  static (int, double, int, int) _looksAt(double zoom) =>
+      (_tierFor(zoom), _scaleAt(zoom), tierBandAt(zoom), zoom >= _closeZoom ? -1 : (zoom * 4).round());
 
   void _applyZoom(double zoom) {
     final tier = _tierFor(zoom);
-    final tierChanged = tier != _tier;
+    final changed = tier != _tier || tierBandAt(zoom) != tierBandAt(_zoom);
     _zoom = zoom;
     _tier = tier;
-    if (tierChanged) _syncPulses(); // my ring starts at the dot or at the badge
+    // My ring starts at the dot or at the badge; radars follow the meets shown.
+    if (changed) _syncPulses();
   }
 
   void _scheduleSettle(Duration after) {
@@ -617,7 +641,16 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     await _map.fitBounds(boundsAround(points), insets: _fitInsets, maxZoom: 15.5, ms: 700);
   }
 
-  /// "3 spots nearby · closest Wheels Cafe 4.2 km" on Now and Upcoming while
+  /// The Events tab opens on the district around the camera: at street zoom
+  /// it would show only this street's meets. 12.5 is the furthest zoom at
+  /// which every tier still shows (the small pins need 12.5 or closer).
+  void _frameEvents() {
+    final v = _view;
+    if (!_map.isReady || v == null || _zoom <= 12.6 || _pendingFocus != null) return;
+    _map.animateTo(v.centre, zoom: 12.5, ms: 500);
+  }
+
+  /// "3 spots nearby · closest Wheels Cafe 4.2 km" on Now and Events while
   /// no spot is in view (the map opens on me, usually on a street without
   /// one). Null = no pill: a spot is in view, or it was closed this session.
   String? _spotsHint() {
@@ -649,21 +682,35 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   MapPinFactory get _pinFactory => _pins ??= MapPinFactory(devicePixelRatio: MediaQuery.devicePixelRatioOf(context));
   GlyphMarkerFactory get _glyphFactory => _glyphs ??= GlyphMarkerFactory(devicePixelRatio: MediaQuery.devicePixelRatioOf(context));
 
-  /// Events are teardrops a touch bigger than spots: red with a flag, gold
-  /// with a crown for official clubs, ink with a storefront for partners; TT
-  /// sessions carry a pennant flag. Label only when close.
-  Future<MapPin> _eventPin(Event e, {String? sub, required double pinScale}) {
-    final official = e.isOfficialClubEvent;
-    final partner = e.vendorId != null;
-    final tt = e.type == EventType.tt || e.isInstant;
-    return _glyphFactory.teardrop(
-      color: official ? kGold : (partner ? kInk : kEventRed),
-      glyph: tt ? AppIcons.flagPennantFill : (official ? AppIcons.crownFill : (partner ? AppIcons.storefrontFill : AppIcons.flagFill)),
-      label: _close ? (e.isInstant ? e.venueName : e.title) : null,
-      sub: _close ? sub : null,
-      scale: pinScale * 1.1,
-    );
+  /// Event pins: pictures sized by tier (see event_pins.dart). A photo that
+  /// arrives after its pin was drawn asks for a redraw ([_onPinImage]).
+  EventPinFactory get _eventFactory =>
+      _events ??= EventPinFactory(devicePixelRatio: MediaQuery.devicePixelRatioOf(context), pins: _pinFactory)..onImageReady = _onPinImage;
+
+  /// Photos land one by one; redraw once they have stopped landing for a
+  /// moment (each redraw finds the earlier bitmaps in the cache).
+  void _onPinImage() {
+    _imageRedraw?.cancel();
+    _imageRedraw = Timer(const Duration(milliseconds: 250), () {
+      if (mounted) _scheduleRebuild();
+    });
   }
+
+  /// The key row for an event pin of [tier].
+  static LegendGlyph _eventGlyph(PinTier tier) => switch (tier) {
+        PinTier.major => LegendGlyph.eventMajor,
+        PinTier.partner => LegendGlyph.eventPartner,
+        PinTier.minor => LegendGlyph.eventMinor,
+      };
+
+  /// Draw order of event pins: the bigger the tier, the higher. Friends (7)
+  /// stay above every event, me and the picked place above everything.
+  static int _eventZ(PinTier tier) => switch (tier) {
+        PinTier.major => 6,
+        PinTier.partner => 5,
+        PinTier.minor => 4,
+      };
+
   /// Dropped by [build] when the map switches between day and night (my halo differs).
   CarMarkerFactory get _carFactory => _cars ??= CarMarkerFactory(devicePixelRatio: MediaQuery.devicePixelRatioOf(context), pins: _pinFactory, night: _isNight);
 
@@ -704,53 +751,62 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     final built = <AppMarker>[];
     // Where each kind of pin is drawn: the key lists the kinds in view.
     final keyed = <(LatLng, LegendGlyph)>[];
-    // Teardrops (events, spots, partner shops), gathered first so close
-    // ones can merge into a count bubble when zoomed out.
+    // Pins that can merge into count bubbles or hide under a bigger one
+    // (events, spots, partner shops), gathered first.
     final drops = <_Drop>[];
+    // Events tab: meets in view the zoom leaves off the map.
+    var hiddenByZoom = 0;
 
     Future<bool> stale() async => generation != _generation || !mounted;
-    LegendGlyph eventGlyph(Event e) => e.type == EventType.tt || e.isInstant
-        ? LegendGlyph.flag
-        : e.isOfficialClubEvent
-            ? LegendGlyph.officialEvent
-            : e.vendorId != null
-                ? LegendGlyph.partnerEvent
-                : LegendGlyph.balloon;
-    _Drop eventDrop(Event e, String sub) => _Drop(
-          id: 'event:${e.id}',
-          at: e.latLng,
-          glyphs: {eventGlyph(e)},
-          z: 3, // above the spots underneath
-          event: true,
-          pin: (scale) => _eventPin(e, sub: sub, pinScale: scale),
-          onTap: () => _openAt(e.latLng, () => context.push(Routes.event(e.id))),
-        );
+    _Drop eventDrop(Event e, {required bool live, String? sub}) {
+      final tier = pinTierOf(e);
+      final rule = tierRule(tier);
+      return _Drop(
+        id: 'event:${e.id}',
+        at: e.latLng,
+        glyphs: {_eventGlyph(tier)},
+        z: _eventZ(tier),
+        rank: tier.index + 1, // major 1, partner 2, minor 3
+        side: (_) => rule.side,
+        groupPx: rule.groupPx,
+        bubble: tierRingColor(tier),
+        bubbleScale: (_) => rule.side / ((clusterRadius + 2.5) * 2),
+        pin: (_) {
+          final named = tierLabelAt(tier, _zoom);
+          return _eventFactory.event(e, tier: tier, live: live, label: named ? (e.isInstant ? e.venueName : e.title) : null, sub: named ? sub : null);
+        },
+        onTap: () => _openAt(e.latLng, () => context.push(Routes.event(e.id))),
+      );
+    }
 
     switch (mode) {
       case MapMode.now:
-        for (final e in ref.read(liveEventsProvider).value ?? const <Event>[]) {
-          drops.add(eventDrop(e, e.checkinCount > 0 ? 'LIVE · ${e.checkinCount} here' : 'LIVE'));
+        if (nowShowsMeets(ref.read(nowChipsProvider))) {
+          for (final e in ref.read(liveEventsProvider).value ?? const <Event>[]) {
+            if (!tierVisibleAt(pinTierOf(e), _zoom)) continue;
+            drops.add(eventDrop(e, live: true, sub: e.checkinCount > 0 ? '${e.checkinCount} here' : null));
+          }
         }
-        _addPlaces(drops, focused: false);
-      case MapMode.upcoming:
+      case MapMode.events:
         final now = DateTime.now();
-        for (final e in ref.read(mapEventsProvider).value ?? const <Event>[]) {
-          drops.add(eventDrop(e, relativeShort(e.startsAt, now: now)));
+        for (final e in ref.read(filteredMapEventsProvider).value ?? const <Event>[]) {
+          if (!tierVisibleAt(pinTierOf(e), _zoom)) {
+            hiddenByZoom++;
+            continue;
+          }
+          final live = e.isLive && !e.startsAt.isAfter(now.add(const Duration(minutes: 5)));
+          drops.add(eventDrop(e, live: live, sub: live ? (e.checkinCount > 0 ? '${e.checkinCount} here' : null) : relativeShort(e.startsAt, now: now)));
         }
-        _addPlaces(drops, focused: false);
       case MapMode.spots:
-        _addPlaces(drops, focused: true);
+        _addPlaces(drops);
     }
     // Every pin at once: bitmaps already in the cache come straight back,
     // the rest paint side by side instead of one after another.
     final pinScale = _pinScale;
-    final groups = _groups(drops);
+    final (groups, hiddenUnder) = _groups(drops);
     final pins = await Future.wait([
       for (final group in groups)
-        group.length == 1
-            ? group.first.pin(pinScale)
-            // Red when a meet is in it, ink for places only.
-            : _glyphFactory.cluster(count: group.length, color: group.any((d) => d.event) ? kEventRed : kInk, scale: pinScale),
+        group.length == 1 ? group.first.pin(pinScale) : _glyphFactory.cluster(count: group.length, color: group.first.bubble, scale: group.first.bubbleScale(pinScale)),
     ]);
     if (await stale()) return;
     _lastDrops = drops;
@@ -770,18 +826,21 @@ class _MapScreenState extends ConsumerState<MapScreen> {
           group.map((d) => d.at.longitude).reduce((a, b) => a + b) / group.length,
         );
         keyed.add((at, LegendGlyph.cluster));
-        built.add(AppMarker(id: 'group:${group.first.id}', position: at, image: pin.bytes, size: pin.size, anchor: pin.anchor, zIndex: 5, onTap: () => _zoomToGroup(group)));
+        built.add(AppMarker(id: 'group:${group.first.id}', position: at, image: pin.bytes, size: pin.size, anchor: pin.anchor, zIndex: group.first.event ? group.first.z : 5, onTap: () => _zoomToGroup(group)));
       }
     }
+    final more = mode == MapMode.events ? hiddenByZoom + hiddenUnder : 0;
+    if (more != _moreUpClose) setState(() => _moreUpClose = more);
     // Places and events go up now. Moments and people follow (a moment's
     // photo or a car photo may still be downloading, which on a slow
     // network takes many seconds); until then the ones already on the map
     // stay where they are.
     final withPeople = mode == MapMode.now;
-    final withMoments = mode == MapMode.now && !_far;
+    final withMoments = mode == MapMode.now && !_far && nowShowsMoments(ref.read(nowChipsProvider));
     bool slow(String id) => id == 'me' || (withPeople && id.startsWith('friend:')) || (withMoments && id.startsWith('moment:'));
     setState(() => _markerSet = [...built, for (final m in _markerSet) if (slow(m.id)) m]);
     _keyed = [...keyed, for (final k in _keyed) if (_slowGlyphs.contains(k.$2)) k];
+    if (!withPeople) _taggedKeyed = const [];
     _updateKey();
     if (withMoments) {
       final moments = [for (final m in ref.read(liveMomentsProvider).value ?? const <Story>[]) if (m.latLng != null) m];
@@ -803,11 +862,13 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         ));
       }
     }
-    await _addPeople(built, stale, keyed, onlyMe: mode != MapMode.now);
+    final tagged = <(LatLng, String, String)>[];
+    await _addPeople(built, stale, keyed, tagged, onlyMe: mode != MapMode.now);
     if (await stale()) return;
-    if (kDebugMode) debugPrint('map: ${built.length} markers, tier $_tier, zoom ${_zoom.toStringAsFixed(1)}');
+    if (kDebugMode) debugPrint('map: ${built.length} markers, tier $_tier, zoom ${_zoom.toStringAsFixed(1)}, $more more up close');
     setState(() => _markerSet = built);
     _keyed = keyed;
+    _taggedKeyed = tagged;
     _updateKey();
     _syncPulses();
   }
@@ -836,7 +897,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
           if (group.length == 1) {
             await group.first.pin(scale);
           } else {
-            await _glyphFactory.cluster(count: group.length, color: group.any((d) => d.event) ? kEventRed : kInk, scale: scale);
+            await _glyphFactory.cluster(count: group.length, color: group.first.bubble, scale: group.first.bubbleScale(scale));
           }
         }
         for (final d in _lastDrops) {
@@ -851,50 +912,89 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
   /// Every drawn pin's kind and place, from the last rebuild.
   List<(LatLng, LegendGlyph)> _keyed = const [];
+  /// Friends drawn in a colour I gave them: where, the colour key, first name.
+  List<(LatLng, String, String)> _taggedKeyed = const [];
   /// Pins drawn in the second, slower phase of a redraw.
   static const _slowGlyphs = {LegendGlyph.me, LegendGlyph.friend, LegendGlyph.club, LegendGlyph.nearby, LegendGlyph.moment};
 
   /// The key lists the kinds of pin in view right now (not the ones off
-  /// screen, not the ones folded into a count bubble).
+  /// screen, not the ones folded into a count bubble), and one row per
+  /// friend colour in view with who has it.
   void _updateKey() {
     final view = ref.read(mapViewportProvider);
-    final present = {for (final (at, g) in _keyed) if (view == null || view.contains(at)) g};
-    if (!setEquals(present, _present) && mounted) setState(() => _present = present);
+    bool inView(LatLng at) => view == null || view.contains(at);
+    final present = {for (final (at, g) in _keyed) if (inView(at)) g};
+    final byTag = <String, List<String>>{};
+    for (final (at, tag, name) in _taggedKeyed) {
+      if (inView(at)) (byTag[tag] ??= []).add(name);
+    }
+    final tagged = [
+      for (final e in kTagColors.entries)
+        if (byTag[e.key] case final names?) (color: e.value, names: names.join(', ')),
+    ];
+    final sameTagged = tagged.length == _tagged.length &&
+        [for (var i = 0; i < tagged.length; i++) tagged[i] == _tagged[i]].every((x) => x);
+    if ((!setEquals(present, _present) || !sameTagged) && mounted) {
+      setState(() {
+        _present = present;
+        _tagged = tagged;
+      });
+    }
   }
 
-  /// Teardrops closer than this on screen merge into one count bubble.
-  static const _groupPx = 32.0;
-
-  /// Below street zoom, pins that would overlap merge (greedy: each joins
-  /// the first group whose first pin is within [_groupPx]). Distances are in
-  /// Web Mercator pixels at the current zoom, so the groups hold still while
-  /// the map pans. The picked place always stands alone.
-  List<List<_Drop>> _groups(List<_Drop> drops) {
-    if (_zoom >= _closeZoom) return [for (final d in drops) [d]];
+  /// Below street zoom, pins are claimed biggest tier first. A pin that
+  /// would sit under a pin of a bigger tier is left out (it shows once the
+  /// zoom pulls them apart; the count comes back as the second value). Pins
+  /// of the same tier closer than their tier's [_Drop.groupPx] merge into a
+  /// count bubble (greedy: each joins the first group whose first pin is
+  /// near). Distances are in Web Mercator pixels at the current zoom, so the
+  /// groups hold still while the map pans. The picked place always stands
+  /// alone. At street zoom and closer every pin stands alone and the draw
+  /// order (bigger tier on top) settles overlaps.
+  (List<List<_Drop>>, int) _groups(List<_Drop> drops) {
+    if (_zoom >= _closeZoom) return ([for (final d in drops) [d]], 0);
     final world = 256 * math.pow(2, _zoom);
     Offset px(LatLng p) {
       final s = math.sin(p.latitude * math.pi / 180);
       return Offset((p.longitude + 180) / 360 * world, (0.5 - math.log((1 + s) / (1 - s)) / (4 * math.pi)) * world);
     }
 
+    final pinScale = _pinScale;
+    // Biggest tier first; the list order (soonest first, saved first…) within a tier.
+    final order = [for (var i = 0; i < drops.length; i++) i]
+      ..sort((a, b) {
+        final r = drops[a].rank.compareTo(drops[b].rank);
+        return r != 0 ? r : a.compareTo(b);
+      });
     final out = <List<_Drop>>[];
     final seeds = <(Offset, List<_Drop>)>[];
-    for (final d in drops) {
+    // Pins (or bubbles) already placed: where, how wide, which tier.
+    final claimed = <(Offset, double, int)>[];
+    var hidden = 0;
+    for (final i in order) {
+      final d = drops[i];
+      final p = px(d.at);
+      final side = d.side(pinScale);
       if (d.alone) {
         out.add([d]);
+        claimed.add((p, side, d.rank));
         continue;
       }
-      final p = px(d.at);
-      final near = seeds.where((s) => (s.$1 - p).distance < _groupPx).firstOrNull;
+      if (claimed.any((c) => c.$3 < d.rank && (c.$1 - p).distance < (c.$2 + side) / 2 * 0.8)) {
+        hidden++;
+        continue;
+      }
+      final near = seeds.where((s) => s.$2.first.rank == d.rank && (s.$1 - p).distance < d.groupPx).firstOrNull;
       if (near == null) {
         final g = [d];
         seeds.add((p, g));
         out.add(g);
+        claimed.add((p, side, d.rank));
       } else {
         near.$2.add(d);
       }
     }
-    return out;
+    return (out, hidden);
   }
 
   /// A count bubble: zoom in until its pins come apart.
@@ -903,24 +1003,19 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     _map.fitBounds(boundsAround([for (final d in group) d.at]), insets: _fitInsets, maxZoom: 16, ms: 600);
   }
 
-  /// Spots (car cafés, mamaks, carparks, the check-in places the home Spots
-  /// tab lists) and partner shops, on every layer, as teardrops: spots in
-  /// their kind's colour and silhouette, partner shops ink with a red
-  /// outline and a storefront.
-  ///
-  /// [focused] = the Spots layer: full size, names and check-in counts up
-  /// close. On Now and Upcoming spots sit quietly under the events and
-  /// people (zIndex 0), a little smaller, never a label. Partner shops look
-  /// the same on every layer.
+  /// The Spots tab's places (car cafés, mamaks, carparks, the check-in
+  /// places the home Spots tab lists) and partner shops, through its chips,
+  /// as teardrops: spots in their kind's colour and silhouette, partner
+  /// shops ink with a red outline and a storefront (their signboard).
+  /// Names and check-in counts up close.
   ///
   /// My saved spots are always drawn, wherever the camera is (the viewport
-  /// query alone would drop them): full size with a bookmark badge, a name
-  /// up close on every layer, above the other spots.
+  /// query alone would drop them): a bookmark badge, above the other spots.
   ///
   /// The place whose card is open is drawn 1.4× with a halo, on top and
   /// never folded into a bubble, even when the viewport query has not
-  /// brought it in (a search result).
-  void _addPlaces(List<_Drop> drops, {required bool focused}) {
+  /// brought it in (a search result) or the chips leave it out.
+  void _addPlaces(List<_Drop> drops) {
     final savedIds = ref.read(savedPlaceIdsProvider);
     final picked = _cardOpen ? _card : null;
     final places = ref.read(mapPlacesProvider);
@@ -928,13 +1023,18 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       final kind = spotKindOf(p.kind);
       final saved = savedIds.contains(p.id);
       final selected = p.id == picked?.id;
-      double scaleFor(double pinScale) => (p.isPartner || focused || saved ? pinScale : math.max(pinScale * 0.85, 0.7)) * (selected ? 1.4 : 1);
+      double scaleFor(double pinScale) => pinScale * (selected ? 1.4 : 1);
       drops.add(_Drop(
         id: 'place:${p.id}',
         at: p.latLng,
         glyphs: p.isPartner ? {LegendGlyph.partner} : {legendGlyphForSpot(kind), if (p.recommended) LegendGlyph.topSpot, if (saved) LegendGlyph.savedSpot},
         // The picked pin sits over everything but me.
-        z: selected ? _meZ - 1 : p.isPartner ? (focused ? 3 : 2) : saved ? (focused ? 3 : 1) : (focused ? (p.recommended ? 2 : 1) : 0),
+        z: selected ? _meZ - 1 : (p.isPartner || saved) ? 3 : (p.recommended ? 2 : 1),
+        rank: 4,
+        side: (pinScale) => teardropSize.width * scaleFor(pinScale),
+        groupPx: _groupPx,
+        bubble: kInk,
+        bubbleScale: (pinScale) => pinScale,
         alone: selected,
         pin: (pinScale) => p.isPartner
             ? _glyphFactory.teardrop(
@@ -951,8 +1051,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 recommended: p.recommended,
                 saved: saved,
                 selected: selected,
-                label: (focused || saved) && _close ? p.name : null,
-                sub: focused && _close && p.totalCheckins > 0 ? '${p.totalCheckins} ✓' : null,
+                label: _close ? p.name : null,
+                sub: _close && p.totalCheckins > 0 ? '${p.totalCheckins} ✓' : null,
                 scale: scaleFor(pinScale),
               ),
         onTap: () => _openCard(p),
@@ -960,16 +1060,31 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     }
   }
 
-  /// Friends, clubmates, nearby strangers and me. Cars when zoomed in, dots
-  /// at every zoom out from there (never hidden: whoever the "On the map"
-  /// list shows is on the map too). Colour = relationship, or the colour I
-  /// gave a friend.
-  Future<void> _addPeople(List<AppMarker> built, Future<bool> Function() stale, List<(LatLng, LegendGlyph)> keyed, {bool onlyMe = false}) async {
+  /// Places closer than this on screen merge into one count bubble.
+  static const _groupPx = 32.0;
+
+  /// Friends, clubmates, nearby strangers and me, as the Now chips allow.
+  /// Cars when zoomed in, dots at every zoom out from there (never hidden:
+  /// whoever the "On the map" list shows is on the map too). Colour = the
+  /// colour I gave a friend, else the relationship's. Long-press a friend
+  /// or clubmate to change their colour. Friends with a colour of mine go
+  /// into [tagged] (for the key's colour rows) instead of the plain rows.
+  Future<void> _addPeople(
+    List<AppMarker> built,
+    Future<bool> Function() stale,
+    List<(LatLng, LegendGlyph)> keyed,
+    List<(LatLng, String, String)> tagged, {
+    bool onlyMe = false,
+  }) async {
     final tags = ref.read(friendTagsProvider).value ?? const <String, String>{};
+    final chips = ref.read(nowChipsProvider);
     if (!onlyMe) {
       for (final f in ref.read(friendPinsProvider).value ?? const <FriendPin>[]) {
         final stranger = f.isStranger;
-        final relation = stranger ? kRelationStranger : (kTagColors[tags[f.user.id]] ?? (f.viaClub ? kRelationClub : kRelationFriend));
+        if (!nowShowsPerson(chips, stranger: stranger, viaClub: f.viaClub)) continue;
+        final tag = stranger ? null : tags[f.user.id];
+        final hasTag = tag != null && kTagColors.containsKey(tag);
+        final relation = personColor(tag: tag, viaClub: f.viaClub, stranger: stranger);
         final name = stranger ? '@${f.user.username ?? ''}' : (f.user.displayName ?? f.user.username ?? '');
         final photo = f.carPhoto;
         final pin = !_close
@@ -1001,14 +1116,19 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     relation: relation,
                   );
         if (await stale()) return;
-        keyed.add((f.latLng, stranger ? LegendGlyph.nearby : (f.viaClub ? LegendGlyph.club : LegendGlyph.friend)));
+        if (hasTag) {
+          tagged.add((f.latLng, tag, name.split(' ').first));
+        } else {
+          keyed.add((f.latLng, stranger ? LegendGlyph.nearby : (f.viaClub ? LegendGlyph.club : LegendGlyph.friend)));
+        }
         built.add(AppMarker(
           id: 'friend:${f.user.id}',
           position: f.latLng,
           image: pin.bytes, size: pin.size,
           anchor: pin.anchor,
-          zIndex: stranger ? 2 : 4,
+          zIndex: stranger ? 2 : 7,
           onTap: () => _openAt(f.latLng, () => context.push(Routes.profile(f.user.id))),
+          onLongPress: stranger ? null : () => _pickColour(f, name),
         ));
       }
     }
@@ -1021,6 +1141,12 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       keyed.add((here, LegendGlyph.me));
       built.add(AppMarker(id: 'me', position: here, image: pin.bytes, size: pin.size, anchor: pin.anchor, zIndex: _meZ));
     }
+  }
+
+  /// Long-press on a friend's pin: their colour, in two taps.
+  void _pickColour(FriendPin f, String name) {
+    HapticFeedback.selectionClick();
+    showFriendColourSheet(context, ref, userId: f.user.id, name: name.isEmpty ? 'Friend' : name, defaultColor: f.viaClub ? kRelationClub : kRelationFriend);
   }
 
   /// Above every other pin, always.
@@ -1106,6 +1232,14 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       _paintCircles();
       _syncPulses();
       if (next == MapMode.spots && prev != MapMode.spots && _pendingFocus == null) _fitNearestSpots();
+      if (next == MapMode.events && prev != MapMode.events) _frameEvents();
+    });
+    // The chips redraw at once: their data is already on the phone.
+    ref.listen(eventFilterProvider, (_, _) => _scheduleRebuild());
+    ref.listen(spotChipsProvider, (_, _) => _scheduleRebuild());
+    ref.listen(nowChipsProvider, (_, _) {
+      _scheduleRebuild();
+      _syncPulses();
     });
     ref.listen(savedPlacesProvider, (p, n) {
       if (_newData(p, n)) _scheduleRebuild();
@@ -1160,7 +1294,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     final listView = ref.watch(mapListViewProvider);
     final loading = switch (mode) {
       MapMode.now => ref.watch(liveEventsProvider).isLoading || ref.watch(friendPinsProvider).isLoading,
-      MapMode.upcoming => ref.watch(mapEventsProvider).isLoading,
+      MapMode.events => ref.watch(mapEventsProvider).isLoading,
       MapMode.spots => ref.watch(spotsProvider).isLoading,
     };
     // The shell extends the body under the tab bar, so this inset already
@@ -1245,12 +1379,18 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                         ),
                       ),
                     ),
+                    // Quick filters for the tab, clear of the round buttons on
+                    // the right (14 margin + 46 button + 4).
+                    Padding(
+                      padding: const EdgeInsets.only(top: 10, right: 64),
+                      child: MapChipBar(mode: mode, light: !_isNight),
+                    ),
                     // The key: what the pins on the map right now mean. Its
                     // list scrolls in whatever room is left; none left, it hides.
                     Flexible(
                       child: Padding(
-                        padding: EdgeInsets.only(top: 12, left: 12, bottom: toolbarBottom + (_cardOpen ? _cardHeight + 16 : MapToolbar.height + 120)),
-                        child: MapLegend(light: !_isNight, present: _present),
+                        padding: EdgeInsets.only(top: 4, left: 12, bottom: toolbarBottom + (_cardOpen ? _cardHeight + 16 : MapToolbar.height + 120)),
+                        child: MapLegend(light: !_isNight, present: _present, tagged: _tagged),
                       ),
                     ),
                   ],
@@ -1301,7 +1441,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               ),
             ),
 
-            // "N spots nearby": no spot in view on Now / Upcoming. Tap = the Spots layer, fitted.
+            // "N spots nearby": no spot in view on Now / Events. Tap = the Spots tab, fitted.
             if (spotsHint != null)
               AnimatedPositioned(
                 duration: const Duration(milliseconds: 200),
@@ -1338,7 +1478,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                       onVerticalDragEnd: (d) {
                         if ((d.primaryVelocity ?? 0) < -200) _openSheet();
                       },
-                      child: MapToolbar(mode: mode, light: !_isNight, onOpen: _openSheet),
+                      child: MapToolbar(mode: mode, light: !_isNight, onOpen: _openSheet, moreUpClose: _moreUpClose),
                     ),
                   ),
                 ),
@@ -1394,21 +1534,46 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   }
 }
 
-/// A teardrop waiting to be drawn: an event, a spot or a partner shop.
+/// A pin waiting to be drawn: an event, a spot or a partner shop.
 /// [pin] renders it at a given pin scale (only if it ends up on its own, not
-/// in a bubble; [_MapScreenState._prewarm] also calls it for the sizes next
-/// to the current one); [glyphs] are the key rows it stands for.
+/// in a bubble or under a bigger pin; [_MapScreenState._prewarm] also calls
+/// it for the sizes next to the current one); [glyphs] are the key rows it
+/// stands for.
 class _Drop {
-  const _Drop({required this.id, required this.at, required this.glyphs, required this.z, required this.pin, required this.onTap, this.event = false, this.alone = false});
+  const _Drop({
+    required this.id,
+    required this.at,
+    required this.glyphs,
+    required this.z,
+    required this.rank,
+    required this.side,
+    required this.groupPx,
+    required this.bubble,
+    required this.bubbleScale,
+    required this.pin,
+    required this.onTap,
+    this.alone = false,
+  });
   final String id;
   final LatLng at;
   final Set<LegendGlyph> glyphs;
   final int z;
+  /// 1 = biggest event tier … 3 = smallest, 4 = places. A lower rank claims
+  /// its spot first and hides the higher ranks under it.
+  final int rank;
+  /// Width on screen at a pin scale, for the overlap check.
+  final double Function(double pinScale) side;
+  /// Same-rank pins closer than this merge into a count bubble.
+  final double groupPx;
+  /// The count bubble's colour, and its scale at a pin scale.
+  final Color bubble;
+  final double Function(double pinScale) bubbleScale;
   final Future<MapPin> Function(double pinScale) pin;
   final VoidCallback onTap;
-  final bool event;
-  /// Never merged into a bubble (the place whose card is open).
+  /// Never merged or hidden (the place whose card is open).
   final bool alone;
+
+  bool get event => rank < 4;
 }
 
 // ------------------------------------------------------------------ widgets ---

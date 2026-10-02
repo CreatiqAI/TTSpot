@@ -14,18 +14,21 @@ import '../../../friends/application/friends_providers.dart';
 import '../../../friends/domain/friend.dart';
 import '../../../social/domain/post.dart';
 import '../../application/map_providers.dart';
-import 'map_filter_sheet.dart';
 
 /// Solid panel above the tab bar while the map sheet is closed: the red TT
 /// button (car over "TT now"), a search-style status pill that opens the
-/// lists, a round filter button and a round list button (every meet, club
-/// and spot as a full-screen list). Dark panel on the night map, white by day.
+/// lists and a round list button (every meet, club and spot as a
+/// full-screen list). The quick-filter chips under the tab switch replace
+/// the old filter sheet. Dark panel on the night map, white by day.
 class MapToolbar extends ConsumerWidget {
-  const MapToolbar({super.key, required this.mode, required this.light, required this.onOpen});
+  const MapToolbar({super.key, required this.mode, required this.light, required this.onOpen, this.moreUpClose = 0});
   final MapMode mode;
   final bool light;
   /// Open the sheet (true = all the way).
   final void Function({bool full}) onOpen;
+  /// Events tab: meets in view that the zoom keeps off the map for now
+  /// (small pins far out, or under a bigger one).
+  final int moreUpClose;
 
   /// Same height as the tab bar (64): no taller than the chrome under it.
   static const double height = 62;
@@ -50,8 +53,6 @@ class MapToolbar extends ConsumerWidget {
         children: [
           ?_ttButton(context, ref),
           Expanded(child: _statusPill(context, ref)),
-          const SizedBox(width: 8),
-          _filterButton(context, ref),
           const SizedBox(width: 8),
           _ToolButton(
             light: light,
@@ -102,12 +103,14 @@ class MapToolbar extends ConsumerWidget {
           text: text,
           onTap: () => onOpen(full: false),
         );
-      case MapMode.upcoming:
+      case MapMode.events:
         final count = ref.watch(visibleMapEventsProvider).value?.length ?? 0;
+        final filtered = !ref.watch(eventFilterProvider).isInitial;
+        final more = moreUpClose > 0 ? ' · $moreUpClose more up close' : '';
         return _Pill(
           light: light,
           leading: Icon(AppIcons.magnifyingGlass, size: 18, color: _muted(light)),
-          text: count == 0 ? 'No meets here yet' : '$count meet${count == 1 ? '' : 's'}',
+          text: count == 0 ? (filtered ? 'No events match here' : 'No events here yet') : '$count event${count == 1 ? '' : 's'}$more',
           onTap: () => onOpen(full: true),
         );
       case MapMode.spots:
@@ -132,24 +135,15 @@ class MapToolbar extends ConsumerWidget {
         );
     }
   }
-
-  Widget _filterButton(BuildContext context, WidgetRef ref) => _ToolButton(
-        light: light,
-        icon: AppIcons.slidersHorizontal,
-        tooltip: 'Filters',
-        dot: !ref.watch(mapFiltersProvider).isDefault,
-        onTap: () => showMapFilterSheet(context),
-      );
 }
 
-/// Round button at the end of the toolbar. [dot] = a red dot (filters on).
+/// Round button at the end of the toolbar.
 class _ToolButton extends StatelessWidget {
-  const _ToolButton({required this.light, required this.icon, required this.tooltip, required this.onTap, this.dot = false});
+  const _ToolButton({required this.light, required this.icon, required this.tooltip, required this.onTap});
   final bool light;
   final IconData icon;
   final String tooltip;
   final VoidCallback onTap;
-  final bool dot;
 
   @override
   Widget build(BuildContext context) {
@@ -165,18 +159,7 @@ class _ToolButton extends StatelessWidget {
             child: SizedBox(
               width: MapToolbar._button,
               height: MapToolbar._button,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Icon(icon, size: 20, color: _fg(light)),
-                  if (dot)
-                    Positioned(
-                      right: 11,
-                      top: 11,
-                      child: Container(width: 8, height: 8, decoration: const BoxDecoration(color: AppColors.brand, shape: BoxShape.circle)),
-                    ),
-                ],
-              ),
+              child: Icon(icon, size: 20, color: _fg(light)),
             ),
           ),
         ),

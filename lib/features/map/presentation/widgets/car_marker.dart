@@ -336,16 +336,39 @@ class CarMarkerFactory {
   }
 }
 
-/// Colours you can give a friend on the map.
+/// Colours you can give a friend on the map, in rainbow order. Twelve that
+/// stay apart from each other on both the day and the night map and under a
+/// white ring (no white, black or grey: grey is a nearby stranger). The keys
+/// are stored in `friend_tags.color` (the database check lists the same
+/// twelve); the first seven are the original ones and must never change.
 const kTagColors = <String, Color>{
   'red': Color(0xFFE00008),
   'orange': Color(0xFFFF7A1A),
   'yellow': Color(0xFFF5C518),
+  'lime': Color(0xFF84CC16),
   'green': Color(0xFF1DA750),
+  'teal': Color(0xFF0D9488),
+  'sky': Color(0xFF0EA5E9),
   'blue': Color(0xFF2B7CFF),
+  'indigo': Color(0xFF4F46E5),
   'purple': Color(0xFFA855F7),
   'pink': Color(0xFFEC4899),
+  'brown': Color(0xFF92582A),
 };
+
+/// Names for [kTagColors] (tooltips and the key).
+const kTagColorLabels = <String, String>{
+  'red': 'Red', 'orange': 'Orange', 'yellow': 'Yellow', 'lime': 'Lime',
+  'green': 'Green', 'teal': 'Teal', 'sky': 'Sky', 'blue': 'Blue',
+  'indigo': 'Indigo', 'purple': 'Purple', 'pink': 'Pink', 'brown': 'Brown',
+};
+
+/// The colour a person's pin and dot use: my tag for them, else their
+/// relationship's (clubmate purple, friend blue, nearby stranger grey).
+Color personColor({String? tag, bool viaClub = false, bool stranger = false}) {
+  if (stranger) return kRelationStranger;
+  return kTagColors[tag] ?? (viaClub ? kRelationClub : kRelationFriend);
+}
 
 /// Default colour per relationship, when no tag is set.
 const kRelationFriend = Color(0xFF2B7CFF);

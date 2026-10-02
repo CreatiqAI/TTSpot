@@ -218,14 +218,31 @@ class EventRow extends StatelessWidget {
                     style: TextStyle(color: MapPalette.of(context).text, fontSize: 15, fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 3),
-                  Text(
-                    live
-                        ? '🔴 LIVE · ${e.checkinCount} here · started ${timeAgo(e.startsAt)}'
-                        : '${e.type.label} · ${formatEventDateFriendly(e.startsAt)}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: live ? const Color(0xFFFF6B6B) : MapPalette.of(context).text2, fontSize: 13, fontWeight: live ? FontWeight.w600 : FontWeight.w400),
-                  ),
+                  if (live)
+                    // A red dot, then LIVE (under way) or check-in open (the hour before).
+                    Row(
+                      children: [
+                        Container(width: 7, height: 7, decoration: const BoxDecoration(color: AppColors.brand, shape: BoxShape.circle)),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            e.startsAt.isAfter(DateTime.now())
+                                ? 'Check-in open · starts ${formatTime(e.startsAt)}'
+                                : 'LIVE · ${e.checkinCount} here · started ${timeAgo(e.startsAt)}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(color: Color(0xFFFF6B6B), fontSize: 13, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ],
+                    )
+                  else
+                    Text(
+                      '${e.type.label} · ${formatEventDateFriendly(e.startsAt)}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: MapPalette.of(context).text2, fontSize: 13),
+                    ),
                   const SizedBox(height: 2),
                   Text(
                     '${e.venueName} · ${formatDistance(distanceKm)}',

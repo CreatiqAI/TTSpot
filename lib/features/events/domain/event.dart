@@ -64,6 +64,8 @@ class Event {
     this.vendorLogoUrl,
     this.clubName,
     this.clubTier,
+    this.clubAvatarUrl,
+    this.hostIsOrganizer = false,
   });
 
   /// Hosted by an official (paid) club: gold badge on the map.
@@ -107,6 +109,10 @@ class Event {
   final String? vendorLogoUrl;
   final String? clubName;
   final String? clubTier;
+  /// The hosting club's logo: the map pin's picture when there is no cover.
+  final String? clubAvatarUrl;
+  /// Hosted by an approved organizer (`profiles.is_organizer`): a big pin on the map.
+  final bool hostIsOrganizer;
   /// `visibility = 'friends'`: only the organiser's friends, club members and attendees see it.
   final bool friendsOnly;
   /// Street address from Google, when the venue was picked by search.
@@ -156,5 +162,7 @@ class Event {
         vendorLogoUrl: m['vendor_logo_url'] as String?,
         clubName: m['club_name'] as String?,
         clubTier: m['club_tier'] as String?,
+        clubAvatarUrl: m['club_avatar_url'] as String?,
+        hostIsOrganizer: m['host_is_organizer'] as bool? ?? false,
       );
 }

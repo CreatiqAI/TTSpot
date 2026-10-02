@@ -229,7 +229,8 @@ abstract final class Routes {
   static String chatInfo(String conversationId) => '/chat/$conversationId/info';
   static String club(String id) => '/club/$id';
   static String place(String id) => '/place/$id';
-  static String partner(String id) => '/partner/$id';
+  /// [tab]: 'info' | 'products' | 'vouchers' | 'posts' | 'events'.
+  static String partner(String id, {String? tab}) => tab == null ? '/partner/$id' : '/partner/$id?tab=$tab';
 
   // Organizer tools (verified organizers and their crew)
   static const organizerApply = '/organizer/apply';
@@ -331,7 +332,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // Before /partner/:id, which would otherwise match /partner/apply (id "apply")
       // and spin on a partner page that can't load. Literal paths go first.
       GoRoute(path: Routes.partnerApply, pageBuilder: (_, s) => page(s, const PartnerApplyScreen())),
-      GoRoute(path: '/partner/:id', pageBuilder: (_, s) => page(s, PartnerScreen(vendorId: s.pathParameters['id']!))),
+      GoRoute(path: '/partner/:id', pageBuilder: (_, s) => page(s, PartnerScreen(vendorId: s.pathParameters['id']!, initialTab: s.uri.queryParameters['tab']))),
       GoRoute(
         path: '/event/:id',
         pageBuilder: (_, s) => page(s, EventDetailsScreen(eventId: s.pathParameters['id']!)),

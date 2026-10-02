@@ -283,7 +283,8 @@ class HidePlateSwitch extends StatelessWidget {
     this.photos = 0,
     this.blurred = 0,
     this.guessed = 0,
-    this.keepsBlurred = false,
+    this.stillBlurred = 0,
+    this.restoring = 0,
   });
   final bool value;
   final ValueChanged<bool>? onChanged;
@@ -300,15 +301,18 @@ class HidePlateSwitch extends StatelessWidget {
   final int blurred;
   final int guessed;
 
-  /// Edit car: says that turning it off keeps saved photos blurred.
-  final bool keepsBlurred;
+  /// Edit car: saved photos that went up blurred and stay that way, and
+  /// photos whose kept original goes back up on Save ("Show original").
+  final int stillBlurred;
+  final int restoring;
 
   String get _status {
-    if (!value) return keepsBlurred ? 'Off: new photos go up as they are.' : 'Off: your photos go up as they are.';
+    if (!value) return stillBlurred > 0 || restoring > 0 ? 'Off: new photos go up as they are.' : 'Off: your photos go up as they are.';
     if (working) return 'Hiding the plate…';
     if (failed) return 'Couldn\'t load a photo to hide its plate. Check your connection and try again.';
     if (photos == 0) return 'The plate gets blurred on each photo before it goes up.';
     if (guessed > 0) return 'Couldn\'t look for the plate, so the blur is a guess. Tap the photo to check it.';
+    if (blurred == 0 && restoring > 0) return photos == 1 ? 'Nothing blurred. Tap the photo to blur the plate again.' : 'Tap a photo to blur its plate again.';
     if (blurred == 0) return photos == 1 ? 'No plate seen. Tap the photo to blur it yourself.' : 'No plate seen. Tap a photo to blur it yourself.';
     if (photos == 1) return 'Plate blurred. Tap the photo to check it.';
     return 'Plate blurred on $blurred of $photos photos. Tap one to check it.';
@@ -326,10 +330,21 @@ class HidePlateSwitch extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(_status, style: TextStyle(fontSize: 12.5, height: 1.35, color: value && failed ? AppColors.danger : AppColors.textSecondary)),
-            if (keepsBlurred)
+            if (restoring > 0)
               Padding(
                 padding: const EdgeInsets.only(top: 2),
-                child: Text('Turning this off keeps photos you already blurred.', style: TextStyle(fontSize: 12, height: 1.35, color: AppColors.textMuted)),
+                child: Text(
+                  restoring == 1 ? '1 photo goes back to its original when you save.' : '$restoring photos go back to their originals when you save.',
+                  style: TextStyle(fontSize: 12, height: 1.35, color: AppColors.textMuted),
+                ),
+              ),
+            if (!value && stillBlurred > 0)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(
+                  stillBlurred == 1 ? '1 photo stays blurred. Tap it to check.' : '$stillBlurred photos stay blurred. Tap one to check.',
+                  style: TextStyle(fontSize: 12, height: 1.35, color: AppColors.textMuted),
+                ),
               ),
           ],
         ),
@@ -382,8 +397,11 @@ class _PhotoShimmerState extends State<PhotoShimmer> with SingleTickerProviderSt
 /// "Plate hidden" on a photo whose plate is blurred. [compact] for the
 /// small form thumbnails: it shrinks to fit rather than overflow.
 class PlateHiddenBadge extends StatelessWidget {
-  const PlateHiddenBadge({super.key, this.compact = false});
+  const PlateHiddenBadge({super.key, this.compact = false, this.original = false});
   final bool compact;
+
+  /// "Original" instead: the blur comes off this photo on Save.
+  final bool original;
 
   @override
   Widget build(BuildContext context) {
@@ -393,9 +411,9 @@ class PlateHiddenBadge extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(AppIcons.eyeSlash, size: compact ? 11 : 14, color: Colors.white),
+          Icon(original ? AppIcons.eye : AppIcons.eyeSlash, size: compact ? 11 : 14, color: Colors.white),
           SizedBox(width: compact ? 3 : 5),
-          Text('Plate hidden', maxLines: 1, style: TextStyle(color: Colors.white, fontSize: compact ? 10 : 12.5, fontWeight: FontWeight.w700)),
+          Text(original ? 'Original' : 'Plate hidden', maxLines: 1, style: TextStyle(color: Colors.white, fontSize: compact ? 10 : 12.5, fontWeight: FontWeight.w700)),
         ],
       ),
     );

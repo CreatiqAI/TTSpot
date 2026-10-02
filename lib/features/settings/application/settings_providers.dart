@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/supabase/supabase_client.dart';
 import '../../auth/data/auth_repository.dart';
+import '../../profile/data/profile_repository.dart';
 
 /// My settings (profiles.settings). Missing keys fall back to defaults here.
 class AppSettings {
@@ -83,6 +84,16 @@ class SettingsActions {
   }
 
   Future<void> deleteAccount() async {
+    // The private originals of blurred car photos first: storage files don't
+    // go with the account rows, and only the signed-in owner can remove them.
+    final me = _ref.read(currentUserIdProvider);
+    if (me != null) {
+      try {
+        await _ref.read(profileRepositoryProvider).deleteAllCarOriginals(me);
+      } catch (_) {
+        // The account still goes; these stay private (owner-only RLS).
+      }
+    }
     await _ref.read(supabaseProvider).rpc('delete_my_account');
     await _ref.read(supabaseProvider).auth.signOut();
   }

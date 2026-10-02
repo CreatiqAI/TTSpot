@@ -6,10 +6,12 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/utils/friendly_error.dart';
+import '../../../core/utils/plate_blur.dart' show imageContentType;
 import '../../auth/data/auth_repository.dart';
 import '../../auth/domain/profile.dart';
 import '../data/profile_repository.dart';
 import '../domain/car.dart';
+import '../domain/car_photo_storage.dart';
 import '../domain/car_recognition.dart';
 import 'cutout_providers.dart';
 import 'plate_hiding.dart';
@@ -60,9 +62,13 @@ class CarFormController extends AsyncNotifier<void> {
 
   /// [photos] in order: URLs to keep and bytes to upload (the forms read,
   /// and maybe blur, photos as soon as they are picked). An upload that
-  /// [CarPhotoSave.replaces] a saved photo (its blurred copy) takes its
-  /// place, and once the car is saved the original is deleted from storage:
-  /// it shows the plate and the bucket is public.
+  /// [CarPhotoSave.replaces] a saved photo (its blurred copy, or its kept
+  /// original coming back) takes its place, and once the car is saved the
+  /// replaced file is deleted from the public bucket.
+  ///
+  /// A blurred upload keeps its original in the private car-originals
+  /// bucket (`cars.photo_originals` says where), so the blur can come off
+  /// later; an original that is no longer used there is deleted.
   Future<String?> save({
     String? carId,
     required String make,
@@ -81,6 +87,7 @@ class CarFormController extends AsyncNotifier<void> {
     Uint8List? coverUpload;
     final replaced = <String>[];
     String? staleCutout;
+    var droppedOriginals = const <String>[];
     state = await AsyncValue.guard(() async {
       final me = ref.read(currentUserIdProvider);
       if (me == null) throw const AppException('You\'re signed out. Sign in again.');
@@ -98,6 +105,8 @@ class CarFormController extends AsyncNotifier<void> {
       final repo = ref.read(profileRepositoryProvider);
       final before = carId == null ? null : await repo.fetchCar(carId);
       final urls = <String>[];
+      final keptOriginals = <String, String>{}; // new blurred URL → its private original
+      final bucketUrl = repo.carPhotosBucketUrl;
       for (var i = 0; i < photos.length; i++) {
         final p = photos[i];
         if (p.url != null) {
@@ -105,17 +114,61 @@ class CarFormController extends AsyncNotifier<void> {
           continue;
         }
         final bytes = p.plateBlurred ? await compactBlurredPhoto(p.bytes!) : p.bytes!;
-        urls.add(await repo.uploadCarPhoto(userId: me, bytes: bytes, index: i, plateBlurred: p.plateBlurred));
+        final url = await repo.uploadCarPhoto(userId: me, bytes: bytes, index: i, plateBlurred: p.plateBlurred);
+        if (p.plateBlurred && p.keptOriginal != null) {
+          keptOriginals[url] = p.keptOriginal!;
+        } else if (p.plateBlurred && p.original != null) {
+          // Move, not delete: the original goes to the private bucket under
+          // the same file name. No original kept means no save (it could
+          // never come back), so a failure here stops the save.
+          final type = imageContentType(p.original!);
+          final path = originalPathFor(
+            ownerId: me,
+            blurredPath: Uri.decodeComponent(url.substring(bucketUrl.length)),
+            replacedPath: p.replaces == null ? null : ownedPhotoPath(p.replaces!, bucketUrl: bucketUrl, ownerId: me),
+            ext: switch (type) { 'image/png' => 'png', 'image/webp' => 'webp', _ => 'jpg' },
+          );
+          await repo.uploadCarOriginal(path: path, bytes: p.original!);
+          keptOriginals[url] = path;
+        }
+        urls.add(url);
         if (i == 0) coverUpload = bytes;
         if (p.replaces != null) replaced.add(p.replaces!);
       }
+      final originals = nextPhotoOriginals(ownerId: me, before: before?.photoOriginals ?? const {}, photoUrls: urls, added: keptOriginals);
+      droppedOriginals = originals.dropped;
       // A new cover (its blurred copy, say): the old cut-out is stale and may
       // show the plate, so it's cleared and the new cover gets cut.
       final coverChanged = before != null && before.photoCover != urls.firstOrNull;
       if (coverChanged && before.cutoutUrl != null && replaced.contains(before.cutoutSource)) staleCutout = before.cutoutUrl;
       final car = carId == null
-          ? await repo.insertCar(ownerId: me, make: make, model: model, year: year, description: description, photoUrls: urls, color: color, specs: specs, bodyStyle: bodyStyle)
-          : await repo.updateCar(id: carId, make: make, model: model, year: year, description: description, photoUrls: urls, color: color, specs: specs, bodyStyle: bodyStyle, garageStyle: garageStyle, clearCutout: coverChanged);
+          ? await repo.insertCar(
+              ownerId: me,
+              make: make,
+              model: model,
+              year: year,
+              description: description,
+              photoUrls: urls,
+              color: color,
+              specs: specs,
+              bodyStyle: bodyStyle,
+              photoOriginals: originals.originals,
+              garageStyle: garageStyle,
+            )
+          : await repo.updateCar(
+              id: carId,
+              make: make,
+              model: model,
+              year: year,
+              description: description,
+              photoUrls: urls,
+              color: color,
+              specs: specs,
+              bodyStyle: bodyStyle,
+              garageStyle: garageStyle,
+              clearCutout: coverChanged,
+              photoOriginals: originals.originals,
+            );
       savedId = car.id;
       saved = car;
       if (replaced.isNotEmpty || staleCutout != null) {
@@ -124,7 +177,16 @@ class CarFormController extends AsyncNotifier<void> {
           if (kDebugMode) debugPrint('Plate: deleted ${gone.length} replaced files: $gone');
         } catch (e) {
           // The car is saved with the blurred copies either way.
-          if (kDebugMode) debugPrint('Plate: could not delete the replaced originals: $e');
+          if (kDebugMode) debugPrint('Plate: could not delete the replaced photos: $e');
+        }
+      }
+      if (droppedOriginals.isNotEmpty) {
+        try {
+          final gone = await repo.deleteUnreferencedOriginals(ownerId: me, candidates: droppedOriginals);
+          if (kDebugMode) debugPrint('Plate: deleted ${gone.length} kept originals: $gone');
+        } catch (e) {
+          // Private either way; the car is saved.
+          if (kDebugMode) debugPrint('Plate: could not delete kept originals: $e');
         }
       }
       ref.invalidate(userCarsProvider(me));
@@ -163,7 +225,19 @@ class CarFormController extends AsyncNotifier<void> {
     state = await AsyncValue.guard(() async {
       final me = ref.read(currentUserIdProvider);
       if (me == null) throw const AppException('You\'re signed out. Sign in again.');
-      await ref.read(profileRepositoryProvider).deleteCar(carId);
+      final repo = ref.read(profileRepositoryProvider);
+      // The kept originals of its blurred photos go with it (storage has no
+      // cascade from the row, so the owner's app removes them).
+      final car = await repo.fetchCar(carId);
+      await repo.deleteCar(carId);
+      final kept = car?.photoOriginals.values ?? const <String>[];
+      if (kept.isNotEmpty) {
+        try {
+          await repo.deleteUnreferencedOriginals(ownerId: me, candidates: kept);
+        } catch (e) {
+          if (kDebugMode) debugPrint('Car delete: could not delete kept originals: $e');
+        }
+      }
       ref.invalidate(userCarsProvider(me));
       ref.invalidate(profileStatsProvider(me));
       ok = true;

@@ -15,11 +15,15 @@ import '../../application/vendors_providers.dart';
 import '../../domain/vendor.dart';
 
 /// A product card for a partner page or a grid: cover photo, name, price.
+/// In a fixed-ratio grid cell the name gives way first: two lines when they
+/// fit, one at large text sizes, so the card never overflows.
 class ProductCard extends StatelessWidget {
   const ProductCard({super.key, required this.product, required this.onTap, this.voucherCount = 0});
   final Product product;
   final VoidCallback onTap;
   final int voucherCount;
+
+  static const _nameSize = 13.5, _nameHeight = 1.25;
 
   @override
   Widget build(BuildContext context) => GestureDetector(
@@ -42,16 +46,20 @@ class ProductCard extends StatelessWidget {
                     Positioned(
                       left: 6,
                       top: 6,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                        decoration: BoxDecoration(color: AppColors.brand, borderRadius: BorderRadius.circular(999)),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(AppIcons.ticket, size: 11, color: Colors.white),
-                            SizedBox(width: 3),
-                            Text('Voucher', style: TextStyle(color: Colors.white, fontSize: 10.5, fontWeight: FontWeight.w800)),
-                          ],
+                      right: 6,
+                      child: Align(
+                        alignment: Alignment.topLeft,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                          decoration: BoxDecoration(color: AppColors.brand, borderRadius: BorderRadius.circular(999)),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(AppIcons.ticket, size: 11, color: Colors.white),
+                              SizedBox(width: 3),
+                              Flexible(child: Text('Voucher', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.white, fontSize: 10.5, fontWeight: FontWeight.w800))),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -59,9 +67,17 @@ class ProductCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 6),
-            Text(product.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, height: 1.25)),
+            Flexible(
+              child: LayoutBuilder(
+                builder: (context, c) {
+                  final line = MediaQuery.textScalerOf(context).scale(_nameSize) * _nameHeight;
+                  final lines = c.maxHeight.isFinite ? (c.maxHeight / line).floor().clamp(1, 2) : 2;
+                  return Text(product.name, maxLines: lines, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: _nameSize, fontWeight: FontWeight.w700, height: _nameHeight));
+                },
+              ),
+            ),
             const SizedBox(height: 2),
-            Text(product.priceLabel, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: product.price == null ? AppColors.textSecondary : AppColors.textPrimary)),
+            Text(product.priceLabel, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: product.price == null ? AppColors.textSecondary : AppColors.textPrimary)),
           ],
         ),
       );
@@ -234,7 +250,7 @@ class _ProductBodyState extends ConsumerState<_ProductBody> {
                           ? null
                           : () {
                               Navigator.pop(context);
-                              context.push(Routes.partner(widget.vendor.id));
+                              context.push(Routes.partner(widget.vendor.id, tab: 'products'));
                             },
                       child: Row(
                         children: [

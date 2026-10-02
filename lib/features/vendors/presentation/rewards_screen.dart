@@ -360,7 +360,7 @@ class _VoucherCardState extends ConsumerState<_VoucherCard> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: GestureDetector(
-                    onTap: v.vendorId == null ? null : () => context.push(Routes.partner(v.vendorId!)),
+                    onTap: v.vendorId == null ? null : () => context.push(Routes.partner(v.vendorId!, tab: 'vouchers')),
                     behavior: HitTestBehavior.opaque,
                     child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,

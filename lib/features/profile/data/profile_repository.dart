@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/config/media.dart';
 import '../../../core/supabase/supabase_client.dart';
+import '../../../core/utils/http_bytes.dart';
 import '../../../core/utils/plate_blur.dart';
 import '../../../core/utils/thumbnails.dart';
 import '../domain/car.dart';
@@ -58,10 +59,14 @@ class ProfileRepository {
     String? color,
     String? specs,
     String? bodyStyle,
+    Map<String, String> photoOriginals = const {},
+    String? garageStyle,
   }) async {
     final row = await _client
         .from('cars')
         .insert({
+          if (photoOriginals.isNotEmpty) 'photo_originals': photoOriginals,
+          'garage_style': ?garageStyle,
           'color': color,
           'owner_id': ownerId,
           'make': make.trim(),
@@ -89,11 +94,13 @@ class ProfileRepository {
     String? bodyStyle,
     String? garageStyle,
     bool clearCutout = false,
+    Map<String, String>? photoOriginals,
   }) async {
     final row = await _client
         .from('cars')
         .update({
           'garage_style': ?garageStyle,
+          'photo_originals': ?photoOriginals,
           // A new cover (a blurred copy, say): the old cut-out is stale and
           // may show the plate; the owner's phone cuts the new cover.
           if (clearCutout) 'cutout_url': null,
@@ -114,6 +121,9 @@ class ProfileRepository {
   }
 
   Future<void> deleteCar(String id) => _client.from('cars').delete().eq('id', id);
+
+  /// The car-photos bucket's public URL prefix (`…/object/public/car-photos/`).
+  String get carPhotosBucketUrl => _client.storage.from('car-photos').getPublicUrl('');
 
   /// Uploads to `car-photos/<userId>/<millis>_<index>.<ext>` (plus its grid
   /// thumbnail), returns the public URL. [plateBlurred] photos get
@@ -175,6 +185,41 @@ class ProfileRepository {
     if (paths.isEmpty) return const [];
     await bucket.remove(paths);
     return paths;
+  }
+
+  /// Keeps the original of a photo blurred on save in the private
+  /// car-originals bucket at [path] (`<uid>/<file>`, see [originalPathFor]).
+  /// Overwrites a file of the same name: it is the same photo.
+  Future<void> uploadCarOriginal({required String path, required Uint8List bytes}) =>
+      _client.storage.from(kCarOriginalsBucket).uploadBinary(path, bytes, fileOptions: FileOptions(contentType: imageContentType(bytes), upsert: true));
+
+  /// A kept original, for its owner only: storage signs the URL only for
+  /// someone allowed to read the file (the owner, or an admin), and it runs
+  /// out after a minute.
+  Future<Uint8List> downloadCarOriginal(String path) async {
+    final signed = await _client.storage.from(kCarOriginalsBucket).createSignedUrl(path, 60);
+    return downloadBytes(signed);
+  }
+
+  /// Deletes kept originals ([candidates]) that none of [ownerId]'s cars
+  /// maps to any more (see [staleOriginalPaths]); returns the paths removed.
+  /// Call it after the cars row is saved or deleted.
+  Future<List<String>> deleteUnreferencedOriginals({required String ownerId, required Iterable<String> candidates}) async {
+    if (candidates.isEmpty) return const [];
+    final rows = await _client.from('cars').select('photo_originals').eq('owner_id', ownerId);
+    final referenced = [for (final r in rows) ...parsePhotoOriginals(r['photo_originals']).values];
+    final paths = staleOriginalPaths(ownerId: ownerId, candidates: candidates, referenced: referenced);
+    if (paths.isEmpty) return const [];
+    await _client.storage.from(kCarOriginalsBucket).remove(paths);
+    return paths;
+  }
+
+  /// Every kept original in [ownerId]'s folder, for account deletion.
+  Future<void> deleteAllCarOriginals(String ownerId) async {
+    final bucket = _client.storage.from(kCarOriginalsBucket);
+    final files = await bucket.list(path: ownerId, searchOptions: const SearchOptions(limit: 1000));
+    final paths = [for (final f in files) if (f.id != null) '$ownerId/${f.name}'];
+    if (paths.isNotEmpty) await bucket.remove(paths);
   }
 
   /// 'auto' (cut-out when there is a good one) or 'card'.

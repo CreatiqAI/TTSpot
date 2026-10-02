@@ -639,11 +639,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   CarSpecGrid(tiles: tiles),
                 ],
                 const SizedBox(height: 22),
-                Text('COLOUR', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1.2, color: AppColors.textSecondary)),
-                const SizedBox(height: 3),
-                Text(colourText, style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
-                const SizedBox(height: 10),
-                CarColorPicker(value: _carColor, onChanged: busy ? null : (v) => setState(() => _carColor = v)),
+                CarMapColourSection(value: _carColor, note: colourText, onChanged: busy ? null : (v) => setState(() => _carColor = v)),
                 const SizedBox(height: 14),
                 HidePlateSwitch(
                   value: _hidePlate,

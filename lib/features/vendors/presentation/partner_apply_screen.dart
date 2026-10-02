@@ -7,7 +7,6 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../core/constants/malaysian_states.dart';
 import '../../../core/router/app_router.dart';
-import '../../../core/theme/app_art.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/widgets/picker_field.dart';
 import '../../../core/widgets/place_search_field.dart';
@@ -28,6 +27,9 @@ import '../domain/vendor.dart';
 /// One form, two kinds of application, both reviewed by an admin:
 /// * vendor  – parts / accessories / workshop partners who publish vouchers
 /// * club    – members who want to run a car club (invite, share location)
+///
+/// Laid out like the organizer application: TiTi says what approval gets
+/// you, four benefit rows, then the form.
 class PartnerApplyScreen extends ConsumerStatefulWidget {
   const PartnerApplyScreen({super.key, this.kind = ApplicationKind.vendor});
   final ApplicationKind kind;
@@ -144,27 +146,48 @@ class _PartnerApplyScreenState extends ConsumerState<PartnerApplyScreen> {
     return Form(
       key: _form,
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
         children: [
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(color: AppColors.surfaceGray, borderRadius: BorderRadius.circular(AppRadius.md)),
-            child: Row(
-              children: [
-                ArtIcon(_club ? AppArt.racing : AppArt.wrench, size: 40),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    _club
-                        ? 'Approved club owners get a verified club page, can invite members, and every member can see each other on the map (each member controls their own visibility).'
-                        : 'Sell parts, accessories, tyres, tuning, detailing or any service car people need? Partners publish vouchers in the Rewards shop, scan them at the counter, and get a monthly statement. The platform keeps 1% of each redeemed bill.',
-                    style: const TextStyle(fontSize: 13, height: 1.4),
-                  ),
+          _club
+              ? TitiSays(
+                  'Got a crew? Run it on TT Spot. Approved clubs get their own page, clubmates on the map, and admins who post and host meets as the club.',
+                  pose: TitiPose.flag,
+                )
+              : TitiSays(
+                  'Car people need what you sell. Approved partners get a shop page and a pin on the map, vouchers members claim in Rewards, and a mini store.',
+                  pose: TitiPose.wrench,
                 ),
-              ],
-            ),
-          ),
           const SizedBox(height: 18),
+          for (final f in _club
+              ? const [
+                  (AppIcons.usersThree, 'Club page', 'Your own page. Invite friends and approve join requests.'),
+                  (AppIcons.mapPin, 'Club map', 'Clubmates see each other on the map. Each member can hide any time.'),
+                  (AppIcons.shieldCheck, 'Club admins', 'Make members Vice President or Secretary to help you run it.'),
+                  (AppIcons.flagCheckered, 'Post and host', 'Post and schedule meets as the club. Members see them on the club page.'),
+                ]
+              : const [
+                  (AppIcons.storefront, 'Shop on the map', 'A partner page with photos and opening hours, pinned on the map as a spot.'),
+                  (AppIcons.ticket, 'Vouchers', 'Members claim them in Rewards. Scan their QR at the counter to redeem.'),
+                  (AppIcons.shoppingBag, 'Mini store', 'Show up to 5 products on your page. Members message you about them.'),
+                  (AppIcons.chartBar, 'Posts, events, stats', 'Post and host events as the shop. See page views and check-ins.'),
+                ])
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(f.$1, size: 22, color: AppColors.textPrimary),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text.rich(TextSpan(children: [
+                      TextSpan(text: '${f.$2}. ', style: const TextStyle(fontWeight: FontWeight.w700)),
+                      TextSpan(text: f.$3, style: TextStyle(color: AppColors.textSecondary)),
+                    ]), style: const TextStyle(fontSize: 14, height: 1.35)),
+                  ),
+                ],
+              ),
+            ),
+          const SizedBox(height: 10),
           Row(
             children: [
               GestureDetector(
@@ -306,9 +329,11 @@ class _PartnerApplyScreenState extends ConsumerState<PartnerApplyScreen> {
           PrimaryButton(label: _club && _logo == null ? 'Add your club logo first' : 'Send application', loading: _busy, onPressed: _club && _logo == null ? null : _submit),
           const SizedBox(height: 10),
           Text(
-            'We usually reply within a few days. You keep using TT Spot as normal in the meantime.',
+            _club
+                ? 'We usually reply within a few days. Once approved, you set up the club page and invite your members.'
+                : 'We usually reply within a few days. TT Spot keeps 1% of each redeemed voucher bill, on a monthly statement.',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+            style: TextStyle(fontSize: 12, color: AppColors.textMuted, height: 1.35),
           ),
         ],
       ),
@@ -325,19 +350,15 @@ class _Status extends StatelessWidget {
   Widget build(BuildContext context) {
     final pending = app.status == ApplicationStatus.pending;
     return ListView(
-      padding: const EdgeInsets.fromLTRB(24, 40, 24, 32),
+      padding: const EdgeInsets.fromLTRB(24, 32, 24, 32),
       children: [
-        ArtIcon(pending ? AppArt.stopwatch : AppArt.prohibited, size: 80),
-        const SizedBox(height: 18),
-        Text(
-          pending ? 'Application received' : 'Not approved this time',
-          textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
-        ),
+        Center(child: Titi(pending ? TitiPose.phone : TitiPose.sad, height: 150)),
+        const SizedBox(height: 16),
+        Text(pending ? 'Application received' : 'Not approved this time', textAlign: TextAlign.center, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
         const SizedBox(height: 8),
         Text(
           pending
-              ? '${app.businessName} is waiting for review. Sent ${timeAgo(app.createdAt)}. We\'ll notify you here when it\'s decided.'
+              ? "${app.businessName} is waiting for review. Sent ${timeAgo(app.createdAt)}. We'll let you know in Activity."
               : (app.reason == null || app.reason!.isEmpty ? 'No reason was given.' : app.reason!),
           textAlign: TextAlign.center,
           style: TextStyle(color: AppColors.textSecondary, height: 1.4),
@@ -357,7 +378,7 @@ class _Status extends StatelessWidget {
           ),
         ),
         if (onReapply != null) ...[
-          const SizedBox(height: 20),
+          const SizedBox(height: 24),
           PrimaryButton(label: 'Apply again', onPressed: onReapply),
         ],
       ],
@@ -374,16 +395,16 @@ class _LoadError extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Center(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(32),
+          padding: const EdgeInsets.fromLTRB(24, 32, 24, 32),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Titi(TitiPose.sad, height: 96),
-              const SizedBox(height: 14),
-              const Text('Couldn\'t load this page', textAlign: TextAlign.center, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
-              const SizedBox(height: 6),
-              Text(friendlyError(error), textAlign: TextAlign.center, style: TextStyle(fontSize: 13.5, height: 1.4, color: AppColors.textSecondary)),
-              const SizedBox(height: 18),
+              const Titi(TitiPose.sad, height: 150),
+              const SizedBox(height: 16),
+              const Text("Couldn't load this page", textAlign: TextAlign.center, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+              const SizedBox(height: 8),
+              Text(friendlyError(error), textAlign: TextAlign.center, style: TextStyle(color: AppColors.textSecondary, height: 1.4)),
+              const SizedBox(height: 24),
               SecondaryButton(label: 'Try again', icon: AppIcons.arrowsClockwise, onPressed: onRetry),
             ],
           ),
@@ -400,10 +421,10 @@ class _Approved extends StatelessWidget {
   Widget build(BuildContext context) {
     final club = kind == ApplicationKind.club;
     return ListView(
-      padding: const EdgeInsets.fromLTRB(24, 40, 24, 32),
+      padding: const EdgeInsets.fromLTRB(24, 32, 24, 32),
       children: [
-        const ArtIcon(AppArt.party, size: 80),
-        const SizedBox(height: 18),
+        const Center(child: Titi(TitiPose.celebrate, height: 160)),
+        const SizedBox(height: 16),
         Text(club ? 'You can run car clubs' : '$name is a partner', textAlign: TextAlign.center, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
         const SizedBox(height: 8),
         Text(

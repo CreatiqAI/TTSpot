@@ -62,6 +62,17 @@ class PushService {
       // Android draws nothing in the foreground on its own: FCM skips
       // notification payloads, and ChatPushService skips data-only chats.
       await fm.setForegroundNotificationPresentationOptions(alert: false, badge: true, sound: false);
+      // Taps and in-app banners don't need our token, so listen first: a
+      // tapped notification still opens its chat when the token fetch below
+      // fails (offline at launch) and is retried on the next resume.
+      if (!_listening) {
+        _listening = true;
+        _subs.add(fm.onTokenRefresh.listen(_register));
+        _subs.add(FirebaseMessaging.onMessage.listen(_foreground));
+        _subs.add(FirebaseMessaging.onMessageOpenedApp.listen(_open));
+        final initial = await fm.getInitialMessage();
+        if (initial != null) _open(initial);
+      }
       if (defaultTargetPlatform == TargetPlatform.iOS) {
         // The FCM token needs the APNs token first; it can lag on first launch.
         String? apns;
@@ -79,14 +90,6 @@ class PushService {
         return;
       }
       await _register(token);
-      if (!_listening) {
-        _listening = true;
-        _subs.add(fm.onTokenRefresh.listen(_register));
-        _subs.add(FirebaseMessaging.onMessage.listen(_foreground));
-        _subs.add(FirebaseMessaging.onMessageOpenedApp.listen(_open));
-        final initial = await fm.getInitialMessage();
-        if (initial != null) _open(initial);
-      }
       _started = true;
       _set('On');
     } catch (e) {

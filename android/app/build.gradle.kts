@@ -82,4 +82,11 @@ dependencies {
     // Garage cut-outs (CarCutout.kt): subject segmentation inside Google Play
     // services; the model is an optional module downloaded on first use.
     implementation("com.google.android.gms:play-services-mlkit-subject-segmentation:16.0.0-beta1")
+    // Chat pushes drawn natively (ChatPushService.kt subclasses the plugin's
+    // FirebaseMessagingService, ChatNotifications.kt builds MessagingStyle).
+    // firebase_messaging keeps these as implementation deps, so declare them;
+    // the BoM matches firebase_core 4.15 (FirebaseSDKVersion=34.19.0).
+    implementation(platform("com.google.firebase:firebase-bom:34.19.0"))
+    implementation("com.google.firebase:firebase-messaging")
+    implementation("androidx.core:core:1.13.1")
 }

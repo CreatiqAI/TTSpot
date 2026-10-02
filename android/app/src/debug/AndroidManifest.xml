@@ -5,5 +5,8 @@
     -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <!-- Debug only: trust the dev PC's antivirus HTTPS root so the emulator loads map tiles (res/xml). -->
-    <application android:networkSecurityConfig="@xml/network_security_config" />
+    <application android:networkSecurityConfig="@xml/network_security_config">
+        <!-- Debug only: fake push deliveries for emulator checks (DebugPushReceiver.kt). -->
+        <receiver android:name=".DebugPushReceiver" android:exported="true" />
+    </application>
 </manifest>

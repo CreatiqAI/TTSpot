@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/config/media.dart';
+import '../../../core/push/in_app_notice.dart' show OpenChats;
 import '../../../core/router/app_router.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/theme/app_icons.dart';
@@ -27,6 +28,7 @@ import 'widgets/voice_recorder.dart';
 import '../../../core/theme/app_art.dart';
 import '../../../core/theme/app_images.dart';
 import '../../events/application/event_providers.dart';
+import '../../friends/application/nicknames.dart';
 import '../../profile/application/profile_providers.dart';
 import '../application/chat_providers.dart';
 import '../application/community_providers.dart';
@@ -60,11 +62,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   @override
   void initState() {
     super.initState();
+    // No in-app banner for this chat while it's open; its notification leaves the shade.
+    OpenChats.enter(widget.conversationId);
     WidgetsBinding.instance.addPostFrameCallback((_) => ref.read(chatActionsProvider).markRead(widget.conversationId));
   }
 
   @override
   void dispose() {
+    OpenChats.leave(widget.conversationId);
     _voice.dispose();
     _focus.dispose();
     _flashTimer?.cancel();
@@ -95,7 +100,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     if (o.senderId == me) return 'You';
     if (o.asClub != null || o.asVendor != null) return o.asName ?? conv?.entityName ?? 'Club';
     final p = o.sender ?? members[o.senderId];
-    return p?.displayName ?? p?.username ?? 'Member';
+    return displayNameFor(p, ref.read(nicknamesProvider));
   }
 
   /// Scroll the original of a reply into view and flash it.
@@ -316,6 +321,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     });
 
     final membersById = <String, Profile>{for (final p in conv?.members ?? const <Profile>[]) p.id: p};
+    final nick = ref.watch(nicknamesProvider);
+    final title = conv == null ? 'Chat' : conversationTitle(conv, nick);
+    final otherNick = conv?.other == null ? null : nick[conv!.other!.id];
     final hostId = conv?.eventId == null ? null : ref.watch(eventDetailProvider(conv!.eventId!)).value?.event.organizerId;
 
     return Scaffold(
@@ -338,14 +346,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(conv?.title ?? 'Chat', maxLines: 1, overflow: TextOverflow.ellipsis, style: AppText.screenTitle),
+                    Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppText.screenTitle),
                     if (conv != null && !conv.otherGone)
                       Text(
                         conv.isMeet
                             ? '${conv.members.length} going'
                             : conv.showEntity
                                 ? (conv.clubId != null ? 'Car club' : 'Partner')
-                                : '@${conv.other?.username ?? ''}',
+                                // With a nickname, their real name comes back here.
+                                : '${otherNick != null && (conv.other?.displayName ?? '').trim().isNotEmpty ? '${conv.other!.displayName!.trim()} · ' : ''}@${conv.other?.username ?? ''}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
                       ),
                   ],
@@ -374,7 +385,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 if (list.isEmpty && (conv?.otherGone ?? false)) return const SizedBox.shrink();
                 if (list.isEmpty) {
                   final other = conv?.other;
-                  final first = (other?.displayName ?? other?.username ?? '').split(' ').first;
+                  final first = otherNick ?? (other?.displayName ?? other?.username ?? '').split(' ').first;
                   final starters = conv?.isMeet ?? false
                       ? const ['Who\'s coming tonight?', 'Where to park?', 'Otw, 10 min', 'Anyone need a ride?']
                       : ['Hey $first, TT tonight?', 'Coming TTDI Thursday?', 'Nice ride, what mods?', 'Otw, 10 min', 'Where you usually TT?'];
@@ -457,7 +468,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                               message: m,
                               mine: mine,
                               showName: (showName || showEntity) && !mine,
-                              senderName: showEntity ? m.asName : sender?.username,
+                              senderName: showEntity ? m.asName : (nick[m.senderId] ?? sender?.username),
                               avatarUrl: showEntity ? m.asLogo : sender?.avatarUrl,
                               avatarSeed: showEntity ? null : m.senderId,
                               showAvatar: !mine && ((conv?.isMeet ?? false) || showEntity),

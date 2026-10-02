@@ -14,6 +14,7 @@ import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/slide_actions.dart';
 import '../../../core/widgets/user_avatar.dart';
 import '../../friends/application/friends_providers.dart';
+import '../../friends/application/nicknames.dart';
 import '../../friends/domain/friend.dart';
 import '../../auth/domain/profile.dart';
 import '../application/chat_providers.dart';
@@ -164,7 +165,7 @@ class _ChatList extends ConsumerWidget {
                 for (final f in unchatted)
                   ListTile(
                     leading: UserAvatar(url: f.avatarUrl, name: f.displayName ?? f.username, seed: f.id, size: 48),
-                    title: Text(f.displayName ?? '@${f.username}', style: const TextStyle(fontWeight: FontWeight.w600)),
+                    title: Text(ref.displayNameFor(f), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600)),
                     subtitle: Text(
                       live[f.id]?.placeName != null ? 'On the map · ${live[f.id]!.placeName}' : (live.containsKey(f.id) ? 'On the map now' : '@${f.username ?? ''}'),
                       maxLines: 1,
@@ -202,6 +203,7 @@ class _FriendStrip extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final me = ref.watch(currentUserIdProvider);
     final myProfile = ref.watch(currentProfileProvider).value;
+    final nick = ref.watch(nicknamesProvider);
     final mine = moments.indexWhere((g) => g.author.id == me);
     // Unseen first, then seen; never me.
     final withMoment = [for (var i = 0; i < moments.length; i++) if (i != mine) i]
@@ -254,7 +256,7 @@ class _FriendStrip extends ConsumerWidget {
               ),
               for (final i in withMoment)
                 _Circle(
-                  name: (moments[i].author.displayName ?? moments[i].author.username ?? '').split(' ').first,
+                  name: nick[moments[i].author.id] ?? (moments[i].author.displayName ?? moments[i].author.username ?? '').split(' ').first,
                   avatarUrl: moments[i].author.avatarUrl,
                   avatarName: moments[i].author.displayName ?? moments[i].author.username,
                   seed: moments[i].author.id,
@@ -264,7 +266,7 @@ class _FriendStrip extends ConsumerWidget {
                 ),
               for (final f in rest)
                 _Circle(
-                  name: f.displayName?.split(' ').first ?? f.username ?? '',
+                  name: nick[f.id] ?? f.displayName?.split(' ').first ?? f.username ?? '',
                   avatarUrl: f.avatarUrl,
                   avatarName: f.displayName ?? f.username,
                   seed: f.id,
@@ -409,13 +411,14 @@ class _SwipeRow extends ConsumerWidget {
   }
 }
 
-class _ChatTile extends StatelessWidget {
+class _ChatTile extends ConsumerWidget {
   const _ChatTile({required this.c});
   final Conversation c;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final last = c.lastMessage;
+    final title = conversationTitle(c, ref.watch(nicknamesProvider));
     return ListTile(
       leading: c.isMeet
           ? ClipRRect(
@@ -431,7 +434,7 @@ class _ChatTile extends StatelessWidget {
           : UserAvatar(url: c.avatarUrl, name: c.otherGone ? null : c.title, seed: c.showEntity ? null : c.other?.id, size: 48, fallbackAsset: c.showEntity && c.clubId != null ? crestAsset(c.clubId!) : null),
       title: Row(
         children: [
-          Flexible(child: Text(c.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontWeight: c.unread > 0 ? FontWeight.w700 : FontWeight.w600))),
+          Flexible(child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontWeight: c.unread > 0 ? FontWeight.w700 : FontWeight.w600))),
           if (c.pinned) ...[const SizedBox(width: 6), Icon(AppIcons.pushPin, size: 14, color: AppColors.textMuted)],
         ],
       ),

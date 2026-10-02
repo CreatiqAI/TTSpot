@@ -6,6 +6,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/user_avatar.dart';
 import '../../../auth/domain/profile.dart';
 import '../../../friends/domain/friend.dart';
+import '../../../friends/presentation/nickname_sheet.dart' show ProfileNameLines;
 import '../../../social/domain/post.dart';
 import '../../domain/car.dart';
 import '../user_garage_screen.dart' show garageTitle;
@@ -63,7 +64,6 @@ class ProfileHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = profile;
     final name = p.displayName ?? '@${p.username}';
-    final where = (p.homeState ?? '').isNotEmpty ? ' · ${p.homeState}' : '';
     final live = moments.any((m) => m.isLive);
     final showGarage = isMe || cars.isNotEmpty;
     return Column(
@@ -125,14 +125,8 @@ class ProfileHeader extends StatelessWidget {
           ),
         ),
         // -------------------------------------------------------- identity ---
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-          child: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, height: 1.2)),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 1, 16, 0),
-          child: Text('@${p.username}$where', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, color: AppColors.textSecondary, fontWeight: FontWeight.w500)),
-        ),
+        // My nickname for them (备注) big, "Real name · @handle" under it.
+        ProfileNameLines(profile: p, isMe: isMe),
         // ------------------------------------------------------------- bio ---
         if ((p.bio ?? '').trim().isNotEmpty)
           Padding(

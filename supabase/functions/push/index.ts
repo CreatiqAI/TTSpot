@@ -3,10 +3,30 @@
 // Secrets: PUSH_HOOK_SECRET (same value as the Vault secret) and
 // FCM_SERVICE_ACCOUNT (Firebase → Project settings → Service accounts → JSON).
 // Without FCM_SERVICE_ACCOUNT it answers { skipped } and sends nothing.
+//
+// Deploy with --no-verify-jwt (pinned in supabase/config.toml): pg_net calls
+// carry only x-push-secret, so a JWT check answers 401 to every push.
+//
+// Names: a person shows as their display name (their @handle only when they
+// have none), or as the recipient's private nickname for them (备注,
+// contact_nicknames). Clubs, partners and meets keep their own names.
+//
+// Payload per platform:
+// - Android chat messages go DATA-ONLY so the app draws them itself as a
+//   conversation with the sender's avatar (ChatPushService.kt / ChatNotifications.kt)
+//   and never while the app is open (the in-app banner shows instead). Only
+//   to installs that said they can (push_tokens.native_chat); older builds
+//   would drop a data-only push, so they keep the standard notification.
+// - Everything else carries a notification block (the system draws it in the
+//   background); iOS gets mutable-content so a Notification Service Extension
+//   can add the sender's avatar, and thread-id to group a chat.
+// - data always has: route, kind, title, body, avatar, sender_id, msg_id
+//   (+ conversation_id, sender_name, group, convo_title for chats).
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { importPKCS8, SignJWT } from "npm:jose@5";
 
-const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+const admin = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
   auth: { persistSession: false },
 });
 const HOOK_SECRET = Deno.env.get("PUSH_HOOK_SECRET") ?? "";
@@ -15,7 +35,20 @@ const SA_JSON = Deno.env.get("FCM_SERVICE_ACCOUNT") ?? "";
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 
-type Push = { userIds: string[]; title: string; body: string; route: string | null; setting: string | null };
+/** Title / body for one recipient (their nickname for the sender may differ). */
+type Text = { title: string; body: string };
+
+type Push = {
+  userIds: string[];
+  text: (userId: string) => Text;
+  route: string | null;
+  setting: string | null;
+  chat: boolean;
+  /** Extra data keys (strings) for the app: avatar, sender, conversation… */
+  data: Record<string, string>;
+  /** iOS thread-id: one chat or one kind groups together. */
+  thread: string;
+};
 
 // ------------------------------------------------------------- FCM auth ---
 
@@ -42,6 +75,41 @@ async function fcmToken(sa: { client_email: string; private_key: string }): Prom
   return cached.token;
 }
 
+// ---------------------------------------------------------------- names ---
+
+type Person = { username?: string | null; display_name?: string | null; avatar_url?: string | null } | null;
+
+/** Display name, else @handle, else the fallback. */
+function nameOf(p: Person, fallback = "Someone"): string {
+  const d = p?.display_name?.trim();
+  if (d) return d;
+  const u = p?.username?.trim();
+  return u ? `@${u}` : fallback;
+}
+
+/** The TiTi default avatar the app draws for this user id (UserAvatar's FNV-1a pick). */
+function defaultAvatar(seed: string): string {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < seed.length; i++) {
+    h ^= seed.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return `${SUPABASE_URL}/storage/v1/object/public/avatars/defaults/a${(h % 8) + 1}.png`;
+}
+
+function avatarOf(p: Person, userId: string | null): string {
+  const url = p?.avatar_url?.trim();
+  if (url) return url;
+  return userId ? defaultAvatar(userId) : "";
+}
+
+/** Each recipient's nickname for [targetId], if they set one. */
+async function nicknames(targetId: string | null, ownerIds: string[]): Promise<Map<string, string>> {
+  if (!targetId || !ownerIds.length) return new Map();
+  const { data } = await admin.from("contact_nicknames").select("owner_id, nickname").eq("target_id", targetId).in("owner_id", ownerIds);
+  return new Map((data ?? []).filter((r: { nickname: string }) => r.nickname?.trim()).map((r: { owner_id: string; nickname: string }) => [r.owner_id, r.nickname.trim()]));
+}
+
 // ------------------------------------------------------------- building ---
 
 // Settings toggle (profiles.settings) that silences each notification type.
@@ -61,13 +129,14 @@ const after = (s: string | null, prefix: string) => (s ?? "").startsWith(prefix)
 async function fromNotification(id: string): Promise<Push | null> {
   const { data: n } = await admin
     .from("notifications")
-    .select("user_id, type, body, post_id, event_id, club_id, actor:profiles!notifications_actor_id_fkey(username), event:events(title), club:clubs(name)")
+    .select("user_id, actor_id, type, body, post_id, event_id, club_id, actor:profiles!notifications_actor_id_fkey(username, display_name, avatar_url), event:events(title), club:clubs(name, avatar_url)")
     .eq("id", id)
     .maybeSingle();
   if (!n) return null;
   // deno-lint-ignore no-explicit-any
   const x = n as any;
-  const who = x.actor?.username ? `@${x.actor.username}` : "";
+  const nick = (await nicknames(x.actor_id, [x.user_id])).get(x.user_id);
+  const who = x.actor_id ? (nick ?? nameOf(x.actor, "")) : "";
   const ev = x.event?.title ?? "your meet";
   const club = x.club?.name ?? "your club";
   const b: string | null = x.body;
@@ -121,21 +190,30 @@ async function fromNotification(id: string): Promise<Push | null> {
       default: return ["TT Spot", b ?? "Something new for you.", null];
     }
   })();
-  return { userIds: [x.user_id], title: title || "TT Spot", body, route, setting: SETTING[x.type] ?? null };
+  // The face on the banner: the person when the title is them, else the club, else the person.
+  const personTitled = !!who && title === who;
+  const avatar = personTitled || !x.club_id ? avatarOf(x.actor, x.actor_id) : (x.club?.avatar_url ?? avatarOf(x.actor, x.actor_id));
+  const text = { title: title || "TT Spot", body };
+  return {
+    userIds: [x.user_id],
+    text: () => text,
+    route,
+    setting: SETTING[x.type] ?? null,
+    chat: false,
+    data: { kind: x.type ?? "notice", avatar: avatar ?? "", sender_id: x.actor_id ?? "", msg_id: `n:${id}` },
+    thread: x.type ?? "notice",
+  };
 }
 
 async function fromMessage(id: string): Promise<Push | null> {
   const { data: m } = await admin
     .from("messages")
-    .select("conversation_id, sender_id, body, image_url, video_url, as_club, as_vendor, sender:profiles!messages_sender_id_fkey(username), conversation:conversations(kind, event:events(title))")
+    .select("conversation_id, sender_id, body, image_url, video_url, as_club, as_vendor, sender:profiles!messages_sender_id_fkey(username, display_name, avatar_url), conversation:conversations(kind, event:events(title))")
     .eq("id", id)
     .maybeSingle();
   if (!m) return null;
   // deno-lint-ignore no-explicit-any
   const x = m as any;
-  let from = x.sender?.username ? `@${x.sender.username}` : "Someone";
-  if (x.as_club) from = (await admin.from("clubs").select("name").eq("id", x.as_club).maybeSingle()).data?.name ?? from;
-  if (x.as_vendor) from = (await admin.from("vendors").select("name").eq("id", x.as_vendor).maybeSingle()).data?.name ?? from;
 
   const { data: members } = await admin
     .from("conversation_members")
@@ -149,8 +227,27 @@ async function fromMessage(id: string): Promise<Push | null> {
   const { data: blocks } = await admin.from("blocks").select("blocker_id").eq("blocked_id", x.sender_id).in("blocker_id", userIds);
   const blockers = new Set((blocks ?? []).map((r: { blocker_id: string }) => r.blocker_id));
   userIds = userIds.filter((u) => !blockers.has(u));
+  if (!userIds.length) return null;
+
+  // Who it's from: the club / partner when sent as one, else the person
+  // (by the recipient's nickname for them when there is one).
+  let entity: string | null = null;
+  let avatar = avatarOf(x.sender, x.sender_id);
+  if (x.as_club) {
+    const c = (await admin.from("clubs").select("name, avatar_url").eq("id", x.as_club).maybeSingle()).data;
+    if (c?.name) entity = c.name;
+    avatar = c?.avatar_url ?? "";
+  } else if (x.as_vendor) {
+    const v = (await admin.from("vendors").select("name, logo_url").eq("id", x.as_vendor).maybeSingle()).data;
+    if (v?.name) entity = v.name;
+    avatar = v?.logo_url ?? "";
+  }
+  const name = entity ?? nameOf(x.sender);
+  const nicks = entity ? new Map<string, string>() : await nicknames(x.sender_id, userIds);
+  const from = (u: string) => nicks.get(u) ?? name;
 
   const meet = x.conversation?.kind === "meet";
+  const meetTitle: string = x.conversation?.event?.title ?? "Meet chat";
   // A caption typed under a photo / video says which it was; the auto bodies
   // ("Sent a photo", "Sent a video") already do.
   const text: string = x.image_url && x.body !== "Sent a photo"
@@ -160,14 +257,27 @@ async function fromMessage(id: string): Promise<Push | null> {
       : x.body;
   return {
     userIds,
-    title: meet ? x.conversation?.event?.title ?? "Meet chat" : from,
-    body: meet ? `${from}: ${text}` : text,
+    text: (u) => meet ? { title: meetTitle, body: `${from(u)}: ${text}` } : { title: from(u), body: text },
     route: `/chat/${x.conversation_id}`,
     setting: "notif_messages",
+    chat: true,
+    data: {
+      kind: "chat",
+      conversation_id: x.conversation_id,
+      sender_id: x.sender_id ?? "",
+      sender_name: name,
+      avatar: avatar ?? "",
+      group: meet ? "1" : "0",
+      convo_title: meet ? meetTitle : "",
+      msg_id: `m:${id}`,
+    },
+    thread: `chat:${x.conversation_id}`,
   };
 }
 
 // -------------------------------------------------------------- sending ---
+
+const clip = (s: string, n: number) => s.length > n ? `${s.slice(0, n - 1)}…` : s;
 
 Deno.serve(async (req) => {
   if (!HOOK_SECRET || req.headers.get("x-push-secret") !== HOOK_SECRET) return json({ error: "forbidden" }, 403);
@@ -184,33 +294,40 @@ Deno.serve(async (req) => {
     userIds = (profs ?? []).filter((p: any) => p.settings?.[push.setting!] !== false).map((p: { id: string }) => p.id);
   }
   if (!userIds.length) return json({ sent: 0 });
-  const { data: tokens } = await admin.from("push_tokens").select("token").in("user_id", userIds);
+  const { data: tokens } = await admin.from("push_tokens").select("token, user_id, platform, native_chat").in("user_id", userIds);
   if (!tokens?.length) return json({ sent: 0 });
 
   const sa = JSON.parse(SA_JSON);
   const access = await fcmToken(sa);
-  const body = push.body.length > 180 ? `${push.body.slice(0, 177)}…` : push.body;
   let sent = 0;
   const dead: string[] = [];
-  await Promise.all(tokens.map(async ({ token }: { token: string }) => {
+  await Promise.all(tokens.map(async ({ token, user_id, platform, native_chat }: { token: string; user_id: string; platform: string; native_chat: boolean }) => {
+    const t = push.text(user_id);
+    const title = clip(t.title || "TT Spot", 80);
+    const body = clip(t.body ?? "", 180);
+    const data: Record<string, string> = { ...push.data, title, body };
+    if (push.route) data.route = push.route;
+    // deno-lint-ignore no-explicit-any
+    const message: Record<string, any> = { token, data };
+    if (platform === "android" && push.chat && native_chat) {
+      // Data-only: the app draws the conversation itself (or the in-app banner).
+      message.android = { priority: "HIGH" };
+    } else {
+      message.notification = { title, body };
+      message.android = { priority: "HIGH", notification: { icon: "ic_stat_notify", color: "#E00008" } };
+      message.apns = { payload: { aps: { sound: "default", "mutable-content": 1, "thread-id": push.thread } } };
+    }
     const r = await fetch(`https://fcm.googleapis.com/v1/projects/${sa.project_id}/messages:send`, {
       method: "POST",
       headers: { Authorization: `Bearer ${access}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        message: {
-          token,
-          notification: { title: push.title, body },
-          data: push.route ? { route: push.route } : {},
-          android: { priority: "HIGH", notification: { icon: "ic_stat_notify", color: "#E00008" } },
-          apns: { payload: { aps: { sound: "default" } } },
-        },
-      }),
+      body: JSON.stringify({ message }),
     });
     if (r.ok) sent++;
     else if (r.status === 404 || r.status === 400) {
       const err = await r.json().catch(() => ({}));
       const code = err?.error?.details?.[0]?.errorCode ?? err?.error?.status;
-      if (code === "UNREGISTERED" || code === "INVALID_ARGUMENT" || r.status === 404) dead.push(token);
+      if (code === "UNREGISTERED" || r.status === 404) dead.push(token);
+      else console.warn("fcm send failed", r.status, JSON.stringify(err).slice(0, 300));
     }
   }));
   if (dead.length) await admin.from("push_tokens").delete().in("token", dead);

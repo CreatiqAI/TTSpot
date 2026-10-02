@@ -28,6 +28,7 @@ import '../../friends/application/friends_providers.dart';
 import '../../friends/domain/friend.dart';
 import '../../friends/presentation/call_sheet.dart';
 import '../../friends/presentation/friend_colour_sheet.dart';
+import '../../friends/presentation/nickname_sheet.dart';
 import '../../points/application/points_providers.dart';
 import '../../safety/data/safety_repository.dart';
 import '../../safety/presentation/report_sheet.dart';
@@ -408,6 +409,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(leading: const Icon(AppIcons.shareFat), title: const Text('Share profile'), onTap: () => Navigator.pop(ctx, 'share')),
+            ListTile(leading: const Icon(AppIcons.tag), title: const Text('Nickname'), subtitle: const Text('Only you can see this', style: TextStyle(fontSize: 12)), onTap: () => Navigator.pop(ctx, 'nickname')),
             if (ref.read(friendIdsProvider).contains(p.id)) ...[
               ListTile(leading: const Icon(AppIcons.cards), title: const Text('Trade cards'), subtitle: const Text('Swap blind box cards with them', style: TextStyle(fontSize: 12)), onTap: () => Navigator.pop(ctx, 'trade')),
               ListTile(leading: const Icon(AppIcons.mapPin), title: const Text('Colour on the map'), subtitle: const Text('Pick a colour so you spot them fast', style: TextStyle(fontSize: 12)), onTap: () => Navigator.pop(ctx, 'colour')),
@@ -428,6 +430,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     switch (action) {
       case 'share':
         await shareThing(type: 'profile', id: p.id, text: '@${p.username} on TT Spot');
+      case 'nickname':
+        await showNicknameSheet(context, ref, p);
       case 'trade':
         context.push(Routes.newTradeWith(p.id));
       case 'colour':

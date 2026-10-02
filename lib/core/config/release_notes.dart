@@ -10,6 +10,26 @@ class ReleaseNote {
 
 const kReleaseNotes = <ReleaseNote>[
   ReleaseNote(
+    version: '0.3.49',
+    date: '2 Oct 2026',
+    title: 'New map, full-screen garage and more',
+    points: [
+      'The map now has Now, Events and Spots, with quick filters at the top.',
+      'Event pins show the event photo or club logo. Official events stay visible even when you zoom far out.',
+      '12 colours for your friends on the map: long-press their pin to change it.',
+      'Your garage fills the screen: your car stands big in its bay, swipe up for its stats.',
+      'Planning a TT session or meet is a few simple steps, with Use my location and a cover photo.',
+      'Add a car in steps and save your road tax and insurance dates, or skip for now.',
+      'Hide my number plate keeps your original privately, so you can show it again later.',
+      'Post videos, and tag a place with Use my location or live address search.',
+      'Give anyone a nickname. Only you see it, in chats and in notifications.',
+      'In-app notifications slide in as a small banner and show names, not @handles.',
+      'Partner pages have proper tabs, and Become a partner works again.',
+      'TiTi is the new chat background, and TiTi AI has a garage of its own.',
+      'Create and the Me menu are tidier, and accepted friend requests stay with a Message button.',
+    ],
+  ),
+  ReleaseNote(
     version: '0.3.48',
     date: '2 Oct 2026',
     title: 'A new car page',

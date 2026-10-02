@@ -10,6 +10,21 @@ class ReleaseNote {
 
 const kReleaseNotes = <ReleaseNote>[
   ReleaseNote(
+    version: '0.3.51',
+    date: '3 Oct 2026',
+    title: 'A For you feed made for you',
+    points: [
+      "For you now picks posts for you: friends, your clubs, cars like the ones you like and drive, spots near you and what's popular, with fresh posts first. Posts you've already seen move down.",
+      "Keep scrolling and more posts load. Pull down for a fresh mix.",
+      "Long-press a post in For you to see why it's there, or tap Not interested or Fewer from someone. Not interested is also in a post's menu.",
+      "Following now shows your friends and clubs, then You're all caught up and suggested posts.",
+      'Posts now end with More like this.',
+      'Run a car club and Become a partner now open with TiTi explaining what you get, like the organizer application.',
+      'Fixed: the Posts and Cards tabs on your profile sat too high and were hard to tap.',
+      'Fixed: the Commented tab name in Saved was cut off.',
+    ],
+  ),
+  ReleaseNote(
     version: '0.3.50',
     date: '2 Oct 2026',
     title: 'Fix for TT Spot closing on open',

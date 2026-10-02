@@ -50,7 +50,13 @@ class _SavedPostsScreenState extends ConsumerState<SavedPostsScreen> with Single
           indicatorWeight: 1.5,
           dividerColor: AppColors.border,
           labelStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-          tabs: const [Tab(text: 'Posts'), Tab(text: 'Spots'), Tab(text: 'Liked'), Tab(text: 'Commented')],
+          // Four tabs share a phone's width: "Commented" was cut off, so labels
+          // get less side padding and shrink to fit instead of clipping.
+          labelPadding: const EdgeInsets.symmetric(horizontal: 4),
+          tabs: [
+            for (final t in const ['Posts', 'Spots', 'Liked', 'Commented'])
+              Tab(child: FittedBox(fit: BoxFit.scaleDown, child: Text(t, maxLines: 1))),
+          ],
         ),
       ),
       body: TabBarView(

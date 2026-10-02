@@ -195,18 +195,43 @@ class Post {
 
 /// A post plus what the viewer has done with it.
 class FeedPost {
-  const FeedPost({required this.post, required this.likedByMe, required this.savedByMe, this.myVote});
+  const FeedPost({required this.post, required this.likedByMe, required this.savedByMe, this.myVote, this.reason});
   final Post post;
   final bool likedByMe;
   final bool savedByMe;
   final int? myVote;
+
+  /// Why "For you" picked it (friend, following, club, nearby, make:honda,
+  /// popular, new, mine, for_you). Null outside the ranked feed.
+  final String? reason;
 
   FeedPost copyWith({Post? post, bool? likedByMe, bool? savedByMe, int? myVote, bool clearVote = false}) => FeedPost(
         post: post ?? this.post,
         likedByMe: likedByMe ?? this.likedByMe,
         savedByMe: savedByMe ?? this.savedByMe,
         myVote: clearVote ? null : (myVote ?? this.myVote),
+        reason: reason,
       );
+
+  /// [reason] in words, for "Why you're seeing this".
+  String? get reasonText {
+    final r = reason;
+    if (r == null) return null;
+    if (r.startsWith('make:')) {
+      final make = r.substring(5);
+      return make.isEmpty ? 'Suggested for you' : 'You like ${make[0].toUpperCase()}${make.substring(1)} posts';
+    }
+    return switch (r) {
+      'friend' => 'Posted by your friend',
+      'following' => 'You follow them',
+      'club' => 'From your club',
+      'nearby' => 'Near you',
+      'popular' => 'Popular with drivers right now',
+      'new' => 'New post',
+      'mine' => 'Your post',
+      _ => 'Suggested for you',
+    };
+  }
 }
 
 class PostComment {

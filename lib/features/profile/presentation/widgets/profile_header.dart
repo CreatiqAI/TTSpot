@@ -332,7 +332,7 @@ class ProfileTabBar extends SliverPersistentHeaderDelegate {
   final int selected;
   final ValueChanged<int> onSelect;
 
-  static const height = 46.0;
+  static const height = 48.0;
   static const indicatorHeight = 3.0;
 
   @override
@@ -348,9 +348,14 @@ class ProfileTabBar extends SliverPersistentHeaderDelegate {
       child: LayoutBuilder(
         builder: (_, c) {
           final w = c.maxWidth / tabs.length;
+          // expand: each tab fills the strip's full height, so the label sits
+          // in the middle and the whole strip is tappable (0.3.50 had the
+          // labels stuck to the top with a 20 px tap band).
           return Stack(
+            fit: StackFit.expand,
             children: [
               Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   for (var i = 0; i < tabs.length; i++)
                     Expanded(

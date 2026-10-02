@@ -131,6 +131,12 @@ class _PostCardState extends ConsumerState<PostCard> {
                 onTap: () => Navigator.pop(ctx, 'delete'),
               )
             else ...[
+              ListTile(
+                leading: const Icon(AppIcons.eyeSlash),
+                title: const Text('Not interested'),
+                subtitle: const Text('Show me fewer posts like this'),
+                onTap: () => Navigator.pop(ctx, 'not_interested'),
+              ),
               ListTile(leading: const Icon(AppIcons.flag), title: const Text('Report'), onTap: () => Navigator.pop(ctx, 'report')),
               ListTile(
                 leading: const Icon(AppIcons.prohibit, color: AppColors.danger),
@@ -164,6 +170,11 @@ class _PostCardState extends ConsumerState<PostCard> {
           ),
         );
         if (ok == true) await _guard(() => actions.deletePost(f));
+      case 'not_interested':
+        await _guard(() async {
+          await actions.notInterested(f);
+          if (mounted) _snack("Got it. You'll see fewer posts like this.");
+        });
       case 'report':
         await showReportSheet(context, target: ReportTarget.post, targetId: f.post.id);
       case 'block':

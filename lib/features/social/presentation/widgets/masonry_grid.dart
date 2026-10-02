@@ -7,13 +7,18 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/thumb_image.dart';
 import '../../../../core/widgets/user_avatar.dart';
 import '../../domain/post.dart';
+import 'seen_tracker.dart';
 import 'video_badge.dart';
 
-/// RedNote-style two-column waterfall. Items go to whichever column is shorter.
+/// RedNote-style two-column waterfall. Items go to whichever column is
+/// shorter, so appending a page never moves the tiles already placed.
 class MasonryGrid extends StatelessWidget {
-  const MasonryGrid({super.key, required this.items, this.padding = const EdgeInsets.fromLTRB(8, 8, 8, 24)});
+  const MasonryGrid({super.key, required this.items, this.padding = const EdgeInsets.fromLTRB(8, 8, 8, 24), this.onLongPress});
   final List<FeedPost> items;
   final EdgeInsets padding;
+
+  /// Long-press on a tile ("Not interested" in the ranked feeds).
+  final ValueChanged<FeedPost>? onLongPress;
 
   static const _gap = 8.0;
 
@@ -37,13 +42,15 @@ class MasonryGrid extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(child: Column(children: [for (final f in left) PostTile(feed: f)])),
+          Expanded(child: Column(children: [for (final f in left) _tile(f)])),
           const SizedBox(width: _gap),
-          Expanded(child: Column(children: [for (final f in right) PostTile(feed: f)])),
+          Expanded(child: Column(children: [for (final f in right) _tile(f)])),
         ],
       ),
     );
   }
+
+  Widget _tile(FeedPost f) => SeenMarker(key: ValueKey(f.post.id), postId: f.post.id, child: PostTile(feed: f, onLongPress: onLongPress));
 
   static double _estimatedHeight(Post p) {
     final aspect = p.photoUrls.isEmpty ? 1.2 : p.coverAspect.clamp(0.6, 1.6);
@@ -52,8 +59,9 @@ class MasonryGrid extends StatelessWidget {
 }
 
 class PostTile extends StatelessWidget {
-  const PostTile({super.key, required this.feed});
+  const PostTile({super.key, required this.feed, this.onLongPress});
   final FeedPost feed;
+  final ValueChanged<FeedPost>? onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -65,6 +73,7 @@ class PostTile extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: MasonryGrid._gap),
       child: GestureDetector(
         onTap: () => context.push(Routes.post(p.id)),
+        onLongPress: onLongPress == null ? null : () => onLongPress!(feed),
         child: Container(
           decoration: BoxDecoration(
             color: AppColors.bg,

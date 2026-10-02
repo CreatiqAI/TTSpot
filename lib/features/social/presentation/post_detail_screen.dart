@@ -16,7 +16,9 @@ import '../../safety/data/safety_repository.dart';
 import '../../safety/presentation/report_sheet.dart';
 import '../application/social_providers.dart';
 import '../domain/post.dart';
+import 'widgets/masonry_grid.dart';
 import 'widgets/post_card.dart';
+import 'widgets/seen_tracker.dart';
 
 class PostDetailScreen extends ConsumerStatefulWidget {
   const PostDetailScreen({super.key, required this.postId});
@@ -31,8 +33,19 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
   final _commentFocus = FocusNode();
   bool _busy = false;
 
+  // How long the post stays open feeds the ranking (sent on leaving).
+  final _openedAt = DateTime.now();
+  late final FeedSignals _signals;
+
+  @override
+  void initState() {
+    super.initState();
+    _signals = ref.read(feedSignalsProvider);
+  }
+
   @override
   void dispose() {
+    _signals.opened(widget.postId, DateTime.now().difference(_openedAt));
     _comment.dispose();
     _commentFocus.dispose();
     super.dispose();
@@ -73,31 +86,36 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
           return Column(
             children: [
               Expanded(
-                child: RefreshIndicator(
-                  onRefresh: () async {
-                    ref.invalidate(postProvider(widget.postId));
-                    ref.invalidate(postCommentsProvider(widget.postId));
-                    await ref.read(postProvider(widget.postId).future);
-                  },
-                  child: ListView(
-                    padding: EdgeInsets.zero,
-                    physics: const PinchLockScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-                    children: [
-                      PostCard(feed: f, expanded: true, onComment: () => _commentFocus.requestFocus()),
-                      if (f.post.kind == PostKind.guide && (f.post.guideStops ?? const []).isNotEmpty) _GuideMap(post: f.post),
-                      if (f.post.kind == PostKind.spotted && f.post.latLng != null) _SpottedMap(post: f.post),
-                      const Divider(),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                        child: comments.when(
-                          loading: () => const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator(strokeWidth: 2))),
-                          error: (e, _) => Text(friendlyError(e)),
-                          data: (list) => list.isEmpty
-                              ? Text('No comments yet.', style: TextStyle(color: AppColors.textSecondary))
-                              : Column(children: [for (final c in list) _CommentTile(comment: c, isMine: c.userId == me, postId: widget.postId)]),
+                child: SeenScope(
+                  onSeen: _signals.seen,
+                  child: RefreshIndicator(
+                    onRefresh: () async {
+                      ref.invalidate(postProvider(widget.postId));
+                      ref.invalidate(postCommentsProvider(widget.postId));
+                      ref.invalidate(relatedPostsProvider(widget.postId));
+                      await ref.read(postProvider(widget.postId).future);
+                    },
+                    child: ListView(
+                      padding: EdgeInsets.zero,
+                      physics: const PinchLockScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+                      children: [
+                        PostCard(feed: f, expanded: true, onComment: () => _commentFocus.requestFocus()),
+                        if (f.post.kind == PostKind.guide && (f.post.guideStops ?? const []).isNotEmpty) _GuideMap(post: f.post),
+                        if (f.post.kind == PostKind.spotted && f.post.latLng != null) _SpottedMap(post: f.post),
+                        const Divider(),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                          child: comments.when(
+                            loading: () => const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator(strokeWidth: 2))),
+                            error: (e, _) => Text(friendlyError(e)),
+                            data: (list) => list.isEmpty
+                                ? Text('No comments yet.', style: TextStyle(color: AppColors.textSecondary))
+                                : Column(children: [for (final c in list) _CommentTile(comment: c, isMine: c.userId == me, postId: widget.postId)]),
+                          ),
                         ),
-                      ),
-                    ],
+                        _MoreLikeThis(postId: widget.postId),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -142,6 +160,30 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
           );
         },
       ),
+    );
+  }
+}
+
+/// RedNote-style "More like this" under the comments: same car, make,
+/// spot, meet or driver first (related_posts in migration 0094).
+class _MoreLikeThis extends ConsumerWidget {
+  const _MoreLikeThis({required this.postId});
+  final String postId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final related = ref.watch(relatedPostsProvider(postId)).value ?? const <FeedPost>[];
+    if (related.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Divider(),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+          child: Text('More like this', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
+        ),
+        MasonryGrid(items: related),
+      ],
     );
   }
 }

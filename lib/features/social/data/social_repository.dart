@@ -29,22 +29,53 @@ class SocialRepository {
 
   // ---------------------------------------------------------------- feeds ---
 
-  Future<List<Post>> fetchExplore({int limit = 40, DateTime? before, PostKind? kind}) async {
-    var q = _client.from('posts').select(_postSelect);
-    if (kind != null) q = q.eq('kind', kind.db);
-    if (before != null) q = q.lt('created_at', before.toUtc().toIso8601String());
-    final rows = await q.order('created_at', ascending: false).limit(limit);
-    return rows.map(Post.fromMap).toList();
+  /// One ranked page of "For you" (migration 0094 explains the score): post
+  /// ids best first, each with why it is there. [exclude] is what the feed
+  /// already shows; [seed] changes per pull-to-refresh.
+  Future<List<({String id, String reason})>> rankForYou({int limit = 20, List<String> exclude = const [], String seed = '', LatLng? near}) async {
+    final rows = await _client.rpc('feed_for_you', params: {
+      'p_limit': limit,
+      'p_exclude': exclude,
+      'p_seed': seed,
+      'p_lat': near?.latitude,
+      'p_lng': near?.longitude,
+    }) as List;
+    return [for (final r in rows) (id: r['post_id'] as String, reason: r['reason'] as String? ?? 'for_you')];
   }
 
-  Future<List<Post>> fetchFollowing(String me, {int limit = 40}) async {
-    final ids = (await _client.from('follows').select('followee_id').eq('follower_id', me))
-        .map((r) => r['followee_id'] as String)
-        .toList();
-    if (ids.isEmpty) return const [];
-    final rows = await _client.from('posts').select(_postSelect).inFilter('author_id', ids).order('created_at', ascending: false).limit(limit);
-    return rows.map(Post.fromMap).toList();
+  /// Friends, people I follow and my clubs, newest first.
+  Future<List<Post>> fetchFollowing({int limit = 40}) async {
+    final rows = await _client.rpc('feed_following', params: {'p_limit': limit}) as List;
+    return fetchByIds([for (final r in rows) r['post_id'] as String]);
   }
+
+  /// "More like this" under a post.
+  Future<List<Post>> fetchRelated(String postId, {int limit = 12}) async {
+    final rows = await _client.rpc('related_posts', params: {'p_post': postId, 'p_limit': limit}) as List;
+    return fetchByIds([for (final r in rows) r['post_id'] as String]);
+  }
+
+  /// Posts by id, in the order given; deleted ones drop out.
+  Future<List<Post>> fetchByIds(List<String> ids) async {
+    if (ids.isEmpty) return const [];
+    final rows = await _client.from('posts').select(_postSelect).inFilter('id', ids);
+    final byId = {for (final r in rows) r['id'] as String: Post.fromMap(r)};
+    return ids.map((id) => byId[id]).whereType<Post>().toList();
+  }
+
+  // ------------------------------------------------------ ranking signals ---
+
+  /// Posts that came on screen in a feed.
+  Future<void> logViews(List<String> ids) => _client.rpc('log_post_views', params: {'p_ids': ids});
+
+  /// A post page visit and how long I stayed.
+  Future<void> logOpen(String postId, int dwellMs) => _client.rpc('log_post_open', params: {'p_post': postId, 'p_dwell_ms': dwellMs});
+
+  /// "Not interested", or with [author] "Fewer from this person".
+  Future<void> hidePost(String postId, {bool author = false}) =>
+      _client.rpc('hide_post', params: {'p_post': postId, 'p_scope': author ? 'author' : 'post'});
+
+  Future<void> unhidePost(String postId, String me) => _client.from('post_hides').delete().eq('user_id', me).eq('post_id', postId);
 
   Future<List<Post>> fetchByAuthor(String userId, {int limit = 60}) async {
     final rows = await _client.from('posts').select(_postSelect).eq('author_id', userId).order('created_at', ascending: false).limit(limit);
@@ -60,10 +91,7 @@ class SocialRepository {
     final ids = (await _client.from('post_saves').select('post_id').eq('user_id', me).order('created_at', ascending: false).limit(100))
         .map((r) => r['post_id'] as String)
         .toList();
-    if (ids.isEmpty) return const [];
-    final rows = await _client.from('posts').select(_postSelect).inFilter('id', ids);
-    final byId = {for (final r in rows) r['id'] as String: Post.fromMap(r)};
-    return ids.map((id) => byId[id]).whereType<Post>().toList();
+    return fetchByIds(ids);
   }
 
   /// Posts I liked, newest like first.
@@ -71,10 +99,7 @@ class SocialRepository {
     final ids = (await _client.from('post_likes').select('post_id').eq('user_id', me).order('created_at', ascending: false).limit(100))
         .map((r) => r['post_id'] as String)
         .toList();
-    if (ids.isEmpty) return const [];
-    final rows = await _client.from('posts').select(_postSelect).inFilter('id', ids);
-    final byId = {for (final r in rows) r['id'] as String: Post.fromMap(r)};
-    return ids.map((id) => byId[id]).whereType<Post>().toList();
+    return fetchByIds(ids);
   }
 
   /// Spotted posts inside a map box (for the map layer).

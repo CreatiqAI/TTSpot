@@ -327,7 +327,8 @@ void main() {
         expect(t.takeException(), isNull);
         expect(find.text('followers'), findsOneWidget);
         expect(find.text('3'), findsOneWidget);
-        expect(find.text('Request to join'), findsOneWidget);
+        // Clubs are public by default (0.3.52): outsiders join at once.
+        expect(find.text('Join club'), findsOneWidget);
         expect(find.text('Post'), findsNothing, reason: 'Follow takes the place of the greyed-out Post');
         // Down to the end and back: every row laid out (an overflow fails the test).
         await t.scrollUntilVisible(find.text('POSTS'), 300, scrollable: find.byType(Scrollable).first);

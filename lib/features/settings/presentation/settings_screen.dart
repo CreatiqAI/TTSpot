@@ -94,12 +94,12 @@ class SettingsScreen extends ConsumerWidget {
           ValueListenableBuilder<String>(
             valueListenable: ref.read(pushServiceProvider).status,
             builder: (_, st, _) {
-              final on = _PushKind.values.where((k) => k.isOn(s)).length;
+              final on = PushKind.values.where((k) => k.isOn(s)).length;
               return _Row(
                 icon: AppIcons.bell,
                 title: 'Push notifications',
                 subtitle: switch (st) {
-                  'On' => on == _PushKind.values.length ? 'On for this phone' : 'On · $on of ${_PushKind.values.length} kinds',
+                  'On' => on == PushKind.values.length ? 'On for this phone' : 'On · $on of ${PushKind.values.length} kinds',
                   'Checking…' => 'Checking…',
                   _ when st.startsWith('Off in') => 'Off · not allowed on this phone',
                   _ => 'Off · tap to turn on',
@@ -423,15 +423,20 @@ final blockedProfileProvider = FutureProvider.family((ref, String id) => ref.wat
 // ---------------------------------------------------------------- push ---
 
 /// Each kind of push the server sends, with the profiles.settings switch
-/// that silences it (the `push` Edge Function's SETTING map).
-enum _PushKind {
+/// that silences it (the `push` Edge Function's SETTING map; the social
+/// triggers in 20261003000097 read the four social ones too).
+enum PushKind {
   messages('notif_messages', AppIcons.chatCircle, 'Messages', 'New messages in your chats'),
   meets('notif_meets', AppIcons.flagCheckered, 'Meets', 'Reminders, changes, check-ins and host news'),
   tt('notif_tt', AppIcons.coffee, 'TT now pings', 'A friend starts a TT, a clubmate pulls up'),
-  friends('notif_friends', AppIcons.users, 'Friends', 'Requests, follows, likes, comments, club invites'),
+  friendTt('notif_friend_tt', AppIcons.calendarCheck, "Friends' TT sessions", 'A friend plans a TT for later'),
+  friendPosts('notif_friend_posts', AppIcons.images, "Friends' posts", 'New posts from friends and people you follow'),
+  friends('notif_friends', AppIcons.users, 'Friends', 'Requests, likes, comments, club invites'),
+  followers('notif_followers', AppIcons.userPlus, 'New followers', 'Someone starts following you'),
+  clubMembers('notif_club_members', AppIcons.usersThree, 'New club members', "Someone joins a club you're in"),
   rewards('notif_rewards', AppIcons.gift, 'Rewards', 'Points, vouchers, badges and cards');
 
-  const _PushKind(this.key, this.icon, this.title, this.subtitle);
+  const PushKind(this.key, this.icon, this.title, this.subtitle);
   final String key;
   final IconData icon;
   final String title;
@@ -441,7 +446,11 @@ enum _PushKind {
         messages => s.notifMessages,
         meets => s.notifMeets,
         tt => s.notifTt,
+        friendTt => s.notifFriendTt,
+        friendPosts => s.notifFriendPosts,
         friends => s.notifFriends,
+        followers => s.notifFollowers,
+        clubMembers => s.notifClubMembers,
         rewards => s.notifRewards,
       };
 }
@@ -538,7 +547,7 @@ class _PushSettingsScreenState extends ConsumerState<PushSettingsScreen> with Wi
             builder: (_, st, _) => _PushStatusCard(checked: _checked, permission: _perm, status: st, busy: _busy, onFix: _fix),
           ),
           const _Head('WHAT PINGS YOU'),
-          for (final k in _PushKind.values)
+          for (final k in PushKind.values)
             _Toggle(icon: k.icon, title: k.title, subtitle: k.subtitle, value: k.isOn(s), onChanged: (v) => _set(k.key, v)),
           const _Note('Switched off here, it still shows in Activity. It just stays off your lock screen.'),
           const _Head('MUTED CHATS'),

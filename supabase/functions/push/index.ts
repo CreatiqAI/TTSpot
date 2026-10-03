@@ -22,6 +22,11 @@
 //   can add the sender's avatar, and thread-id to group a chat.
 // - data always has: route, kind, title, body, avatar, sender_id, msg_id
 //   (+ conversation_id, sender_name, group, convo_title for chats).
+//
+// Social pings (friend_post, friend_tt, club_member, follow) are written by
+// the triggers in 20261003000097_social_notifications.sql, which already
+// apply blocks, suspensions, per-author / per-club limits and the daily cap;
+// rows past those limits are silent and never reach this function.
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { importPKCS8, SignJWT } from "npm:jose@5";
 
@@ -117,19 +122,58 @@ const SETTING: Record<string, string> = {
   event_join: "notif_meets", event_comment: "notif_meets", event_reminder: "notif_meets", event_cancelled: "notif_meets",
   checkin: "notif_meets", club_event: "notif_meets", partner_event: "notif_meets", meet_start: "notif_meets",
   announcement: "notif_meets", lucky_draw: "notif_meets",
-  follow: "notif_friends", friend_request: "notif_friends", friend_accepted: "notif_friends", club_invite: "notif_friends",
+  friend_request: "notif_friends", friend_accepted: "notif_friends", club_invite: "notif_friends",
   club_join: "notif_friends", club_request: "notif_friends", post_like: "notif_friends", post_comment: "notif_friends",
   tt_now: "notif_tt", garage: "notif_tt",
+  // Social pings (20261003000097): the database already marks rows for a
+  // switched-off kind silent (no push call); this covers a switch flipped since.
+  follow: "notif_followers", friend_post: "notif_friend_posts", friend_tt: "notif_friend_tt", club_member: "notif_club_members",
   points: "notif_rewards", referral: "notif_rewards", badge: "notif_rewards", voucher: "notif_rewards",
   spotted_claim: "notif_rewards", car_of_week: "notif_rewards", cards: "notif_rewards", portrait: "notif_rewards",
 };
 
 const after = (s: string | null, prefix: string) => (s ?? "").startsWith(prefix) ? s!.slice(prefix.length) : s ?? "";
 
+/** friend_post body "<what>:<first 60 characters>" → "posted: …" / "posted a new photo." */
+function friendPostText(b: string | null): string {
+  const s = b ?? "";
+  const i = s.indexOf(":");
+  const what = i < 0 ? "photo" : s.slice(0, i);
+  const text = (i < 0 ? s : s.slice(i + 1)).trim();
+  if (text) return what === "spotted" ? `spotted a car: ${text}` : `posted: ${text}`;
+  switch (what) {
+    case "video": return "posted a new video.";
+    case "poll": return "posted a new poll.";
+    case "guide": return "shared a new guide.";
+    case "spotted": return "spotted a car.";
+    default: return "posted a new photo.";
+  }
+}
+
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** When a session starts, in Malaysian time (UTC+8, no daylight saving), as
+ * the app writes it: "today 9:30 PM", "tomorrow 8:00 PM", "Sat 9:30 PM"
+ * within the week, else "11 Oct 9:30 PM". */
+function whenMyt(iso: string, now = new Date()): string {
+  const myt = (d: Date) => new Date(d.getTime() + 8 * 3600 * 1000);
+  const t = myt(new Date(iso));
+  const n = myt(now);
+  const dayNo = (d: Date) => Math.floor(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) / 86400000);
+  const days = dayNo(t) - dayNo(n);
+  const h = t.getUTCHours();
+  const time = `${h % 12 === 0 ? 12 : h % 12}:${String(t.getUTCMinutes()).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`;
+  if (days === 0) return `today ${time}`;
+  if (days === 1) return `tomorrow ${time}`;
+  if (days > 1 && days < 7) return `${WEEKDAYS[t.getUTCDay()]} ${time}`;
+  return `${t.getUTCDate()} ${MONTHS[t.getUTCMonth()]} ${time}`;
+}
+
 async function fromNotification(id: string): Promise<Push | null> {
   const { data: n } = await admin
     .from("notifications")
-    .select("user_id, actor_id, type, body, post_id, event_id, club_id, actor:profiles!notifications_actor_id_fkey(username, display_name, avatar_url), event:events(title), club:clubs(name, avatar_url)")
+    .select("user_id, actor_id, type, body, post_id, event_id, club_id, actor:profiles!notifications_actor_id_fkey(username, display_name, avatar_url), event:events(title, venue_name, starts_at, is_instant), club:clubs(name, avatar_url)")
     .eq("id", id)
     .maybeSingle();
   if (!n) return null;
@@ -146,7 +190,15 @@ async function fromNotification(id: string): Promise<Push | null> {
 
   const [title, body, route]: [string, string, string | null] = (() => {
     switch (x.type) {
-      case "follow": return [who, "started following you.", null];
+      case "follow": return [who, "started following you.", x.actor_id ? `/profile/${x.actor_id}` : null];
+      case "friend_post": return [who, friendPostText(b), post_];
+      case "friend_tt": {
+        const place = x.event?.venue_name ?? b ?? "a spot";
+        return x.event?.is_instant || !x.event?.starts_at
+          ? [who, `is at ${place} for a TT now.`, ev_]
+          : [who, `planned a TT at ${place}, ${whenMyt(x.event.starts_at)}.`, ev_];
+      }
+      case "club_member": return [who, `joined ${club}.`, club_];
       case "post_like": return [who, "liked your post.", post_];
       case "post_comment": return [who, `commented: ${b ?? ""}`, post_];
       case "event_join": return [who, `joined ${ev}.`, ev_];

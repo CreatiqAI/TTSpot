@@ -34,6 +34,20 @@ String formatEventDateFriendly(DateTime t, {DateTime? now}) {
   return formatEventDate(l);
 }
 
+/// For a sentence ("planned a TT at Mamak, Sat 9:30 PM"): "today 8:00 PM",
+/// "tomorrow 9:30 AM", the weekday within the week ("Sat 9:30 PM"), else
+/// "11 Oct 9:30 PM". The push function words it the same way.
+String formatWhenInline(DateTime t, {DateTime? now}) {
+  final n = (now ?? DateTime.now()).toLocal();
+  final l = t.toLocal();
+  final days = DateTime.utc(l.year, l.month, l.day).difference(DateTime.utc(n.year, n.month, n.day)).inDays;
+  final time = formatTime(l);
+  if (days == 0) return 'today $time';
+  if (days == 1) return 'tomorrow $time';
+  if (days > 1 && days < 7) return '${_weekdays[l.weekday - 1]} $time';
+  return '${l.day} ${_months[l.month - 1]} $time';
+}
+
 /// Compact time-until, for map marker labels: "now", "45m", "5h", "2d", "3w", "2mo", "past".
 String relativeShort(DateTime t, {DateTime? now}) {
   final d = t.difference(now ?? DateTime.now());

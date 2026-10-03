@@ -127,7 +127,7 @@ class _ActivityListState extends ConsumerState<ActivityList> {
                     itemBuilder: (_, i) {
                       final n = items[i];
                       final from = n.type == NotificationType.friendRequest ? n.actor?.id : null;
-                      return _Row(
+                      return ActivityRow(
                         n: n,
                         badges: badges,
                         me: me,
@@ -170,23 +170,20 @@ class _ActivityListState extends ConsumerState<ActivityList> {
   return (body.isEmpty ? 'Something new in Cards.' : body, Routes.cards);
 }
 
-class _Row extends ConsumerWidget {
-  const _Row({required this.n, required this.badges, required this.me, this.answer, this.onAnswer, this.onMessage});
-  final AppNotification n;
-  final List<AppBadge> badges;
-  final String? me;
-
-  /// Friend requests: what the member did with it on this visit (null: waiting).
-  final RequestAnswer? answer;
-  final ValueChanged<RequestAnswer>? onAnswer;
-  final VoidCallback? onMessage;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final actor = n.actor?.username ?? 'Someone';
+/// What an Activity row says after the actor's name, and where a tap goes.
+/// [answer]: a friend request answered on this visit. [now] for tests.
+(String, String?) activityText(AppNotification n, {List<AppBadge> badges = const [], String? me, RequestAnswer? answer, DateTime? now}) {
     final badge = n.badgeId == null ? null : badges.where((b) => b.id == n.badgeId).firstOrNull;
-    final (text, route) = switch (n.type) {
+    return switch (n.type) {
       NotificationType.follow => ('started following you.', Routes.profile(n.actor?.id ?? '')),
+      NotificationType.friendPost => (friendPostText(n.body), n.postId == null ? null : Routes.post(n.postId!)),
+      NotificationType.friendTt => (
+          n.eventInstant || n.eventStartsAt == null
+              ? 'is at ${n.eventVenue ?? n.body ?? 'a spot'} for a TT now.'
+              : 'planned a TT at ${n.eventVenue ?? n.body ?? 'a spot'}, ${formatWhenInline(n.eventStartsAt!, now: now)}.',
+          n.eventId == null ? null : Routes.event(n.eventId!)
+        ),
+      NotificationType.clubMember => ('joined ${n.clubName ?? 'your club'}.', n.clubId == null ? null : Routes.club(n.clubId!)),
       NotificationType.postLike => ('liked your post.', n.postId == null ? null : Routes.post(n.postId!)),
       NotificationType.postComment => ('commented: ${n.body ?? ''}', n.postId == null ? null : Routes.post(n.postId!)),
       NotificationType.eventJoin => ('joined ${n.eventTitle ?? 'your meet'}.', n.eventId == null ? null : Routes.event(n.eventId!)),
@@ -196,7 +193,7 @@ class _Row extends ConsumerWidget {
       NotificationType.spottedClaim => ('claimed the car you spotted.', n.postId == null ? null : Routes.post(n.postId!)),
       NotificationType.badge => (
           badgeAsset(n.badgeId) != null ? 'You earned the ${badge?.name ?? 'a new'} badge.' : 'You earned the ${badge?.name ?? 'a new'} badge ${badge?.emoji ?? '🏅'}',
-          me == null ? null : Routes.badges(me!)
+          me == null ? null : Routes.badges(me)
         ),
       NotificationType.carOfWeek => (n.body ?? 'Your build is Car of the Week!', n.postId == null ? null : Routes.post(n.postId!)),
       NotificationType.clubJoin => (n.body == null ? 'joined ${n.clubName ?? 'your club'}.' : 'is now ${n.body == 'vp' ? 'Vice President' : n.body == 'secretary' ? 'Secretary' : 'an officer'} of ${n.clubName ?? 'your club'}.', n.clubId == null ? null : Routes.club(n.clubId!)),
@@ -249,6 +246,25 @@ class _Row extends ConsumerWidget {
       NotificationType.carDoc => (n.body ?? 'A car document runs out soon.', Routes.myGarage),
       NotificationType.unknown => ('did something.', null),
     };
+}
+
+/// One Activity row: the actor (or a system icon), the sentence, a thumbnail.
+class ActivityRow extends ConsumerWidget {
+  const ActivityRow({super.key, required this.n, required this.badges, required this.me, this.answer, this.onAnswer, this.onMessage});
+  final AppNotification n;
+  final List<AppBadge> badges;
+  final String? me;
+
+  /// Friend requests: what the member did with it on this visit (null: waiting).
+  final RequestAnswer? answer;
+  final ValueChanged<RequestAnswer>? onAnswer;
+  final VoidCallback? onMessage;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final actor = n.actor?.username ?? 'Someone';
+    final badge = n.badgeId == null ? null : badges.where((b) => b.id == n.badgeId).firstOrNull;
+    final (text, route) = activityText(n, badges: badges, me: me, answer: answer);
     final systemMessage = n.type == NotificationType.badge ||
         n.type == NotificationType.carOfWeek ||
         n.type == NotificationType.eventReminder ||
@@ -327,7 +343,7 @@ class _Row extends ConsumerWidget {
                 onMessage: onMessage ?? () {},
               ),
             ],
-            if (n.type == NotificationType.ttNow && n.eventId != null) ...[
+            if ((n.type == NotificationType.ttNow || n.type == NotificationType.friendTt) && n.eventId != null) ...[
               const SizedBox(width: 8),
               const ArtIcon(AppArt.coffee, size: 28),
             ],

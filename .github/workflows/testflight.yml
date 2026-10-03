@@ -12,9 +12,18 @@ name: iOS → TestFlight
 #   ENV_JSON, MAPS_API_KEY, GOOGLE_IOS_CLIENT_ID  same as ios.yml
 #   ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8         App Store Connect API key (Admin role)
 #   IOS_CERT_PRIVATE_KEY                          RSA key the distribution certificate is tied to
+#
+# The app embeds a Notification Service Extension (my.ttspot.app.NotificationService,
+# chat pushes as Communication Notifications). fetch-signing-files matches every
+# bundle ID that starts with my.ttspot.app, so both get an App Store profile.
 
 on:
   workflow_dispatch:
+    inputs:
+      upload:
+        description: 'Upload to TestFlight (off = build + sign + export only, to prove signing)'
+        type: boolean
+        default: true
 
 concurrency:
   group: testflight
@@ -113,7 +122,25 @@ jobs:
           fi
           ls -la build/ios/ipa
 
+      # The extension must be inside the app, signed with its own profile, and
+      # the app must carry the Communication Notifications entitlement.
+      - name: Check the notification extension
+        run: |
+          set -e
+          rm -rf "$RUNNER_TEMP/ipa" && mkdir -p "$RUNNER_TEMP/ipa"
+          unzip -q "$(find build/ios/ipa -name '*.ipa' | head -1)" -d "$RUNNER_TEMP/ipa"
+          APP=$(find "$RUNNER_TEMP/ipa/Payload" -maxdepth 1 -name '*.app' | head -1)
+          EXT="$APP/PlugIns/NotificationService.appex"
+          test -d "$EXT" || { echo "::error::NotificationService.appex is missing from the app"; exit 1; }
+          codesign --verify --strict "$EXT"
+          codesign -d --entitlements :- "$APP" 2>/dev/null | grep -q 'com.apple.developer.usernotifications.communication'             || { echo "::error::The app is not signed with the Communication Notifications entitlement"; exit 1; }
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$EXT/Info.plist"
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP/Info.plist"
+          security cms -D -i "$EXT/embedded.mobileprovision" | grep -A1 -E '<key>(Name|application-identifier)</key>'
+          echo "Extension embedded and signed"
+
       - name: Upload to TestFlight
+        if: ${{ inputs.upload }}
         run: app-store-connect publish --path "$(find build/ios/ipa -name '*.ipa' | head -1)"
 
       - uses: actions/upload-artifact@v4
@@ -129,6 +156,7 @@ jobs:
   # waits and calls the API.
   external:
     needs: build
+    if: ${{ inputs.upload }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:

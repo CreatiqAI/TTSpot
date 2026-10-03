@@ -7,11 +7,14 @@ import 'package:image_picker/image_picker.dart';
 import '../../../core/constants/malaysian_states.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_icons.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/picker_field.dart';
 import '../../../core/utils/friendly_error.dart';
+import '../../events/presentation/plan_steps/wizard_parts.dart';
 import '../../vendors/application/vendors_providers.dart';
 import '../../vendors/domain/vendor.dart';
 import '../application/community_providers.dart';
+import 'widgets/club_join_policy.dart';
 import 'widgets/club_logo.dart';
 
 /// New club. The logo comes first and is required (owner's rule: it is the
@@ -33,6 +36,8 @@ class _CreateClubScreenState extends ConsumerState<CreateClubScreen> {
   /// The application's logo, once the member keeps it (no new upload needed).
   String? _appLogo;
   bool _appLogoDismissed = false;
+  /// Who can join: public (anyone, right away) unless the owner picks private.
+  bool _public = true;
   bool _busy = false;
 
   @override
@@ -67,6 +72,7 @@ class _CreateClubScreenState extends ConsumerState<CreateClubScreen> {
             homeState: _state,
             avatar: _avatar,
             avatarUrl: _avatar == null ? _appLogo : null,
+            isPublic: _public,
           );
       if (mounted) context.pushReplacement(Routes.club(club.id));
     } catch (e) {
@@ -117,6 +123,11 @@ class _CreateClubScreenState extends ConsumerState<CreateClubScreen> {
             options: [for (final s in malaysianStates) (s, s)],
             onChanged: (v) => setState(() => _state = v),
           ),
+          const SizedBox(height: 22),
+          const SectionLabel('WHO CAN JOIN'),
+          ClubJoinPolicyChoice(isPublic: _public, onChanged: _busy ? null : (v) => setState(() => _public = v)),
+          const SizedBox(height: 6),
+          Text('You can change this later on the club page.', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
           const SizedBox(height: 20),
           FilledButton(
             key: const Key('club-create-bottom'),

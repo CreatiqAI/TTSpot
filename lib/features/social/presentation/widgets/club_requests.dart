@@ -9,11 +9,49 @@ import '../../../../core/utils/dates.dart';
 import '../../../../core/utils/friendly_error.dart';
 import '../../../../core/widgets/primary_button.dart';
 import '../../../../core/widgets/user_avatar.dart';
+import '../../../friends/application/friends_providers.dart';
 import '../../application/community_providers.dart';
 import '../../domain/club.dart';
 
-/// "Request to join" for people outside the club, with the pending / declined
-/// states after. Owners and admins see the queue in [ClubRequestsSection].
+/// The join button for people outside a club: "Join club" on a public club
+/// (in at once), [JoinRequestButton] on a private one.
+class ClubJoinButton extends ConsumerStatefulWidget {
+  const ClubJoinButton({super.key, required this.club});
+  final Club club;
+  @override
+  ConsumerState<ClubJoinButton> createState() => _ClubJoinButtonState();
+}
+
+class _ClubJoinButtonState extends ConsumerState<ClubJoinButton> {
+  bool _busy = false;
+  /// Joined: says so until the page reloads as a member.
+  bool _joined = false;
+
+  Future<void> _join() async {
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _busy = true);
+    try {
+      await ref.read(communityActionsProvider).joinClub(widget.club.id);
+      ref.invalidate(friendPinsProvider); // clubmates on the map
+      if (mounted) setState(() => _joined = true);
+      messenger.showSnackBar(SnackBar(content: Text("You're in. Welcome to ${widget.club.name}.")));
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(friendlyError(e))));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!widget.club.isPublic) return JoinRequestButton(clubId: widget.club.id, clubName: widget.club.name);
+    if (_joined) return const SecondaryButton(key: Key('club-joined'), label: 'Joined', icon: AppIcons.checkCircle, onPressed: null);
+    return PrimaryButton(key: const Key('club-join'), label: 'Join club', loading: _busy, onPressed: _busy ? null : _join);
+  }
+}
+
+/// "Ask to join" for people outside a private club, with the pending /
+/// declined states after. Officers see the queue in [ClubRequestsSection].
 class JoinRequestButton extends ConsumerStatefulWidget {
   const JoinRequestButton({super.key, required this.clubId, required this.clubName});
   final String clubId;
@@ -98,15 +136,18 @@ class _JoinRequestButtonState extends ConsumerState<JoinRequestButton> {
     return switch (status) {
       'pending' => SecondaryButton(label: 'Requested', icon: AppIcons.clock, onPressed: _busy ? null : _cancel),
       'declined' => const SecondaryButton(label: 'Not this time', icon: AppIcons.xCircle, onPressed: null),
-      _ => PrimaryButton(label: 'Request to join', loading: _busy, onPressed: _busy ? null : _ask),
+      _ => PrimaryButton(key: const Key('club-ask'), label: 'Ask to join', loading: _busy, onPressed: _busy ? null : _ask),
     };
   }
 }
 
-/// Pending requests with Approve / Decline. Only rendered for managers.
+/// Pending requests with Approve / Decline. Only rendered for managers. A
+/// public club has none of its own (people just join), so it only shows
+/// leftovers from before it went public, or from older app versions.
 class ClubRequestsSection extends ConsumerWidget {
-  const ClubRequestsSection({super.key, required this.clubId});
+  const ClubRequestsSection({super.key, required this.clubId, this.isPublic = false});
   final String clubId;
+  final bool isPublic;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -119,6 +160,14 @@ class ClubRequestsSection extends ConsumerWidget {
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
           child: Text('WANT TO JOIN · ${list.length}', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textSecondary)),
         ),
+        if (isPublic)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: Text(
+              'Your club is public, so new people join right away. These asked before. Approve them, or they can tap Join club themselves.',
+              style: TextStyle(fontSize: 12, height: 1.35, color: AppColors.textSecondary),
+            ),
+          ),
         for (final r in list) _RequestRow(r: r, clubId: clubId),
       ],
     );

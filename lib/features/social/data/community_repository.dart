@@ -47,7 +47,7 @@ class CommunityRepository {
     return rows.map((r) => r['profiles']).whereType<Map<String, dynamic>>().map(Profile.fromMap).toList();
   }
 
-  Future<Club> createClub({required String ownerId, required String name, required String handle, String? description, String? homeState, String? avatarUrl}) async {
+  Future<Club> createClub({required String ownerId, required String name, required String handle, String? description, String? homeState, String? avatarUrl, String joinPolicy = 'public'}) async {
     final row = await _client
         .from('clubs')
         .insert({
@@ -57,6 +57,7 @@ class CommunityRepository {
           'description': ?description?.trim(),
           'home_state': ?homeState,
           'avatar_url': ?avatarUrl,
+          'join_policy': joinPolicy,
         })
         .select(_clubSelect)
         .single();
@@ -67,7 +68,13 @@ class CommunityRepository {
   /// Officers only (RPC checks); a logo can be changed, never removed.
   Future<void> setClubLogo(String clubId, String url) => _client.rpc('set_club_logo', params: {'p_club': clubId, 'p_url': url});
 
-  Future<void> joinClub(String clubId, String me) => _client.from('club_members').upsert({'club_id': clubId, 'user_id': me});
+  /// Join a public club right away (the RPC checks blocks, suspension and
+  /// that the club is public). True = joined now, false = already a member.
+  Future<bool> joinClub(String clubId) async => await _client.rpc('join_club', params: {'p_club': clubId}) == 'joined';
+
+  /// Who can join: 'public' or 'private'. President, VP or secretary.
+  Future<void> setClubJoinPolicy(String clubId, String policy) =>
+      _client.rpc('set_club_join_policy', params: {'p_club': clubId, 'p_policy': policy});
 
   // ------------------------------------------------- invites + sharing ---
 

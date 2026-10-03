@@ -24,6 +24,7 @@ import '../domain/club.dart';
 import '../domain/post.dart';
 import '../../profile/presentation/profile_menu.dart';
 import 'create_hub_sheet.dart';
+import 'widgets/club_join_policy.dart';
 import 'widgets/club_logo.dart';
 import 'widgets/club_requests.dart';
 import 'widgets/club_tier_widgets.dart';
@@ -111,10 +112,10 @@ class ClubScreen extends ConsumerWidget {
                         child: isManager
                             ? PrimaryButton(label: 'Invite members', onPressed: () => _invite(context, ref, c))
                             : isMember
-                                ? SecondaryButton(label: 'Member', icon: AppIcons.checkCircle, onPressed: () => _leave(context, ref))
+                                ? SecondaryButton(label: 'Member', icon: AppIcons.checkCircle, onPressed: () => _leave(context, ref, c))
                                 : invite != null
                                     ? SecondaryButton(label: 'Message club', icon: AppIcons.chatCircle, onPressed: () => _messageClub(context, ref))
-                                    : JoinRequestButton(clubId: clubId, clubName: c.name),
+                                    : ClubJoinButton(club: c),
                       ),
                       const SizedBox(width: 8),
                       Expanded(
@@ -137,13 +138,18 @@ class ClubScreen extends ConsumerWidget {
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                     child: SecondaryButton(label: 'Message club', icon: AppIcons.chatCircle, onPressed: () => _messageClub(context, ref)),
                   ),
-                if (isManager) ClubRequestsSection(clubId: clubId),
+                if (isManager) ClubJoinPolicyTile(club: c),
+                if (isManager) ClubRequestsSection(clubId: clubId, isPublic: c.isPublic),
                 if (!c.isOfficial && (isMember || isManager)) ClubGarageSection(club: c, isManager: isManager),
                 if (isMember || isManager)
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-                    child: Container(
-                      decoration: BoxDecoration(color: AppColors.surfaceGray, borderRadius: BorderRadius.circular(AppRadius.md)),
+                    // Material, not a coloured box: the tile's ink shows on it
+                    // (a coloured box trips ListTile's debug check).
+                    child: Material(
+                      color: AppColors.surfaceGray,
+                      borderRadius: BorderRadius.circular(AppRadius.md),
+                      clipBehavior: Clip.antiAlias,
                       child: SwitchListTile.adaptive(
                         value: sharing,
                         onChanged: (v) async {
@@ -279,12 +285,12 @@ class ClubScreen extends ConsumerWidget {
     }
   }
 
-  Future<void> _leave(BuildContext context, WidgetRef ref) async {
+  Future<void> _leave(BuildContext context, WidgetRef ref, Club c) async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Leave this club?'),
-        content: const Text('You\'ll stop seeing members on the map and need a new invite to come back.'),
+        content: Text(c.isPublic ? "You'll stop seeing members on the map. You can join again any time." : "You'll stop seeing members on the map and need to ask again to come back."),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Stay')),
           TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Leave', style: TextStyle(color: AppColors.danger))),
@@ -423,6 +429,7 @@ class _Header extends StatelessWidget {
                       runSpacing: 4,
                       children: [
                         _Chip(icon: club.isOfficial ? AppIcons.sealCheck : AppIcons.usersThree, text: club.isOfficial ? 'Official club' : 'Underground', color: club.isOfficial ? const Color(0xFFE6B422) : Colors.white70),
+                        _Chip(key: const Key('club-join-label'), icon: club.isPublic ? AppIcons.globe : AppIcons.lock, text: club.isPublic ? 'Public club' : 'Private club'),
                         if ((club.homeState ?? '').isNotEmpty) _Chip(icon: AppIcons.mapPin, text: club.homeState!),
                       ],
                     ),
@@ -450,7 +457,7 @@ class _Header extends StatelessWidget {
 }
 
 class _Chip extends StatelessWidget {
-  const _Chip({required this.icon, required this.text, this.color});
+  const _Chip({super.key, required this.icon, required this.text, this.color});
   final IconData icon;
   final String text;
   final Color? color;
@@ -463,7 +470,7 @@ class _Chip extends StatelessWidget {
           children: [
             Icon(icon, size: 13, color: color ?? Colors.white70),
             const SizedBox(width: 4),
-            Text(text, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: color ?? Colors.white70)),
+            Flexible(child: Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: color ?? Colors.white70))),
           ],
         ),
       );

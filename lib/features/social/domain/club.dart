@@ -61,6 +61,7 @@ class Club {
     this.garageName,
     this.garageLat,
     this.garageLng,
+    this.joinPolicy = 'public',
   });
 
   final String id;
@@ -79,7 +80,11 @@ class Club {
   final String? garageName;
   final double? garageLat;
   final double? garageLng;
+  /// Who can join: 'public' (anyone, right away) or 'private' (people ask,
+  /// the president, VP or secretary approve).
+  final String joinPolicy;
   bool get isOfficial => tier == 'official';
+  bool get isPublic => joinPolicy != 'private';
 
   factory Club.fromMap(Map<String, dynamic> m) {
     final members = m['members'];
@@ -103,6 +108,7 @@ class Club {
       garageName: m['garage_name'] as String?,
       garageLat: (m['garage_lat'] as num?)?.toDouble(),
       garageLng: (m['garage_lng'] as num?)?.toDouble(),
+      joinPolicy: m['join_policy'] as String? ?? 'public',
     );
   }
 }

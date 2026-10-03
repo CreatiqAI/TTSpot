@@ -10,6 +10,21 @@ class ReleaseNote {
 
 const kReleaseNotes = <ReleaseNote>[
   ReleaseNote(
+    version: '0.3.52',
+    date: '3 Oct 2026',
+    title: 'Follow, public clubs and a livelier map',
+    points: [
+      'Follow drivers, clubs and partners without being friends. Their posts show in Following and rank higher in For you.',
+      'Clubs are public by default: tap Join club and you are in. Club officers can switch to Private, where people ask to join.',
+      "New notifications: a friend posts, a friend plans a TT session, someone joins your club, someone follows you. Each one has its own switch in Settings, and we keep them to a few a day.",
+      'Chats only says a friend is on the map now when they were there in the last minute.',
+      'Friends seen in the last day stay on the map, greyed out with how long ago.',
+      'Now on the map shows everything: people, meets this week, spots and partner shops. Events and Spots are filters.',
+      "iPhone: chat notifications show the sender's photo.",
+      'Fixed: appointing a Vice President or Secretary in a club failed.',
+    ],
+  ),
+  ReleaseNote(
     version: '0.3.51',
     date: '3 Oct 2026',
     title: 'A For you feed made for you',

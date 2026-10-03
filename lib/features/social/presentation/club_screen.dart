@@ -21,12 +21,14 @@ import '../application/chat_providers.dart';
 import '../application/community_providers.dart';
 import '../application/social_providers.dart';
 import '../domain/club.dart';
+import '../domain/follow.dart';
 import '../domain/post.dart';
 import '../../profile/presentation/profile_menu.dart';
 import 'create_hub_sheet.dart';
 import 'widgets/club_logo.dart';
 import 'widgets/club_requests.dart';
 import 'widgets/club_tier_widgets.dart';
+import 'widgets/follow_button.dart';
 import 'widgets/masonry_grid.dart';
 import '../../safety/data/safety_repository.dart';
 import '../../safety/presentation/report_sheet.dart';
@@ -54,6 +56,9 @@ class ClubScreen extends ConsumerWidget {
     final sharing = ref.watch(myClubShareProvider(clubId)).value ?? true;
     final isOwner = club.value?.ownerId == me;
     final isManager = isOwner || roles[me] == 'vp' || roles[me] == 'secretary' || roles[me] == 'owner';
+    // Outsiders can follow the club: its posts land in their Following.
+    final FollowTarget follow = (kind: FollowKind.club, id: clubId);
+    final followers = ref.watch(followerCountProvider(follow)).value;
 
     return Scaffold(
       appBar: AppBar(
@@ -92,13 +97,15 @@ class ClubScreen extends ConsumerWidget {
               ref.invalidate(clubJoinRequestsProvider(clubId));
               ref.invalidate(myClubShareProvider(clubId));
               ref.invalidate(postsWhereProvider((column: 'club_id', value: clubId)));
+              ref.invalidate(followerCountProvider(follow));
+              ref.invalidate(followProvider(follow));
               await ref.read(clubProvider(clubId).future);
             },
             child: ListView(
               // As the club account's first tab, the end scrolls clear of the floating tab bar.
               padding: EdgeInsets.only(bottom: embedded ? GlassTabBar.clearance(context) : MediaQuery.paddingOf(context).bottom + 32),
               children: [
-                _Header(club: c, meets: events.length, posts: posts.length, onLogoTap: isManager ? () => changeClubLogo(context, ref, clubId) : null),
+                _Header(club: c, meets: events.length, posts: posts.length, followers: followers, onLogoTap: isManager ? () => changeClubLogo(context, ref, clubId) : null),
                 // Officers of a club with no logo yet: add one (it shows on the map and the club's events).
                 if (isManager && (c.avatarUrl ?? '').trim().isEmpty) ClubLogoBanner(club: c),
                 if (invite != null && (!isMember || inviteRole == 'vp' || inviteRole == 'secretary')) _InviteBanner(clubId: clubId, clubName: c.name, role: inviteRole ?? 'member'),
@@ -118,11 +125,14 @@ class ClubScreen extends ConsumerWidget {
                       ),
                       const SizedBox(width: 8),
                       Expanded(
-                        child: SecondaryButton(
-                          label: isManager ? 'Post as club' : 'Post',
-                          icon: AppIcons.cameraPlus,
-                          onPressed: isMember || isManager ? () => context.push(Routes.createPost(PostKind.post, clubId: clubId, asClub: isManager)) : null,
-                        ),
+                        // Members post; everyone else can follow instead.
+                        child: isMember || isManager
+                            ? SecondaryButton(
+                                label: isManager ? 'Post as club' : 'Post',
+                                icon: AppIcons.cameraPlus,
+                                onPressed: () => context.push(Routes.createPost(PostKind.post, clubId: clubId, asClub: isManager)),
+                              )
+                            : FollowButton(target: follow, name: c.name),
                       ),
                     ],
                   ),
@@ -358,10 +368,12 @@ class _MemberTile extends StatelessWidget {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.club, required this.meets, required this.posts, this.onLogoTap});
+  const _Header({required this.club, required this.meets, required this.posts, this.followers, this.onLogoTap});
   final Club club;
   final int meets;
   final int posts;
+  /// Null while it loads.
+  final int? followers;
   /// Officers: change the logo (it can be changed, never removed).
   final VoidCallback? onLogoTap;
 
@@ -439,6 +451,7 @@ class _Header extends StatelessWidget {
           Row(
             children: [
               _Stat(value: club.memberCount, label: 'members'),
+              _Stat(value: followers, label: followers == 1 ? 'follower' : 'followers'),
               _Stat(value: meets, label: 'meets'),
               _Stat(value: posts, label: 'posts'),
             ],
@@ -471,14 +484,20 @@ class _Chip extends StatelessWidget {
 
 class _Stat extends StatelessWidget {
   const _Stat({required this.value, required this.label});
-  final int value;
+  /// Null while it loads.
+  final int? value;
   final String label;
   @override
   Widget build(BuildContext context) => Expanded(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('$value', style: const TextStyle(fontFamily: AppFonts.display, fontSize: 26, fontWeight: FontWeight.w700, color: Colors.white, height: 1)),
+            // Four across: a big number shrinks rather than wrap.
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(value?.toString() ?? '–', style: const TextStyle(fontFamily: AppFonts.display, fontSize: 26, fontWeight: FontWeight.w700, color: Colors.white, height: 1)),
+            ),
             Text(label, style: const TextStyle(fontSize: 12, color: Colors.white60)),
           ],
         ),

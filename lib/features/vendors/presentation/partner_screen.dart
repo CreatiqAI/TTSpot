@@ -7,6 +7,8 @@ import '../../../core/supabase/supabase_client.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../social/application/chat_providers.dart';
 import '../../social/application/social_providers.dart';
+import '../../social/domain/follow.dart';
+import '../../social/presentation/widgets/follow_button.dart';
 import '../application/vendors_providers.dart';
 import '../domain/vendor.dart';
 import 'widgets/partner_tabs.dart';
@@ -69,6 +71,7 @@ class _PartnerLiveState extends ConsumerState<_PartnerLive> {
       switch (tab) {
         case PartnerTab.info:
           ref.invalidate(vendorPublicProvider(id));
+          ref.invalidate(followerCountProvider((kind: FollowKind.partner, id: id)));
           await ref.read(vendorPublicProvider(id).future);
         case PartnerTab.products:
           ref.invalidate(partnerProductsProvider(id));
@@ -99,6 +102,9 @@ class _PartnerLiveState extends ConsumerState<_PartnerLive> {
     ref.watch(partnerViewedProvider(v.id));
     final me = ref.watch(currentUserIdProvider);
     final shop = _list(ref.watch(shopVouchersProvider));
+    // Everyone but the shop's own owner can follow it.
+    final mine = v.ownerIsMe(me);
+    final FollowTarget follow = (kind: FollowKind.partner, id: v.id);
     return PartnerPageView(
       vendor: v,
       initialTab: widget.initialTab,
@@ -106,8 +112,11 @@ class _PartnerLiveState extends ConsumerState<_PartnerLive> {
       vouchers: shop?.where((x) => x.vendorId == v.id).toList(),
       posts: _list(ref.watch(postsWhereProvider((column: 'vendor_id', value: v.id)))),
       events: _list(ref.watch(vendorEventsProvider(v.id))),
-      onMessage: v.ownerIsMe(me) ? null : _message,
+      onMessage: mine ? null : _message,
       onRefresh: _refresh,
+      following: mine ? null : ref.watch(followProvider(follow)).value,
+      followers: ref.watch(followerCountProvider(follow)).value,
+      onFollow: mine ? null : () => tapFollow(context, ref, follow, name: v.name),
     );
   }
 }

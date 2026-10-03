@@ -15,6 +15,8 @@ import '../../../core/widgets/glass_tab_bar.dart';
 import '../../../core/widgets/user_avatar.dart';
 import '../../accounts/presentation/account_switcher.dart';
 import '../../accounts/presentation/account_title.dart';
+import '../../social/application/social_providers.dart' show followerCountProvider;
+import '../../social/domain/follow.dart';
 import '../../social/domain/post.dart';
 import '../application/vendors_providers.dart';
 import '../domain/vendor.dart';
@@ -86,6 +88,8 @@ class _Body extends ConsumerWidget {
     final ratePct = (vendor.commissionRate * 100).toStringAsFixed(vendor.commissionRate * 100 % 1 == 0 ? 0 : 2);
     final status = OpeningHours.fromJson(vendor.hoursJson).status();
     final liveVouchers = vouchers.where((x) => x.active && !x.ended && !x.soldOut).length;
+    final FollowTarget follow = (kind: FollowKind.partner, id: vendor.id);
+    final followers = ref.watch(followerCountProvider(follow)).value;
 
     final steps = <_Step>[
       _Step('Pin your shop on the map', 'Pick the address once', vendor.lat != null, () => context.push(Routes.vendorEdit)),
@@ -104,6 +108,7 @@ class _Body extends ConsumerWidget {
         ref.invalidate(vendorProductsProvider);
         ref.invalidate(sponsorEventsProvider);
         ref.invalidate(vendorClubInsightsProvider);
+        ref.invalidate(followerCountProvider(follow));
         await ref.read(myVendorProvider.future);
       },
       child: ListView(
@@ -129,7 +134,8 @@ class _Body extends ConsumerWidget {
                     children: [
                       Text(vendor.name, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, height: 1.1)),
                       const SizedBox(height: 3),
-                      Text(businessTypeLabel(vendor.type), style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+                      // "Workshop · 128 followers": members who follow the shop see its posts in Following.
+                      Text(followers == null ? businessTypeLabel(vendor.type) : '${businessTypeLabel(vendor.type)} · ${followersLabel(followers)}', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
                       if (status != null) ...[
                         const SizedBox(height: 4),
                         Row(

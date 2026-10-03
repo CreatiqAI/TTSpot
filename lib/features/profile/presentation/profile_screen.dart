@@ -35,9 +35,11 @@ import '../../safety/presentation/report_sheet.dart';
 import '../../social/application/chat_providers.dart';
 import '../../social/application/social_providers.dart';
 import '../../social/domain/album.dart';
+import '../../social/domain/follow.dart';
 import '../../social/domain/post.dart';
 import '../../social/presentation/create_hub_sheet.dart';
 import '../../social/presentation/story_viewer_screen.dart';
+import '../../social/presentation/widgets/follow_button.dart';
 import '../../social/presentation/widgets/masonry_grid.dart';
 import '../application/profile_providers.dart';
 import '../domain/car.dart';
@@ -81,6 +83,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final friendCount = ref.watch(friendCountProvider(id)).value;
     final friendship = ref.watch(friendshipStatusProvider(id)).value ?? FriendshipStatus.none;
     final blocked = ref.watch(blockedUserIdsProvider).value?.contains(id) ?? false;
+    // Follow for people who aren't my friends (friends are in Following already).
+    final FollowTarget follow = (kind: FollowKind.person, id: id);
+    final canFollow = !isMe && !blocked && friendship != FriendshipStatus.friends;
+    final following = canFollow ? ref.watch(followProvider(follow)).value : null;
     // Points stay private: my own, or anyone's when an admin is looking.
     final adminView = !isMe && (ref.watch(currentProfileProvider).value?.isAdmin ?? false);
     // Null (no pill) until the balance is known, never a wrong 0.
@@ -99,6 +105,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       ref.invalidate(profileStatsProvider(id));
       ref.invalidate(friendCountProvider(id));
       ref.invalidate(friendshipStatusProvider(id));
+      if (!isMe) ref.invalidate(followProvider(follow));
       ref.invalidate(cardTypesProvider);
       if (adminView) ref.invalidate(adminMemberPointsProvider(id));
       if (isMe) {
@@ -160,6 +167,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     onCall: !isMe && friendship == FriendshipStatus.friends && ref.watch(friendPhoneProvider(id)).value != null
                         ? () => showCallSheet(context, ref, userId: id, name: p.displayName ?? '@${p.username}')
                         : null,
+                    following: following,
+                    onFollow: canFollow ? () => tapFollow(context, ref, follow, name: '@${p.username}') : null,
                   ),
                 ),
                 if (isMe && ref.watch(sealedBoxesProvider).isNotEmpty)

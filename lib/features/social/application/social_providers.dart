@@ -10,6 +10,7 @@ import '../../auth/domain/profile.dart';
 import '../../safety/data/safety_repository.dart';
 import '../data/social_repository.dart';
 import '../domain/album.dart';
+import '../domain/follow.dart';
 import '../domain/post.dart';
 
 // ------------------------------------------------------------------ feeds ---
@@ -304,6 +305,62 @@ final followCountsProvider = FutureProvider.family<({int followers, int followin
 final followersProvider = FutureProvider.family<List<Profile>, String>((ref, userId) => ref.watch(socialRepositoryProvider).followers(userId));
 final followingListProvider = FutureProvider.family<List<Profile>, String>((ref, userId) => ref.watch(socialRepositoryProvider).following(userId));
 
+/// Am I following this driver, club or partner? [FollowNotifier.toggle]
+/// flips it the moment I tap and puts it back if the server says no.
+final followProvider = AsyncNotifierProvider.family<FollowNotifier, bool, FollowTarget>(FollowNotifier.new);
+
+/// How many follow a driver, club or partner.
+final followerCountProvider = FutureProvider.family<int, FollowTarget>((ref, t) => ref.watch(socialRepositoryProvider).followerCount(t));
+
+class FollowNotifier extends AsyncNotifier<bool> {
+  FollowNotifier(this.target);
+  final FollowTarget target;
+  bool _busy = false;
+
+  @override
+  Future<bool> build() async {
+    final me = ref.watch(currentUserIdProvider);
+    if (me == null || (target.kind == FollowKind.person && me == target.id)) return false;
+    return ref.watch(socialRepositoryProvider).isFollowingTarget(me, target);
+  }
+
+  /// Follows or unfollows at once (optimistic). On failure the old state
+  /// comes back and the error is rethrown. A tap while one is under way is
+  /// ignored.
+  Future<void> toggle() async {
+    final me = ref.read(currentUserIdProvider);
+    final was = state.value;
+    if (me == null || was == null || _busy) return;
+    _busy = true;
+    state = AsyncData(!was);
+    final repo = ref.read(socialRepositoryProvider);
+    try {
+      if (was) {
+        await repo.unfollowTarget(me, target);
+      } else {
+        await repo.followTarget(me, target);
+      }
+    } catch (_) {
+      if (ref.mounted) state = AsyncData(was);
+      rethrow;
+    } finally {
+      _busy = false;
+    }
+    if (!ref.mounted) return;
+    ref.invalidate(followerCountProvider(target));
+    // Following shows the change on its next look. For you is left alone: it
+    // re-ranks on the next pull (a reload now would reshuffle the grid).
+    ref.invalidate(followingFeedProvider);
+    if (target.kind == FollowKind.person) {
+      ref.invalidate(isFollowingProvider(target.id));
+      ref.invalidate(followCountsProvider(target.id));
+      ref.invalidate(followCountsProvider(me));
+      ref.invalidate(followersProvider(target.id));
+      ref.invalidate(followingListProvider(me));
+    }
+  }
+}
+
 // ---------------------------------------------------------------- actions ---
 
 /// Mutations. Each call refreshes the providers it affects.
@@ -400,6 +457,8 @@ class SocialActions {
     _ref.invalidate(followersProvider(other));
     _ref.invalidate(followingListProvider(_me));
     _ref.invalidate(followingFeedProvider);
+    _ref.invalidate(followProvider((kind: FollowKind.person, id: other)));
+    _ref.invalidate(followerCountProvider((kind: FollowKind.person, id: other)));
   }
 
   Future<void> markStoryViewed(String storyId) async {

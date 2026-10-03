@@ -10,6 +10,7 @@ import '../../../core/supabase/supabase_client.dart';
 import '../../../core/utils/thumbnails.dart';
 import '../../auth/domain/profile.dart';
 import '../domain/album.dart';
+import '../domain/follow.dart';
 import '../domain/post.dart';
 import '../domain/post_video.dart';
 
@@ -314,6 +315,35 @@ class SocialRepository {
   Future<List<Profile>> following(String userId) async {
     final rows = await _client.from('follows').select('profiles!follows_followee_id_fkey($profileCols)').eq('follower_id', userId).order('created_at', ascending: false).limit(200);
     return rows.map((r) => r['profiles']).whereType<Map<String, dynamic>>().map(Profile.fromMap).toList();
+  }
+
+  // Drivers, clubs and partners all follow the same way (clubs and partners
+  // since migration 0095): one row per follower, my own rows only.
+  static ({String table, String me, String target}) _followTable(FollowKind kind) => switch (kind) {
+        FollowKind.person => (table: 'follows', me: 'follower_id', target: 'followee_id'),
+        FollowKind.club => (table: 'club_follows', me: 'user_id', target: 'club_id'),
+        FollowKind.partner => (table: 'vendor_follows', me: 'user_id', target: 'vendor_id'),
+      };
+
+  Future<void> followTarget(String me, FollowTarget t) {
+    final f = _followTable(t.kind);
+    return _client.from(f.table).upsert({f.me: me, f.target: t.id}, ignoreDuplicates: true);
+  }
+
+  Future<void> unfollowTarget(String me, FollowTarget t) {
+    final f = _followTable(t.kind);
+    return _client.from(f.table).delete().eq(f.me, me).eq(f.target, t.id);
+  }
+
+  Future<bool> isFollowingTarget(String me, FollowTarget t) async {
+    final f = _followTable(t.kind);
+    final row = await _client.from(f.table).select(f.me).eq(f.me, me).eq(f.target, t.id).maybeSingle();
+    return row != null;
+  }
+
+  Future<int> followerCount(FollowTarget t) {
+    final f = _followTable(t.kind);
+    return _client.from(f.table).count().eq(f.target, t.id);
   }
 
   Future<List<Profile>> searchProfiles(String query, {int limit = 20}) async {

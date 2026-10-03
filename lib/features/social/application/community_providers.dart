@@ -120,7 +120,9 @@ class CommunityActions {
   /// A club needs a logo (owner's rule; the database refuses one without):
   /// a new photo in [avatar], or [avatarUrl] when the logo is already
   /// uploaded (the one sent with the club application).
-  Future<Club> createClub({required String name, required String handle, String? description, String? homeState, XFile? avatar, String? avatarUrl}) async {
+  /// [isPublic]: anyone can join right away (the default); off = people ask
+  /// to join and the officers approve.
+  Future<Club> createClub({required String name, required String handle, String? description, String? homeState, XFile? avatar, String? avatarUrl, bool isPublic = true}) async {
     if (avatar == null && (avatarUrl ?? '').trim().isEmpty) throw const AppException(kClubLogoHint);
     if (name.trim().length < 2) throw const AppException('Give the club a name.');
     if (!RegExp(r'^[a-z0-9_]{3,24}$').hasMatch(handle.trim().toLowerCase())) {
@@ -129,7 +131,7 @@ class CommunityActions {
     if (avatar != null) {
       avatarUrl = await _repo.uploadPhoto(userId: _me, bytes: await avatar.readAsBytes(), folder: 'clubs', thumb: false);
     }
-    final club = await _repo.createClub(ownerId: _me, name: name, handle: handle, description: description, homeState: homeState, avatarUrl: avatarUrl);
+    final club = await _repo.createClub(ownerId: _me, name: name, handle: handle, description: description, homeState: homeState, avatarUrl: avatarUrl, joinPolicy: isPublic ? 'public' : 'private');
     _ref.invalidate(clubsProvider(''));
     _ref.invalidate(myClubsProvider);
     return club;
@@ -155,6 +157,42 @@ class CommunityActions {
   Future<void> setClubGarage(String clubId, String name, double lat, double lng) async {
     await _repo.setClubGarage(clubId, name, lat, lng);
     _ref.invalidate(clubProvider(clubId));
+  }
+
+  /// Public club or private (ask to join). President, VP or secretary.
+  Future<void> setClubJoinPolicy(String clubId, {required bool isPublic}) async {
+    await _repo.setClubJoinPolicy(clubId, isPublic ? 'public' : 'private');
+    _ref.invalidate(clubProvider(clubId));
+    _ref.invalidate(clubJoinRequestsProvider(clubId));
+    _ref.invalidate(clubsProvider(''));
+    _ref.invalidate(myClubsProvider);
+  }
+
+  /// Join a public club right away. False when I was already in.
+  Future<bool> joinClub(String clubId) async {
+    try {
+      return await _repo.joinClub(clubId);
+    } finally {
+      // Refresh either way: on a refusal the club may have just gone private.
+      _membershipChanged(clubId);
+    }
+  }
+
+  void _membershipChanged(String clubId) {
+    _ref.invalidate(isClubMemberProvider(clubId));
+    _ref.invalidate(clubProvider(clubId));
+    _ref.invalidate(clubMembersProvider(clubId));
+    _ref.invalidate(clubMemberRolesProvider(clubId));
+    _ref.invalidate(myClubRequestProvider(clubId));
+    _ref.invalidate(myClubInviteProvider(clubId));
+    _ref.invalidate(myClubInviteRoleProvider(clubId));
+    _ref.invalidate(myClubShareProvider(clubId));
+    _ref.invalidate(clubLeaderboardProvider(clubId));
+    _ref.invalidate(myClubsProvider);
+    _ref.invalidate(myClubRolesProvider);
+    _ref.invalidate(clubsProvider(''));
+    final me = _ref.read(currentUserIdProvider);
+    if (me != null) _ref.invalidate(clubsOfUserProvider(me));
   }
 
   Future<void> requestClubJoin(String clubId, String? message) async {
@@ -204,15 +242,12 @@ class CommunityActions {
   }
 
   Future<void> toggleClubMembership(String clubId, {required bool isMember}) async {
-    if (isMember) {
-      await _repo.leaveClub(clubId, _me);
-    } else {
-      await _repo.joinClub(clubId, _me);
+    if (!isMember) {
+      await joinClub(clubId);
+      return;
     }
-    _ref.invalidate(isClubMemberProvider(clubId));
-    _ref.invalidate(clubProvider(clubId));
-    _ref.invalidate(clubMembersProvider(clubId));
-    _ref.invalidate(myClubsProvider);
+    await _repo.leaveClub(clubId, _me);
+    _membershipChanged(clubId);
   }
 
   /// Check in at a spot with a fresh GPS fix (must be within 300 m).

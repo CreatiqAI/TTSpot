@@ -152,17 +152,7 @@ final visibleMapEventsProvider = Provider<AsyncValue<List<Event>>>((ref) {
 
 // ------------------------------------------------------------------- modes ---
 
-/// The map's three tabs: what is happening right now (people, live meets,
-/// moments), every event, and places.
-enum MapMode {
-  now('Now'),
-  events('Events'),
-  spots('Spots');
-
-  const MapMode(this.label);
-  final String label;
-}
-
+/// The tab the map is on ([MapMode] lives in map_filters.dart).
 class MapModeNotifier extends Notifier<MapMode> {
   @override
   MapMode build() => MapMode.now;
@@ -179,6 +169,15 @@ final liveEventsProvider = FutureProvider<List<Event>>((ref) async {
   final blocked = await ref.watch(blockedUserIdsProvider.future);
   final events = await ref.watch(eventsRepositoryProvider).fetchLiveInBounds(bounds: bounds);
   return events.where((e) => !blocked.contains(e.organizerId)).toList();
+});
+
+/// The meets the Now tab draws: the live ones and the viewport's meets this
+/// week, once each ([nowEvents]). No query of its own: both lists are
+/// already fetched for the view.
+final nowMapEventsProvider = Provider<List<Event>>((ref) {
+  final live = ref.watch(liveEventsProvider).value ?? const <Event>[];
+  final inView = ref.watch(mapEventsProvider).value ?? const <Event>[];
+  return nowEvents(live, inView, DateTime.now());
 });
 
 /// Moments from the last 24 h with a location, in the viewport.

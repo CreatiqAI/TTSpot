@@ -103,13 +103,13 @@ class _NowContent extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final pins = ref.watch(friendPinsProvider);
     final chips = ref.watch(nowChipsProvider);
-    final live = nowShowsMeets(chips) ? ref.watch(liveEventsProvider).value ?? const <Event>[] : const <Event>[];
+    final live = nowShowsEvents(chips) ? ref.watch(liveEventsProvider).value ?? const <Event>[] : const <Event>[];
     final moments = nowShowsMoments(chips) ? ref.watch(liveMomentsProvider).value ?? const <Story>[] : const <Story>[];
     final origin = ref.watch(mapOriginProvider);
     final friendCount = ref.watch(friendsProvider).value?.length ?? 0;
     final everyone = pins.value ?? const <FriendPin>[];
     final list = [for (final f in everyone) if (nowShowsPerson(chips, stranger: f.isStranger, viaClub: f.viaClub)) f]..sort((a, b) {
-        if (a.isFresh != b.isFresh) return a.isFresh ? -1 : 1;
+        if (a.isLive != b.isLive) return a.isLive ? -1 : 1;
         return distanceKm(origin, a.latLng).compareTo(distanceKm(origin, b.latLng));
       });
 
@@ -160,8 +160,8 @@ class _FriendRow extends ConsumerWidget {
     var where = f.eventTitle != null
         ? 'At ${f.eventTitle}'
         : f.placeName != null
-            ? (f.isFresh ? 'At ${f.placeName}' : 'Last seen at ${f.placeName}')
-            : (f.isFresh ? 'On the move' : 'Last seen');
+            ? (f.isLive ? 'At ${f.placeName}' : 'Last seen at ${f.placeName}')
+            : (f.isLive ? 'On the move' : 'Last seen');
     if (f.viaClub && f.clubName != null) where = '$where · ${f.clubName}';
     final colour = personColor(tag: ref.watch(friendTagsProvider).value?[f.user.id], viaClub: f.viaClub, stranger: f.isStranger);
     return InkWell(
@@ -181,7 +181,7 @@ class _FriendRow extends ConsumerWidget {
                     width: 13,
                     height: 13,
                     decoration: BoxDecoration(
-                      color: f.isFresh ? AppColors.success : const Color(0xFF6B7280),
+                      color: f.isLive ? AppColors.success : const Color(0xFF6B7280),
                       shape: BoxShape.circle,
                       border: Border.all(color: MapPalette.of(context).surface, width: 2),
                     ),

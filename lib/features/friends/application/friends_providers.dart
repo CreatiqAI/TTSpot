@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/widgets.dart' show AppLifecycleState, WidgetsBinding;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/location/live_position.dart';
@@ -11,6 +12,7 @@ import '../../safety/data/safety_repository.dart';
 import '../../social/application/notification_providers.dart';
 import '../data/friends_repository.dart';
 import '../domain/friend.dart';
+import '../domain/presence.dart';
 
 // ----------------------------------------------------------------- friends ---
 
@@ -142,7 +144,9 @@ final friendActionsProvider = Provider<FriendActions>((ref) => FriendActions(ref
 
 // --------------------------------------------------------------- live pins ---
 
-/// Friends on the map. Refetches on every realtime change (debounced).
+/// Friends on the map: everyone whose position is under a day old
+/// ([kShowWindow]). Only those under a minute old are live ([FriendPin.isLive]).
+/// Refetches on every realtime change (debounced) and every minute.
 final friendPinsProvider = StreamProvider<List<FriendPin>>((ref) {
   final me = ref.watch(currentUserIdProvider);
   final repo = ref.watch(friendsRepositoryProvider);
@@ -154,11 +158,23 @@ final friendPinsProvider = StreamProvider<List<FriendPin>>((ref) {
   }
 
   Timer? debounce;
+  Timer? liveEnds;
+  // Sends [pins] on, then sends them again the moment the next live pin
+  // turns "last seen", so "On the map now" never outlives the minute while
+  // we wait for the next fetch.
+  void emit(List<FriendPin> pins) {
+    if (controller.isClosed) return;
+    controller.add(pins);
+    liveEnds?.cancel();
+    final left = untilLiveEnds([for (final p in pins) p.updatedAt], DateTime.now());
+    if (left != null) liveEnds = Timer(left, () => emit([...pins]));
+  }
+
   Future<void> load() async {
     try {
       final blocked = ref.read(blockedUserIdsProvider).value ?? const <String>{};
       final pins = await repo.friendPins(me);
-      if (!controller.isClosed) controller.add(pins.where((p) => !blocked.contains(p.user.id)).toList());
+      emit([for (final p in pins) if (!blocked.contains(p.user.id) && isShownAt(p.updatedAt)) p]);
     } catch (e, st) {
       if (!controller.isClosed) controller.addError(e, st);
     }
@@ -174,6 +190,7 @@ final friendPinsProvider = StreamProvider<List<FriendPin>>((ref) {
 
   ref.onDispose(() {
     debounce?.cancel();
+    liveEnds?.cancel();
     tick.cancel();
     channel.unsubscribe();
     controller.close();
@@ -228,6 +245,9 @@ final nearbyMeetProvider = NotifierProvider<NearbyMeetNotifier, NearbyMeet?>(Nea
 /// no background tracking). Start it once from the shell.
 class LocationPublisher extends Notifier<bool> {
   DateTime? _lastSent;
+  /// The fix last sent, re-sent by the heartbeat when no better one is held.
+  LivePosition? _lastSentFix;
+  Timer? _heartbeat;
   String? _lastCheckedIn;
   String? _lastNearbyOffered;
 
@@ -237,6 +257,7 @@ class LocationPublisher extends Notifier<bool> {
     ref.listen<LivePosition?>(livePositionProvider, (_, p) {
       if (p != null && state) _onPosition(p, force: _lastSent == null);
     });
+    ref.onDispose(() => _heartbeat?.cancel());
     return false; // publishing?
   }
 
@@ -247,7 +268,25 @@ class LocationPublisher extends Notifier<bool> {
     await live.start();
     if (!live.running) return; // no permission yet; the gate calls start() again
     state = true;
+    _heartbeat?.cancel();
+    // A cheap clock check every 5 s: a ping goes out 30 to 35 s after the last.
+    _heartbeat = Timer.periodic(const Duration(seconds: 5), (_) => _beat());
     final p = ref.read(livePositionProvider);
+    if (p != null) _onPosition(p, force: true);
+  }
+
+  /// Friends see me as live for a minute after each ping ([kLiveWindow]),
+  /// and the GPS stream only fires when I move. Standing still with the app
+  /// open, re-send where I am every [kPresenceHeartbeat] so I stay live.
+  /// Only in the foreground: a closed app must turn "last seen".
+  void _beat() {
+    final last = _lastSent;
+    if (!state || last == null) return;
+    if (WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) return;
+    if (DateTime.now().difference(last) < kPresenceHeartbeat) return;
+    final held = ref.read(livePositionProvider);
+    // The newest fix when it is good enough to share, else the one friends already see.
+    final p = held != null && held.accuracyM <= 250 ? held : _lastSentFix;
     if (p != null) _onPosition(p, force: true);
   }
 
@@ -257,6 +296,7 @@ class LocationPublisher extends Notifier<bool> {
     // Don't tell friends I'm somewhere I'm probably not.
     if (!force && p.accuracyM > 250) return;
     _lastSent = now;
+    _lastSentFix = p;
     try {
       final ping = await ref.read(friendsRepositoryProvider).updateMyLocation(
             lat: p.latLng.latitude,
@@ -285,7 +325,11 @@ class LocationPublisher extends Notifier<bool> {
     }
   }
 
-  void stop() => state = false;
+  void stop() {
+    _heartbeat?.cancel();
+    _heartbeat = null;
+    state = false;
+  }
 
   Future<void> setShare(String mode, {int? radiusM}) async {
     try {

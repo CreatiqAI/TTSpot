@@ -168,6 +168,7 @@ const _items = [
   _KeyItem(LegendGlyph.friend, _Section.people, 'Friend'),
   _KeyItem(LegendGlyph.club, _Section.people, 'Clubmate'),
   _KeyItem(LegendGlyph.nearby, _Section.people, 'Nearby driver'),
+  _KeyItem(LegendGlyph.seen, _Section.people, 'Seen earlier'),
   _KeyItem(LegendGlyph.moment, _Section.people, 'Moment'),
   _KeyItem(LegendGlyph.eventMajor, _Section.events, 'Official event'),
   _KeyItem(LegendGlyph.eventPartner, _Section.events, 'Partner event'),
@@ -256,7 +257,9 @@ class _KeyRow extends StatelessWidget {
   }
 }
 
-enum LegendGlyph { eventMajor, eventPartner, eventMinor, spot, topSpot, savedSpot, cafe, mamak, carpark, route, circuit, mall, workshop, partner, cluster, moment, me, friend, club, nearby }
+/// [friend], [club] and [nearby] are people on the map now (under a minute
+/// old); [seen] is anyone whose pin is older (muted, "5 min ago").
+enum LegendGlyph { eventMajor, eventPartner, eventMinor, spot, topSpot, savedSpot, cafe, mamak, carpark, route, circuit, mall, workshop, partner, cluster, moment, me, friend, club, nearby, seen }
 
 /// The key row for a place of this kind.
 LegendGlyph legendGlyphForSpot(SpotKind k) => switch (k) {
@@ -343,6 +346,9 @@ class LegendGlyphPainter extends CustomPainter {
         paintDot(c, centre, r: 4.5, color: kRelationClub);
       case LegendGlyph.nearby:
         paintDot(c, centre, r: 4.5, color: kRelationStranger);
+      case LegendGlyph.seen:
+        // The map's last-seen dot: a friend's blue washed out, a size smaller.
+        paintDot(c, centre, r: 3.6, color: seenColor(kRelationFriend), ring: kSeenRing);
     }
   }
 

@@ -1,6 +1,7 @@
 import '../../../core/geo/latlng.dart';
 
 import '../../auth/domain/profile.dart';
+import 'presence.dart';
 
 /// Mirrors the strings returned by `friendship_status()`.
 enum FriendshipStatus {
@@ -83,8 +84,9 @@ class FriendPin {
 
   LatLng get latLng => LatLng(lat, lng);
 
-  /// Fresh enough to draw as "here now" (otherwise "last seen").
-  bool get isFresh => DateTime.now().difference(updatedAt) < const Duration(minutes: 20);
+  /// On the map now: the position is at most a minute old ([kLiveWindow]).
+  /// Older pins still show on the map for a day, as last seen.
+  bool get isLive => isLiveAt(updatedAt);
 
   factory FriendPin.fromMap(Map<String, dynamic> m) => FriendPin(
         user: Profile.fromMap(m['profiles'] as Map<String, dynamic>),

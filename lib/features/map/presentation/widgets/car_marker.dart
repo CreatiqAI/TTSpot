@@ -318,19 +318,21 @@ class CarMarkerFactory {
   }
 
   /// Far-zoom marker: a small dot in the relationship colour with a white ring.
-  Future<MapPin> dot({required String key, required Color color, bool me = false, double scale = 1}) async {
-    final k = 'dot|$key|${color.toARGB32()}|$me|$scale';
+  /// [dim] = last seen, not live: the colour washed towards grey on a grey
+  /// ring, a size smaller, so it never reads as someone there right now.
+  Future<MapPin> dot({required String key, required Color color, bool me = false, bool dim = false, double scale = 1}) async {
+    final k = 'dot|$key|${color.toARGB32()}|$me|$dim|$scale';
     final cached = _cache[k];
     if (cached != null) return cached;
-    final size = (me ? 18.0 : 14.0) * scale;
+    final size = (me ? 18.0 : 14.0) * scale * (dim ? 0.8 : 1);
     const pad = 4.0;
     final total = size + pad * 2;
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder)..scale(devicePixelRatio);
     final c = Offset(total / 2, total / 2);
-    canvas.drawCircle(c.translate(0, 1), size / 2 + 1, Paint()..color = Colors.black.withValues(alpha: 0.25)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2));
-    canvas.drawCircle(c, size / 2 + 2, Paint()..color = Colors.white);
-    canvas.drawCircle(c, size / 2, Paint()..color = color);
+    canvas.drawCircle(c.translate(0, 1), size / 2 + 1, Paint()..color = Colors.black.withValues(alpha: dim ? 0.12 : 0.25)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2));
+    canvas.drawCircle(c, size / 2 + 2, Paint()..color = dim ? kSeenRing : Colors.white);
+    canvas.drawCircle(c, size / 2, Paint()..color = dim ? seenColor(color) : color);
     final pin = await pins.finish(recorder, total, total, anchorY: 0.5);
     return _cache[k] = pin;
   }
@@ -376,14 +378,17 @@ const kRelationClub = Color(0xFFA855F7);
 const kRelationStranger = Color(0xFF8A8A8A);
 const kRelationMe = Color(0xFFE00008);
 
-/// Convenience for the map: how to describe freshness on the chip.
-String freshnessLabel(DateTime updatedAt) {
-  final d = DateTime.now().difference(updatedAt);
-  if (d < const Duration(minutes: 20)) return 'now';
-  if (d < const Duration(hours: 1)) return '${d.inMinutes}m';
-  if (d < const Duration(hours: 24)) return '${d.inHours}h';
-  return '${d.inDays}d';
-}
+/// Live on the map: the "now" on a pin's chip and the pulse around the pin.
+const kLiveGreen = Color(0xFF22C55E);
+
+/// Last seen: the age on a pin's chip ("5 min ago").
+const kSeenGrey = Color(0xFF8A919E);
+
+/// The ring of a last-seen person's dot.
+const kSeenRing = Color(0xFFE3E5E9);
+
+/// A person's colour once they are only "last seen": washed towards grey.
+Color seenColor(Color c) => Color.lerp(c, const Color(0xFFB4B8C0), 0.55)!;
 
 /// How far [paintHalo] reaches from its centre for a halo of radius [r]: the
 /// glow is fully transparent there. A bitmap that draws a halo keeps at least

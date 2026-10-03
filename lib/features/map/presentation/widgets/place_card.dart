@@ -70,7 +70,7 @@ String? areaOf(String? address) {
 /// Friends on the map at [p] right now: checked in there, or within 150 m.
 List<FriendPin> friendsAt(List<FriendPin> pins, Place p) => [
       for (final f in pins)
-        if (!f.isStranger && f.isFresh && (f.placeId == p.id || distanceKm(f.latLng, p.latLng) <= 0.15)) f,
+        if (!f.isStranger && f.isLive && (f.placeId == p.id || distanceKm(f.latLng, p.latLng) <= 0.15)) f,
     ];
 
 /// The card that slides up when a spot or a partner shop is picked on the

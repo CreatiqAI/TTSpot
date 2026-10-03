@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_icons.dart';
 import '../../../../core/theme/app_theme.dart';
-import '../../../events/domain/event.dart';
 import '../../../friends/application/friends_providers.dart';
 import '../../../friends/domain/friend.dart';
 import '../../../social/domain/post.dart';
@@ -13,7 +12,8 @@ import '../../application/map_providers.dart';
 /// that scrolls sideways, Google Maps style. The chips act on the map and
 /// on the list in the sheet at once.
 ///
-///   Now:    All · Friends · Clubmates · Nearby · Live meets · Moments
+///   Now:    All · Friends · Clubmates · Nearby · Events · Moments · Spots
+///           (Now is the whole map; Events and Spots are filters of it)
 ///   Events: All · Official · Partners · Clubs · TT sessions | Track day ·
 ///           Convoy · Meet | Today · This week · Later
 ///   Spots:  All · Car cafés · Mamak · Workshops · Detailing · Partners · Saved
@@ -46,21 +46,24 @@ class MapChipBar extends ConsumerWidget {
     final picked = ref.watch(nowChipsProvider);
     final notifier = ref.read(nowChipsProvider.notifier);
     final pins = ref.watch(friendPinsProvider).value ?? const <FriendPin>[];
-    final live = ref.watch(liveEventsProvider).value ?? const <Event>[];
+    final events = ref.watch(nowMapEventsProvider);
     final moments = ref.watch(liveMomentsProvider).value ?? const <Story>[];
+    final places = ref.watch(mapAllPlacesProvider);
     int? n(NowChip c) => switch (c) {
           NowChip.friends => pins.where((p) => !p.isStranger && !p.viaClub).length,
           NowChip.club => pins.where((p) => !p.isStranger && p.viaClub).length,
           NowChip.nearby => pins.where((p) => p.isStranger).length,
-          NowChip.meets => live.length,
+          NowChip.events => events.length,
           NowChip.moments => moments.length,
+          NowChip.spots => places.length,
         };
     IconData icon(NowChip c) => switch (c) {
           NowChip.friends => AppIcons.users,
           NowChip.club => AppIcons.usersThree,
           NowChip.nearby => AppIcons.broadcast,
-          NowChip.meets => AppIcons.flag,
+          NowChip.events => AppIcons.flag,
           NowChip.moments => AppIcons.image,
+          NowChip.spots => AppIcons.mapPin,
         };
     return [
       _MapChip(label: 'All', selected: picked.isEmpty, light: light, onTap: notifier.all),

@@ -300,8 +300,9 @@ enum NowChip {
   friends('Friends'),
   club('Clubmates'),
   nearby('Nearby'),
-  meets('Live meets'),
-  moments('Moments');
+  events('Events'),
+  moments('Moments'),
+  spots('Spots');
 
   const NowChip(this.label);
   final String label;
@@ -314,5 +315,62 @@ bool nowShowsPerson(Set<NowChip> chips, {required bool stranger, required bool v
   return viaClub ? chips.contains(NowChip.club) : chips.contains(NowChip.friends);
 }
 
-bool nowShowsMeets(Set<NowChip> chips) => chips.isEmpty || chips.contains(NowChip.meets);
+bool nowShowsEvents(Set<NowChip> chips) => chips.isEmpty || chips.contains(NowChip.events);
 bool nowShowsMoments(Set<NowChip> chips) => chips.isEmpty || chips.contains(NowChip.moments);
+bool nowShowsSpots(Set<NowChip> chips) => chips.isEmpty || chips.contains(NowChip.spots);
+
+/// The events the Now tab draws: every meet under way ([live], from the live
+/// query) and every other meet in view ([inView]) that starts this week,
+/// each once, the ones under way first.
+List<Event> nowEvents(List<Event> live, List<Event> inView, DateTime now) {
+  final seen = <String>{};
+  return [
+    for (final e in live)
+      if (seen.add(e.id)) e,
+    for (final e in inView)
+      if (WhenChip.week.matches(e, now) && seen.add(e.id)) e,
+  ];
+}
+
+/// On the Now tab places share the map with people and events, so they
+/// come in later than on the Spots tab (where every place shows at every
+/// zoom): partner shops and my saved spots from partner zoom (10.5, a few
+/// towns), the other spots from district zoom (12.5), like the smallest
+/// event tier.
+double nowPlaceMinZoom({required bool partner, required bool saved}) =>
+    partner || saved ? tierRule(PinTier.partner).minZoom : tierRule(PinTier.minor).minZoom;
+
+bool nowPlaceVisibleAt(double zoom, {required bool partner, required bool saved}) => zoom >= nowPlaceMinZoom(partner: partner, saved: saved);
+
+/// Below street zoom the Now tab draws places at this share of their
+/// Spots-tab size, so the people and events on top stay easy to read.
+const kNowPlaceScale = 0.85;
+
+// ------------------------------------------------------------------ tabs ---
+
+/// The map's three tabs. Now is the whole map: people, moments, every meet
+/// this week and every spot. Events and Spots are filters of it that keep
+/// one kind (plus my own pin, always).
+enum MapMode {
+  now('Now'),
+  events('Events'),
+  spots('Spots');
+
+  const MapMode(this.label);
+  final String label;
+}
+
+/// Which kinds of pin a tab draws, besides my own.
+typedef MapLayers = ({bool people, bool moments, bool events, bool places});
+
+/// [MapLayers] for [mode], through the Now chips on the Now tab.
+MapLayers mapLayersFor(MapMode mode, Set<NowChip> chips) => switch (mode) {
+      MapMode.now => (
+          people: chips.isEmpty || chips.contains(NowChip.friends) || chips.contains(NowChip.club) || chips.contains(NowChip.nearby),
+          moments: nowShowsMoments(chips),
+          events: nowShowsEvents(chips),
+          places: nowShowsSpots(chips),
+        ),
+      MapMode.events => (people: false, moments: false, events: true, places: false),
+      MapMode.spots => (people: false, moments: false, events: false, places: true),
+    };

@@ -92,7 +92,7 @@ class MapToolbar extends ConsumerWidget {
       case MapMode.now:
         final pins = ref.watch(friendPinsProvider).value ?? const <FriendPin>[];
         final moments = ref.watch(liveMomentsProvider).value ?? const <Story>[];
-        final fresh = pins.where((p) => p.isFresh).toList();
+        final fresh = pins.where((p) => p.isLive).toList();
         final m = moments.length;
         final text = fresh.isEmpty
             ? (m == 0 ? 'Nobody nearby' : '$m moment${m == 1 ? '' : 's'} nearby')

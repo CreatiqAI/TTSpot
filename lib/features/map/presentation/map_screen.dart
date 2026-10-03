@@ -28,6 +28,7 @@ import '../../../core/supabase/supabase_client.dart';
 import '../../profile/application/profile_providers.dart';
 import '../../friends/application/friends_providers.dart';
 import '../../friends/domain/friend.dart';
+import '../../friends/domain/presence.dart';
 import '../../social/application/community_providers.dart';
 import '../../social/domain/club.dart';
 import '../../social/domain/post.dart';
@@ -49,9 +50,19 @@ import '../../friends/presentation/friend_colour_sheet.dart';
 import '../../settings/application/settings_providers.dart';
 
 /// Home. One map, three tabs, each with quick-filter chips under the switch:
-/// Now (friends, clubmates, nearby drivers, live meets, moments), Events
+/// Now is the whole map (friends, clubmates, nearby drivers, moments, live
+/// meets and the rest of the week's meets, spots and partner shops); Events
 /// (every meet in view, live or to come, as picture pins sized by tier) and
-/// Spots (places to check in and partner shops).
+/// Spots (places to check in and partner shops) are filters of it that keep
+/// one kind. My own pin is on every tab.
+///
+/// People: whoever is in `visible_pins` (a position under a day old) is on
+/// the map. Only those under a minute old are live: full colour, "now" in
+/// green and a green pulse. The rest are last seen: muted, with their age
+/// ("5 min ago"). The rule lives in friends/domain/presence.dart.
+///
+/// On Now, places come in later and a size smaller than on Spots
+/// ([nowPlaceMinZoom], [kNowPlaceScale]) and hide under any event pin.
 ///
 /// Event pins come in three tiers (see map_filters.dart): official clubs and
 /// approved organizers big and visible from far out, partners medium, TT
@@ -205,8 +216,26 @@ class _MapScreenState extends ConsumerState<MapScreen> {
           ? null
           : AppPulse(points: [here], color: kRelationMe, fromPx: _close ? 26 : 9, toPx: _close ? 62 : 36),
     );
+    // A soft green ring on everyone live (position under a minute old)
+    // drawn on the Now tab; a last-seen pin gets none.
+    final people = ref.read(mapModeProvider) == MapMode.now ? _livePeople : const <LatLng>[];
+    _map.setPulse(
+      'live',
+      people.isEmpty
+          ? null
+          : AppPulse(
+              points: people,
+              color: kLiveGreen,
+              fromPx: _close ? 24 : 6,
+              toPx: _close ? 46 : 20,
+              period: const Duration(milliseconds: 2600),
+              duration: const Duration(milliseconds: 1200),
+              fill: 0.12,
+              stroke: 0.75,
+            ),
+    );
     // A radar on each live meet whose pin is on the Now tab at this zoom.
-    final live = ref.read(mapModeProvider) == MapMode.now && nowShowsMeets(ref.read(nowChipsProvider))
+    final live = ref.read(mapModeProvider) == MapMode.now && nowShowsEvents(ref.read(nowChipsProvider))
         ? [for (final e in ref.read(liveEventsProvider).value ?? const <Event>[]) if (tierVisibleAt(pinTierOf(e), _zoom)) e]
         : const <Event>[];
     // 350 m of ground at the current zoom (re-sized when the zoom settles).
@@ -779,27 +808,31 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       );
     }
 
-    switch (mode) {
-      case MapMode.now:
-        if (nowShowsMeets(ref.read(nowChipsProvider))) {
-          for (final e in ref.read(liveEventsProvider).value ?? const <Event>[]) {
-            if (!tierVisibleAt(pinTierOf(e), _zoom)) continue;
-            drops.add(eventDrop(e, live: true, sub: e.checkinCount > 0 ? '${e.checkinCount} here' : null));
-          }
+    // Now draws every kind (through its chips); Events and Spots one kind each.
+    final layers = mapLayersFor(mode, ref.read(nowChipsProvider));
+    final now = DateTime.now();
+    if (layers.events && mode == MapMode.events) {
+      for (final e in ref.read(filteredMapEventsProvider).value ?? const <Event>[]) {
+        if (!tierVisibleAt(pinTierOf(e), _zoom)) {
+          hiddenByZoom++;
+          continue;
         }
-      case MapMode.events:
-        final now = DateTime.now();
-        for (final e in ref.read(filteredMapEventsProvider).value ?? const <Event>[]) {
-          if (!tierVisibleAt(pinTierOf(e), _zoom)) {
-            hiddenByZoom++;
-            continue;
-          }
-          final live = e.isLive && !e.startsAt.isAfter(now.add(const Duration(minutes: 5)));
-          drops.add(eventDrop(e, live: live, sub: live ? (e.checkinCount > 0 ? '${e.checkinCount} here' : null) : relativeShort(e.startsAt, now: now)));
-        }
-      case MapMode.spots:
-        _addPlaces(drops);
+        final live = e.isLive && !e.startsAt.isAfter(now.add(const Duration(minutes: 5)));
+        drops.add(eventDrop(e, live: live, sub: live ? (e.checkinCount > 0 ? '${e.checkinCount} here' : null) : relativeShort(e.startsAt, now: now)));
+      }
+    } else if (layers.events) {
+      // Now: the meets under way (LIVE tab, radar, "N here") and the rest of
+      // the week's meets in view with their start time, as on Events. The
+      // tiers' zoom rules keep the small ones off until the district view.
+      final liveIds = <String>{for (final e in ref.read(liveEventsProvider).value ?? const <Event>[]) e.id};
+      for (final e in ref.read(nowMapEventsProvider)) {
+        if (!tierVisibleAt(pinTierOf(e), _zoom)) continue;
+        final live = liveIds.contains(e.id);
+        drops.add(eventDrop(e, live: live, sub: live ? (e.checkinCount > 0 ? '${e.checkinCount} here' : null) : relativeShort(e.startsAt, now: now)));
+      }
     }
+    // The picked place (its card is up) is drawn on every tab.
+    _addPlaces(drops, onNow: mode == MapMode.now, pickedOnly: !layers.places);
     // Every pin at once: bitmaps already in the cache come straight back,
     // the rest paint side by side instead of one after another.
     final pinScale = _pinScale;
@@ -835,8 +868,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     // photo or a car photo may still be downloading, which on a slow
     // network takes many seconds); until then the ones already on the map
     // stay where they are.
-    final withPeople = mode == MapMode.now;
-    final withMoments = mode == MapMode.now && !_far && nowShowsMoments(ref.read(nowChipsProvider));
+    final withPeople = layers.people;
+    final withMoments = layers.moments && !_far;
     bool slow(String id) => id == 'me' || (withPeople && id.startsWith('friend:')) || (withMoments && id.startsWith('moment:'));
     setState(() => _markerSet = [...built, for (final m in _markerSet) if (slow(m.id)) m]);
     _keyed = [...keyed, for (final k in _keyed) if (_slowGlyphs.contains(k.$2)) k];
@@ -863,12 +896,14 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       }
     }
     final tagged = <(LatLng, String, String)>[];
-    await _addPeople(built, stale, keyed, tagged, onlyMe: mode != MapMode.now);
+    final livePeople = <LatLng>[];
+    await _addPeople(built, stale, keyed, tagged, livePeople, onlyMe: !withPeople);
     if (await stale()) return;
-    if (kDebugMode) debugPrint('map: ${built.length} markers, tier $_tier, zoom ${_zoom.toStringAsFixed(1)}, $more more up close');
+    if (kDebugMode) debugPrint('map: ${built.length} markers, ${livePeople.length} live, tier $_tier, zoom ${_zoom.toStringAsFixed(1)}, $more more up close');
     setState(() => _markerSet = built);
     _keyed = keyed;
     _taggedKeyed = tagged;
+    _livePeople = livePeople;
     _updateKey();
     _syncPulses();
   }
@@ -914,8 +949,11 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   List<(LatLng, LegendGlyph)> _keyed = const [];
   /// Friends drawn in a colour I gave them: where, the colour key, first name.
   List<(LatLng, String, String)> _taggedKeyed = const [];
+  /// Where the live people (position under a minute old) are drawn: the
+  /// green pulse ([_syncPulses]).
+  List<LatLng> _livePeople = const [];
   /// Pins drawn in the second, slower phase of a redraw.
-  static const _slowGlyphs = {LegendGlyph.me, LegendGlyph.friend, LegendGlyph.club, LegendGlyph.nearby, LegendGlyph.moment};
+  static const _slowGlyphs = {LegendGlyph.me, LegendGlyph.friend, LegendGlyph.club, LegendGlyph.nearby, LegendGlyph.seen, LegendGlyph.moment};
 
   /// The key lists the kinds of pin in view right now (not the ones off
   /// screen, not the ones folded into a count bubble), and one row per
@@ -1031,15 +1069,39 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   /// The place whose card is open is drawn 1.4× with a halo, on top and
   /// never folded into a bubble, even when the viewport query has not
   /// brought it in (a search result) or the chips leave it out.
-  void _addPlaces(List<_Drop> drops) {
+  ///
+  /// [onNow]: every place in view (Now has its own chips, not the Spots
+  /// tab's), shown from [nowPlaceMinZoom] and at [kNowPlaceScale] below
+  /// street zoom. [pickedOnly]: just the picked place (Events, or Now with
+  /// the Spots chip off).
+  void _addPlaces(List<_Drop> drops, {bool onNow = false, bool pickedOnly = false}) {
     final savedIds = ref.read(savedPlaceIdsProvider);
     final picked = _cardOpen ? _card : null;
-    final places = ref.read(mapPlacesProvider);
-    for (final p in [...places, if (picked != null && !places.any((x) => x.id == picked.id)) picked]) {
+    final places = pickedOnly ? const <Place>[] : (onNow ? ref.read(mapAllPlacesProvider) : ref.read(mapPlacesProvider));
+    // Plain loops and a null test first, no closure over the nullable pick
+    // (see the 0.3.49 note in [_updateKey]).
+    final all = [...places];
+    String? pickedId;
+    if (picked != null) {
+      pickedId = picked.id;
+      var listed = false;
+      for (final x in places) {
+        if (x.id == pickedId) {
+          listed = true;
+          break;
+        }
+      }
+      if (!listed) all.add(picked);
+    }
+    final shrink = onNow && !_close ? kNowPlaceScale : 1.0;
+    for (final p in all) {
       final kind = spotKindOf(p.kind);
       final saved = savedIds.contains(p.id);
-      final selected = p.id == picked?.id;
-      double scaleFor(double pinScale) => pinScale * (selected ? 1.4 : 1);
+      final selected = p.id == pickedId;
+      if (onNow && !selected && !nowPlaceVisibleAt(_zoom, partner: p.isPartner, saved: saved)) continue;
+      final factor = selected ? 1.4 : shrink;
+      final partnerLabel = p.vendorName ?? p.name;
+      double scaleFor(double pinScale) => pinScale * factor;
       drops.add(_Drop(
         id: 'place:${p.id}',
         at: p.latLng,
@@ -1058,7 +1120,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 outline: kEventRed,
                 glyph: AppIcons.storefrontFill,
                 selected: selected,
-                label: _close ? (p.vendorName ?? p.name) : null,
+                label: _close ? partnerLabel : null,
                 scale: scaleFor(pinScale),
               )
             : _glyphFactory.teardrop(
@@ -1085,11 +1147,17 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   /// colour I gave a friend, else the relationship's. Long-press a friend
   /// or clubmate to change their colour. Friends with a colour of mine go
   /// into [tagged] (for the key's colour rows) instead of the plain rows.
+  ///
+  /// Everyone in the pins (under a day old) is drawn; only the live ones
+  /// (under a minute, [FriendPin.isLive]) in full colour with "now" in green,
+  /// and their positions go into [livePeople] for the green pulse. The rest
+  /// are muted with their age ("5 min ago") and keyed as "Seen earlier".
   Future<void> _addPeople(
     List<AppMarker> built,
     Future<bool> Function() stale,
     List<(LatLng, LegendGlyph)> keyed,
-    List<(LatLng, String, String)> tagged, {
+    List<(LatLng, String, String)> tagged,
+    List<LatLng> livePeople, {
     bool onlyMe = false,
   }) async {
     final tags = ref.read(friendTagsProvider).value ?? const <String, String>{};
@@ -1098,14 +1166,17 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       for (final f in ref.read(friendPinsProvider).value ?? const <FriendPin>[]) {
         final stranger = f.isStranger;
         if (!nowShowsPerson(chips, stranger: stranger, viaClub: f.viaClub)) continue;
+        final live = f.isLive;
         final tag = stranger ? null : tags[f.user.id];
         final hasTag = tag != null && kTagColors.containsKey(tag);
         final relation = personColor(tag: tag, viaClub: f.viaClub, stranger: stranger);
         final name = stranger ? '@${f.user.username ?? ''}' : (f.user.displayName ?? f.user.username ?? '');
         final photo = f.carPhoto;
+        final status = stranger ? null : presenceLabel(f.updatedAt);
+        final statusColor = live ? kLiveGreen : kSeenGrey;
         final pin = !_close
             // Never smaller than ~11 px, so a friend far out stays findable.
-            ? await _carFactory.dot(key: f.user.id, color: relation, scale: math.max(_glyphScale, 0.8))
+            ? await _carFactory.dot(key: f.user.id, color: relation, dim: !live, scale: math.max(_glyphScale, 0.8))
             : photo != null
                 // Their car's portrait in a ring of the relationship colour.
                 ? await _carFactory.badge(
@@ -1113,30 +1184,32 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     coverUrl: photo,
                     name: stranger ? (f.carTitle ?? name) : name,
                     ring: relation,
-                    status: stranger ? null : freshnessLabel(f.updatedAt),
-                    statusColor: f.isFresh ? const Color(0xFF22C55E) : const Color(0xFF8A919E),
+                    status: status,
+                    statusColor: statusColor,
                     headingDeg: f.heading,
-                    dim: stranger || !f.isFresh,
+                    dim: stranger || !live,
                   )
                 // No photo yet: the top-down car in their colour.
                 : await _carFactory.car(
                     key: f.user.id,
                     colorKey: f.carColor ?? (stranger ? 'grey' : 'silver'),
                     name: stranger ? (f.carTitle ?? name) : name,
-                    status: stranger ? null : freshnessLabel(f.updatedAt),
-                    statusColor: f.isFresh ? const Color(0xFF22C55E) : const Color(0xFF8A919E),
+                    status: status,
+                    statusColor: statusColor,
                     headingDeg: f.heading ?? 0,
                     faceUrl: (f.user.avatarUrl ?? '').isNotEmpty ? f.user.avatarUrl : DefaultAvatars.forSeed(f.user.id, name),
                     showFace: !stranger,
-                    dim: stranger || !f.isFresh,
+                    dim: stranger || !live,
                     relation: relation,
                   );
         if (await stale()) return;
         if (hasTag) {
           tagged.add((f.latLng, tag, name.split(' ').first));
+          if (!live) keyed.add((f.latLng, LegendGlyph.seen));
         } else {
-          keyed.add((f.latLng, stranger ? LegendGlyph.nearby : (f.viaClub ? LegendGlyph.club : LegendGlyph.friend)));
+          keyed.add((f.latLng, !live ? LegendGlyph.seen : stranger ? LegendGlyph.nearby : (f.viaClub ? LegendGlyph.club : LegendGlyph.friend)));
         }
+        if (live) livePeople.add(f.latLng);
         built.add(AppMarker(
           id: 'friend:${f.user.id}',
           position: f.latLng,

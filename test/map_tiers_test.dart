@@ -250,9 +250,65 @@ void main() {
       expect(nowShowsPerson({NowChip.club}, stranger: false, viaClub: true), isTrue);
       expect(nowShowsPerson({NowChip.friends}, stranger: true, viaClub: false), isFalse);
       expect(nowShowsPerson({NowChip.nearby}, stranger: true, viaClub: false), isTrue);
-      expect(nowShowsMeets(const {}), isTrue);
-      expect(nowShowsMeets({NowChip.friends}), isFalse);
+      expect(nowShowsEvents(const {}), isTrue);
+      expect(nowShowsEvents({NowChip.friends}), isFalse);
+      expect(nowShowsEvents({NowChip.events}), isTrue);
       expect(nowShowsMoments({NowChip.moments}), isTrue);
+      expect(nowShowsSpots(const {}), isTrue);
+      expect(nowShowsSpots({NowChip.events}), isFalse);
+      expect(nowShowsSpots({NowChip.spots}), isTrue);
+    });
+  });
+
+  group('tabs: Now is the whole map, Events and Spots filter it', () {
+    test('Now with no chip picked draws every kind', () {
+      final l = mapLayersFor(MapMode.now, const {});
+      expect(l.people, isTrue);
+      expect(l.moments, isTrue);
+      expect(l.events, isTrue);
+      expect(l.places, isTrue);
+    });
+
+    test('Now chips narrow it; people chips keep people', () {
+      final friends = mapLayersFor(MapMode.now, {NowChip.friends});
+      expect((friends.people, friends.moments, friends.events, friends.places), (true, false, false, false));
+      final nearby = mapLayersFor(MapMode.now, {NowChip.nearby});
+      expect(nearby.people, isTrue);
+      final spotsAndEvents = mapLayersFor(MapMode.now, {NowChip.spots, NowChip.events});
+      expect((spotsAndEvents.people, spotsAndEvents.moments, spotsAndEvents.events, spotsAndEvents.places), (false, false, true, true));
+    });
+
+    test('Events draws only events and Spots only places, whatever the Now chips', () {
+      for (final chips in [const <NowChip>{}, {NowChip.friends}, {NowChip.spots}]) {
+        final e = mapLayersFor(MapMode.events, chips);
+        expect((e.people, e.moments, e.events, e.places), (false, false, true, false));
+        final s = mapLayersFor(MapMode.spots, chips);
+        expect((s.people, s.moments, s.events, s.places), (false, false, false, true));
+      }
+    });
+
+    test('Now events: the live ones first, then the week in view, once each', () {
+      final live = _event(id: 'live', startsAt: _now.subtract(const Duration(minutes: 30)));
+      final tonight = _event(id: 'tonight', startsAt: _now.add(const Duration(hours: 5)));
+      final saturday = _event(id: 'sat', startsAt: _now.add(const Duration(days: 1)));
+      final nextMonth = _event(id: 'later', startsAt: _now.add(const Duration(days: 30)));
+      final ids = [for (final e in nowEvents([live], [saturday, live, nextMonth, tonight], _now)) e.id];
+      expect(ids, ['live', 'sat', 'tonight']);
+      expect(nowEvents(const [], const [], _now), isEmpty);
+    });
+
+    test('Now places: partners and saved spots from 10.5, other spots from 12.5, smaller below street zoom', () {
+      expect(nowPlaceVisibleAt(10.4, partner: true, saved: false), isFalse);
+      expect(nowPlaceVisibleAt(10.5, partner: true, saved: false), isTrue);
+      expect(nowPlaceVisibleAt(10.5, partner: false, saved: true), isTrue);
+      expect(nowPlaceVisibleAt(12.4, partner: false, saved: false), isFalse);
+      expect(nowPlaceVisibleAt(12.5, partner: false, saved: false), isTrue);
+      // Partners come in no later than partner events, spots with the smallest event tier.
+      expect(nowPlaceMinZoom(partner: true, saved: false), tierRule(PinTier.partner).minZoom);
+      expect(nowPlaceMinZoom(partner: false, saved: false), tierRule(PinTier.minor).minZoom);
+      expect(kNowPlaceScale, inExclusiveRange(0.7, 1.0));
+      // The zooms where places come in are redraw steps, so they appear on time.
+      expect(kTierZoomSteps, containsAll([10.5, 12.5]));
     });
   });
 

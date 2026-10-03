@@ -16,6 +16,7 @@ import '../../../core/widgets/user_avatar.dart';
 import '../../friends/application/friends_providers.dart';
 import '../../friends/application/nicknames.dart';
 import '../../friends/domain/friend.dart';
+import '../../friends/domain/presence.dart';
 import '../../auth/domain/profile.dart';
 import '../application/chat_providers.dart';
 import '../domain/chat.dart';
@@ -109,7 +110,11 @@ class _ChatList extends ConsumerWidget {
     final inbox = ref.watch(inboxProvider);
     final friends = entity ? const <Profile>[] : (ref.watch(friendsProvider).value ?? const <Profile>[]);
     final pins = ref.watch(friendPinsProvider).value ?? const <FriendPin>[];
-    final live = {for (final p in pins) p.user.id: p};
+    // On the map now = a position under a minute old (presence.dart). A
+    // friend seen earlier still has a pin, for "Seen 5 min ago", but no live
+    // wording, no green dot and no place in "N on the map".
+    final pinOf = {for (final p in pins) p.user.id: p};
+    final live = {for (final p in pins) if (p.isLive) p.user.id: p};
     // Friends on the map first, then the rest.
     final strip = [...friends]..sort((a, b) => (live.containsKey(b.id) ? 1 : 0) - (live.containsKey(a.id) ? 1 : 0));
     final moments = entity ? const <StoryGroup>[] : (ref.watch(storiesProvider).value ?? const <StoryGroup>[]);
@@ -166,12 +171,7 @@ class _ChatList extends ConsumerWidget {
                   ListTile(
                     leading: UserAvatar(url: f.avatarUrl, name: f.displayName ?? f.username, seed: f.id, size: 48),
                     title: Text(ref.displayNameFor(f), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600)),
-                    subtitle: Text(
-                      live[f.id]?.placeName != null ? 'On the map · ${live[f.id]!.placeName}' : (live.containsKey(f.id) ? 'On the map now' : '@${f.username ?? ''}'),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 12.5, color: live.containsKey(f.id) ? AppColors.success : AppColors.textSecondary),
-                    ),
+                    subtitle: FriendMapLine(pin: pinOf[f.id], username: f.username),
                     trailing: OutlinedButton(
                       onPressed: () => openDm(f.id),
                       style: OutlinedButton.styleFrom(minimumSize: const Size(0, 34), padding: const EdgeInsets.symmetric(horizontal: 14), visualDensity: VisualDensity.compact),
@@ -188,10 +188,36 @@ class _ChatList extends ConsumerWidget {
   }
 }
 
+/// The line under a friend's name in Chats: green "On the map now" (or "On
+/// the map · Wheels Cafe") only while their position is under a minute old
+/// ([kLiveWindow]), "Seen 5 min ago" once it is older, their @handle when
+/// they are not on the map at all.
+class FriendMapLine extends StatelessWidget {
+  const FriendMapLine({super.key, required this.pin, required this.username});
+  final FriendPin? pin;
+  final String? username;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = pin;
+    final live = p != null && p.isLive;
+    final String text;
+    if (p == null) {
+      text = '@${username ?? ''}';
+    } else if (live) {
+      text = p.placeName != null ? 'On the map · ${p.placeName}' : 'On the map now';
+    } else {
+      text = 'Seen ${presenceLabel(p.updatedAt)}';
+    }
+    return Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12.5, color: live ? AppColors.success : AppColors.textSecondary));
+  }
+}
+
 /// Moments and friends in one row of circles, like a status bar:
 /// your moment first (+ to add), then everyone with a live moment in a red
 /// ring (grey once seen; tap to watch), then the rest of your friends (tap to
-/// message). A green dot means they're on the map right now.
+/// message). A green dot means they're on the map right now ([live] holds
+/// only friends whose position is under a minute old).
 class _FriendStrip extends ConsumerWidget {
   const _FriendStrip({required this.friends, required this.live, required this.moments, required this.onTap});
   final List<Profile> friends;

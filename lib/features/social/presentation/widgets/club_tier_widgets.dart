@@ -273,6 +273,7 @@ class ClubLeaderboard extends ConsumerWidget {
             children: [
               Icon(AppIcons.trophy, size: 14, color: AppColors.textSecondary),
               const SizedBox(width: 6),
+              // Flexible: overflowed on a 360 dp phone at text x1.3.
               Flexible(child: Text('MOST ACTIVE · 90 DAYS', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textSecondary))),
             ],
           ),

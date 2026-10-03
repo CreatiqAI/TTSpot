@@ -21,6 +21,7 @@ import '../../../../core/widgets/thumb_image.dart';
 import '../../../events/domain/event.dart';
 import '../../../map/presentation/widgets/static_pin_map.dart';
 import '../../../social/presentation/widgets/video_badge.dart';
+import '../../../social/domain/follow.dart';
 import '../../../social/domain/post.dart';
 import '../../domain/vendor.dart';
 import 'hours_editor.dart';
@@ -60,6 +61,9 @@ class PartnerPageView extends StatefulWidget {
     this.initialTab,
     this.onMessage,
     this.onRefresh,
+    this.following,
+    this.followers,
+    this.onFollow,
   });
 
   final PublicVendor vendor;
@@ -78,6 +82,16 @@ class PartnerPageView extends StatefulWidget {
 
   /// Pull-to-refresh on a tab; completes when that tab's data is fresh.
   final Future<void> Function(PartnerTab tab)? onRefresh;
+
+  /// Am I following the shop? Null while that loads (Follow is greyed out).
+  final bool? following;
+
+  /// How many follow the shop; shown as a chip once there are any.
+  final int? followers;
+
+  /// Follow / Following beside Message. Null hides it (the partner's own
+  /// page).
+  final VoidCallback? onFollow;
 
   @override
   State<PartnerPageView> createState() => _PartnerPageViewState();
@@ -147,7 +161,7 @@ class _PartnerPageViewState extends State<PartnerPageView> with TickerProviderSt
                 ],
                 flexibleSpace: FlexibleSpaceBar(collapseMode: CollapseMode.parallax, background: _Cover(v: v)),
               ),
-              SliverToBoxAdapter(child: _Identity(v: v, onMessage: widget.onMessage)),
+              SliverToBoxAdapter(child: _Identity(v: v, onMessage: widget.onMessage, following: widget.following, followers: widget.followers, onFollow: widget.onFollow)),
               SliverPersistentHeader(
                 pinned: true,
                 delegate: _TabBarDelegate(
@@ -550,9 +564,12 @@ class _Cover extends StatelessWidget {
 /// Logo, name, chips and the main actions. Grows with the text; nothing in
 /// here has a fixed text height.
 class _Identity extends StatelessWidget {
-  const _Identity({required this.v, required this.onMessage});
+  const _Identity({required this.v, required this.onMessage, this.following, this.followers, this.onFollow});
   final PublicVendor v;
   final VoidCallback? onMessage;
+  final bool? following;
+  final int? followers;
+  final VoidCallback? onFollow;
 
   @override
   Widget build(BuildContext context) {
@@ -594,6 +611,7 @@ class _Identity extends StatelessWidget {
                         _Chip(icon: AppIcons.storefront, text: businessTypeLabel(v.type)),
                         _Chip(icon: AppIcons.sealCheck, text: 'Partner', red: true),
                         if (status != null) _Chip(icon: AppIcons.clock, text: open ? 'Open now' : 'Closed', green: open),
+                        if ((followers ?? 0) > 0) _Chip(icon: AppIcons.users, text: followersLabel(followers!)),
                       ],
                     ),
                   ],
@@ -602,7 +620,21 @@ class _Identity extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 14),
-          PrimaryButton(label: 'Message', onPressed: onMessage),
+          if (onFollow == null)
+            PrimaryButton(label: 'Message', onPressed: onMessage)
+          else
+            // Follow is the red one; once followed both are grey, like Instagram.
+            Row(
+              children: [
+                Expanded(
+                  child: following == true
+                      ? SecondaryButton(label: 'Following', icon: AppIcons.check, onPressed: onFollow)
+                      : PrimaryButton(label: 'Follow', icon: AppIcons.plus, onPressed: following == null ? null : onFollow),
+                ),
+                const SizedBox(width: 8),
+                Expanded(child: SecondaryButton(label: 'Message', icon: AppIcons.chatCircle, onPressed: onMessage)),
+              ],
+            ),
           if (digits.isNotEmpty || hasLocation) ...[
             const SizedBox(height: 8),
             Row(

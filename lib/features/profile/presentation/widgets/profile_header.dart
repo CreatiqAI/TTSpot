@@ -37,6 +37,8 @@ class ProfileHeader extends StatelessWidget {
     required this.onFriendAction,
     required this.onMessage,
     this.onCall,
+    this.following,
+    this.onFollow,
   });
 
   final Profile profile;
@@ -60,12 +62,22 @@ class ProfileHeader extends StatelessWidget {
   final VoidCallback onMessage;
   final VoidCallback? onCall;
 
+  /// Am I following them? Null while that loads (the button reads Follow).
+  final bool? following;
+
+  /// Follow / Following, beside Add friend or Requested for people who
+  /// aren't my friends (friends' posts are in Following already). Hidden
+  /// while they wait for me to accept (accepting is the thing to do). Null
+  /// hides it too: my own page, someone I blocked.
+  final VoidCallback? onFollow;
+
   @override
   Widget build(BuildContext context) {
     final p = profile;
     final name = p.displayName ?? '@${p.username}';
     final live = moments.any((m) => m.isLive);
     final showGarage = isMe || cars.isNotEmpty;
+    final showFollow = !isMe && onFollow != null && (friendship == FriendshipStatus.none || friendship == FriendshipStatus.pendingOut);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -148,16 +160,26 @@ class ProfileHeader extends StatelessWidget {
                 )
               : Row(
                   children: [
+                    // With Follow it's three across: text only (like
+                    // Instagram), so the labels keep their size.
                     Expanded(
                       child: switch (friendship) {
-                        FriendshipStatus.none => _Action(label: 'Add friend', icon: AppIcons.userPlus, onTap: onFriendAction, dark: true),
-                        FriendshipStatus.pendingOut => _Action(label: 'Requested', icon: AppIcons.clock, onTap: onFriendAction),
+                        FriendshipStatus.none => _Action(label: 'Add friend', icon: showFollow ? null : AppIcons.userPlus, onTap: onFriendAction, dark: true),
+                        FriendshipStatus.pendingOut => _Action(label: 'Requested', icon: showFollow ? null : AppIcons.clock, onTap: onFriendAction),
                         FriendshipStatus.pendingIn => _Action(label: 'Accept request', icon: AppIcons.userCheck, onTap: onFriendAction, dark: true),
                         FriendshipStatus.friends => _Action(label: 'Friends', icon: AppIcons.checkCircle, onTap: onFriendAction),
                       },
                     ),
+                    if (showFollow) ...[
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: following == true
+                            ? _Action(label: 'Following', onTap: onFollow!)
+                            : _Action(label: 'Follow', onTap: onFollow!, accent: true),
+                      ),
+                    ],
                     const SizedBox(width: 8),
-                    Expanded(child: _Action(label: 'Message', icon: AppIcons.chatCircle, onTap: onMessage)),
+                    Expanded(child: _Action(label: 'Message', icon: showFollow ? null : AppIcons.chatCircle, onTap: onMessage)),
                     if (friendship == FriendshipStatus.friends && onCall != null) ...[
                       const SizedBox(width: 8),
                       Expanded(child: _Action(label: 'Call', icon: AppIcons.phoneCall, onTap: onCall!)),
@@ -289,18 +311,21 @@ class _Stat extends StatelessWidget {
 }
 
 class _Action extends StatelessWidget {
-  const _Action({this.label, this.icon, required this.onTap, this.dark = false, this.tooltip});
+  const _Action({this.label, this.icon, required this.onTap, this.dark = false, this.accent = false, this.tooltip});
   final String? label;
   final IconData? icon;
   final VoidCallback onTap;
   final bool dark;
+
+  /// Brand red on a red tint (Follow), like the points pill.
+  final bool accent;
   final String? tooltip;
 
   @override
   Widget build(BuildContext context) {
-    final fg = dark ? AppColors.onInk : AppColors.textPrimary;
+    final fg = dark ? AppColors.onInk : accent ? AppColors.brand : AppColors.textPrimary;
     final child = Material(
-      color: dark ? AppColors.textPrimary : AppColors.surfaceGray,
+      color: dark ? AppColors.textPrimary : accent ? AppColors.brand.withValues(alpha: AppColors.dark ? 0.2 : 0.1) : AppColors.surfaceGray,
       borderRadius: BorderRadius.circular(AppRadius.md),
       child: InkWell(
         onTap: onTap,
@@ -308,13 +333,18 @@ class _Action extends StatelessWidget {
         child: SizedBox(
           height: 40,
           width: label == null ? 40 : null,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (icon != null) Icon(icon, size: 17, color: fg),
-              if (icon != null && label != null) const SizedBox(width: 6),
-              if (label != null) Text(label!, style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: fg)),
-            ],
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: label == null ? 0 : 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (icon != null) Icon(icon, size: 17, color: fg),
+                if (icon != null && label != null) const SizedBox(width: 6),
+                // A label too long for its share of the row (big text, a
+                // narrow phone) shrinks to fit rather than overflow.
+                if (label != null) Flexible(child: FittedBox(fit: BoxFit.scaleDown, child: Text(label!, maxLines: 1, style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: fg)))),
+              ],
+            ),
           ),
         ),
       ),

@@ -82,6 +82,13 @@ void main() {
       expect(privateMeetsLine(0), isNull);
       expect(privateMeetsLine(1), 'Plus 1 private meet.');
       expect(privateMeetsLine(2), 'Plus 2 private meets.');
+      expect(_meets.hiddenLine(5), 'Plus 2 private meets.');
+      expect(_meets.hiddenLine(3), isNull);
+    });
+
+    test('a list cut at its limit says "more", not "private"', () {
+      final cut = ProfileMeets(events: _meets.events, complete: false);
+      expect(cut.hiddenLine(140), 'Plus 137 more.');
     });
 
     test('what the number counts, in plain words', () {

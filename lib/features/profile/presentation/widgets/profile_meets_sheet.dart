@@ -87,7 +87,7 @@ class ProfileMeetsSheet extends ConsumerWidget {
                   ),
                 ),
                 data: (m) {
-                  final hidden = privateMeetsLine(m.hiddenOf(count));
+                  final hidden = m.hiddenLine(count);
                   if (m.events.isEmpty && hidden == null) {
                     return Center(
                       child: Padding(

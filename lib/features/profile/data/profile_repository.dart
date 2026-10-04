@@ -55,15 +55,17 @@ class ProfileRepository {
 
   /// The meets behind the profile's "Meets" number that I may see, newest
   /// first (RPC `profile_meets`), and which of them they checked in at.
-  /// Private ones count but aren't listed.
-  Future<ProfileMeets> fetchMeets(String userId) async {
+  /// Private ones count but aren't listed; past [limit] the oldest aren't.
+  Future<ProfileMeets> fetchMeets(String userId, {int limit = 100}) async {
     final results = await Future.wait<dynamic>([
-      _client.rpc('profile_meets', params: {'p_user': userId}),
+      _client.rpc('profile_meets', params: {'p_user': userId, 'p_limit': limit}),
       _client.from('checkins').select('event_id').eq('user_id', userId),
     ]);
+    final events = [for (final r in results[0] as List) Event.fromMap((r as Map).cast<String, dynamic>())];
     return ProfileMeets(
-      events: [for (final r in results[0] as List) Event.fromMap((r as Map).cast<String, dynamic>())],
+      events: events,
       checkedIn: {for (final r in results[1] as List) r['event_id'] as String},
+      complete: events.length < limit,
     );
   }
 

@@ -21,7 +21,15 @@
 //   background); iOS gets mutable-content so a Notification Service Extension
 //   can add the sender's avatar, and thread-id to group a chat.
 // - data always has: route, kind, title, body, avatar, sender_id, msg_id
-//   (+ conversation_id, sender_name, group, convo_title for chats).
+//   (+ conversation_id, sender_name, group, convo_title, text for chats).
+//
+// Group chats (20261005000100_group_chats.sql): a friends' group ('group')
+// and a club's members chat ('club') go out like meet chats: title = the
+// group's name (a club chat takes the club's; an unnamed group lists its
+// people as the app does, by each recipient's nicknames), body = "Sender:
+// text", group = "1". Muted members, the sender, people who blocked the
+// sender and anyone with Messages switched off get nothing. data.text is the
+// message alone, for the Android conversation (it names the sender itself).
 //
 // Social pings (friend_post, friend_tt, club_member, follow) are written by
 // the triggers in 20261003000097_social_notifications.sql, which already
@@ -46,6 +54,8 @@ type Text = { title: string; body: string };
 type Push = {
   userIds: string[];
   text: (userId: string) => Text;
+  /** Per-recipient data keys (their nickname for the sender, the group title they see). */
+  dataFor?: (userId: string) => Record<string, string>;
   route: string | null;
   setting: string | null;
   chat: boolean;
@@ -106,6 +116,45 @@ function avatarOf(p: Person, userId: string | null): string {
   const url = p?.avatar_url?.trim();
   if (url) return url;
   return userId ? defaultAvatar(userId) : "";
+}
+
+/** A short name for a list of people: first word of the display name, else @handle. */
+function shortName(p: Person): string {
+  const d = p?.display_name?.trim();
+  if (d) return d.split(/\s+/)[0];
+  const u = p?.username?.trim();
+  return u ? `@${u}` : "Member";
+}
+
+/** An unnamed group's title, like the app's groupAutoName(): "Aiman", "Aiman and Bala",
+ * "Aiman, Bala and Chong", "Aiman, Bala, Chong and 4 more". */
+function groupAutoName(names: string[]): string {
+  const n = names.map((s) => s.trim()).filter(Boolean);
+  if (!n.length) return "Group chat";
+  if (n.length === 1) return n[0];
+  if (n.length <= 3) return `${n.slice(0, -1).join(", ")} and ${n[n.length - 1]}`;
+  return `${n.slice(0, 3).join(", ")} and ${n.length - 3} more`;
+}
+
+/** Titles for an unnamed friends' group: each recipient sees everyone else in
+ * it, in join order, by their own nicknames for them. */
+async function groupTitles(conversationId: string, recipients: string[]): Promise<(userId: string) => string> {
+  const { data } = await admin
+    .from("conversation_members")
+    .select("user_id, created_at, profile:profiles(username, display_name)")
+    .eq("conversation_id", conversationId)
+    .order("created_at", { ascending: true });
+  // deno-lint-ignore no-explicit-any
+  const people = ((data ?? []) as any[]).map((r) => ({ id: r.user_id as string, profile: r.profile as Person }));
+  const ids = people.map((p) => p.id);
+  const nick = new Map<string, string>();
+  if (ids.length && recipients.length) {
+    const { data: rows } = await admin.from("contact_nicknames").select("owner_id, target_id, nickname").in("owner_id", recipients).in("target_id", ids);
+    for (const r of (rows ?? []) as { owner_id: string; target_id: string; nickname: string }[]) {
+      if (r.nickname?.trim()) nick.set(`${r.owner_id}:${r.target_id}`, r.nickname.trim());
+    }
+  }
+  return (u) => groupAutoName(people.filter((p) => p.id !== u).map((p) => nick.get(`${u}:${p.id}`) ?? shortName(p.profile)));
 }
 
 /** Each recipient's nickname for [targetId], if they set one. */
@@ -260,7 +309,7 @@ async function fromNotification(id: string): Promise<Push | null> {
 async function fromMessage(id: string): Promise<Push | null> {
   const { data: m } = await admin
     .from("messages")
-    .select("conversation_id, sender_id, body, image_url, video_url, as_club, as_vendor, sender:profiles!messages_sender_id_fkey(username, display_name, avatar_url), conversation:conversations(kind, event:events(title))")
+    .select("conversation_id, sender_id, body, image_url, video_url, as_club, as_vendor, sender:profiles!messages_sender_id_fkey(username, display_name, avatar_url), conversation:conversations(kind, title, event:events(title), club:clubs!conversations_club_id_fkey(name))")
     .eq("id", id)
     .maybeSingle();
   if (!m) return null;
@@ -298,8 +347,16 @@ async function fromMessage(id: string): Promise<Push | null> {
   const nicks = entity ? new Map<string, string>() : await nicknames(x.sender_id, userIds);
   const from = (u: string) => nicks.get(u) ?? name;
 
-  const meet = x.conversation?.kind === "meet";
-  const meetTitle: string = x.conversation?.event?.title ?? "Meet chat";
+  const kind: string = x.conversation?.kind ?? "dm";
+  // Meet, club and friends' group chats all go out as group conversations.
+  const meet = kind === "meet" || kind === "group" || kind === "club";
+  const ownTitle: string = (x.conversation?.title ?? "").trim();
+  const fixedTitle: string = kind === "meet"
+    ? x.conversation?.event?.title ?? "Meet chat"
+    : kind === "club"
+      ? x.conversation?.club?.name ?? "Club chat"
+      : ownTitle;
+  const titleFor = kind === "group" && !ownTitle ? await groupTitles(x.conversation_id, userIds) : () => fixedTitle;
   // A caption typed under a photo / video says which it was; the auto bodies
   // ("Sent a photo", "Sent a video") already do.
   const text: string = x.image_url && x.body !== "Sent a photo"
@@ -309,7 +366,8 @@ async function fromMessage(id: string): Promise<Push | null> {
       : x.body;
   return {
     userIds,
-    text: (u) => meet ? { title: meetTitle, body: `${from(u)}: ${text}` } : { title: from(u), body: text },
+    text: (u) => meet ? { title: titleFor(u), body: `${from(u)}: ${text}` } : { title: from(u), body: text },
+    dataFor: (u): Record<string, string> => meet ? { sender_name: from(u), convo_title: titleFor(u) } : {},
     route: `/chat/${x.conversation_id}`,
     setting: "notif_messages",
     chat: true,
@@ -320,7 +378,8 @@ async function fromMessage(id: string): Promise<Push | null> {
       sender_name: name,
       avatar: avatar ?? "",
       group: meet ? "1" : "0",
-      convo_title: meet ? meetTitle : "",
+      convo_title: meet ? fixedTitle : "",
+      text: clip(text, 180),
       msg_id: `m:${id}`,
     },
     thread: `chat:${x.conversation_id}`,
@@ -357,7 +416,7 @@ Deno.serve(async (req) => {
     const t = push.text(user_id);
     const title = clip(t.title || "TT Spot", 80);
     const body = clip(t.body ?? "", 180);
-    const data: Record<string, string> = { ...push.data, title, body };
+    const data: Record<string, string> = { ...push.data, ...(push.dataFor?.(user_id) ?? {}), title, body };
     if (push.route) data.route = push.route;
     // deno-lint-ignore no-explicit-any
     const message: Record<string, any> = { token, data };

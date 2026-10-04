@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../auth/domain/profile.dart';
 import '../../social/domain/chat.dart';
+import '../../social/domain/group_chat.dart';
 
 /// Nicknames (备注): the private names I gave other members, target id ->
 /// nickname. Only I see them; they replace the person's name in chats,
@@ -28,9 +29,15 @@ String displayNameFor(Profile? p, Map<String, String> nicknames, {String fallbac
 
 /// A chat's title: the nickname of the other person in a one-to-one chat,
 /// else the chat's own title (meet name, club / partner name, their name).
+/// A friends' group nobody named lists its people, by my nicknames for them.
 String conversationTitle(Conversation c, Map<String, String> nicknames) {
+  if (c.isFriendGroup && (c.groupName ?? '').trim().isEmpty) {
+    return groupAutoName([
+      for (final p in c.others) (nicknames[p.id] ?? '').trim().isNotEmpty ? nicknames[p.id]!.trim() : shortNameOf(p),
+    ]);
+  }
   final other = c.other;
-  if (c.isMeet || c.showEntity || other == null) return c.title;
+  if (c.isMulti || c.showEntity || other == null) return c.title;
   final n = nicknames[other.id]?.trim() ?? '';
   return n.isNotEmpty ? n : c.title;
 }

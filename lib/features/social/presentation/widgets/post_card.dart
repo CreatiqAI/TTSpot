@@ -22,7 +22,9 @@ import '../../../safety/presentation/report_sheet.dart';
 import '../../application/social_providers.dart';
 import '../../domain/post.dart';
 import '../share_sheet.dart';
+import 'my_post_stats.dart';
 import 'poll_widget.dart';
+import 'rich_caption.dart';
 import 'video_badge.dart';
 import '../../../../core/utils/share_links.dart';
 
@@ -41,7 +43,6 @@ class PostCard extends ConsumerStatefulWidget {
 
 class _PostCardState extends ConsumerState<PostCard> {
   int _page = 0;
-  bool _showFullCaption = false;
   bool _heartBurst = false;
   // Optimistic like / save so the icon pops the instant you tap, not after the round trip.
   bool? _liked;
@@ -319,20 +320,15 @@ class _PostCardState extends ConsumerState<PostCard> {
                 ),
               if ((p.caption ?? '').trim().isNotEmpty || p.title != null) ...[
                 const SizedBox(height: 4),
-                GestureDetector(
-                  onTap: () => setState(() => _showFullCaption = true),
-                  child: RichText(
-                    maxLines: widget.expanded || _showFullCaption ? null : 3,
-                    overflow: widget.expanded || _showFullCaption ? TextOverflow.visible : TextOverflow.ellipsis,
-                    text: TextSpan(
-                      style: TextStyle(fontSize: 14, color: AppColors.textPrimary, height: 1.4),
-                      children: [
-                        TextSpan(text: '$username ', style: const TextStyle(fontWeight: FontWeight.w600)),
-                        if (p.kind == PostKind.guide && p.title != null) TextSpan(text: '${p.title}\n', style: const TextStyle(fontWeight: FontWeight.w600)),
-                        TextSpan(text: p.caption ?? ''),
-                      ],
-                    ),
-                  ),
+                // #tags and @mentions are links; "… more" opens the rest in place.
+                RichCaption(
+                  text: p.caption ?? '',
+                  maxLines: widget.expanded ? null : 3,
+                  style: TextStyle(fontSize: 14, color: AppColors.textPrimary, height: 1.4),
+                  leading: [
+                    TextSpan(text: '$username ', style: const TextStyle(fontWeight: FontWeight.w600)),
+                    if (p.kind == PostKind.guide && p.title != null) TextSpan(text: '${p.title}\n', style: const TextStyle(fontWeight: FontWeight.w600)),
+                  ],
                 ),
               ],
               if (!widget.expanded && p.commentCount > 0) ...[
@@ -344,6 +340,8 @@ class _PostCardState extends ConsumerState<PostCard> {
               ],
               const SizedBox(height: 4),
               Text(timeAgo(p.createdAt), style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+              // My own post's page: views, saves, shares (only I see them).
+              if (widget.expanded) MyPostStatsRow(post: p),
             ],
           ),
         ),

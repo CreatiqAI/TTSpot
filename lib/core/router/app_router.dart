@@ -89,6 +89,7 @@ import '../../features/social/presentation/post_detail_screen.dart';
 import '../../features/social/presentation/saved_posts_screen.dart';
 import '../../features/social/presentation/search_screen.dart';
 import '../../features/social/presentation/story_viewer_screen.dart';
+import '../../features/social/presentation/tag_screen.dart';
 import '../../features/titi/presentation/titi_screen.dart';
 import '../location/location_gate.dart';
 import '../supabase/supabase_client.dart';
@@ -207,6 +208,8 @@ abstract final class Routes {
   static String editCarMod(String carId, String modId) => '/car/$carId/mods/$modId/edit';
   static String carDocuments(String carId) => '/car/$carId/documents';
   static String post(String id) => '/post/$id';
+  /// A #tag's page ("myvi", no #).
+  static String tag(String tag) => '/tag/${Uri.encodeComponent(tag)}';
   static String createPost(PostKind kind, {String? eventId, String? carId, String? placeId, String? clubId, bool asClub = false, String? vendorId}) {
     final q = <String, String>{
       'event': ?eventId,
@@ -457,6 +460,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(path: Routes.search, pageBuilder: (_, s) => page(s, const SearchScreen())),
+      GoRoute(path: '/tag/:tag', pageBuilder: (_, s) => page(s, TagScreen(tag: s.pathParameters['tag']!))),
       GoRoute(path: Routes.titi, pageBuilder: (_, s) => page(s, const TitiScreen())),
       GoRoute(
         path: '/chat/:id',

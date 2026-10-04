@@ -201,8 +201,8 @@ class FeedPost {
   final bool savedByMe;
   final int? myVote;
 
-  /// Why "For you" picked it (friend, following, club, nearby, make:honda,
-  /// popular, new, mine, for_you). Null outside the ranked feed.
+  /// Why "For you" picked it (friend, following, club, nearby, tag:myvi,
+  /// make:honda, popular, new, mine, for_you). Null outside the ranked feed.
   final String? reason;
 
   FeedPost copyWith({Post? post, bool? likedByMe, bool? savedByMe, int? myVote, bool clearVote = false}) => FeedPost(
@@ -220,6 +220,10 @@ class FeedPost {
     if (r.startsWith('make:')) {
       final make = r.substring(5);
       return make.isEmpty ? 'Suggested for you' : 'You like ${make[0].toUpperCase()}${make.substring(1)} posts';
+    }
+    if (r.startsWith('tag:')) {
+      final tag = r.substring(4);
+      return tag.isEmpty ? 'Suggested for you' : 'You like #$tag posts';
     }
     return switch (r) {
       'friend' => 'Posted by your friend',

@@ -33,6 +33,8 @@ import '../../points/application/points_providers.dart';
 import '../../safety/data/safety_repository.dart';
 import '../../safety/presentation/report_sheet.dart';
 import '../../social/application/chat_providers.dart';
+import '../../social/application/moderation_providers.dart';
+import '../../social/application/share_ride.dart';
 import '../../social/application/social_providers.dart';
 import '../../social/domain/album.dart';
 import '../../social/domain/follow.dart';
@@ -41,6 +43,8 @@ import '../../social/presentation/create_hub_sheet.dart';
 import '../../social/presentation/story_viewer_screen.dart';
 import '../../social/presentation/widgets/follow_button.dart';
 import '../../social/presentation/widgets/masonry_grid.dart';
+import '../../social/presentation/widgets/share_ride_card.dart';
+import '../../social/presentation/widgets/under_review_strip.dart';
 import '../application/profile_providers.dart';
 import '../domain/car.dart';
 import 'profile_menu.dart';
@@ -113,6 +117,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ref.invalidate(savedPostsProvider);
         ref.invalidate(likedPostsProvider);
         ref.invalidate(commentedPostsProvider);
+        ref.invalidate(myHiddenPostsProvider);
+        ref.invalidate(shareRideCarProvider);
       }
       await ref.read(profileProvider(id).future);
     }
@@ -226,6 +232,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   Widget _postsBody(AsyncValue<List<FeedPost>> posts, bool isMe, Profile p, List<MomentAlbum> albums) {
     if (!kSocialFeed) return const SizedBox.shrink();
+    // My posts the photo check hid ("Under review" / "Removed"): only I see them.
+    final hidden = isMe ? (ref.watch(myHiddenPostsProvider).value ?? const <String, ModerationState>{}) : const <String, ModerationState>{};
     return posts.when(
       loading: () => const _Fill(child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
       error: (e, _) => _Fill(child: Center(child: Text(friendlyError(e)))),
@@ -233,6 +241,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           AlbumsStrip(albums: albums, onAlbum: (a) => _openAlbum(p, a), onAdd: isMe ? () => context.push(Routes.newAlbum) : null),
+          // "Share your ride" while I have no posts, then its thank-you.
+          if (isMe) ShareRideNudge(padding: const EdgeInsets.fromLTRB(12, 10, 12, 0), hasPosts: list.isNotEmpty),
+          if (hidden.isNotEmpty) UnderReviewStrip(posts: [for (final f in list) f.post], states: hidden),
           if (list.isEmpty)
             _Fill(
               child: EmptyState(

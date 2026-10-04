@@ -9,6 +9,7 @@ import '../../../core/widgets/glass_tab_bar.dart';
 import '../../../core/utils/dates.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../../core/utils/open_external.dart' show confirmSheet;
+import '../application/admin_moderation.dart';
 import '../application/admin_providers.dart';
 import 'admin_dashboard_screen.dart' show showSuggestionsSheet;
 
@@ -28,6 +29,7 @@ class _AdminQueuesScreenState extends ConsumerState<AdminQueuesScreen> {
   Widget build(BuildContext context) {
     final stats = ref.watch(adminStatsProvider).value;
     final reports = ref.watch(adminReportsProvider);
+    final flagged = ref.watch(adminFlaggedProvider).value;
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
@@ -40,6 +42,7 @@ class _AdminQueuesScreenState extends ConsumerState<AdminQueuesScreen> {
               ref.invalidate(adminStatsProvider);
               ref.invalidate(adminReportsProvider);
               ref.invalidate(adminSuggestionsProvider);
+              ref.invalidate(adminFlaggedProvider);
             },
           ),
         ],
@@ -48,27 +51,34 @@ class _AdminQueuesScreenState extends ConsumerState<AdminQueuesScreen> {
         padding: EdgeInsets.only(bottom: GlassTabBar.clearance(context)),
         children: [
           const _Head('WAITING FOR YOU'),
+          _Queue(icon: AppIcons.shieldCheck, title: 'Flagged posts and moments', subtitle: 'Hidden by the photo check until you approve or remove them', count: flagged?.length, onTap: () => context.push(Routes.adminModeration)),
           _Queue(icon: AppIcons.sealCheck, title: 'Spot photo reviews', subtitle: 'Sticker check-ins the AI was unsure about', count: stats?['pending_verifications'], onTap: () => context.push(Routes.adminReview)),
           _Queue(icon: AppIcons.handshake, title: 'Partner, club & organizer applications', subtitle: 'Approve to unlock hosting, vouchers and organizer tools', count: stats?['pending_partners'], onTap: () => context.push(Routes.adminPartners)),
           _Queue(icon: AppIcons.mapPinPlus, title: 'Spot suggestions', subtitle: 'Members proposing places for the map', count: stats?['pending_suggestions'], onTap: () => showSuggestionsSheet(context)),
 
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 22, 20, 6),
-            child: Row(
+            // Wraps: the chips drop under the title on a small phone with big text.
+            child: Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              runSpacing: 6,
               children: [
                 Text('REPORTS', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, letterSpacing: 1, color: AppColors.textSecondary)),
-                const Spacer(),
-                for (final f in const [('open', 'Open'), ('resolved', 'Resolved'), ('all', 'All')])
-                  Padding(
-                    padding: const EdgeInsets.only(left: 6),
-                    child: ChoiceChip(
-                      label: Text(f.$2),
-                      selected: _filter == f.$1,
-                      showCheckmark: false,
-                      visualDensity: VisualDensity.compact,
-                      onSelected: (_) => setState(() => _filter = f.$1),
-                    ),
-                  ),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    for (final f in const [('open', 'Open'), ('resolved', 'Resolved'), ('all', 'All')])
+                      ChoiceChip(
+                        label: Text(f.$2),
+                        selected: _filter == f.$1,
+                        showCheckmark: false,
+                        visualDensity: VisualDensity.compact,
+                        onSelected: (_) => setState(() => _filter = f.$1),
+                      ),
+                  ],
+                ),
               ],
             ),
           ),

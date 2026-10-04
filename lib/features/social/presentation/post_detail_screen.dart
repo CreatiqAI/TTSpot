@@ -3,35 +3,34 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../map/presentation/widgets/static_pin_map.dart';
 
-import '../../../core/router/app_router.dart';
-import '../../../core/supabase/supabase_client.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/utils/dates.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../../core/widgets/pinch_zoom.dart';
-import '../../../core/widgets/user_avatar.dart';
-import '../../auth/data/auth_repository.dart';
-import '../../safety/data/safety_repository.dart';
-import '../../safety/presentation/report_sheet.dart';
+import '../application/comment_providers.dart';
 import '../application/social_providers.dart';
 import '../domain/post.dart';
+import 'comments/comment_composer.dart';
+import 'comments/comment_list.dart';
+import 'comments/comments_controller.dart';
 import 'widgets/masonry_grid.dart';
 import 'widgets/post_card.dart';
 import 'widgets/seen_tracker.dart';
 
 class PostDetailScreen extends ConsumerStatefulWidget {
-  const PostDetailScreen({super.key, required this.postId});
+  const PostDetailScreen({super.key, required this.postId, this.highlightCommentId});
   final String postId;
+
+  /// From a notification about a comment (/post/:id?comment=…): scroll to it
+  /// and light it up.
+  final String? highlightCommentId;
 
   @override
   ConsumerState<PostDetailScreen> createState() => _PostDetailScreenState();
 }
 
 class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
-  final _comment = TextEditingController();
-  final _commentFocus = FocusNode();
-  bool _busy = false;
+  late final _comments = CommentsController(highlightId: widget.highlightCommentId);
 
   // How long the post stays open feeds the ranking (sent on leaving).
   final _openedAt = DateTime.now();
@@ -46,32 +45,13 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
   @override
   void dispose() {
     _signals.opened(widget.postId, DateTime.now().difference(_openedAt));
-    _comment.dispose();
-    _commentFocus.dispose();
+    _comments.dispose();
     super.dispose();
-  }
-
-  Future<void> _post() async {
-    final text = _comment.text.trim();
-    if (text.isEmpty) return;
-    FocusScope.of(context).unfocus();
-    setState(() => _busy = true);
-    try {
-      await ref.read(socialActionsProvider).addComment(widget.postId, text);
-      _comment.clear();
-    } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
   }
 
   @override
   Widget build(BuildContext context) {
     final post = ref.watch(postProvider(widget.postId));
-    final comments = ref.watch(postCommentsProvider(widget.postId));
-    final me = ref.watch(currentUserIdProvider);
-    final myProfile = ref.watch(currentProfileProvider).value;
 
     return Scaffold(
       appBar: AppBar(
@@ -91,7 +71,7 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                   child: RefreshIndicator(
                     onRefresh: () async {
                       ref.invalidate(postProvider(widget.postId));
-                      ref.invalidate(postCommentsProvider(widget.postId));
+                      ref.invalidate(postCommentItemsProvider(widget.postId));
                       ref.invalidate(relatedPostsProvider(widget.postId));
                       await ref.read(postProvider(widget.postId).future);
                     },
@@ -99,19 +79,13 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                       padding: EdgeInsets.zero,
                       physics: const PinchLockScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
                       children: [
-                        PostCard(feed: f, expanded: true, onComment: () => _commentFocus.requestFocus()),
+                        PostCard(feed: f, expanded: true, onComment: _comments.startComment),
                         if (f.post.kind == PostKind.guide && (f.post.guideStops ?? const []).isNotEmpty) _GuideMap(post: f.post),
                         if (f.post.kind == PostKind.spotted && f.post.latLng != null) _SpottedMap(post: f.post),
                         const Divider(),
                         Padding(
                           padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                          child: comments.when(
-                            loading: () => const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator(strokeWidth: 2))),
-                            error: (e, _) => Text(friendlyError(e)),
-                            data: (list) => list.isEmpty
-                                ? Text('No comments yet.', style: TextStyle(color: AppColors.textSecondary))
-                                : Column(children: [for (final c in list) _CommentTile(comment: c, isMine: c.userId == me, postId: widget.postId)]),
-                          ),
+                          child: CommentList(postId: widget.postId, controller: _comments),
                         ),
                         _MoreLikeThis(postId: widget.postId),
                       ],
@@ -119,43 +93,7 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                   ),
                 ),
               ),
-              Container(
-                decoration: BoxDecoration(color: AppColors.bg, border: Border(top: BorderSide(color: AppColors.border, width: 0.5))),
-                child: SafeArea(
-                  top: false,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
-                    child: Row(
-                      children: [
-                        UserAvatar(url: myProfile?.avatarUrl, name: myProfile?.displayName ?? myProfile?.username, seed: myProfile?.id, size: 32),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: TextField(
-                            controller: _comment,
-                            focusNode: _commentFocus,
-                            minLines: 1,
-                            maxLines: 4,
-                            maxLength: 1000,
-                            decoration: const InputDecoration(
-                              hintText: 'Add a comment…',
-                              counterText: '',
-                              filled: false,
-                              border: InputBorder.none,
-                              enabledBorder: InputBorder.none,
-                              focusedBorder: InputBorder.none,
-                              contentPadding: EdgeInsets.symmetric(vertical: 8),
-                            ),
-                          ),
-                        ),
-                        TextButton(
-                          onPressed: _busy ? null : _post,
-                          child: _busy ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Post'),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
+              CommentComposer(postId: widget.postId, controller: _comments),
             ],
           );
         },
@@ -184,82 +122,6 @@ class _MoreLikeThis extends ConsumerWidget {
         ),
         MasonryGrid(items: related),
       ],
-    );
-  }
-}
-
-class _CommentTile extends ConsumerWidget {
-  const _CommentTile({required this.comment, required this.isMine, required this.postId});
-  final PostComment comment;
-  final bool isMine;
-  final String postId;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final name = comment.author?.username ?? 'someone';
-    return InkWell(
-      onLongPress: () async {
-        final action = await showModalBottomSheet<String>(
-          useRootNavigator: true, // above the shell tab bar
-          context: context,
-          showDragHandle: true,
-          builder: (ctx) => SafeArea(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (isMine)
-                  ListTile(leading: const Icon(AppIcons.trash, color: AppColors.danger), title: const Text('Delete comment', style: TextStyle(color: AppColors.danger)), onTap: () => Navigator.pop(ctx, 'delete'))
-                else ...[
-                  ListTile(leading: const Icon(AppIcons.flag), title: const Text('Report comment'), onTap: () => Navigator.pop(ctx, 'report')),
-                  ListTile(leading: const Icon(AppIcons.prohibit, color: AppColors.danger), title: Text('Block @$name', style: const TextStyle(color: AppColors.danger)), onTap: () => Navigator.pop(ctx, 'block')),
-                ],
-                const SizedBox(height: 8),
-              ],
-            ),
-          ),
-        );
-        if (!context.mounted || action == null) return;
-        switch (action) {
-          case 'delete':
-            try {
-              await ref.read(socialActionsProvider).deleteComment(postId, comment.id);
-            } catch (e) {
-              if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
-            }
-          case 'report':
-            await showReportSheet(context, target: ReportTarget.postComment, targetId: comment.id);
-          case 'block':
-            await confirmBlockUser(context, ref, userId: comment.userId, displayName: '@$name');
-        }
-      },
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            GestureDetector(
-              onTap: () => context.push(Routes.profile(comment.userId)),
-              child: UserAvatar(url: comment.author?.avatarUrl, name: comment.author?.displayName ?? name, seed: comment.author?.id, size: 32),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  RichText(
-                    text: TextSpan(
-                      style: TextStyle(fontSize: 14, color: AppColors.textPrimary, height: 1.4),
-                      children: [TextSpan(text: '$name  ', style: const TextStyle(fontWeight: FontWeight.w600)), TextSpan(text: comment.body)],
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(timeAgo(comment.createdAt), style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

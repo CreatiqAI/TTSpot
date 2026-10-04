@@ -20,6 +20,9 @@ class AppSettings {
   bool get notifFriendTt => _b('notif_friend_tt', true);
   bool get notifClubMembers => _b('notif_club_members', true);
   bool get notifFollowers => _b('notif_followers', true);
+  bool get notifMentions => _b('notif_mentions', true);
+  bool get notifReplies => _b('notif_replies', true);
+  bool get notifClubFollows => _b('notif_club_follows', true);
 
   /// 'auto' (light by day, dark after 7 pm) | 'light' | 'dark'
   /// 'auto' (light 7 am–7 pm, dark otherwise) | 'light' | 'dark'. Older builds saved it as map_theme.

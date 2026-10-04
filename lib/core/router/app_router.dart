@@ -368,7 +368,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(path: 'documents', pageBuilder: (_, s) => page(s, CarDocumentsScreen(carId: s.pathParameters['id']!))),
         ],
       ),
-      GoRoute(path: '/post/:id', pageBuilder: (_, s) => page(s, PostDetailScreen(postId: s.pathParameters['id']!))),
+      GoRoute(path: '/post/:id', pageBuilder: (_, s) => page(s, PostDetailScreen(postId: s.pathParameters['id']!, highlightCommentId: s.uri.queryParameters['comment']))),
       GoRoute(
         path: '/create/post/:kind',
         pageBuilder: (_, s) => page(s, CreatePostScreen(

@@ -170,6 +170,18 @@ class _ActivityListState extends ConsumerState<ActivityList> {
   return (body.isEmpty ? 'Something new in Cards.' : body, Routes.cards);
 }
 
+/// The post, scrolled to the comment when the row is about one.
+String? _postRoute(AppNotification n) {
+  final post = n.postId;
+  if (post == null) return null;
+  final comment = n.commentId;
+  return comment == null ? Routes.post(post) : '${Routes.post(post)}?comment=$comment';
+}
+
+/// Club posts and club meets read as the club (its name, its logo), not the
+/// member who posted for it.
+bool isClubVoice(AppNotification n) => n.type == NotificationType.clubPost || n.type == NotificationType.clubMeet;
+
 /// What an Activity row says after the actor's name, and where a tap goes.
 /// [answer]: a friend request answered on this visit. [now] for tests.
 (String, String?) activityText(AppNotification n, {List<AppBadge> badges = const [], String? me, RequestAnswer? answer, DateTime? now}) {
@@ -185,7 +197,17 @@ class _ActivityListState extends ConsumerState<ActivityList> {
         ),
       NotificationType.clubMember => ('joined ${n.clubName ?? 'your club'}.', n.clubId == null ? null : Routes.club(n.clubId!)),
       NotificationType.postLike => ('liked your post.', n.postId == null ? null : Routes.post(n.postId!)),
-      NotificationType.postComment => ('commented: ${n.body ?? ''}', n.postId == null ? null : Routes.post(n.postId!)),
+      NotificationType.postComment => ('commented: ${n.body ?? ''}', _postRoute(n)),
+      NotificationType.mention => (n.commentId == null ? 'mentioned you in a post: ${n.body ?? ''}' : 'mentioned you in a comment: ${n.body ?? ''}', _postRoute(n)),
+      NotificationType.commentReply => ('replied to your comment: ${n.body ?? ''}', _postRoute(n)),
+      NotificationType.commentLike => ('liked your comment: ${n.body ?? ''}', _postRoute(n)),
+      NotificationType.clubPost => (friendPostText(n.body), n.postId == null ? null : Routes.post(n.postId!)),
+      NotificationType.clubMeet => (
+          n.eventStartsAt == null
+              ? 'planned ${n.eventTitle ?? n.body ?? 'a meet'}.'
+              : 'planned ${n.eventTitle ?? n.body ?? 'a meet'}, ${formatWhenInline(n.eventStartsAt!, now: now)}.',
+          n.eventId == null ? null : Routes.event(n.eventId!)
+        ),
       NotificationType.eventJoin => ('joined ${n.eventTitle ?? 'your meet'}.', n.eventId == null ? null : Routes.event(n.eventId!)),
       NotificationType.eventComment => ('commented on ${n.eventTitle ?? 'your meet'}: ${n.body ?? ''}', n.eventId == null ? null : Routes.event(n.eventId!)),
       NotificationType.eventReminder => ('${n.eventTitle ?? 'A meet you joined'} is within 24 hours. See you there!', n.eventId == null ? null : Routes.event(n.eventId!)),
@@ -262,7 +284,8 @@ class ActivityRow extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final actor = n.actor?.username ?? 'Someone';
+    final club = isClubVoice(n);
+    final actor = club ? (n.clubName ?? 'A club') : (n.actor?.username ?? 'Someone');
     final badge = n.badgeId == null ? null : badges.where((b) => b.id == n.badgeId).firstOrNull;
     final (text, route) = activityText(n, badges: badges, me: me, answer: answer);
     final systemMessage = n.type == NotificationType.badge ||
@@ -313,6 +336,11 @@ class ActivityRow extends ConsumerWidget {
                   },
                   size: 26,
                 ),
+              )
+            else if (club)
+              GestureDetector(
+                onTap: n.clubId == null ? null : () => context.push(Routes.club(n.clubId!)),
+                child: UserAvatar(url: n.clubAvatarUrl, name: actor, size: 44, fallbackAsset: n.clubId == null ? null : crestAsset(n.clubId!)),
               )
             else
               GestureDetector(

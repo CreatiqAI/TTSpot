@@ -3,7 +3,8 @@ import '../../auth/domain/profile.dart';
 enum NotificationType {
   follow, postLike, postComment, eventJoin, eventComment, eventReminder, eventCancelled, spottedClaim, badge, carOfWeek, clubJoin,
   friendRequest, friendAccepted, ttNow, checkin, referral, points, partner, voucher, clubInvite, clubRequest, clubEvent, partnerEvent, garage, clubOfficial, cards, portrait, meetStart, announcement, luckyDraw, carDoc,
-  friendPost, friendTt, clubMember, unknown;
+  friendPost, friendTt, clubMember,
+  mention, commentReply, commentLike, clubPost, clubMeet, unknown;
 
   static NotificationType fromDb(String v) => switch (v) {
         'follow' => follow,
@@ -40,6 +41,11 @@ enum NotificationType {
         'friend_post' => friendPost,
         'friend_tt' => friendTt,
         'club_member' => clubMember,
+        'mention' => mention,
+        'comment_reply' => commentReply,
+        'comment_like' => commentLike,
+        'club_post' => clubPost,
+        'club_meet' => clubMeet,
         _ => unknown,
       };
 }
@@ -75,6 +81,8 @@ class AppNotification {
     this.eventInstant = false,
     this.clubId,
     this.clubName,
+    this.clubAvatarUrl,
+    this.commentId,
     this.badgeId,
     this.body,
     required this.read,
@@ -95,6 +103,11 @@ class AppNotification {
   final bool eventInstant;
   final String? clubId;
   final String? clubName;
+  final String? clubAvatarUrl;
+
+  /// The comment it is about (post_comment, comment_reply, comment_like,
+  /// and a mention in a comment); null for a mention in the post itself.
+  final String? commentId;
   final String? badgeId;
   final String? body;
   final bool read;
@@ -120,6 +133,8 @@ class AppNotification {
       eventInstant: event?['is_instant'] == true,
       clubId: m['club_id'] as String?,
       clubName: club?['name'] as String?,
+      clubAvatarUrl: club?['avatar_url'] as String?,
+      commentId: m['comment_id'] as String?,
       badgeId: m['badge_id'] as String?,
       body: m['body'] as String?,
       read: m['read_at'] != null,

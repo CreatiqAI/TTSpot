@@ -26,7 +26,10 @@
 // Social pings (friend_post, friend_tt, club_member, follow) are written by
 // the triggers in 20261003000097_social_notifications.sql, which already
 // apply blocks, suspensions, per-author / per-club limits and the daily cap;
-// rows past those limits are silent and never reach this function.
+// rows past those limits are silent and never reach this function. The same
+// goes for mention, comment_reply, comment_like, club_post and club_meet
+// (20261005000102_comments_mentions.sql). Comment kinds open the post
+// scrolled to the comment: /post/<id>?comment=<comment id>.
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { importPKCS8, SignJWT } from "npm:jose@5";
 
@@ -128,6 +131,9 @@ const SETTING: Record<string, string> = {
   // Social pings (20261003000097): the database already marks rows for a
   // switched-off kind silent (no push call); this covers a switch flipped since.
   follow: "notif_followers", friend_post: "notif_friend_posts", friend_tt: "notif_friend_tt", club_member: "notif_club_members",
+  // 20261005000102: comments and clubs you follow.
+  mention: "notif_mentions", comment_reply: "notif_replies", comment_like: "notif_replies",
+  club_post: "notif_club_follows", club_meet: "notif_club_follows",
   points: "notif_rewards", referral: "notif_rewards", badge: "notif_rewards", voucher: "notif_rewards",
   spotted_claim: "notif_rewards", car_of_week: "notif_rewards", cards: "notif_rewards", portrait: "notif_rewards",
 };
@@ -173,7 +179,7 @@ function whenMyt(iso: string, now = new Date()): string {
 async function fromNotification(id: string): Promise<Push | null> {
   const { data: n } = await admin
     .from("notifications")
-    .select("user_id, actor_id, type, body, post_id, event_id, club_id, actor:profiles!notifications_actor_id_fkey(username, display_name, avatar_url), event:events(title, venue_name, starts_at, is_instant), club:clubs(name, avatar_url)")
+    .select("user_id, actor_id, type, body, post_id, event_id, club_id, comment_id, actor:profiles!notifications_actor_id_fkey(username, display_name, avatar_url), event:events(title, venue_name, starts_at, is_instant), club:clubs(name, avatar_url)")
     .eq("id", id)
     .maybeSingle();
   if (!n) return null;
@@ -186,6 +192,8 @@ async function fromNotification(id: string): Promise<Push | null> {
   const b: string | null = x.body;
   const ev_ = x.event_id ? `/event/${x.event_id}` : null;
   const post_ = x.post_id ? `/post/${x.post_id}` : null;
+  // The post, scrolled to the comment the ping is about.
+  const comment_ = x.post_id ? (x.comment_id ? `/post/${x.post_id}?comment=${x.comment_id}` : post_) : null;
   const club_ = x.club_id ? `/club/${x.club_id}` : null;
 
   const [title, body, route]: [string, string, string | null] = (() => {
@@ -200,7 +208,14 @@ async function fromNotification(id: string): Promise<Push | null> {
       }
       case "club_member": return [who, `joined ${club}.`, club_];
       case "post_like": return [who, "liked your post.", post_];
-      case "post_comment": return [who, `commented: ${b ?? ""}`, post_];
+      case "post_comment": return [who, `commented: ${b ?? ""}`, comment_];
+      case "mention": return [who, x.comment_id ? `mentioned you in a comment: ${b ?? ""}` : `mentioned you in a post: ${b ?? ""}`, comment_];
+      case "comment_reply": return [who, `replied to your comment: ${b ?? ""}`, comment_];
+      case "comment_like": return [who, `liked your comment: ${b ?? ""}`, comment_];
+      // The club speaks: its name is the title, its logo the face.
+      case "club_post": return [club, friendPostText(b), post_];
+      case "club_meet":
+        return [club, x.event?.starts_at ? `planned ${x.event?.title ?? b ?? "a meet"}, ${whenMyt(x.event.starts_at)}.` : `planned ${x.event?.title ?? b ?? "a meet"}.`, ev_];
       case "event_join": return [who, `joined ${ev}.`, ev_];
       case "event_comment": return [ev, `${who}: ${b ?? ""}`, ev_];
       case "event_reminder": return [ev, "is within 24 hours. See you there!", ev_];

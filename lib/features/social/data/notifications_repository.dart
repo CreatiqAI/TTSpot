@@ -12,7 +12,7 @@ class NotificationsRepository {
   Future<List<AppNotification>> fetch(String me, {int limit = 100}) async {
     final rows = await _client
         .from('notifications')
-        .select('*, actor:profiles!notifications_actor_id_fkey($profileCols), posts(photo_urls, video_poster_url), events(title, venue_name, starts_at, is_instant), clubs(name)')
+        .select('*, actor:profiles!notifications_actor_id_fkey($profileCols), posts(photo_urls, video_poster_url), events(title, venue_name, starts_at, is_instant), clubs(name, avatar_url)')
         .eq('user_id', me)
         .order('created_at', ascending: false)
         .limit(limit);

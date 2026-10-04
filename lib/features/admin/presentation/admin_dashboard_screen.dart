@@ -17,7 +17,7 @@ import '../../vendors/domain/vendor.dart' show rm;
 import '../application/admin_providers.dart';
 import 'widgets/admin_widgets.dart';
 
-/// Admin · Overview. Right now (on the map, live meets, check-ins today),
+/// Admin · Overview. Right now (live now, live meets, check-ins today),
 /// what needs a decision, the last 7 days as small trends, community and
 /// money totals, top spots, newest members, platform settings.
 class AdminDashboardScreen extends ConsumerWidget {
@@ -66,11 +66,14 @@ class AdminDashboardScreen extends ConsumerWidget {
                   child: Text(formatDate(DateTime.now()), style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
                 ),
                 const AdminHead('RIGHT NOW'),
+                // Live now and Seen today count with the app's presence
+                // windows (presence.dart: kLiveWindow 1 min, kShowWindow
+                // 24 h), on the server in admin_stats (migration 0104).
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Row(
                     children: [
-                      AdminStat(label: 'On the map', value: '${s['on_map_now']}', accent: true, onTap: () => context.go(Routes.map)),
+                      AdminStat(label: 'Live now', value: '${s['live_now']}', accent: true, onTap: () => context.go(Routes.map)),
                       const SizedBox(width: 8),
                       AdminStat(label: 'Live meets', value: '${s['meets_live']}', delta: '${s['tt_today']} TT today'),
                       const SizedBox(width: 8),
@@ -85,7 +88,7 @@ class AdminDashboardScreen extends ConsumerWidget {
                     children: [
                       AdminStat(label: 'Members', value: '${s['users']}', delta: s['users_today'] > 0 ? '+${s['users_today']} today' : '+${s['users_7d']} this week', onTap: () => context.go(Routes.map)),
                       const SizedBox(width: 8),
-                      AdminStat(label: 'Active · 24 h', value: '${s['active_24h']}', delta: s['users'] == 0 ? null : '${(100 * s['active_24h'] / s['users']).round()}% of members'),
+                      AdminStat(label: 'Seen today', value: '${s['seen_today']}', delta: s['users'] == 0 ? null : '${(100 * s['seen_today'] / s['users']).round()}% of members'),
                       const SizedBox(width: 8),
                       AdminStat(label: 'Upcoming meets', value: '${s['meets_upcoming']}', delta: '${s['meets_7d']} made this week'),
                     ],

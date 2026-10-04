@@ -9,10 +9,12 @@ import '../../../core/supabase/supabase_client.dart';
 import '../../../core/utils/http_bytes.dart';
 import '../../../core/utils/plate_blur.dart';
 import '../../../core/utils/thumbnails.dart';
+import '../../events/domain/event.dart';
 import '../domain/car.dart';
 import '../domain/car_photo_storage.dart';
 import '../domain/car_recognition.dart';
 import '../domain/garage_look.dart';
+import '../domain/profile_meets.dart';
 
 /// `cars` reads/writes, car photo uploads, and profile stats.
 class ProfileRepository {
@@ -37,6 +39,8 @@ class ProfileRepository {
       _client.from('events').select('id').eq('organizer_id', userId).eq('status', 'active'),
       _client.from('event_attendees').select('event_id').eq('user_id', userId),
       _client.from('checkins').select('event_id, events(place_id)').eq('user_id', userId),
+      // The "Meets" number: see [ProfileStats.went].
+      _client.rpc('profile_meet_count', params: {'p_user': userId}),
     ]);
     final checkins = results[3] as List;
     final places = checkins.map((r) => (r['events'] as Map<String, dynamic>?)?['place_id']).whereType<String>().toSet();
@@ -44,8 +48,22 @@ class ProfileRepository {
       cars: (results[0] as List).length,
       organised: (results[1] as List).length,
       attended: (results[2] as List).length,
-      went: checkins.length,
+      went: (results[4] as num?)?.toInt() ?? 0,
       places: places.length,
+    );
+  }
+
+  /// The meets behind the profile's "Meets" number that I may see, newest
+  /// first (RPC `profile_meets`), and which of them they checked in at.
+  /// Private ones count but aren't listed.
+  Future<ProfileMeets> fetchMeets(String userId) async {
+    final results = await Future.wait<dynamic>([
+      _client.rpc('profile_meets', params: {'p_user': userId}),
+      _client.from('checkins').select('event_id').eq('user_id', userId),
+    ]);
+    return ProfileMeets(
+      events: [for (final r in results[0] as List) Event.fromMap((r as Map).cast<String, dynamic>())],
+      checkedIn: {for (final r in results[1] as List) r['event_id'] as String},
     );
   }
 

@@ -86,7 +86,9 @@ class ProfileStats {
   final int cars;
   final int organised;
   final int attended;
-  /// Meets with a check-in (proven went).
+  /// The profile's "Meets": meets and TT sessions they joined, checked in at
+  /// or host, once started and not cancelled (SQL `went_event_ids`, migration
+  /// 0104). Future RSVPs count from the start. Everyone sees the same number.
   final int went;
   /// Distinct places checked in at.
   final int places;

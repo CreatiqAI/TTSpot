@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../auth/domain/profile.dart';
 import '../domain/friend.dart';
+import '../domain/pin_refresh.dart';
 
 const _profileCols = 'id, username, display_name, bio, avatar_url, home_state, created_at';
 
@@ -120,15 +121,18 @@ class FriendsRepository {
   Future<void> setGhost(bool ghost) => _client.rpc('set_ghost', params: {'p_ghost': ghost});
   Future<void> setShare(String mode, {int? radiusM}) => _client.rpc('set_share_mode', params: {'p_mode': mode, 'p_radius': ?radiusM});
 
-  /// Realtime: fires on any change to a pin I'm allowed to see.
-  RealtimeChannel subscribePins(String me, void Function() onChange) {
+  /// Realtime: fires on any change to a pin I'm allowed to see (my own row
+  /// too), with what the payload says. Null when the payload has no user id.
+  RealtimeChannel subscribePins(String me, void Function(PinChange? change) onChange) {
     final channel = _client.channel('pins:$me');
     channel
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
           schema: 'public',
           table: 'user_locations',
-          callback: (_) => onChange(),
+          callback: (p) => onChange(p.eventType == PostgresChangeEvent.delete
+              ? PinChange.fromRecord(p.oldRecord, deleted: true)
+              : PinChange.fromRecord(p.newRecord)),
         )
         .subscribe();
     return channel;

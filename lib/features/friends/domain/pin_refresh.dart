@@ -32,6 +32,10 @@ const kPinFetchGap = Duration(seconds: 10);
 /// fetch after this.
 const kPinFetchSettle = Duration(milliseconds: 600);
 
+/// A fetch still running after this is treated as lost (a dead connection):
+/// the next ask starts a new one instead of waiting for it forever.
+const kPinFetchStuck = Duration(seconds: 20);
+
 /// One realtime change to a `user_locations` row, as far as the payload says.
 class PinChange {
   const PinChange({
@@ -144,6 +148,7 @@ List<FriendPin> patchPins(List<FriendPin> pins, PinChange c) {
 /// Runs [fetch] when asked, coalesced: at most one per [gap], the first one
 /// [settle] after the ask, and never two at a time (an ask during a fetch
 /// fetches once more after it, since that fetch may have read too early).
+/// A fetch running longer than [stuckAfter] no longer holds the others up.
 /// [clock] and [timer] are swappable for tests.
 class PinRefresher {
   PinRefresher({
@@ -152,12 +157,14 @@ class PinRefresher {
     Timer Function(Duration after, void Function() run)? timer,
     this.gap = kPinFetchGap,
     this.settle = kPinFetchSettle,
+    this.stuckAfter = kPinFetchStuck,
   })  : _clock = clock ?? DateTime.now,
         _timer = timer ?? Timer.new;
 
   final Future<void> Function() fetch;
   final Duration gap;
   final Duration settle;
+  final Duration stuckAfter;
   final DateTime Function() _clock;
   final Timer Function(Duration, void Function()) _timer;
 
@@ -166,6 +173,15 @@ class PinRefresher {
   bool _running = false;
   bool _again = false;
   bool _disposed = false;
+
+  /// Which fetch is the current one; a lost one finishing late changes nothing.
+  int _generation = 0;
+
+  /// A fetch is under way and not yet given up on.
+  bool get _busy {
+    final start = _lastStart;
+    return _running && start != null && _clock().difference(start) < stuckAfter;
+  }
 
   /// Fetches started so far.
   int fetches = 0;
@@ -181,7 +197,7 @@ class PinRefresher {
   /// Fetch soon. Asks while one is waiting or running fold into it.
   void request() {
     if (_disposed) return;
-    if (_running) {
+    if (_busy) {
       _again = true;
       return;
     }
@@ -192,7 +208,7 @@ class PinRefresher {
   /// Fetch now (the first load): no settle, no gap. Folds into a running one.
   void now() {
     if (_disposed) return;
-    if (_running) {
+    if (_busy) {
       _again = true;
       return;
     }
@@ -203,6 +219,8 @@ class PinRefresher {
   Future<void> _run() async {
     _pending = null;
     if (_disposed) return;
+    final generation = ++_generation;
+    _again = false; // asks so far: this fetch answers them
     _running = true;
     _lastStart = _clock();
     fetches++;
@@ -211,10 +229,13 @@ class PinRefresher {
     } catch (_) {
       // [fetch] reports its own errors.
     } finally {
-      _running = false;
-      if (_again) {
-        _again = false;
-        request();
+      // A newer fetch took over from this one (it was given up on): leave its state alone.
+      if (generation == _generation) {
+        _running = false;
+        if (_again) {
+          _again = false;
+          request();
+        }
       }
     }
   }

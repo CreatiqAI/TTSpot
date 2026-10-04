@@ -289,6 +289,26 @@ void main() {
       expect(fetches, 2);
     });
 
+    test('a fetch that never comes back does not hold the others up', () async {
+      gate = Completer<void>(); // never completes for this fetch
+      final lost = gate!;
+      r.now();
+      expect(fetches, 1);
+      await clock.advance(const Duration(seconds: 19));
+      r.request();
+      await clock.advance(const Duration(seconds: 5));
+      expect(fetches, 1, reason: 'under 20 s it is still waited for');
+      gate = null;
+      await clock.advance(const Duration(seconds: 1));
+      r.request();
+      await clock.advance(const Duration(seconds: 1));
+      expect(fetches, 2, reason: 'over 20 s: given up on, a new one goes');
+      // The lost one finishing late starts nothing more.
+      lost.complete();
+      await clock.advance(const Duration(seconds: 30));
+      expect(fetches, 2);
+    });
+
     test('dispose cancels what is waiting', () async {
       r.request();
       r.dispose();

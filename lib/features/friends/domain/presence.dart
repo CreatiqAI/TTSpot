@@ -8,9 +8,15 @@
 // called live. From [kShowWindow] on it is gone (the server stops returning
 // it at the same age: user_locations.expires_at is 24 h after each ping).
 //
-// While the app is open it re-sends my position every [kPresenceHeartbeat]
-// even when I stand still (the GPS stream only fires on movement), so a
-// friend parked with the app open stays live.
+// While the app is open it re-sends my position once the last successful
+// send is [kPresenceHeartbeat] old, even when I stand still (the GPS stream
+// only fires on movement), so a friend parked with the app open stays live.
+//
+// The admin dashboard counts with the same two windows on the server:
+// admin_stats() in supabase/migrations/20261005000104_presence_admin_fixes.sql
+// ("Live now" = interval '1 minute', "Seen today" = interval '24 hours').
+// Change a window here and there together; test/presence_admin_test.dart
+// fails when they drift apart.
 
 /// Up to this old, a position is live ("on the map now").
 const kLiveWindow = Duration(minutes: 1);
@@ -18,9 +24,29 @@ const kLiveWindow = Duration(minutes: 1);
 /// Under this old, a position still shows on the map (as last seen).
 const kShowWindow = Duration(hours: 24);
 
-/// How often the open app re-sends my position to stay live. Well inside
-/// [kLiveWindow], so one late ping does not make me look gone.
-const kPresenceHeartbeat = Duration(seconds: 30);
+/// Re-send my position when the last successful send is this old. With the
+/// [kHeartbeatCheck] tick a ping lands 40 to 45 s after the last one, and a
+/// failed one is retried [kHeartbeatRetry] later, still inside [kLiveWindow].
+/// Each ping is a database write that wakes every friend's map, so not more
+/// often than this.
+const kPresenceHeartbeat = Duration(seconds: 40);
+
+/// How often the open app checks whether a heartbeat is due (a clock check,
+/// no network).
+const kHeartbeatCheck = Duration(seconds: 5);
+
+/// After a ping that failed (or is still on its way), wait this long before
+/// the next try.
+const kHeartbeatRetry = Duration(seconds: 10);
+
+/// Whether the open app should re-send my position at [now]. [lastTry] is
+/// when the last ping went out, [lastOk] when the last one that worked did.
+/// Nothing is due before the first try: the first GPS fix sends that one.
+bool heartbeatDue({required DateTime now, DateTime? lastOk, DateTime? lastTry}) {
+  if (lastTry == null) return false;
+  if (now.difference(lastTry) < kHeartbeatRetry) return false;
+  return lastOk == null || now.difference(lastOk) >= kPresenceHeartbeat;
+}
 
 enum Presence {
   /// Updated within [kLiveWindow]: on the map now.

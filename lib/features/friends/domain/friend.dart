@@ -88,6 +88,30 @@ class FriendPin {
   /// Older pins still show on the map for a day, as last seen.
   bool get isLive => isLiveAt(updatedAt);
 
+  /// This pin where a realtime change puts it, at that change's time. Who
+  /// they are, their car, place and meet stay (pin_refresh.dart fetches
+  /// when those may differ).
+  FriendPin movedTo({required double lat, required double lng, required DateTime updatedAt, double? heading}) => FriendPin(
+        user: user,
+        lat: lat,
+        lng: lng,
+        updatedAt: updatedAt,
+        placeId: placeId,
+        placeName: placeName,
+        eventId: eventId,
+        eventTitle: eventTitle,
+        ghost: ghost,
+        viaClub: viaClub,
+        viaNearby: viaNearby,
+        viaPublic: viaPublic,
+        clubName: clubName,
+        heading: heading,
+        carMake: carMake,
+        carModel: carModel,
+        carColor: carColor,
+        carPhoto: carPhoto,
+      );
+
   factory FriendPin.fromMap(Map<String, dynamic> m) => FriendPin(
         user: Profile.fromMap(m['profiles'] as Map<String, dynamic>),
         lat: (m['lat'] as num).toDouble(),

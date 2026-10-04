@@ -44,8 +44,8 @@ void main() {
       expect(presenceAt(_now.subtract(const Duration(hours: 25)), _now), Presence.gone);
     });
 
-    test('the heartbeat keeps a still phone live', () {
-      expect(kPresenceHeartbeat * 2, lessThanOrEqualTo(kLiveWindow));
+    test('the heartbeat keeps a still phone live, with room for one retry', () {
+      expect(kPresenceHeartbeat + kHeartbeatCheck + kHeartbeatRetry, lessThan(kLiveWindow));
     });
   });
 

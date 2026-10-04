@@ -10,6 +10,7 @@ import '../../../friends/presentation/nickname_sheet.dart' show ProfileNameLines
 import '../../../social/domain/post.dart';
 import '../../domain/car.dart';
 import '../user_garage_screen.dart' show garageTitle;
+import 'profile_meets_sheet.dart';
 
 /// Identity block, about the person: avatar beside the numbers (my points
 /// get their own card under them), name, handle, bio, the actions. Under
@@ -49,6 +50,7 @@ class ProfileHeader extends StatelessWidget {
   final int? points;
   final List<Story> moments;
   final FriendshipStatus friendship;
+  /// All my meets (upcoming too), from the Meets sheet on my own page.
   final VoidCallback onMeets;
   final VoidCallback? onFriends;
   final VoidCallback onPoints;
@@ -109,7 +111,12 @@ class ProfileHeader extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        _Stat(value: stats?.went, label: 'Meets', onTap: onMeets),
+                        // Tap: the meets the number counts (anyone's page).
+                        _Stat(
+                          value: stats?.went,
+                          label: 'Meets',
+                          onTap: () => showProfileMeetsSheet(context, userId: p.id, isMe: isMe, count: stats?.went, onSeeAll: onMeets),
+                        ),
                         _Stat(value: friendCount, label: 'Friends', onTap: onFriends),
                         _Stat(value: stats?.cars ?? cars.length, label: 'Cars'),
                       ],

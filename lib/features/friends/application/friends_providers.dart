@@ -330,8 +330,16 @@ class LocationPublisher extends Notifier<bool> {
     return false; // publishing?
   }
 
-  Future<void> start() async {
-    if (state) return;
+  /// The shell and the map both call [start] as they open, before either
+  /// call is done: they share one start (and one first ping).
+  Future<void>? _starting;
+
+  Future<void> start() {
+    if (state) return Future.value();
+    return _starting ??= _start().whenComplete(() => _starting = null);
+  }
+
+  Future<void> _start() async {
     if (ref.read(currentUserIdProvider) == null) return;
     final live = ref.read(livePositionProvider.notifier);
     await live.start();

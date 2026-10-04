@@ -10,6 +10,24 @@ class ReleaseNote {
 
 const kReleaseNotes = <ReleaseNote>[
   ReleaseNote(
+    version: '0.3.53',
+    date: '5 Oct 2026',
+    title: 'Group chats, #tags and replies',
+    points: [
+      'Every club now has a members chat. Join the club and you are in it.',
+      'Start a group chat with your friends: Chats, the compose button, New group.',
+      'Add #tags to your posts. Tap a tag to see more posts like it, and search now finds posts too.',
+      'Your own posts show how many people saw them.',
+      'Reply to comments, like comments and @mention friends. They get a notification.',
+      'Follow a club to hear when it posts or plans a meet.',
+      'Share your ride: post your car in one tap. Your first post earns 50 points.',
+      'New photos are checked automatically before others see them.',
+      'Meets on your profile now counts meets and TT sessions you joined. Tap it to see them.',
+      "Friends' cars on the map update with less battery and data.",
+      'Fixed: busy chats could open on older messages.',
+    ],
+  ),
+  ReleaseNote(
     version: '0.3.52',
     date: '3 Oct 2026',
     title: 'Follow, public clubs and a livelier map',

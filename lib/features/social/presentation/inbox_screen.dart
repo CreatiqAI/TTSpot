@@ -30,10 +30,11 @@ import '../../../core/widgets/thumb_image.dart';
 import '../../accounts/application/active_account.dart';
 import 'activity_screen.dart';
 import 'widgets/chat_media.dart' show fmtMs;
+import 'widgets/group_avatar.dart';
 import '../../titi/presentation/titi_inbox_tile.dart';
 
-/// Chats tab: DMs and meet group chats, with Activity (likes, requests,
-/// TT-now pings, badges) as a second tab.
+/// Chats tab: DMs, group chats (friends' groups, club chats) and meet chats,
+/// with Activity (likes, requests, TT-now pings, badges) as a second tab.
 class InboxScreen extends ConsumerWidget {
   const InboxScreen({super.key});
 
@@ -57,7 +58,7 @@ class InboxScreen extends ConsumerWidget {
           automaticallyImplyLeading: false,
           title: const Text('Chats'),
           actions: [
-            IconButton(tooltip: 'New message', icon: const Icon(AppIcons.notePencil), onPressed: () => context.push(Routes.search)),
+            IconButton(key: const Key('inbox-compose'), tooltip: 'New message', icon: const Icon(AppIcons.notePencil), onPressed: () => _compose(context)),
           ],
           bottom: TabBar(
             labelColor: AppColors.textPrimary,
@@ -77,6 +78,39 @@ class InboxScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// The compose button: a new message (find someone) or a new group.
+Future<void> _compose(BuildContext context) async {
+  final pick = await showModalBottomSheet<String>(
+    context: context,
+    useRootNavigator: true, // above the shell tab bar
+    showDragHandle: true,
+    builder: (ctx) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            key: const Key('compose-new-message'),
+            leading: const Icon(AppIcons.chatCircle),
+            title: const Text('New message', style: TextStyle(fontWeight: FontWeight.w600)),
+            subtitle: const Text('Find a friend or member to message', style: TextStyle(fontSize: 12)),
+            onTap: () => Navigator.pop(ctx, 'message'),
+          ),
+          ListTile(
+            key: const Key('compose-new-group'),
+            leading: const Icon(AppIcons.usersThree),
+            title: const Text('New group', style: TextStyle(fontWeight: FontWeight.w600)),
+            subtitle: const Text('A group chat with your friends', style: TextStyle(fontSize: 12)),
+            onTap: () => Navigator.pop(ctx, 'group'),
+          ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    ),
+  );
+  if (!context.mounted || pick == null) return;
+  context.push(pick == 'group' ? Routes.newGroup : Routes.search);
 }
 
 class _TabLabel extends StatelessWidget {
@@ -140,8 +174,9 @@ class _ChatList extends ConsumerWidget {
         error: (e, _) => Center(child: Text(friendlyError(e))),
         data: (list) {
           // A DM with no messages yet is "not chatted": it lives with the friends you haven't messaged.
-          final chats = list.where((c) => c.isMeet || c.lastMessage != null).toList();
-          final chatted = {for (final c in chats) if (c.other != null) c.other!.id};
+          // Group and club chats show from the start.
+          final chats = list.where((c) => c.isMulti || c.lastMessage != null).toList();
+          final chatted = {for (final c in chats) if (!c.isMulti && c.other != null) c.other!.id};
           final unchatted = friends.where((f) => !chatted.contains(f.id)).toList();
           return ListView(
             padding: EdgeInsets.only(bottom: GlassTabBar.clearance(context)),
@@ -437,6 +472,37 @@ class _SwipeRow extends ConsumerWidget {
   }
 }
 
+/// What a chat row says about its last message: "Sticker", "Voice note · 0:12",
+/// "Photo: caption", or the text.
+String lastMessagePreview(Message last) => last.sticker != null
+    ? 'Sticker'
+    : last.audioUrl != null
+        ? 'Voice note · ${fmtMs(last.audioMs ?? 0)}'
+        // A caption under a photo / video: say which it was.
+        : !last.autoBody && last.imageUrl != null
+            ? 'Photo: ${last.body}'
+            : !last.autoBody && last.videoUrl != null
+                ? 'Video: ${last.body}'
+                : last.body;
+
+/// Who sent a group's last message, for "Name: text": "You", the club or
+/// partner it went out as, else my nickname for them, their name, their @handle.
+String lastSenderLabel(Message last, Conversation c, {required String? me, required Map<String, String> nicknames}) {
+  if (last.senderId == me) return 'You';
+  final asName = last.asName;
+  if (asName != null) return asName;
+  var sender = last.sender;
+  if (sender == null) {
+    for (final p in c.members) {
+      if (p.id == last.senderId) {
+        sender = p;
+        break;
+      }
+    }
+  }
+  return displayNameFor(sender, nicknames, fallback: 'Someone');
+}
+
 class _ChatTile extends ConsumerWidget {
   const _ChatTile({required this.c});
   final Conversation c;
@@ -444,9 +510,16 @@ class _ChatTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final last = c.lastMessage;
-    final title = conversationTitle(c, ref.watch(nicknamesProvider));
+    final nick = ref.watch(nicknamesProvider);
+    final title = conversationTitle(c, nick);
+    final me = ref.watch(currentUserIdProvider);
+    // In a group, who said it: "You: ...", "Aiman: ...", or the club / partner it was sent as.
+    final String? who = last == null || !c.isGroup ? null : lastSenderLabel(last, c, me: me, nicknames: nick);
     return ListTile(
-      leading: c.isMeet
+      key: Key('chat-row-${c.id}'),
+      leading: c.isGroup
+          ? GroupAvatar(conv: c, size: 48)
+          : c.isMeet
           ? ClipRRect(
               borderRadius: BorderRadius.circular(12),
               child: SizedBox(
@@ -461,20 +534,20 @@ class _ChatTile extends ConsumerWidget {
       title: Row(
         children: [
           Flexible(child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontWeight: c.unread > 0 ? FontWeight.w700 : FontWeight.w600))),
+          if (c.muted) ...[const SizedBox(width: 6), Icon(AppIcons.bellSlash, size: 14, color: AppColors.textMuted)],
           if (c.pinned) ...[const SizedBox(width: 6), Icon(AppIcons.pushPin, size: 14, color: AppColors.textMuted)],
         ],
       ),
       subtitle: Text(
-        last == null ? (c.isMeet ? 'Group chat · ${c.members.length} members' : 'Say hi') : (last.sticker != null
-                ? 'Sticker'
-                : last.audioUrl != null
-                    ? 'Voice note · ${fmtMs(last.audioMs ?? 0)}'
-                    // A caption under a photo / video: say which it was.
-                    : !last.autoBody && last.imageUrl != null
-                        ? 'Photo: ${last.body}'
-                        : !last.autoBody && last.videoUrl != null
-                            ? 'Video: ${last.body}'
-                            : last.body),
+        last == null
+            ? (c.isClubChat
+                ? 'Club chat · ${c.size} ${c.size == 1 ? 'member' : 'members'}'
+                : c.isMulti
+                    ? 'Group chat · ${c.size} members'
+                    : 'Say hi')
+            : who == null
+                ? lastMessagePreview(last)
+                : '$who: ${lastMessagePreview(last)}',
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(color: c.unread > 0 ? AppColors.textPrimary : AppColors.textSecondary, fontWeight: c.unread > 0 ? FontWeight.w500 : FontWeight.w400),

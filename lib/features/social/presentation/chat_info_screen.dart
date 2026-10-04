@@ -27,12 +27,14 @@ import '../application/social_providers.dart';
 import '../domain/chat.dart';
 import '../domain/club.dart';
 import '../domain/post.dart';
+import 'group_info.dart';
 import 'story_viewer_screen.dart';
 import 'widgets/chat_wallpaper.dart';
 
 /// The ⋯ page of a chat. A person: who they are, what you've shared, clubs
 /// in common, then pin / delete / block / report. A meet chat: the meet,
-/// its members, what's been shared, then pin / delete / report.
+/// its members, what's been shared, then pin / delete / report. A group or
+/// club chat: [GroupInfo].
 class ChatInfoScreen extends ConsumerWidget {
   const ChatInfoScreen({super.key, required this.conversationId});
   final String conversationId;
@@ -44,16 +46,33 @@ class ChatInfoScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(icon: const Icon(AppIcons.arrowLeft), onPressed: () => context.pop()),
-        title: Text(conv.value?.isMeet == true ? 'Meet chat' : 'Chat info'),
+        title: Text(conv.value?.isMeet == true ? 'Meet chat' : (conv.value?.isGroup == true ? 'Group info' : 'Chat info')),
       ),
       body: conv.when(
         loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
         error: (e, _) => Center(child: Text(friendlyError(e))),
         data: (c) => c == null
             ? const Center(child: Text('This chat is gone.'))
-            : c.isMeet
-                ? _MeetInfo(conv: c, me: me)
-                : _DmInfo(conv: c, me: me),
+            : c.isGroup
+                ? GroupInfo(
+                    conv: c,
+                    me: me,
+                    shared: _SharedStrip(conversationId: c.id),
+                    settings: [
+                      _PinTile(conv: c),
+                      _MuteTile(conv: c),
+                      const ChatWallpaperTile(),
+                      ListTile(
+                        leading: const Icon(AppIcons.trash, color: AppColors.danger),
+                        title: const Text('Delete chat', style: TextStyle(color: AppColors.danger, fontWeight: FontWeight.w600)),
+                        subtitle: const Text('Removes it from your list. It comes back when someone writes.', style: TextStyle(fontSize: 12)),
+                        onTap: () => _deleteChat(context, ref, c.id),
+                      ),
+                    ],
+                  )
+                : c.isMeet
+                    ? _MeetInfo(conv: c, me: me)
+                    : _DmInfo(conv: c, me: me),
       ),
     );
   }

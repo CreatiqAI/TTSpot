@@ -94,7 +94,8 @@ class ChatActions {
   ({String? asClub, String? asVendor}) _actor(String conversationId) {
     final account = _ref.read(activeAccountProvider);
     final conv = _ref.read(conversationProvider(conversationId)).value;
-    if (conv == null) return (asClub: null, asVendor: null);
+    // In a group or club chat everyone speaks as themselves.
+    if (conv == null || conv.isGroup) return (asClub: null, asVendor: null);
     return switch (account) {
       ClubAccount(:final club) when conv.clubId == club.id => (asClub: club.id, asVendor: null),
       PartnerAccount(:final vendor) when conv.vendorId == vendor.id => (asClub: null, asVendor: vendor.id),

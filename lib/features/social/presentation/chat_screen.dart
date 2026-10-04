@@ -32,6 +32,8 @@ import '../../friends/application/nicknames.dart';
 import '../../profile/application/profile_providers.dart';
 import '../application/chat_providers.dart';
 import '../application/community_providers.dart';
+import '../application/group_chat_providers.dart';
+import 'widgets/group_avatar.dart';
 import 'chat_attach.dart';
 import 'chat_camera_screen.dart';
 import 'story_viewer_screen.dart';
@@ -45,7 +47,8 @@ import '../../auth/domain/profile.dart';
 import '../../safety/data/safety_repository.dart';
 import '../../safety/presentation/report_sheet.dart';
 
-/// One conversation. Bubbles like Instagram DMs; meet chats show sender names.
+/// One conversation. Bubbles like Instagram DMs; meet, group and club chats
+/// show the sender's name and face on the first bubble of each run.
 class ChatScreen extends ConsumerStatefulWidget {
   const ChatScreen({super.key, required this.conversationId});
   final String conversationId;
@@ -274,7 +277,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   /// Long-press on a message: reply, copy its text, and on someone else's,
   /// report it or block the sender.
-  Future<void> _messageMenu(Message m, String? username, {bool mine = false, bool canReply = true}) async {
+  Future<void> _messageMenu(Message m, String? username, {bool mine = false, bool canReply = true, bool canDelete = false}) async {
     final name = username ?? 'user';
     final canCopy = !m.autoBody && m.body.trim().isNotEmpty;
     final action = await showModalBottomSheet<String>(
@@ -287,6 +290,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           children: [
             if (canReply) ListTile(leading: const Icon(AppIcons.arrowBendUpLeft), title: const Text('Reply'), onTap: () => Navigator.pop(ctx, 'reply')),
             if (canCopy) ListTile(leading: const Icon(AppIcons.copy), title: const Text('Copy text'), onTap: () => Navigator.pop(ctx, 'copy')),
+            if (canDelete)
+              ListTile(
+                key: const Key('message-delete'),
+                leading: const Icon(AppIcons.trash, color: AppColors.danger),
+                title: Text('Delete for everyone', style: TextStyle(color: AppColors.danger)),
+                onTap: () => Navigator.pop(ctx, 'delete'),
+              ),
             if (!mine) ...[
               ListTile(leading: const Icon(AppIcons.flag), title: const Text('Report message'), onTap: () => Navigator.pop(ctx, 'report')),
               ListTile(leading: const Icon(AppIcons.prohibit, color: AppColors.danger), title: Text('Block @$name', style: TextStyle(color: AppColors.danger)), onTap: () => Navigator.pop(ctx, 'block')),
@@ -303,10 +313,36 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       case 'copy':
         await Clipboard.setData(ClipboardData(text: m.body));
         _hint('Copied');
+      case 'delete':
+        await _deleteForEveryone(m, mine: mine);
       case 'report':
         await showReportSheet(context, target: ReportTarget.message, targetId: m.id);
       case 'block':
         await confirmBlockUser(context, ref, userId: m.senderId, displayName: '@$name');
+    }
+  }
+
+  /// Your own message anywhere; anyone's in a club chat (officers) or a
+  /// friends' group (admins).
+  Future<void> _deleteForEveryone(Message m, {required bool mine}) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete for everyone?'),
+        content: Text(mine ? 'It disappears from this chat for everyone in it.' : 'It disappears from this chat for everyone, the sender too.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Keep')),
+          TextButton(key: const Key('message-delete-confirm'), onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete', style: TextStyle(color: AppColors.danger))),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    try {
+      if (_replyTo?.id == m.id) setState(() => _replyTo = null);
+      await ref.read(groupChatActionsProvider).deleteMessage(widget.conversationId, m.id);
+      _hint('Message deleted');
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
     }
   }
 
@@ -320,7 +356,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       if (next.hasValue) ref.read(chatActionsProvider).markRead(widget.conversationId);
     });
 
-    final membersById = <String, Profile>{for (final p in conv?.members ?? const <Profile>[]) p.id: p};
+    final group = conv?.isGroup ?? false;
+    // Many people: names and faces on bubbles. A group's (or club chat's) full list
+    // names messages that came in live, which carry no sender profile.
+    final multi = conv?.isMulti ?? false;
+    final groupMembers = group ? ref.watch(groupMembersProvider(widget.conversationId)).value : null;
+    final membersById = <String, Profile>{
+      for (final p in conv?.members ?? const <Profile>[]) p.id: p,
+      if (groupMembers != null)
+        for (final g in groupMembers) g.id: g.profile,
+    };
+    final canModerate = ref.watch(canModerateChatProvider(widget.conversationId));
     final nick = ref.watch(nicknamesProvider);
     final title = conv == null ? 'Chat' : conversationTitle(conv, nick);
     final otherNick = conv?.other == null ? null : nick[conv!.other!.id];
@@ -333,12 +379,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         title: InkWell(
           onTap: conv == null
               ? null
-              : () => conv.isMeet
+              : () => conv.isGroup
+                  ? context.push(Routes.chatInfo(widget.conversationId))
+                  : conv.isMeet
                   ? (conv.eventId == null ? null : context.push(Routes.event(conv.eventId!)))
                   : (conv.other == null ? null : context.push(Routes.profile(conv.other!.id))),
           child: Row(
             children: [
-              if (conv != null && !conv.isMeet) ...[
+              if (conv != null && conv.isGroup) ...[
+                GroupAvatar(conv: conv, size: 32),
+                const SizedBox(width: 10),
+              ] else if (conv != null && !conv.isMeet) ...[
                 UserAvatar(url: conv.avatarUrl, name: conv.otherGone ? null : conv.title, seed: conv.showEntity ? null : conv.other?.id, size: 32, fallbackAsset: conv.showEntity && conv.clubId != null ? crestAsset(conv.clubId!) : null),
                 const SizedBox(width: 10),
               ],
@@ -349,7 +400,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppText.screenTitle),
                     if (conv != null && !conv.otherGone)
                       Text(
-                        conv.isMeet
+                        conv.isGroup
+                            ? '${conv.isClubChat ? 'Club chat · ' : ''}${groupMembers?.length ?? conv.size} members'
+                            : conv.isMeet
                             ? '${conv.members.length} going'
                             : conv.showEntity
                                 ? (conv.clubId != null ? 'Car club' : 'Partner')
@@ -367,7 +420,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         ),
         actions: [
           IconButton(
-            tooltip: conv?.isMeet ?? false ? 'Members' : 'Chat info',
+            tooltip: conv?.isMeet ?? false ? 'Members' : (group ? 'Group info' : 'Chat info'),
             icon: Icon(conv?.isMeet ?? false ? AppIcons.usersThree : AppIcons.dotsThreeVertical),
             onPressed: () => context.push(Routes.chatInfo(widget.conversationId)),
           ),
@@ -386,7 +439,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 if (list.isEmpty) {
                   final other = conv?.other;
                   final first = otherNick ?? (other?.displayName ?? other?.username ?? '').split(' ').first;
-                  final starters = conv?.isMeet ?? false
+                  final starters = group
+                      ? const ['TT tonight?', 'Where to lepak?', "Who's free this weekend?", 'Otw, 10 min']
+                      : conv?.isMeet ?? false
                       ? const ['Who\'s coming tonight?', 'Where to park?', 'Otw, 10 min', 'Anyone need a ride?']
                       : ['Hey $first, TT tonight?', 'Coming TTDI Thursday?', 'Nice ride, what mods?', 'Otw, 10 min', 'Where you usually TT?'];
                   return Center(
@@ -395,9 +450,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       child: ChatWallpaperPanel(child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          if (other != null) UserAvatar(url: other.avatarUrl, name: other.displayName ?? other.username, seed: other.id, size: 72),
+                          if (conv != null && group) GroupAvatar(conv: conv, size: 72) else if (other != null) UserAvatar(url: other.avatarUrl, name: other.displayName ?? other.username, seed: other.id, size: 72),
                           const SizedBox(height: 10),
-                          Text(conv?.isMeet ?? false ? 'Meet chat is empty' : 'Say hi to $first', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+                          Text(group ? 'Say hi to the group' : (conv?.isMeet ?? false ? 'Meet chat is empty' : 'Say hi to $first'), textAlign: TextAlign.center, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
                           const SizedBox(height: 4),
                           Text('Tap one to start, or type your own.', style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
                           const SizedBox(height: 14),
@@ -435,7 +490,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     // The day's first message gets a divider above it (the list runs bottom-up, so
                     // "above" is the older neighbour), and a meet chat names the sender again under it.
                     final newDay = prev == null || !isSameDay(prev.createdAt, m.createdAt);
-                    final showName = (conv?.isMeet ?? false) && !mine && (prev == null || newDay || prev.senderId != m.senderId);
+                    // First of a run: a new day, a new sender, or the club / partner after the person.
+                    final firstOfRun = prev == null || newDay || prev.senderId != m.senderId || (prev.asName != null) != (m.asName != null);
+                    final showName = multi && !mine && firstOfRun;
                     final sender = m.sender ?? membersById[m.senderId];
                     final host = m.senderId == hostId;
                     final showEntity = m.asName != null;
@@ -463,15 +520,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: GestureDetector(
-                            onLongPress: () => _messageMenu(m, sender?.username, mine: mine, canReply: canReply),
+                            onLongPress: () => _messageMenu(m, sender?.username, mine: mine, canReply: canReply, canDelete: mine || canModerate),
                             child: _Bubble(
                               message: m,
                               mine: mine,
-                              showName: (showName || showEntity) && !mine,
-                              senderName: showEntity ? m.asName : (nick[m.senderId] ?? sender?.username),
+                              showName: (showName || (showEntity && (!group || firstOfRun))) && !mine,
+                              // A group names people by my nickname for them, else their name, else @handle.
+                              senderName: showEntity ? m.asName : (group ? displayNameFor(sender, nick) : (nick[m.senderId] ?? sender?.username)),
                               avatarUrl: showEntity ? m.asLogo : sender?.avatarUrl,
                               avatarSeed: showEntity ? null : m.senderId,
-                              showAvatar: !mine && ((conv?.isMeet ?? false) || showEntity),
+                              // In a group the face goes on the first bubble of a run; the rest keep its space.
+                              showAvatar: !mine && (group ? firstOfRun : ((conv?.isMeet ?? false) || showEntity)),
+                              avatarSpace: !mine && group,
                               host: host && !showEntity,
                               quote: quote,
                             ),
@@ -523,7 +583,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 }
 
 class _Bubble extends StatelessWidget {
-  const _Bubble({required this.message, required this.mine, required this.showName, this.senderName, this.avatarUrl, this.avatarSeed, required this.showAvatar, this.host = false, this.quote});
+  const _Bubble({required this.message, required this.mine, required this.showName, this.senderName, this.avatarUrl, this.avatarSeed, required this.showAvatar, this.avatarSpace = false, this.host = false, this.quote});
   final Message message;
   final bool mine;
   final bool showName;
@@ -531,6 +591,8 @@ class _Bubble extends StatelessWidget {
   final String? avatarUrl;
   final String? avatarSeed;
   final bool showAvatar;
+  /// No face on this bubble, but keep its space so a run lines up (groups).
+  final bool avatarSpace;
   final bool host;
   /// The quoted original when this message is a reply.
   final Widget? quote;
@@ -643,7 +705,8 @@ class _Bubble extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(senderName ?? '', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: wp.label)),
+                  // A group shows full names: a long one is cut, never overflows.
+                  Flexible(child: Text(senderName ?? '', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: wp.label))),
                   if (host) ...[
                     const SizedBox(width: 6),
                     Container(
@@ -659,7 +722,7 @@ class _Bubble extends StatelessWidget {
             mainAxisAlignment: mine ? MainAxisAlignment.end : MainAxisAlignment.start,
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              if (showAvatar) ...[UserAvatar(url: avatarUrl, name: senderName, seed: avatarSeed, size: 28), const SizedBox(width: 6)],
+              if (showAvatar) ...[UserAvatar(url: avatarUrl, name: senderName, seed: avatarSeed, size: 28), const SizedBox(width: 6)] else if (avatarSpace) const SizedBox(width: 34),
               bubble,
             ],
           ),

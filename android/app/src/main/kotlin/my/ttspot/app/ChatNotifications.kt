@@ -43,7 +43,8 @@ import java.net.URL
  * Data keys (all strings, from supabase/functions/push): kind=chat, route,
  * conversation_id, title (the chat's name for me: my nickname for them, else
  * their name, or the club / partner / meet), body, sender_id, sender_name,
- * avatar (URL), group ("1" for meet chats), convo_title.
+ * avatar (URL), group ("1" for meet, group and club chats), convo_title,
+ * text (the message alone; a group's body is "Name: text").
  *
  * Tapping opens the chat exactly like an FCM notification: the message is
  * kept in firebase_messaging's own store and the intent carries its
@@ -99,6 +100,8 @@ object ChatNotifications {
         val senderName = d["sender_name"]?.takeIf { it.isNotBlank() } ?: title
         val senderKey = d["sender_id"]?.takeIf { it.isNotEmpty() } ?: conversationId
         val conversationTitle = d["convo_title"]?.takeIf { it.isNotBlank() } ?: title
+        // A group conversation names each sender itself, so its line is the text alone.
+        val line = if (group) d["text"]?.takeIf { it.isNotEmpty() } ?: body else body
 
         ensureChannel(context)
         val avatar = downloadAvatar(d["avatar"]) ?: appIconBitmap(context)
@@ -111,7 +114,7 @@ object ChatNotifications {
         // Earlier unread messages of this chat stay in the same notification.
         previousStyle(context, id)?.messages?.takeLast(MAX_STACKED - 1)?.forEach { style.addMessage(it) }
         val sentAt = if (message.sentTime > 0) message.sentTime else System.currentTimeMillis()
-        style.addMessage(NotificationCompat.MessagingStyle.Message(body, sentAt, sender))
+        style.addMessage(NotificationCompat.MessagingStyle.Message(line, sentAt, sender))
         if (group) {
             style.conversationTitle = conversationTitle
             style.isGroupConversation = true
@@ -127,7 +130,7 @@ object ChatNotifications {
             .setColor(ContextCompat.getColor(context, R.color.notification_red))
             .setStyle(style)
             .setContentTitle(if (group) conversationTitle else title)
-            .setContentText(if (group) "$senderName: $body" else body)
+            .setContentText(if (group) "$senderName: $line" else body)
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setDefaults(NotificationCompat.DEFAULT_ALL)

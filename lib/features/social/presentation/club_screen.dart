@@ -19,6 +19,7 @@ import '../../auth/domain/profile.dart';
 import '../../friends/application/friends_providers.dart';
 import '../application/chat_providers.dart';
 import '../application/community_providers.dart';
+import '../application/group_chat_providers.dart';
 import '../application/social_providers.dart';
 import '../domain/club.dart';
 import '../domain/follow.dart';
@@ -142,6 +143,12 @@ class ClubScreen extends ConsumerWidget {
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                     child: SecondaryButton(label: 'Schedule a meet as ${c.name}', icon: AppIcons.flagCheckered, onPressed: () => context.push(Routes.createEventAs(clubId: clubId))),
+                  ),
+                // Every member is in the club's own group chat.
+                if (isMember || isManager)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                    child: SecondaryButton(key: const Key('club-chat'), label: 'Club chat', icon: AppIcons.chats, onPressed: () => _openClubChat(context, ref)),
                   ),
                 if (!isMember && !isManager && invite == null)
                   Padding(
@@ -281,6 +288,15 @@ class ClubScreen extends ConsumerWidget {
         case 'remove':
           await actions.removeClubMember(clubId, m.id);
       }
+    } catch (e) {
+      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
+    }
+  }
+
+  Future<void> _openClubChat(BuildContext context, WidgetRef ref) async {
+    try {
+      final id = await ref.read(groupChatActionsProvider).openClubChat(clubId);
+      if (context.mounted) context.push(Routes.chat(id));
     } catch (e) {
       if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
     }

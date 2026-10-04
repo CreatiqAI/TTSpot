@@ -81,6 +81,7 @@ import '../../features/social/presentation/album_editor_screen.dart';
 import '../../features/social/presentation/my_moments_screen.dart';
 import '../../features/social/presentation/chat_info_screen.dart';
 import '../../features/social/presentation/chat_screen.dart';
+import '../../features/social/presentation/new_group_screen.dart';
 import '../../features/social/presentation/club_screen.dart';
 import '../../features/social/presentation/create_club_screen.dart';
 import '../../features/social/presentation/create_post_screen.dart';
@@ -232,6 +233,10 @@ abstract final class Routes {
 
   static String chat(String conversationId) => '/chat/$conversationId';
   static String chatInfo(String conversationId) => '/chat/$conversationId/info';
+  /// A friends' group: add more friends to it.
+  static String addGroupMembers(String conversationId) => '/chat/$conversationId/add';
+  /// Chats > compose > New group.
+  static const newGroup = '/new-group';
   static String club(String id) => '/club/$id';
   static String place(String id) => '/place/$id';
   /// [tab]: 'info' | 'products' | 'vouchers' | 'posts' | 'events'.
@@ -468,8 +473,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/chat/:id',
         pageBuilder: (_, s) => page(s, ChatScreen(conversationId: s.pathParameters['id']!)),
-        routes: [GoRoute(path: 'info', pageBuilder: (_, s) => page(s, ChatInfoScreen(conversationId: s.pathParameters['id']!)))],
+        routes: [
+          GoRoute(path: 'info', pageBuilder: (_, s) => page(s, ChatInfoScreen(conversationId: s.pathParameters['id']!))),
+          GoRoute(path: 'add', pageBuilder: (_, s) => page(s, AddGroupMembersScreen(conversationId: s.pathParameters['id']!))),
+        ],
       ),
+      GoRoute(path: Routes.newGroup, pageBuilder: (_, s) => page(s, const NewGroupScreen())),
       GoRoute(path: Routes.saved, pageBuilder: (_, s) => page(s, const SavedPostsScreen())),
       GoRoute(path: Routes.createClub, pageBuilder: (_, s) => page(s, const CreateClubScreen())),
       GoRoute(path: '/club/:id', pageBuilder: (_, s) => page(s, ClubScreen(clubId: s.pathParameters['id']!))),

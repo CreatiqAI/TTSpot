@@ -8,6 +8,7 @@ import '../../features/friends/application/friends_providers.dart';
 import '../../features/friends/application/nicknames.dart';
 import '../../features/social/application/chat_providers.dart';
 import '../../features/social/domain/chat.dart';
+import '../../features/social/presentation/widgets/group_avatar.dart';
 import '../theme/app_icons.dart';
 import '../theme/app_theme.dart';
 import '../theme/titi.dart';
@@ -200,8 +201,9 @@ class _SendSheetState extends ConsumerState<_SendSheet> {
     final nick = ref.watch(nicknamesProvider); // my private names for people (备注)
     // Chats with something in them (an empty DM counts as "not chatted yet"),
     // and only ones we can name: a DM whose other side is gone just says "Chat".
-    final chats = inbox.where((c) => (c.isMeet || c.lastMessage != null) && (c.isMeet || c.showEntity || c.other != null)).toList();
-    final dmWith = {for (final c in chats) if (!c.isMeet && !c.hasEntity && c.other != null) c.other!.id};
+    // Group and club chats count from the start, like meet chats.
+    final chats = inbox.where((c) => (c.isMulti || c.lastMessage != null) && (c.isMulti || c.showEntity || c.other != null)).toList();
+    final dmWith = {for (final c in chats) if (!c.isMulti && !c.hasEntity && c.other != null) c.other!.id};
     final shownChats = chats.where((c) => _matches(conversationTitle(c, nick), c.other?.username, c.title)).toList();
     final shownFriends = friends.where((f) => !dmWith.contains(f.id) && _matches(f.displayName, f.username, nick[f.id])).toList();
     final nobody = chats.isEmpty && friends.every((f) => dmWith.contains(f.id));
@@ -237,10 +239,12 @@ class _SendSheetState extends ConsumerState<_SendSheet> {
                           if (shownChats.isNotEmpty) const _Section('RECENT CHATS'),
                           for (final c in shownChats)
                             ListTile(
-                              leading: UserAvatar(url: c.avatarUrl, name: c.title, seed: c.other?.id ?? c.id, size: 44),
+                              leading: c.isGroup ? GroupAvatar(conv: c, size: 44) : UserAvatar(url: c.avatarUrl, name: c.title, seed: c.other?.id ?? c.id, size: 44),
                               title: Text(conversationTitle(c, nick), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600)),
                               subtitle: Text(
-                                c.isMeet
+                                c.isGroup
+                                    ? '${c.isClubChat ? 'Club chat' : 'Group'} · ${c.size} ${c.size == 1 ? 'person' : 'people'}'
+                                    : c.isMeet
                                     ? 'Meet chat · ${c.members.length} ${c.members.length == 1 ? 'person' : 'people'}'
                                     : c.showEntity
                                         ? (c.clubId != null ? 'Club chat' : 'Partner chat')

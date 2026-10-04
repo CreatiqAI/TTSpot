@@ -91,7 +91,8 @@ class _SlideActionsState extends State<SlideActions> with SingleTickerProviderSt
             ],
           );
         },
-        child: ColoredBox(color: Theme.of(context).scaffoldBackgroundColor, child: widget.child),
+        // Material, not a coloured box: a ListTile's ink shows on it (and it passes ListTile's debug check).
+        child: Material(color: Theme.of(context).scaffoldBackgroundColor, child: widget.child),
       ),
     );
   }

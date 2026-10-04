@@ -1,4 +1,5 @@
 import '../../auth/domain/profile.dart';
+import 'group_chat.dart';
 import 'voice_wave.dart';
 
 class Message {
@@ -86,10 +87,16 @@ class Conversation {
     this.entityLogo,
     this.mutedAt,
     this.viewAsEntity = false,
+    this.groupName,
+    this.photoUrl,
+    this.createdBy,
+    this.memberCount,
+    this.adminIds = const {},
+    this.selfId,
   });
 
   final String id;
-  final String kind; // dm | meet
+  final String kind; // dm | meet | group (friends) | club (a club's members)
   final String? eventId;
   final String? eventTitle;
   final String? eventCover;
@@ -107,24 +114,49 @@ class Conversation {
   final DateTime? mutedAt;
   /// True when the viewer is the club / partner side of this chat.
   final bool viewAsEntity;
+  /// A friends' group's own name (null = list the members) and picture.
+  /// A club chat has neither: it shows the club's name and logo.
+  final String? groupName;
+  final String? photoUrl;
+  final String? createdBy;
+  /// How many are in it (from the inbox summary; a club chat's [members] isn't loaded).
+  final int? memberCount;
+  /// A friends' group's admins.
+  final Set<String> adminIds;
+  /// The viewer.
+  final String? selfId;
 
   bool get pinned => pinnedAt != null;
   bool get muted => mutedAt != null;
   bool get hasEntity => clubId != null || vendorId != null;
 
   bool get isMeet => kind == 'meet';
+  /// A friends' group chat or a club's members chat.
+  bool get isGroup => kind == 'group' || kind == 'club';
+  bool get isClubChat => kind == 'club';
+  bool get isFriendGroup => kind == 'group';
+  /// Many people in it: sender names on bubbles, "Name: text" in the inbox.
+  bool get isMulti => isMeet || isGroup;
   /// Personal view of a "message the club" chat shows the club; the club's
   /// managers see the person instead.
-  bool get showEntity => !isMeet && hasEntity && !viewAsEntity;
+  bool get showEntity => !isMulti && hasEntity && !viewAsEntity;
   /// A one-to-one chat whose other person has since deleted their account:
   /// only the viewer is left in it.
-  bool get otherGone => !isMeet && !showEntity && other == null;
+  bool get otherGone => !isMulti && !showEntity && other == null;
+  /// Everyone in it but the viewer, in the order they joined.
+  List<Profile> get others => [for (final p in members) if (p.id != selfId) p];
+  int get size => memberCount ?? members.length;
+  bool get amGroupAdmin => isFriendGroup && selfId != null && adminIds.contains(selfId);
   String get title => isMeet
       ? (eventTitle ?? 'Meet chat')
-      : showEntity
-          ? (entityName ?? 'Chat')
-          : otherGone
-              ? 'Deleted account'
-              : (other!.displayName ?? other!.username ?? 'Chat');
-  String? get avatarUrl => showEntity ? entityLogo : other?.avatarUrl;
+      : isClubChat
+          ? (entityName ?? 'Club chat')
+          : isGroup
+              ? ((groupName ?? '').trim().isNotEmpty ? groupName!.trim() : groupAutoName([for (final p in others) shortNameOf(p)]))
+              : showEntity
+                  ? (entityName ?? 'Chat')
+                  : otherGone
+                      ? 'Deleted account'
+                      : (other!.displayName ?? other!.username ?? 'Chat');
+  String? get avatarUrl => isClubChat ? entityLogo : (isGroup ? photoUrl : (showEntity ? entityLogo : other?.avatarUrl));
 }

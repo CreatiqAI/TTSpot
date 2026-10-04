@@ -30,6 +30,7 @@ import '../domain/club.dart';
 import '../domain/post.dart';
 import '../domain/post_place.dart';
 import '../domain/post_video.dart';
+import 'widgets/caption_suggestions.dart';
 import 'widgets/chat_media.dart' show fmtMs;
 import 'widgets/post_place_picker.dart';
 import 'widgets/video_badge.dart';
@@ -516,22 +517,27 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
               const SizedBox(height: 16),
             ],
 
-            TextField(
+            // # suggests tags, @ suggests people, in a row above the keyboard.
+            CaptionAssist(
               controller: _caption,
-              maxLength: 2200,
-              minLines: _kind == PostKind.guide ? 5 : 3,
-              maxLines: 12,
-              textCapitalization: TextCapitalization.sentences,
-              decoration: InputDecoration(
-                labelText: _kind == PostKind.guide ? 'The guide' : 'Caption',
-                hintText: switch (_kind) {
-                  PostKind.post => 'Write a caption…',
-                  PostKind.spotted => 'Where and when? (skip the plate number)',
-                  PostKind.poll => 'Add context (optional)',
-                  PostKind.guide => 'Route, timing, food stops, what to bring…',
-                },
-                alignLabelWithHint: true,
-                counterText: '',
+              child: TextField(
+                controller: _caption,
+                maxLength: 2200,
+                minLines: _kind == PostKind.guide ? 5 : 3,
+                maxLines: 12,
+                textCapitalization: TextCapitalization.sentences,
+                scrollPadding: kCaptionAssistScrollPadding,
+                decoration: InputDecoration(
+                  labelText: _kind == PostKind.guide ? 'The guide' : 'Caption',
+                  hintText: switch (_kind) {
+                    PostKind.post => 'Write a caption… #tags @friends',
+                    PostKind.spotted => 'Where and when? (skip the plate number)',
+                    PostKind.poll => 'Add context (optional)',
+                    PostKind.guide => 'Route, timing, food stops, what to bring…',
+                  },
+                  alignLabelWithHint: true,
+                  counterText: '',
+                ),
               ),
             ),
             const SizedBox(height: 16),

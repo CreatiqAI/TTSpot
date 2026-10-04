@@ -7,6 +7,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/thumb_image.dart';
 import '../../../../core/widgets/user_avatar.dart';
 import '../../domain/post.dart';
+import 'my_post_stats.dart';
 import 'seen_tracker.dart';
 import 'video_badge.dart';
 
@@ -132,7 +133,11 @@ class PostTile extends StatelessWidget {
                         UserAvatar(url: face?.avatarUrl ?? p.author?.avatarUrl, name: face?.name ?? p.author?.displayName ?? p.author?.username, seed: face == null ? p.authorId : null, size: 18),
                         const SizedBox(width: 6),
                         Expanded(
-                          child: Text(face?.name ?? p.author?.username ?? '', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                          // My own posts: how many have seen it, where my name would be.
+                          child: MyViewCount(
+                            post: p,
+                            otherwise: Text(face?.name ?? p.author?.username ?? '', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                          ),
                         ),
                         Icon(feed.likedByMe ? AppIcons.heartFill : AppIcons.heart, size: 14, color: feed.likedByMe ? AppColors.danger : AppColors.textSecondary),
                         const SizedBox(width: 3),

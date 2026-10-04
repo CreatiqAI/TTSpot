@@ -16,6 +16,7 @@ import '../../../safety/data/safety_repository.dart';
 import '../../../safety/presentation/report_sheet.dart';
 import '../../application/comment_providers.dart';
 import '../../domain/comment_thread.dart';
+import '../widgets/rich_caption.dart';
 import 'comments_controller.dart';
 
 /// The comments under a post, Instagram style: each top-level comment with
@@ -282,13 +283,11 @@ class CommentTile extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Plain text for now; the post page's RichCaption takes over the body later.
-                  RichText(
-                    textScaler: MediaQuery.textScalerOf(context),
-                    text: TextSpan(
-                      style: TextStyle(fontSize: 14, color: AppColors.textPrimary, height: 1.4),
-                      children: [TextSpan(text: '${c.handle}  ', style: const TextStyle(fontWeight: FontWeight.w600)), TextSpan(text: c.body)],
-                    ),
+                  // #tags and @mentions in a comment are links, like in captions.
+                  RichCaption(
+                    text: c.body,
+                    style: TextStyle(fontSize: 14, color: AppColors.textPrimary, height: 1.4),
+                    leading: [TextSpan(text: '${c.handle}  ', style: const TextStyle(fontWeight: FontWeight.w600))],
                   ),
                   const SizedBox(height: 3),
                   Wrap(

@@ -11,12 +11,14 @@ import '../../../core/theme/app_art.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../../core/widgets/empty_state.dart';
+import '../application/share_ride.dart';
 import '../application/social_providers.dart';
 import '../domain/post.dart';
 import 'widgets/masonry_grid.dart';
 import 'widgets/not_interested_sheet.dart';
 import 'widgets/post_card.dart';
 import 'widgets/seen_tracker.dart';
+import 'widgets/share_ride_card.dart';
 import '../../../core/widgets/brand_logo.dart';
 import '../../profile/presentation/garage_home_tab.dart';
 
@@ -92,6 +94,7 @@ class _FeedState extends ConsumerState<_Feed> with AutomaticKeepAliveClientMixin
       await ref.read(followingFeedProvider.future);
     } else {
       ref.invalidate(forYouFeedProvider);
+      ref.invalidate(shareRideCarProvider); // posted from the create screen meanwhile?
       await ref.read(forYouFeedProvider.future);
     }
   }
@@ -124,15 +127,19 @@ class _FeedState extends ConsumerState<_Feed> with AutomaticKeepAliveClientMixin
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
-                  child: Row(
+                  // Wrap, not Row: never an overflow with very large text.
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
                     children: [
                       _FeedChip(label: 'For you', selected: !_following, onTap: () => setState(() => _following = false)),
-                      const SizedBox(width: 8),
                       _FeedChip(label: 'Following', selected: _following, onTap: () => setState(() => _following = true)),
                     ],
                   ),
                 ),
               ),
+              // "Share your ride" until my first post (hides itself otherwise).
+              if (!_following) SliverToBoxAdapter(child: ShareRideNudge()), // not const: it reads AppColors
               if (_following) _followingSlivers(forYou.value?.items ?? const []) else _forYouSlivers(forYou),
               // Clear of the floating tab bar.
               SliverToBoxAdapter(child: SizedBox(height: GlassTabBar.clearance(context))),

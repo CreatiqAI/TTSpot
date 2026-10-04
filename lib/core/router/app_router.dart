@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart' show AuthChangeEvent;
 
 import '../geo/latlng.dart';
 import '../../features/admin/presentation/admin_give_points_screen.dart';
+import '../../features/admin/presentation/admin_moderation_screen.dart';
 import '../../features/auth/data/auth_repository.dart';
 import '../../features/auth/presentation/onboarding_screen.dart';
 import '../../features/auth/presentation/welcome_screen.dart';
@@ -123,6 +124,7 @@ abstract final class Routes {
   static const myQr = '/me/qr';
   static const points = '/me/points';
   static const adminReview = '/admin/review';
+  static const adminModeration = '/admin/moderation';
   static const adminPartners = '/admin/partners';
   static const adminCommission = '/admin/commission';
   static const adminPoints = '/admin/points';
@@ -420,6 +422,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: Routes.myQr, pageBuilder: (_, s) => page(s, const MyQrScreen())),
       GoRoute(path: Routes.points, pageBuilder: (_, s) => page(s, const PointsScreen())),
       GoRoute(path: Routes.adminReview, pageBuilder: (_, s) => page(s, const AdminReviewScreen())),
+      GoRoute(path: Routes.adminModeration, pageBuilder: (_, s) => page(s, const AdminModerationScreen())),
       GoRoute(path: Routes.adminPartners, pageBuilder: (_, s) => page(s, const AdminPartnersScreen())),
       GoRoute(path: Routes.adminCommission, pageBuilder: (_, s) => page(s, const AdminCommissionScreen())),
       GoRoute(path: Routes.adminPoints, pageBuilder: (_, s) => page(s, AdminGivePointsScreen(userId: s.uri.queryParameters['user']))),

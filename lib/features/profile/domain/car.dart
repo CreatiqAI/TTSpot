@@ -22,6 +22,7 @@ class Car {
     this.photoOriginals = const {},
     this.toyUrl,
     this.toyStatus,
+    this.toySource,
   });
 
   final String id;
@@ -56,8 +57,12 @@ class Car {
   /// The die-cast toy render of this car (transparent PNG, nose to the lower
   /// left), made from its cover photo; null until the first one is ready.
   final String? toyUrl;
-  /// null (never asked) | 'pending' | 'ready' | 'failed'.
+  /// null (never asked) | 'pending' | 'ready' | 'failed'. Parsed: `car.toy`
+  /// (extension CarToy in car_toy.dart).
   final String? toyStatus;
+  /// The cover photo [toyUrl] was made from; a different cover means the toy
+  /// is stale and a new one is on its way.
+  final String? toySource;
 
   String get title => '$make $model';
   /// Spec line worth showing, or null.
@@ -87,6 +92,7 @@ class Car {
         photoOriginals: parsePhotoOriginals(m['photo_originals']),
         toyUrl: m['toy_url'] as String?,
         toyStatus: m['toy_status'] as String?,
+        toySource: m['toy_source'] as String?,
       );
 }
 

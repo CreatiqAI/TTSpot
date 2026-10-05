@@ -90,7 +90,7 @@ class WelcomeScreen extends StatelessWidget {
                 label: 'Get started',
                 onPressed: () {
                   HapticFeedback.lightImpact();
-                  context.push(Routes.signUp);
+                  context.push(Routes.intro); // two slides, then Create an account
                 },
               ),
               const SizedBox(height: 4),

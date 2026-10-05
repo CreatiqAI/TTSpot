@@ -14,19 +14,21 @@ import '../../../core/utils/friendly_error.dart';
 import '../../../core/widgets/primary_button.dart';
 import '../application/auth_controller.dart';
 import '../data/auth_repository.dart';
+import 'widgets/dark_auth.dart';
 
 enum _Mode { signIn, signUp }
 
-/// Log in and Sign up: one route (`/sign-in`, and `/sign-in?mode=signup` from
-/// the welcome screen's Get started) with two looks. Log in is light and quick:
-/// "Welcome back", TiTi waving, two fields. Sign up is a dark "Join the crew"
-/// card with TiTi celebrating and what you get, then the form with a
-/// password strength hint. Switching cross-fades from one to the other.
+/// Sign in and Create an account: one route (`/sign-in`, and
+/// `/sign-in?mode=signup` from the intro slides) with two sets of copy on
+/// the same dark page (SignIn.dc.html): the logo top left, TiTi sitting on
+/// the panel's edge, never under it, and the panel with the form. On open
+/// the panel slides up and fades in, then TiTi rises after it; nothing loops.
+/// With the keyboard up the top shrinks to the logo and the panel scrolls.
 ///
 /// The two fields sit in an [AutofillGroup], so iCloud Keychain (Face ID on
 /// iPhone, tied to ttspot.my through the webcredentials associated domain)
 /// and Google Password Manager suggest saved logins, and offer to save one
-/// after a log in or sign up that worked. A failed attempt is never offered.
+/// after a sign in or sign up that worked. A failed attempt is never offered.
 class SignInScreen extends ConsumerStatefulWidget {
   const SignInScreen({super.key, this.signUp = false});
   final bool signUp;
@@ -35,7 +37,7 @@ class SignInScreen extends ConsumerStatefulWidget {
   ConsumerState<SignInScreen> createState() => _SignInScreenState();
 }
 
-class _SignInScreenState extends ConsumerState<SignInScreen> {
+class _SignInScreenState extends ConsumerState<SignInScreen> with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _email = TextEditingController();
   final _password = TextEditingController();
@@ -43,10 +45,17 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
   bool _showPassword = false;
   bool _validate = false;
 
+  /// Entrance: panel 0–600 ms, TiTi 200–900 ms.
+  late final AnimationController _enter = AnimationController(vsync: this, duration: const Duration(milliseconds: 900));
+  late final Animation<double> _panelIn = CurvedAnimation(parent: _enter, curve: const Interval(0, 600 / 900, curve: Curves.easeOutCubic));
+  late final Animation<double> _titiIn = CurvedAnimation(parent: _enter, curve: const Interval(200 / 900, 1, curve: Curves.easeOutCubic));
+  bool _entered = false;
+
   bool get _isSignUp => _mode == _Mode.signUp;
 
   @override
   void dispose() {
+    _enter.dispose();
     _email.dispose();
     _password.dispose();
     super.dispose();
@@ -152,12 +161,22 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
         _snack(friendlyError(e));
       }
     });
+    if (!_entered) {
+      _entered = true;
+      if (MediaQuery.disableAnimationsOf(context)) {
+        _enter.value = 1;
+      } else {
+        _enter.forward();
+      }
+    }
     final busy = ref.watch(authControllerProvider).isLoading;
     final signUp = _isSignUp;
     final canPop = context.canPop();
+    final keyboard = MediaQuery.viewInsetsOf(context).bottom > 0;
 
     final emailField = TextFormField(
       controller: _email,
+      style: const TextStyle(fontSize: 16, color: Colors.white),
       keyboardType: TextInputType.emailAddress,
       autocorrect: false,
       enableSuggestions: false,
@@ -174,6 +193,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
     );
     final passwordField = TextFormField(
       controller: _password,
+      style: const TextStyle(fontSize: 16, color: Colors.white),
       obscureText: !_showPassword,
       autocorrect: false,
       enableSuggestions: false,
@@ -195,141 +215,185 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
       },
     );
 
-    return Scaffold(
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Back to the welcome screen.
-            if (canPop)
-              Align(
-                alignment: Alignment.centerLeft,
-                child: IconButton(
-                  tooltip: 'Back',
-                  icon: const Icon(AppIcons.arrowLeft),
-                  onPressed: busy ? null : () => context.pop(),
-                ),
-              ),
-            Expanded(
-              child: Center(
-                child: SingleChildScrollView(
-                  padding: EdgeInsets.fromLTRB(24, canPop ? 4 : 24, 24, 24),
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 420),
-                    child: Form(
-                      key: _formKey,
-                      autovalidateMode: _validate ? AutovalidateMode.always : AutovalidateMode.disabled,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          _ModeSwitch(
-                            signUp: signUp,
-                            child: signUp ? _JoinHeader() : _WelcomeBackHeader(),
-                          ),
-                          SizedBox(height: signUp ? 20 : 24),
+    final bottomPad = MediaQuery.paddingOf(context).bottom;
 
-                          // A fresh group per mode: switching drops a half-typed
-                          // context instead of carrying it into the other form.
-                          AutofillGroup(
-                            key: ValueKey(_mode),
-                            onDisposeAction: AutofillContextAction.cancel,
+    return AuthPage(
+      child: SafeArea(
+        bottom: false,
+        child: LayoutBuilder(
+          builder: (context, c) {
+            // The top holds the logo and TiTi: about a third of the page,
+            // just the logo while the keyboard is up, so fields never hide.
+            final topH = keyboard ? 64.0 : (c.maxHeight * 0.34).clamp(168.0, 290.0);
+            final titiH = (topH - 60).clamp(0.0, 180.0);
+            return Column(
+              children: [
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeOutCubic,
+                  height: topH,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      if (canPop)
+                        Positioned(
+                          left: 4,
+                          top: 0,
+                          child: AuthIconButton(icon: AppIcons.arrowLeft, tooltip: 'Back', onPressed: busy ? null : () => context.pop()),
+                        ),
+                      Positioned(
+                        left: 24,
+                        top: canPop ? 44 : 16,
+                        child: Image.asset('assets/brand/logo_dark.png', height: keyboard ? 36 : 64, filterQuality: FilterQuality.medium),
+                      ),
+                      if (!keyboard && titiH >= 88)
+                        Positioned(
+                          right: 24,
+                          bottom: 6,
+                          child: FadeTransition(
+                            opacity: _titiIn,
+                            child: AnimatedBuilder(
+                              animation: _titiIn,
+                              builder: (_, child) => Transform.translate(offset: Offset(0, 60 * (1 - _titiIn.value)), child: child),
+                              child: _ModeSwitch(
+                                signUp: signUp,
+                                child: Titi(signUp ? TitiPose.celebrate : TitiPose.wave, height: titiH),
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: FadeTransition(
+                    opacity: _panelIn,
+                    child: AnimatedBuilder(
+                      animation: _panelIn,
+                      builder: (_, child) => Transform.translate(offset: Offset(0, 60 * (1 - _panelIn.value)), child: child),
+                      child: AuthPanel(
+                        padding: EdgeInsets.zero,
+                        child: SingleChildScrollView(
+                          padding: EdgeInsets.fromLTRB(24, 26, 24, 24 + bottomPad),
+                          child: Form(
+                            key: _formKey,
+                            autovalidateMode: _validate ? AutovalidateMode.always : AutovalidateMode.disabled,
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [emailField, const SizedBox(height: 12), passwordField],
-                            ),
-                          ),
+                              children: [
+                                _ModeSwitch(
+                                  signUp: signUp,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(signUp ? 'CREATE YOUR ACCOUNT' : 'WELCOME BACK', style: AuthDark.display(38)),
+                                      const SizedBox(height: 10),
+                                      Text(
+                                        signUp ? 'Free. Two minutes to join.' : 'Sign in and pick up where you parked.',
+                                        style: TextStyle(fontSize: 15, color: AuthDark.text, height: 1.35),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 18),
 
-                          _ModeSwitch(
-                            signUp: signUp,
-                            child: signUp
-                                ? Padding(
-                                    padding: const EdgeInsets.only(top: 10),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                                      children: [
-                                        _StrengthHint(_password),
-                                        const SizedBox(height: 10),
-                                        Text(
-                                          'We email you a 6-digit code to confirm. Next: your name, phone number and the Terms.',
-                                          style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary, height: 1.4),
+                                // A fresh group per mode: switching drops a half-typed
+                                // context instead of carrying it into the other form.
+                                AutofillGroup(
+                                  key: ValueKey(_mode),
+                                  onDisposeAction: AutofillContextAction.cancel,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                                    children: [emailField, const SizedBox(height: 10), passwordField],
+                                  ),
+                                ),
+
+                                _ModeSwitch(
+                                  signUp: signUp,
+                                  child: signUp
+                                      ? Padding(
+                                          padding: const EdgeInsets.only(top: 12),
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                                            children: [
+                                              _StrengthHint(_password),
+                                              const SizedBox(height: 10),
+                                              Text(
+                                                'We email you a 6-digit code to confirm. Next: your name, phone number and the Terms.',
+                                                style: TextStyle(fontSize: 12.5, color: AuthDark.text, height: 1.4),
+                                              ),
+                                            ],
+                                          ),
+                                        )
+                                      : Align(
+                                          alignment: Alignment.centerRight,
+                                          child: TextButton(
+                                            onPressed: busy ? null : _forgotPassword,
+                                            style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6), visualDensity: VisualDensity.compact),
+                                            child: const Text('Forgot password?', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                                          ),
                                         ),
-                                      ],
-                                    ),
-                                  )
-                                : Align(
-                                    alignment: Alignment.centerRight,
-                                    child: TextButton(
-                                      onPressed: busy ? null : _forgotPassword,
-                                      style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 4), visualDensity: VisualDensity.compact),
-                                      child: const Text('Forgot password?', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                                ),
+                                SizedBox(height: signUp ? 18 : 6),
+
+                                AuthPill(label: signUp ? 'Sign up' : 'Sign in', loading: busy, onPressed: _submit),
+
+                                // Sign in with Apple, iPhone only.
+                                if (defaultTargetPlatform == TargetPlatform.iOS) ...[
+                                  const SizedBox(height: 6),
+                                  const AuthOr(),
+                                  const SizedBox(height: 6),
+                                  SignInWithAppleButton(
+                                    height: 56,
+                                    text: signUp ? 'Sign up with Apple' : 'Sign in with Apple',
+                                    style: SignInWithAppleButtonStyle.white,
+                                    borderRadius: const BorderRadius.all(Radius.circular(28)),
+                                    onPressed: busy ? () {} : () => ref.read(authControllerProvider.notifier).signInWithApple(),
+                                  ),
+                                ],
+
+                                const SizedBox(height: 14),
+                                TextButton(
+                                  onPressed: busy ? null : _toggleMode,
+                                  // One fades out, then the other in: overlapping lines read as a jumble.
+                                  child: AnimatedSwitcher(
+                                    duration: const Duration(milliseconds: 260),
+                                    switchInCurve: const Interval(0.5, 1, curve: Curves.easeOut),
+                                    switchOutCurve: const Interval(0.5, 1, curve: Curves.easeIn),
+                                    child: Text.rich(
+                                      key: ValueKey(signUp),
+                                      textAlign: TextAlign.center,
+                                      TextSpan(
+                                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w400, color: AuthDark.text),
+                                        children: [
+                                          TextSpan(text: signUp ? 'Have an account? ' : 'New to TT Spot? '),
+                                          TextSpan(
+                                            text: signUp ? 'Sign in' : 'Create an account',
+                                            style: const TextStyle(color: AuthDark.link, fontWeight: FontWeight.w700),
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   ),
-                          ),
-                          SizedBox(height: signUp ? 20 : 12),
-
-                          PrimaryButton(
-                            label: signUp ? 'Sign up' : 'Log in',
-                            loading: busy,
-                            onPressed: _submit,
-                          ),
-
-                          // Sign in with Apple, iPhone only.
-                          if (defaultTargetPlatform == TargetPlatform.iOS) ...[
-                            const SizedBox(height: 24),
-                            _OrDivider(),
-                            const SizedBox(height: 18),
-                            SignInWithAppleButton(
-                              height: 48,
-                              text: signUp ? 'Sign up with Apple' : 'Sign in with Apple',
-                              style: Theme.of(context).brightness == Brightness.dark ? SignInWithAppleButtonStyle.white : SignInWithAppleButtonStyle.black,
-                              borderRadius: const BorderRadius.all(Radius.circular(12)),
-                              onPressed: busy ? () {} : () => ref.read(authControllerProvider.notifier).signInWithApple(),
+                                ),
+                              ],
                             ),
-                            const SizedBox(height: 8),
-                          ],
-                        ],
+                          ),
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-            ),
-
-            // Pinned switch row
-            const Divider(height: 1),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-              child: TextButton(
-                onPressed: busy ? null : _toggleMode,
-                // One fades out, then the other in: overlapping lines read as a jumble.
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 260),
-                  switchInCurve: const Interval(0.5, 1, curve: Curves.easeOut),
-                  switchOutCurve: const Interval(0.5, 1, curve: Curves.easeIn),
-                  child: Text.rich(
-                    key: ValueKey(signUp),
-                    textAlign: TextAlign.center,
-                    TextSpan(
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w400, color: AppColors.textSecondary),
-                      children: [
-                        TextSpan(text: signUp ? 'Have an account? ' : 'New to TT Spot? '),
-                        TextSpan(
-                          text: signUp ? 'Log in.' : 'Create an account',
-                          style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
+              ],
+            );
+          },
         ),
       ),
     );
   }
 }
 
-/// Cross-fades a block between its Log in and Sign up versions, with a small
+/// Cross-fades a block between its Sign in and Sign up versions, with a small
 /// rise, and eases the height change so the page below glides.
 class _ModeSwitch extends StatelessWidget {
   const _ModeSwitch({required this.signUp, required this.child});
@@ -364,142 +428,6 @@ class _ModeSwitch extends StatelessWidget {
       );
 }
 
-TextStyle _display(double size, Color color) =>
-    TextStyle(fontFamily: AppFonts.display, fontSize: size, height: 0.95, fontWeight: FontWeight.w800, letterSpacing: -0.5, color: color);
-
-/// TiTi's size for a header: a third of the row, within bounds, so the
-/// headline keeps room on a small phone. Square, so nothing moves when the
-/// art finishes loading.
-double _titiSize(double width, double max) => (width * 0.36).clamp(88.0, max);
-
-/// Log in: light and quick. TiTi waves you back in.
-class _WelcomeBackHeader extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) => LayoutBuilder(
-        builder: (context, c) {
-          final titi = _titiSize(c.maxWidth, 136);
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerLeft,
-                        child: Text.rich(
-                          TextSpan(
-                            style: _display(54, AppColors.textPrimary),
-                            children: const [
-                              TextSpan(text: 'WELCOME\n'),
-                              TextSpan(text: 'BACK.', style: TextStyle(color: AppColors.brand)),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Text('Good to see you again.', style: TextStyle(fontSize: 15, color: AppColors.textSecondary, height: 1.35)),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              SizedBox.square(dimension: titi, child: Titi(TitiPose.wave, height: titi)),
-            ],
-          );
-        },
-      );
-}
-
-/// Sign up: a dark card, TiTi celebrating, and what joining gets you.
-class _JoinHeader extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    // Ink on the white page; on the dark page ink would vanish, so raised grey.
-    final card = AppColors.dark ? AppColors.surfaceGray : AppColors.ink;
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 14, 10, 18),
-      decoration: BoxDecoration(color: card, borderRadius: BorderRadius.circular(24)),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          LayoutBuilder(
-            builder: (context, c) {
-              final titi = _titiSize(c.maxWidth, 124);
-              return Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: Alignment.centerLeft,
-                          child: Text.rich(
-                            TextSpan(
-                              style: _display(48, Colors.white),
-                              children: const [
-                                TextSpan(text: 'JOIN THE\n'),
-                                TextSpan(text: 'CREW.', style: TextStyle(color: AppColors.brand)),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Free. Two minutes to join.',
-                          style: TextStyle(fontSize: 14, color: Colors.white.withValues(alpha: 0.72), height: 1.35),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  SizedBox.square(dimension: titi, child: Titi(TitiPose.celebrate, height: titi)),
-                ],
-              );
-            },
-          ),
-          const SizedBox(height: 14),
-          Divider(height: 1, thickness: 1, color: Colors.white.withValues(alpha: 0.12)),
-          const SizedBox(height: 14),
-          const _Perk(AppIcons.usersThree, 'See your friends on the map'),
-          const SizedBox(height: 10),
-          const _Perk(AppIcons.coffee, 'Find meets and car cafés'),
-          const SizedBox(height: 10),
-          const _Perk(AppIcons.trafficCone, 'Collect TiTi cards'),
-        ],
-      ),
-    );
-  }
-}
-
-/// One line of what you get: a red dot with an icon, then the words.
-class _Perk extends StatelessWidget {
-  const _Perk(this.icon, this.text);
-  final IconData icon;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) => Row(
-        children: [
-          Container(
-            width: 30,
-            height: 30,
-            alignment: Alignment.center,
-            decoration: const BoxDecoration(color: AppColors.brand, shape: BoxShape.circle),
-            child: Icon(icon, size: 17, color: Colors.white),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(text, style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, color: Colors.white, height: 1.3)),
-          ),
-        ],
-      );
-}
-
 enum _Strength { empty, tooShort, weak, okay, strong }
 
 /// Rough strength: length first, then how many kinds of character (lower,
@@ -524,13 +452,13 @@ class _StrengthHint extends StatelessWidget {
         builder: (context, value, _) {
           final s = _strengthOf(value.text);
           final (bars, color, label) = switch (s) {
-            _Strength.empty => (0, AppColors.textMuted, 'At least 6 characters. Longer is stronger.'),
-            _Strength.tooShort => (1, AppColors.danger, 'Too short. Use at least 6 characters.'),
-            _Strength.weak => (1, AppColors.danger, 'Weak. Make it longer, or mix in numbers and symbols.'),
-            _Strength.okay => (2, AppColors.textPrimary, 'Okay. A few more characters make it strong.'),
-            _Strength.strong => (3, AppColors.success, 'Strong password.'),
+            _Strength.empty => (0, AuthDark.text2, 'At least 6 characters. Longer is stronger.'),
+            _Strength.tooShort => (1, AuthDark.error, 'Too short. Use at least 6 characters.'),
+            _Strength.weak => (1, AuthDark.error, 'Weak. Make it longer, or mix in numbers and symbols.'),
+            _Strength.okay => (2, Colors.white, 'Okay. A few more characters make it strong.'),
+            _Strength.strong => (3, const Color(0xFF3DDC84), 'Strong password.'),
           };
-          final textColor = s == _Strength.empty || s == _Strength.okay ? AppColors.textSecondary : color;
+          final textColor = s == _Strength.empty || s == _Strength.okay ? AuthDark.text : color;
           return Row(
             children: [
               for (var i = 0; i < 3; i++) ...[
@@ -538,7 +466,7 @@ class _StrengthHint extends StatelessWidget {
                   duration: const Duration(milliseconds: 180),
                   width: 22,
                   height: 4,
-                  decoration: BoxDecoration(color: i < bars ? color : AppColors.border, borderRadius: BorderRadius.circular(2)),
+                  decoration: BoxDecoration(color: i < bars ? color : AuthDark.edge, borderRadius: BorderRadius.circular(2)),
                 ),
                 const SizedBox(width: 4),
               ],
@@ -550,18 +478,4 @@ class _StrengthHint extends StatelessWidget {
           );
         },
       );
-}
-
-class _OrDivider extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Row(children: [
-      const Expanded(child: Divider()),
-      Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Text('OR', style: TextStyle(color: AppColors.textSecondary, fontSize: 13, fontWeight: FontWeight.w600)),
-      ),
-      const Expanded(child: Divider()),
-    ]);
-  }
 }

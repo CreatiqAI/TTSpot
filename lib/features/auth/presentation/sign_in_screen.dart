@@ -241,9 +241,10 @@ class _SignInScreenState extends ConsumerState<SignInScreen> with SingleTickerPr
                           top: 0,
                           child: AuthIconButton(icon: AppIcons.arrowLeft, tooltip: 'Back', onPressed: busy ? null : () => context.pop()),
                         ),
+                      // With the keyboard up the logo sits beside the back arrow.
                       Positioned(
-                        left: 24,
-                        top: canPop ? 44 : 16,
+                        left: keyboard ? (canPop ? 60 : 24) : 24,
+                        top: keyboard ? 12 : (canPop ? 44 : 16),
                         child: Image.asset('assets/brand/logo_dark.png', height: keyboard ? 36 : 64, filterQuality: FilterQuality.medium),
                       ),
                       if (!keyboard && titiH >= 88)

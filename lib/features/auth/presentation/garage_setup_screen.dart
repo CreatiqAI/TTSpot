@@ -30,6 +30,7 @@ class GarageSetupScreen extends StatefulWidget {
     this.minTime = const Duration(milliseconds: 3500),
     this.cap = const Duration(seconds: 12),
     this.afterToy = const Duration(milliseconds: 1200),
+    this.imageWait = const Duration(milliseconds: 2500),
     this.imageFor,
   });
 
@@ -43,6 +44,9 @@ class GarageSetupScreen extends StatefulWidget {
   final Duration cap;
   /// How long the toy stays on screen once revealed.
   final Duration afterToy;
+  /// How long a picture may take to load before its reveal starts anyway
+  /// (the reveal sweeping over nothing looks broken). Zero skips the wait.
+  final Duration imageWait;
   /// Image provider for a URL; tests inject one that needs no network.
   final ImageProvider Function(String url)? imageFor;
 
@@ -75,11 +79,13 @@ class _GarageSetupScreenState extends State<GarageSetupScreen> with TickerProvid
         _minPassed = true;
         if (_finishAsked) _finish();
       });
-      _progress.forward();
-      _reveal.forward();
       if (widget.car.toyUrl != null) {
+        // Already made: no waiting, but the lines still light in turn.
         _toyArrived(widget.car.toyUrl!);
       } else {
+        _progress.forward();
+        final first = widget.car.cutoutUrl ?? widget.car.photoCover ?? widget.car.portraitUrl;
+        WidgetsBinding.instance.addPostFrameCallback((_) => _revealWhenLoaded(first));
         _pollTimer = Timer.periodic(widget.poll, (_) => _read());
         _capTimer = Timer(widget.cap, _finish);
       }
@@ -118,16 +124,42 @@ class _GarageSetupScreenState extends State<GarageSetupScreen> with TickerProvid
     }
   }
 
+  /// Starts the left-to-right reveal once [url]'s picture is decoded (or
+  /// after [GarageSetupScreen.imageWait], whichever comes first).
+  Future<void> _revealWhenLoaded(String? url) async {
+    if (url != null && widget.imageWait > Duration.zero && mounted) {
+      try {
+        await precacheImage(_provider(url), context).timeout(widget.imageWait);
+      } catch (_) {/* reveal whatever there is */}
+    }
+    if (mounted && !_done) _reveal.forward(from: 0);
+  }
+
+  bool _toyHandled = false;
+
   void _toyArrived(String url) {
-    if (_done) return;
+    if (_done || _toyHandled) return;
+    _toyHandled = true;
     _pollTimer?.cancel();
     _capTimer?.cancel();
-    setState(() => _toyUrl = url);
-    _progress.animateTo(1, duration: const Duration(milliseconds: 600), curve: Curves.easeOutCubic);
-    _reveal
-      ..duration = const Duration(milliseconds: 1000)
-      ..forward(from: 0);
-    _doneTimer = Timer(const Duration(milliseconds: 1000) + widget.afterToy, _finish);
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted || _done) return;
+      if (widget.imageWait > Duration.zero) {
+        try {
+          await precacheImage(_provider(url), context).timeout(widget.imageWait);
+        } catch (_) {/* show it anyway */}
+      }
+      if (!mounted || _done) return;
+      setState(() => _toyUrl = url);
+      const reveal = Duration(milliseconds: 1000);
+      // The bar fills and the three lines light in turn while the toy is
+      // revealed and held.
+      _progress.animateTo(1, duration: reveal + widget.afterToy, curve: Curves.linear);
+      _reveal
+        ..duration = reveal
+        ..forward(from: 0);
+      _doneTimer = Timer(reveal + widget.afterToy, _finish);
+    });
   }
 
   /// Once, and never before [minTime] (the minimum timer calls back here).
@@ -203,10 +235,20 @@ class _GarageSetupScreenState extends State<GarageSetupScreen> with TickerProvid
                             top: imgH - 20,
                             width: imgW * 0.84,
                             height: 30,
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.all(Radius.elliptical(imgW * 0.42, 15)),
-                                gradient: RadialGradient(colors: [Colors.black.withValues(alpha: 0.95), Colors.transparent], stops: const [0, 0.7]),
+                            // A circle of shade stretched into a wide ellipse.
+                            child: Transform(
+                              alignment: Alignment.center,
+                              transform: Matrix4.diagonal3Values(imgW * 0.84 / 30, 1, 1),
+                              child: Center(
+                                child: SizedBox.square(
+                                  dimension: 30,
+                                  child: DecoratedBox(
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      gradient: RadialGradient(colors: [Colors.black.withValues(alpha: 0.95), Colors.transparent], stops: const [0, 1]),
+                                    ),
+                                  ),
+                                ),
                               ),
                             ),
                           ),
@@ -252,10 +294,12 @@ class _GarageSetupScreenState extends State<GarageSetupScreen> with TickerProvid
                                   child: Stack(
                                     children: [
                                       Positioned.fill(child: ColoredBox(color: Colors.white.withValues(alpha: 0.14))),
-                                      FractionallySizedBox(
-                                        alignment: Alignment.centerLeft,
-                                        widthFactor: 0.04 + 0.96 * p,
-                                        child: const ColoredBox(color: AppColors.brand),
+                                      Positioned.fill(
+                                        child: FractionallySizedBox(
+                                          alignment: Alignment.centerLeft,
+                                          widthFactor: 0.04 + 0.96 * p,
+                                          child: const ColoredBox(color: AppColors.brand),
+                                        ),
                                       ),
                                     ],
                                   ),

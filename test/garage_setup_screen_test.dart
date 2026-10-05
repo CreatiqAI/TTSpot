@@ -51,6 +51,7 @@ void main() {
         cap: cap,
         poll: poll,
         afterToy: const Duration(milliseconds: 1200),
+        imageWait: Duration.zero,
         imageFor: (_) => MemoryImage(png),
       ),
     ));

@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Intro: meets</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+button{font-family:inherit;cursor:pointer}
+@keyframes cardloop{0%{opacity:0;transform:translateY(26px) scale(.96)}10%,86%{opacity:1;transform:none}100%{opacity:0;transform:translateY(-10px)} }
+@keyframes glow{0%,100%{box-shadow:0 0 22px rgba(224,0,8,.45)}50%{box-shadow:0 0 40px rgba(224,0,8,.85)} }
+@keyframes live{0%,100%{opacity:1}50%{opacity:.3} }
+.disp{font-family:'Barlow Condensed',system-ui,sans-serif;font-weight:800;text-transform:uppercase}
+.cta{display:flex;align-items:center;justify-content:center;height:56px;border-radius:28px;border:0;background:#E00008;color:#fff;font-size:17px;font-weight:700;width:100%;animation:glow 3s ease-in-out infinite}
+.card{display:flex;align-items:center;gap:14px;padding:16px 18px;border-radius:22px;background:linear-gradient(135deg,rgba(255,255,255,.13),rgba(255,255,255,.04));border:1px solid rgba(255,255,255,.16);animation:cardloop 6s ease-out infinite both}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; background: radial-gradient(ellipse 90% 40% at 50% 28%, #1B1D24 0%, #07080B 70%); color: #fff; font-family: system-ui, sans-serif">
+<div style="position: absolute; left: 24px; right: 24px; top: 150px; display: flex; flex-direction: column; gap: 12px">
+<div class="card">
+<img src="/_blob/be68e9a91d95119fb48bf5aa710a5a26" alt="" style="width: 54px; height: 54px; border-radius: 14px; object-fit: cover">
+<div style="flex-grow: 1; display: flex; flex-direction: column; gap: 3px">
+<div style="font-size: 17px; font-weight: 700">TT at the mamak</div>
+<div style="font-size: 13px; color: rgba(255,255,255,.72)">Tonight, 9:30 PM · Bukit Jalil</div>
+</div>
+<div style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 800; letter-spacing: 1px; color: #FF4B50"><span style="width: 8px; height: 8px; border-radius: 50%; background: #FF4B50; animation: live 1.2s ease-in-out infinite"></span>LIVE</div>
+</div>
+<div class="card" style="animation-delay: .25s">
+<img src="/_blob/1ff47b6e5f0e04d6f251266f98007630" alt="" style="width: 54px; height: 54px; border-radius: 14px; object-fit: cover">
+<div style="flex-grow: 1; display: flex; flex-direction: column; gap: 3px">
+<div style="font-size: 17px; font-weight: 700">Sunrise convoy</div>
+<div style="font-size: 13px; color: rgba(255,255,255,.72)">Saturday, 6:00 AM · Genting</div>
+</div>
+<div class="disp" style="font-size: 26px; color: #FFB648; text-align: right; line-height: 22px">18<div style="font-family: system-ui, sans-serif; font-size: 10px; font-weight: 600; letter-spacing: 1px; color: rgba(255,255,255,.72)">GOING</div></div>
+</div>
+<div class="card" style="animation-delay: .5s">
+<div style="width: 54px; height: 54px; border-radius: 14px; background: #14161C; display: flex; align-items: center; justify-content: center">
+<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#5CC8FF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.2 7-11.5A7 7 0 0 0 5 9.500C5 14.800 12 21 12 21z"></path><circle cx="12" cy="9.500" r="2.500"></circle></svg>
+</div>
+<div style="flex-grow: 1; display: flex; flex-direction: column; gap: 3px">
+<div style="font-size: 17px; font-weight: 700">New spot nearby</div>
+<div style="font-size: 13px; color: rgba(255,255,255,.72)">Car cafe · 2.4 km from you</div>
+</div>
+<div class="disp" style="font-size: 26px; color: #5CC8FF; text-align: right; line-height: 22px">+20<div style="font-family: system-ui, sans-serif; font-size: 10px; font-weight: 600; letter-spacing: 1px; color: rgba(255,255,255,.72)">POINTS</div></div>
+</div>
+</div>
+<div style="position: absolute; left: 32px; right: 32px; top: 500px; text-align: center; display: flex; flex-direction: column; gap: 10px">
+<div class="disp" style="font-size: 40px; line-height: 40px">Never miss a meet</div>
+<div style="font-size: 16px; line-height: 23px; color: rgba(255,255,255,.74)">Tonight's TT, weekend convoys and new spots, all on one map.</div>
+</div>
+<div style="position: absolute; left: 24px; right: 24px; bottom: 34px; display: flex; flex-direction: column; align-items: center; gap: 22px">
+<div style="display: flex; gap: 8px; align-items: center">
+<span style="width: 26px; height: 8px; border-radius: 4px; background: #fff"></span>
+<span style="width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,.3)"></span>
+<span style="width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,.3)"></span>
+</div>
+<button class="cta">Continue</button>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

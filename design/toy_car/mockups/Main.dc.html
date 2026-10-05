@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Garage with toy cars</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+button{font-family:inherit;cursor:pointer}
+.disp{font-family:'Barlow Condensed',system-ui,sans-serif;font-weight:800;text-transform:uppercase}
+.toy{position:absolute;left:25px;top:86px;width:300px;height:168px;object-fit:contain;transition:opacity .4s ease,transform .5s cubic-bezier(.2,.9,.2,1)}
+.thumb{height:72px;border-radius:20px;background:#111318;display:flex;align-items:center;justify-content:center;padding:0;transition:border-color .3s ease}
+.thumb img{width:64px;height:40px;object-fit:contain}
+.stat{display:flex;flex-direction:column;align-items:center;gap:2px}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; background: #07080B; color: #fff; font-family: system-ui, sans-serif">
+<div style="position: absolute; left: 20px; right: 20px; top: 64px; display: flex; align-items: center; justify-content: space-between">
+<div class="disp" style="font-size: 34px; line-height: 34px">My garage</div>
+<button aria-label="Add a car" style="width: 44px; height: 44px; border-radius: 50%; border: 1px solid rgba(255,255,255,.18); background: rgba(255,255,255,.08); color: #fff; display: flex; align-items: center; justify-content: center">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.400" stroke-linecap="round"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>
+</button>
+</div>
+<div style="position: absolute; left: 20px; right: 20px; top: 124px; height: 316px; border-radius: 28px; overflow: hidden; border: 1px solid rgba(255,255,255,.12); background: radial-gradient(ellipse 90% 55% at 50% 58%, #262932 0%, #111318 78%)">
+<div style="position: absolute; left: 20px; top: 18px; display: flex; flex-direction: column; gap: 2px">
+<div style="font-size: 12px; font-weight: 700; letter-spacing: 1.500px; color: rgba(255,255,255,.72)">{{make}}</div>
+<div class="disp" style="font-size: 30px; line-height: 30px">{{name}}</div>
+</div>
+<sc-if value="{{isDaily}}" hint-placeholder-val="{{ true }}">
+<div style="position: absolute; right: 16px; top: 18px; padding: 6px 12px; border-radius: 14px; background: #E00008; font-size: 11px; font-weight: 800; letter-spacing: 1px">TODAY'S CAR</div>
+</sc-if>
+<div style="position: absolute; left: 45px; top: 226px; width: 260px; height: 34px; border-radius: 50%; background: radial-gradient(ellipse, rgba(0,0,0,.95), transparent 70%)"></div>
+<img class="toy" src="/_blob/98c13e19f0e9284a64fd4dee89365f3f" alt="Toyota Estima toy car" style="opacity: {{o0}}; transform: scale({{s0}})">
+<img class="toy" src="/_blob/20b6446b4364b5acfd9c5e28ac9a8e39" alt="Honda Civic toy car" style="opacity: {{o1}}; transform: scale({{s1}})">
+<img class="toy" src="/_blob/5594238b801fb07ed1d59d705cc03f76" alt="Perodua Myvi toy car" style="opacity: {{o2}}; transform: scale({{s2}})">
+<img class="toy" src="/_blob/07f14827afd99141ff7b5166e6df4df0" alt="Sports coupe toy car" style="opacity: {{o3}}; transform: scale({{s3}})">
+<div style="position: absolute; left: 20px; right: 20px; bottom: 16px; display: flex; align-items: center; gap: 10px; font-size: 13px; color: rgba(255,255,255,.74)">
+<span style="width: 16px; height: 16px; border-radius: 50%; border: 2px solid rgba(255,255,255,.5); background: {{colour}}"></span>
+{{colourName}}, matched from your photo
+</div>
+</div>
+<div style="position: absolute; left: 20px; right: 20px; top: 454px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px">
+<button class="thumb" aria-label="Toyota Estima" onClick="{{pick0}}" style="border: 2px solid {{b0}}"><img src="/_blob/98c13e19f0e9284a64fd4dee89365f3f" alt=""></button>
+<button class="thumb" aria-label="Honda Civic" onClick="{{pick1}}" style="border: 2px solid {{b1}}"><img src="/_blob/20b6446b4364b5acfd9c5e28ac9a8e39" alt=""></button>
+<button class="thumb" aria-label="Perodua Myvi" onClick="{{pick2}}" style="border: 2px solid {{b2}}"><img src="/_blob/5594238b801fb07ed1d59d705cc03f76" alt=""></button>
+<button class="thumb" aria-label="Sports coupe" onClick="{{pick3}}" style="border: 2px solid {{b3}}"><img src="/_blob/07f14827afd99141ff7b5166e6df4df0" alt=""></button>
+</div>
+<div style="position: absolute; left: 20px; right: 20px; top: 542px; display: flex; flex-direction: column; gap: 12px">
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 14px 0; border-radius: 22px; background: #111318; border: 1px solid rgba(255,255,255,.12)">
+<div class="stat"><div class="disp" style="font-size: 28px; line-height: 28px">3</div><div style="font-size: 12px; color: rgba(255,255,255,.72)">Mods</div></div>
+<div class="stat"><div class="disp" style="font-size: 28px; line-height: 28px">12</div><div style="font-size: 12px; color: rgba(255,255,255,.72)">Meets</div></div>
+<div class="stat"><div class="disp" style="font-size: 28px; line-height: 28px">5</div><div style="font-size: 12px; color: rgba(255,255,255,.72)">Posts</div></div>
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+<button style="height: 52px; border-radius: 26px; border: 0; background: #fff; color: #07080B; font-size: 16px; font-weight: 700">Open car</button>
+<button style="height: 52px; border-radius: 26px; border: 1px solid rgba(255,255,255,.2); background: rgba(255,255,255,.08); color: #fff; font-size: 16px; font-weight: 700">Edit</button>
+</div>
+<div style="display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-radius: 20px; background: #111318; border: 1px solid rgba(255,255,255,.12)">
+<div style="width: 10px; height: 10px; border-radius: 50%; background: #FFB648"></div>
+<div style="flex-grow: 1; display: flex; flex-direction: column; gap: 2px"><div style="font-size: 15px; font-weight: 700">Road tax</div><div style="font-size: 13px; color: rgba(255,255,255,.72)">Renew in 21 days</div></div>
+<div style="font-size: 13px; font-weight: 700; color: #FFB648">Soon</div>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+const cars = [
+{ make: 'TOYOTA · 2007', name: 'Estima', colour: '#F1F0EA', colourName: 'Pearl white' },
+{ make: 'HONDA · 2008', name: 'Civic FD', colour: '#5B5E64', colourName: 'Gunmetal grey' },
+{ make: 'PERODUA · 2019', name: 'Myvi', colour: '#1560E8', colourName: 'Electric blue' },
+{ make: 'WEEKEND CAR · 2021', name: 'Coupe', colour: '#E2231A', colourName: 'Guards red' }
+];
+const p = (this.state && this.state.picked) || 0;
+const v = { make: cars[p].make, name: cars[p].name, colour: cars[p].colour, colourName: cars[p].colourName, isDaily: p === 0 };
+cars.forEach((c, i) => {
+v['o' + i] = i === p ? 1 : 0;
+v['s' + i] = i === p ? 1 : 0.86;
+v['b' + i] = i === p ? '#E00008' : 'rgba(255,255,255,.12)';
+v['pick' + i] = () => this.setState({ picked: i });
+});
+return v;
+}
+}
+</script>
+</body>
+</html>

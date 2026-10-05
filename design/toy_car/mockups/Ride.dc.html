@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Your ride</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+button{font-family:inherit;cursor:pointer}
+input{font-family:inherit}
+input::placeholder{color:rgba(255,255,255,.55)}
+@keyframes drift{0%,100%{transform:translate(-14%,-8%) scale(1)}50%{transform:translate(16%,10%) scale(1.25)} }
+@keyframes drift2{0%,100%{transform:translate(12%,8%) scale(1.2)}50%{transform:translate(-14%,-10%) scale(1)} }
+@keyframes glow{0%,100%{box-shadow:0 0 22px rgba(224,0,8,.45)}50%{box-shadow:0 0 40px rgba(224,0,8,.85)} }
+@keyframes fill{0%{width:18%}35%,100%{width:42%} }
+@keyframes scan{0%{top:8%;opacity:0}15%,85%{opacity:1}100%{top:88%;opacity:0} }
+@keyframes pop{0%,55%{opacity:0;transform:scale(.8)}65%,100%{opacity:1;transform:none} }
+.disp{font-family:'Barlow Condensed',system-ui,sans-serif;font-weight:800;text-transform:uppercase}
+.cta{display:flex;align-items:center;justify-content:center;height:56px;border-radius:28px;border:0;background:#E00008;color:#fff;font-size:17px;font-weight:700;width:100%;position:relative}
+.fade{position:absolute;inset:0;-webkit-mask-image:radial-gradient(ellipse 95% 40% at 50% 78%,#000 20%,transparent 100%);mask-image:radial-gradient(ellipse 95% 40% at 50% 78%,#000 20%,transparent 100%)}
+.dots{position:absolute;inset:0;overflow:hidden;-webkit-mask-image:radial-gradient(circle,#000 1.1px,transparent 1.7px);mask-image:radial-gradient(circle,#000 1.1px,transparent 1.7px);-webkit-mask-size:11px 11px;mask-size:11px 11px}
+@keyframes streak{0%{transform:translateX(-120%)}100%{transform:translateX(420%)} }
+.trails{position:absolute;left:-30%;right:-30%;height:110px;transform:rotate(-8deg);filter:blur(6px);opacity:.3}
+.trail{position:absolute;left:0;width:45%;height:4px;border-radius:2px;animation:streak 4.5s linear infinite}
+.red{background:linear-gradient(90deg,transparent,#E00008 60%,#FF8A8E)}
+.white{background:linear-gradient(90deg,transparent,#9DB8FF 60%,#fff)}
+.field{height:56px;border-radius:28px;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.07);color:#fff;font-size:17px;padding:0 22px;box-sizing:border-box;width:100%}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; background: #07080B; color: #fff; font-family: system-ui, sans-serif">
+<div class="trails" style="top: 628px">
+<div class="trail red" style="top: 20px"></div>
+<div class="trail white" style="top: 70px; animation-duration: 3.4s; animation-delay: 1s"></div>
+</div>
+<div style="position: absolute; left: 24px; right: 24px; top: 64px; display: flex; flex-direction: column; gap: 22px">
+<div style="display: flex; align-items: center; gap: 14px">
+<button aria-label="Back" style="width: 44px; height: 44px; border-radius: 50%; border: 0; background: rgba(255,255,255,.1); color: #fff; display: flex; align-items: center; justify-content: center">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.400" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"></path><path d="M11 6l-6 6 6 6"></path></svg>
+</button>
+<div style="flex-grow: 1; height: 6px; border-radius: 3px; background: rgba(255,255,255,.14)">
+<div style="height: 6px; border-radius: 3px; background: #fff; box-shadow: 0 0 14px #fff; animation: fill 5s ease-out infinite"></div>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div class="disp" style="font-size: 40px; line-height: 40px">What do you drive?</div>
+<div style="font-size: 15px; line-height: 22px; color: rgba(255,255,255,.74)">Snap your car and TiTi fills in the rest.</div>
+</div>
+<div style="position: relative; height: 210px; border-radius: 24px; overflow: hidden; border: 1px solid rgba(255,255,255,.16); background: radial-gradient(ellipse 80% 70% at 50% 60%, #1E2230, #0C0E14)">
+<img src="/_blob/eb30a2e28391b32185c961757ec0c014" alt="Hatchback" style="position: absolute; left: 60px; top: 14px; width: 250px; height: 188px; object-fit: contain">
+<div style="position: absolute; left: 0; right: 0; height: 2px; background: #FF3B41; box-shadow: 0 0 18px 4px rgba(255,59,65,.7); animation: scan 5s ease-in-out infinite"></div>
+<div style="position: absolute; left: 14px; bottom: 14px; display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 18px; background: rgba(7,8,11,.78); border: 1px solid rgba(255,255,255,.18); font-size: 13px; font-weight: 700; animation: pop 5s ease-out infinite">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3DDC84" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.500l4.500 4.500L19 7.500"></path></svg>
+Looks like a Perodua Myvi
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 12px">
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 12px; font-weight: 700; letter-spacing: 1px; color: rgba(255,255,255,.72)">MAKE AND MODEL<input class="field" value="Perodua Myvi"></label>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 12px; font-weight: 700; letter-spacing: 1px; color: rgba(255,255,255,.72)">YEAR<input class="field" value="2019"></label>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 12px; font-weight: 700; letter-spacing: 1px; color: rgba(255,255,255,.72)">NICKNAME<input class="field" placeholder="Optional"></label>
+</div>
+</div>
+</div>
+<div style="position: absolute; left: 24px; right: 24px; bottom: 34px">
+<button class="cta">Continue</button>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

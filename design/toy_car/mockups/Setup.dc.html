@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Building your garage</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+@keyframes reveal{0%{clip-path:inset(0 100% 0 0)}72%,100%{clip-path:inset(0 0 0 0)} }
+@keyframes line{0%{left:0;opacity:1}72%{left:100%;opacity:1}76%,100%{left:100%;opacity:0} }
+@keyframes load{0%{width:4%}72%,100%{width:100%} }
+@keyframes s1{0%,18%{opacity:.28}24%,100%{opacity:1} }
+@keyframes s2{0%,40%{opacity:.28}46%,100%{opacity:1} }
+@keyframes s3{0%,64%{opacity:.28}70%,100%{opacity:1} }
+.disp{font-family:'Barlow Condensed',system-ui,sans-serif;font-weight:800;text-transform:uppercase}
+.row{display:flex;align-items:center;gap:12px;font-size:16px}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; background: radial-gradient(ellipse 110% 40% at 50% 38%, #191C25 0%, #07080B 74%); color: #fff; font-family: system-ui, sans-serif">
+<div class="disp" style="position: absolute; left: 24px; right: 24px; top: 110px; font-size: 40px; line-height: 40px; text-align: center">Building your garage</div>
+<div style="position: absolute; left: 70px; top: 392px; width: 250px; height: 30px; border-radius: 50%; background: radial-gradient(ellipse, rgba(0,0,0,.95), transparent 70%)"></div>
+<div style="position: absolute; left: 0; right: 0; top: 414px; height: 1px; background: linear-gradient(90deg, transparent, rgba(255,255,255,.22), transparent)"></div>
+<div style="position: absolute; left: 45px; top: 244px; width: 300px; height: 168px">
+<img src="/_blob/5594238b801fb07ed1d59d705cc03f76" alt="" style="position: absolute; inset: 0; width: 100%; height: 100%; filter: brightness(.16)">
+<img src="/_blob/5594238b801fb07ed1d59d705cc03f76" alt="Your car model" style="position: absolute; inset: 0; width: 100%; height: 100%; animation: reveal 7s ease-in-out infinite">
+<div style="position: absolute; top: 6%; bottom: 6%; width: 2px; background: #fff; box-shadow: 0 0 16px 3px rgba(255,255,255,.7); animation: line 7s ease-in-out infinite"></div>
+</div>
+<div style="position: absolute; left: 24px; right: 24px; top: 470px; box-sizing: border-box; padding: 22px; border-radius: 24px; background: #111318; border: 1px solid rgba(255,255,255,.12); display: flex; flex-direction: column; gap: 16px">
+<div style="height: 8px; border-radius: 4px; background: rgba(255,255,255,.14)">
+<div style="height: 8px; border-radius: 4px; background: #E00008; animation: load 7s ease-in-out infinite"></div>
+</div>
+<div class="row" style="animation: s1 7s linear infinite">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3DDC84" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.500l4.500 4.500L19 7.500"></path></svg>
+Matching your car model
+</div>
+<div class="row" style="animation: s2 7s linear infinite">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3DDC84" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.500l4.500 4.500L19 7.500"></path></svg>
+Painting it your colour
+</div>
+<div class="row" style="animation: s3 7s linear infinite">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3DDC84" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.500l4.500 4.500L19 7.500"></path></svg>
+Wrapping your first blind box
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

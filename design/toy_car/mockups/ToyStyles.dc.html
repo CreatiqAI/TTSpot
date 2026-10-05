@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Toy style options</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.disp{font-family:'Barlow Condensed',system-ui,sans-serif;font-weight:800;text-transform:uppercase}
+.cell{display:flex;flex-direction:column;gap:14px}
+.box{height:250px;border-radius:24px;border:1px solid rgba(255,255,255,.12);background:radial-gradient(ellipse 90% 55% at 50% 58%,#262932 0%,#111318 78%);display:flex;align-items:center;justify-content:center;overflow:hidden}
+.cap{font-size:14px;line-height:20px;color:rgba(255,255,255,.74)}
+</style>
+</helmet>
+<div style="width: 880px; height: 480px; box-sizing: border-box; padding: 40px; background: #07080B; color: #fff; font-family: system-ui, sans-serif; display: flex; flex-direction: column; gap: 26px">
+<div class="disp" style="font-size: 34px; line-height: 34px">One photo, two toy styles</div>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px">
+<div class="cell">
+<div class="box"><img src="/_blob/af874312e264a4b785ebf483e98c8e5e" alt="Member's photo of a red coupe" style="width: 100%; height: 100%; object-fit: cover"></div>
+<div><div style="font-size: 16px; font-weight: 700">The member's photo</div><div class="cap">What they upload at sign-up.</div></div>
+</div>
+<div class="cell">
+<div class="box"><img src="/_blob/07f14827afd99141ff7b5166e6df4df0" alt="Die-cast toy version" style="width: 86%; object-fit: contain"></div>
+<div><div style="font-size: 16px; font-weight: 700">A · Die-cast</div><div class="cap">Like a collectible miniature. True shape, same paint.</div></div>
+</div>
+<div class="cell">
+<div class="box"><img src="/_blob/467f0802a0087172883a9da4352d150f" alt="Chunky toy version" style="width: 80%; object-fit: contain"></div>
+<div><div style="font-size: 16px; font-weight: 700">B · Chunky</div><div class="cap">Cuter and rounder, bigger wheels, same paint.</div></div>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":880,"height":480}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

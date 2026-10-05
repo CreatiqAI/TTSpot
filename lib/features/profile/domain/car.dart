@@ -20,6 +20,8 @@ class Car {
     this.cutoutSource,
     this.garageStyle = 'auto',
     this.photoOriginals = const {},
+    this.toyUrl,
+    this.toyStatus,
   });
 
   final String id;
@@ -51,6 +53,11 @@ class Car {
   /// (`<uid>/<file>`), so the owner can take the blur off again. Photos
   /// blurred before 2 Oct 2026 have no entry.
   final Map<String, String> photoOriginals;
+  /// The die-cast toy render of this car (transparent PNG, nose to the lower
+  /// left), made from its cover photo; null until the first one is ready.
+  final String? toyUrl;
+  /// null (never asked) | 'pending' | 'ready' | 'failed'.
+  final String? toyStatus;
 
   String get title => '$make $model';
   /// Spec line worth showing, or null.
@@ -78,6 +85,8 @@ class Car {
         cutoutSource: m['cutout_source'] as String?,
         garageStyle: m['garage_style'] as String? ?? 'auto',
         photoOriginals: parsePhotoOriginals(m['photo_originals']),
+        toyUrl: m['toy_url'] as String?,
+        toyStatus: m['toy_status'] as String?,
       );
 }
 

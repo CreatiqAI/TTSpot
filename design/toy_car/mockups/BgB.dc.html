@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Background B: night sky</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+button{font-family:inherit;cursor:pointer}
+@keyframes twinkle{0%,100%{opacity:.2}50%{opacity:1} }
+@keyframes shoot{0%,70%{transform:translate(0,0);opacity:0}73%{opacity:1}100%{transform:translate(-260px,110px);opacity:0} }
+@keyframes horizon{0%,100%{opacity:.55}50%{opacity:.95} }
+.disp{font-family:'Barlow Condensed',system-ui,sans-serif;font-weight:800;text-transform:uppercase}
+.stars{position:absolute;left:0;top:0;width:2px;height:2px;border-radius:50%;box-shadow:24px 130px #fff,70px 182px #cfe0ff,118px 222px #fff,160px 164px #fff,206px 234px #cfe0ff,250px 192px #fff,298px 226px #fff,40px 288px #fff,132px 312px #cfe0ff,226px 282px #fff,332px 176px #fff,92px 348px #fff,276px 340px #cfe0ff,352px 300px #fff,180px 380px #fff,60px 400px #cfe0ff,310px 410px #fff;animation:twinkle 3s ease-in-out infinite}
+</style>
+</helmet>
+<div style="width: 390px; height: 520px; position: relative; overflow: hidden; background: linear-gradient(180deg, #05060C 0%, #0A1030 62%, #1B1238 100%); color: #fff; font-family: system-ui, sans-serif">
+<div class="stars"></div>
+<div class="stars" style="left: 14px; top: -22px; animation-delay: 1s"></div>
+<div class="stars" style="left: -10px; top: 18px; animation-delay: 2s"></div>
+<div style="position: absolute; right: 20px; top: 150px; width: 70px; height: 2px; border-radius: 1px; background: linear-gradient(90deg, #fff, transparent); rotate: -22deg; animation: shoot 7s ease-in infinite"></div>
+<div style="position: absolute; left: -20%; right: -20%; bottom: -90px; height: 200px; border-radius: 50%; background: radial-gradient(ellipse, rgba(224,0,8,.55), transparent 68%); animation: horizon 6s ease-in-out infinite"></div>
+<div style="position: absolute; left: 24px; right: 24px; top: 56px; display: flex; flex-direction: column; gap: 8px">
+<div class="disp" style="font-size: 40px; line-height: 40px">What's your name?</div>
+<div style="font-size: 15px; color: rgba(255,255,255,.78)">This is how other drivers will see you.</div>
+</div>
+<div style="position: absolute; left: 24px; right: 24px; bottom: 30px">
+<button style="width: 100%; height: 56px; border-radius: 28px; border: 0; background: #E00008; color: #fff; font-size: 17px; font-weight: 700; box-shadow: 0 0 30px rgba(224,0,8,.6)">Continue</button>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":520}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

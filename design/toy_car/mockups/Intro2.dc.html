@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Intro: friends</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+button{font-family:inherit;cursor:pointer}
+@keyframes spin{to{transform:rotate(360deg)} }
+@keyframes unspin{to{transform:rotate(-360deg)} }
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)} }
+@keyframes ring{0%{transform:scale(.55);opacity:.7}100%{transform:scale(1.25);opacity:0} }
+@keyframes glow{0%,100%{box-shadow:0 0 22px rgba(224,0,8,.45)}50%{box-shadow:0 0 40px rgba(224,0,8,.85)} }
+.disp{font-family:'Barlow Condensed',system-ui,sans-serif;font-weight:800;text-transform:uppercase}
+.cta{display:flex;align-items:center;justify-content:center;height:56px;border-radius:28px;border:0;background:#E00008;color:#fff;font-size:17px;font-weight:700;width:100%;animation:glow 3s ease-in-out infinite}
+.av{position:absolute;width:64px;height:64px;border-radius:50%;overflow:hidden;border:3px solid #fff;animation:unspin 36s linear infinite}
+.av img{width:100%;height:100%;object-fit:cover;display:block}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; background: radial-gradient(ellipse 90% 40% at 50% 32%, #1B1D24 0%, #07080B 70%); color: #fff; font-family: system-ui, sans-serif">
+<div style="position: absolute; left: 55px; top: 130px; width: 280px; height: 280px">
+<div style="position: absolute; inset: 20px; border-radius: 50%; border: 1px solid rgba(255,255,255,.16)"></div>
+<div style="position: absolute; inset: 20px; border-radius: 50%; border: 2px solid rgba(224,0,8,.7); animation: ring 3s ease-out infinite"></div>
+<div style="position: absolute; inset: 20px; border-radius: 50%; border: 2px solid rgba(224,0,8,.7); animation: ring 3s 1.5s ease-out infinite"></div>
+<img src="/_blob/6abd9f45745df55c6532bd5debedad4b" alt="TiTi waving" style="position: absolute; left: 75px; top: 70px; width: 130px; height: 130px; object-fit: contain; animation: bob 3s ease-in-out infinite">
+<div style="position: absolute; inset: 0; animation: spin 36s linear infinite">
+<div class="av" style="left: 108px; top: -12px; box-shadow: 0 0 22px rgba(60,220,140,.8)"><img src="/_blob/d8fc0acd5546e6fc79ee3612bf926057" alt=""></div>
+<div class="av" style="left: 222px; top: 71px; box-shadow: 0 0 22px rgba(150,110,255,.8)"><img src="/_blob/0cf1705d5bea28360f67225d0b3e0249" alt=""></div>
+<div class="av" style="left: 178px; top: 205px; box-shadow: 0 0 22px rgba(92,200,255,.8)"><img src="/_blob/59a8d6a5bd07b1e83a228ea1483b23c7" alt=""></div>
+<div class="av" style="left: 38px; top: 205px; box-shadow: 0 0 22px rgba(80,130,255,.8)"><img src="/_blob/ad64ae2880cbda164ed9c1300fc4f779" alt=""></div>
+<div class="av" style="left: -6px; top: 71px; box-shadow: 0 0 22px rgba(255,150,60,.8)"><img src="/_blob/82c95a7f70a9ccde235357ae968a72e3" alt=""></div>
+</div>
+</div>
+<div style="position: absolute; left: 32px; right: 32px; top: 500px; text-align: center; display: flex; flex-direction: column; gap: 10px">
+<div class="disp" style="font-size: 40px; line-height: 40px">Your crew, live</div>
+<div style="font-size: 16px; line-height: 23px; color: rgba(255,255,255,.74)">See which friends are out tonight, scan a QR to add them, and roll in together.</div>
+</div>
+<div style="position: absolute; left: 24px; right: 24px; bottom: 34px; display: flex; flex-direction: column; align-items: center; gap: 22px">
+<div style="display: flex; gap: 8px; align-items: center">
+<span style="width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,.3)"></span>
+<span style="width: 26px; height: 8px; border-radius: 4px; background: #fff"></span>
+<span style="width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,.3)"></span>
+</div>
+<button class="cta">Continue</button>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

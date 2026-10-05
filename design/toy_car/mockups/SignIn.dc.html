@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sign in</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#fff}a:hover{color:#ddd}
+button{font-family:inherit;cursor:pointer}
+input{font-family:inherit}
+input::placeholder{color:rgba(255,255,255,.55)}
+@keyframes peek{from{transform:translateY(70px)}to{transform:none} }
+@keyframes sheet{from{transform:translateY(60px);opacity:0}to{transform:none;opacity:1} }
+.disp{font-family:'Barlow Condensed',system-ui,sans-serif;font-weight:800;text-transform:uppercase}
+.field{height:56px;border-radius:18px;border:1px solid rgba(255,255,255,.14);background:#1A1D25;color:#fff;font-size:16px;padding:0 18px;box-sizing:border-box;width:100%}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; background: radial-gradient(ellipse 100% 34% at 50% 18%, #1B1E28 0%, #07080B 80%); color: #fff; font-family: system-ui, sans-serif">
+<img src="/_blob/a69ed929edbac939d3f598bec4a320d1" alt="TT Spot" style="position: absolute; left: 24px; top: 60px; width: 64px; height: 69px; object-fit: contain">
+<img src="/_blob/6abd9f45745df55c6532bd5debedad4b" alt="TiTi waving" style="position: absolute; right: 24px; top: 96px; width: 180px; height: 180px; object-fit: contain; animation: sheet .7s .2s ease-out both">
+<div style="position: absolute; left: 0; right: 0; top: 290px; bottom: 0; box-sizing: border-box; padding: 26px 24px 0; border-radius: 32px 32px 0 0; background: #111318; border-top: 1px solid rgba(255,255,255,.12); display: flex; flex-direction: column; gap: 10px; animation: sheet .6s ease-out both">
+<div class="disp" style="font-size: 38px; line-height: 38px">Welcome back</div>
+<div style="font-size: 15px; color: rgba(255,255,255,.74); padding-bottom: 8px">Sign in and pick up where you parked.</div>
+<input class="field" aria-label="Email or username" placeholder="Email or username">
+<input class="field" aria-label="Password" type="password" placeholder="Password">
+<a href="#" style="align-self: flex-end; font-size: 14px; font-weight: 600; text-decoration: none; padding: 6px 0; color: rgba(255,255,255,.8)">Forgot password?</a>
+<button style="height: 56px; border-radius: 28px; border: 0; background: #E00008; color: #fff; font-size: 17px; font-weight: 700">Sign in</button>
+<div style="display: flex; align-items: center; gap: 12px; font-size: 13px; color: rgba(255,255,255,.7); padding: 6px 0"><span style="flex-grow: 1; height: 1px; background: rgba(255,255,255,.14)"></span>or<span style="flex-grow: 1; height: 1px; background: rgba(255,255,255,.14)"></span></div>
+<button style="height: 56px; border-radius: 28px; border: 0; background: #fff; color: #07080B; font-size: 17px; font-weight: 700">Sign in with Apple</button>
+<div style="font-size: 15px; text-align: center; color: rgba(255,255,255,.74); padding-top: 10px">New to TT Spot? <a href="#" style="font-weight: 700; text-decoration: none; color: #FF4B50">Create an account</a></div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

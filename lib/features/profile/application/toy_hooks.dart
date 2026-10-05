@@ -9,3 +9,8 @@ typedef ToyRequester = Future<void> Function(String carId);
 /// until the toy backend is wired in (the entry is hidden then); the toy
 /// repository overrides it with its own `requestToy`.
 final toyRequesterProvider = Provider<ToyRequester?>((ref) => null);
+
+/// Something the owner's garage keeps watched while it is open, so toys land
+/// without a pull to refresh: the toy backend's `toyWatcherProvider` (it
+/// invalidates the cars when `toy_status` changes). Null until wired.
+final toyWatchProvider = Provider<Provider<void>?>((ref) => null);

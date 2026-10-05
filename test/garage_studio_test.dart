@@ -82,11 +82,10 @@ const _emptyFacts = GarageFacts(mods: [], meets: 0, posts: 0, papersLoaded: true
 final _calls = <String>[];
 
 class _Harness extends StatefulWidget {
-  const _Harness({required this.cars, required this.mine, this.back = true, this.bottomPadding = 28});
+  const _Harness({required this.cars, required this.mine, this.back = true});
   final List<Car> cars;
   final bool mine;
   final bool back;
-  final double bottomPadding;
 
   @override
   State<_Harness> createState() => _HarnessState();
@@ -106,7 +105,7 @@ class _HarnessState extends State<_Harness> {
       title: mine ? 'My garage' : 'titi_onboard1\'s garage',
       todayId: 'a',
       facts: index == 0 ? _richFacts : _emptyFacts,
-      bottomPadding: widget.bottomPadding,
+      bottomPadding: 28,
       onBack: widget.back ? () => _calls.add('back') : null,
       onAdd: mine ? () => _calls.add('add') : null,
       onOpen: (c) => _calls.add('open:${c.id}'),

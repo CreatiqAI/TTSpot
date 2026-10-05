@@ -465,6 +465,21 @@ class _Ellipse extends GradientTransform {
   }
 }
 
+/// Stretches a radial gradient to its box's width: the circle (sized by the
+/// box's height) becomes an ellipse as wide as the box.
+class _Flatten extends GradientTransform {
+  const _Flatten();
+
+  @override
+  Matrix4? transform(Rect bounds, {TextDirection? textDirection}) {
+    final c = bounds.center;
+    return Matrix4.identity()
+      ..translateByDouble(c.dx, c.dy, 0, 1)
+      ..scaleByDouble(bounds.width / bounds.height, 1, 1, 1)
+      ..translateByDouble(-c.dx, -c.dy, 0, 1);
+  }
+}
+
 /// TODAY'S CAR, in brand red.
 class TodayChip extends StatelessWidget {
   const TodayChip({super.key, required this.text});
@@ -565,7 +580,7 @@ class _HeroToyState extends State<HeroToy> with TickerProviderStateMixin {
                             radius: 0.5,
                             colors: [Color(0xF2000000), Color(0x00000000)],
                             stops: [0, 0.7],
-                            transform: _Ellipse(1),
+                            transform: _Flatten(),
                           ),
                         ),
                       ),

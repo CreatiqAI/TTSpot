@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -28,8 +26,7 @@ ImageProvider? garageCutoutProvider(Car car) => car.cutoutUrl == null ? null : g
 
 /// The car's toy render, when it has one.
 ImageProvider? garageToyProvider(Car car) {
-  final demo = toyDemoProvider(car);
-  if (demo != null) return demo;
+  if (toyDemoOn) return toyDemoProvider(car);
   return car.toyUrl == null ? null : garageImageFor(car.toyUrl!);
 }
 
@@ -39,8 +36,9 @@ String bayNumber(int index) => (index + 1).toString().padLeft(2, '0');
 // ---- TOY_DEMO (debug builds only) -------------------------------------------
 //
 // `--dart-define=TOY_DEMO=true` shows the approved toy renders without the
-// toy columns in the database: push design/toy_car/*_c.png to the phone as
-// /sdcard/Download/toy_demo/{estima,civic,myvi,a911}.png. Today's car gets a
+// toy columns in the database: serve design/toy_car on the dev PC
+// (`python -m http.server 8765` in that folder) and `adb reverse tcp:8765
+// tcp:8765`, so the phone reads them from http://127.0.0.1:8765/. Today's car gets a
 // toy (picked by model name), the other cars show the "building" fallback.
 // `TOY_DEMO=all` gives every car a toy, `TOY_DEMO=pending` none (all
 // building), `TOY_DEMO=failed` none (plain fallback). Never on in release.
@@ -70,5 +68,5 @@ ImageProvider? toyDemoProvider(Car car) {
           : m.contains('myvi') || m.contains('axia') || m.contains('bezza') || m.contains('perodua')
               ? 'myvi'
               : 'a911';
-  return FileImage(File('/sdcard/Download/toy_demo/$pick.png'));
+  return garageImageFor('http://127.0.0.1:8765/${pick}_c.png');
 }

@@ -3,11 +3,31 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_theme.dart';
-import 'collector_card.dart';
 
-// The dark garage bay, piece by piece: shared by the garage's roller-door
-// stage (garage_bay.dart) and the top of the car page (car_page/car_stage.dart).
-// The bay is always night: these colours never follow the app theme.
+// The dark garage bay, piece by piece, for the top of the car page
+// (car_page/car_stage.dart). The bay is always night: these colours never
+// follow the app theme.
+
+/// The bay's fixed night palette.
+abstract final class GarageColors {
+  static const wallTop = Color(0xFF1C1F26);
+  static const wallMid = Color(0xFF15171C);
+  static const wallBottom = Color(0xFF0E0F12);
+  static const floorTop = Color(0xFF202329);
+  static const floorBottom = Color(0xFF121318);
+  static const bayLine = Color(0xFFE8B400);
+  static const tube = Color(0xFFEAF2FF);
+  static const text = Color(0xFFF3F4F6);
+  static const textSoft = Color(0xFF9AA0AA);
+
+  /// Brushed silver frame of a photo print.
+  static const silver = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFFF6F7F9), Color(0xFFB9BFC9), Color(0xFFF6F7F9), Color(0xFF9AA2AE)],
+    stops: [0, 0.38, 0.58, 1],
+  );
+}
 
 /// Back wall with panel seams, the epoxy floor from [floorAt] (a fraction of
 /// the height) down, and the two yellow bay lines leaning out at the viewer.

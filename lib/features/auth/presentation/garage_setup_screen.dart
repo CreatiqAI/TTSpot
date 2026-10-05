@@ -347,7 +347,8 @@ class _Reveal extends StatelessWidget {
               ClipRect(
                 child: Align(alignment: Alignment.centerLeft, widthFactor: k.clamp(0.001, 1), child: SizedBox.expand(child: child)),
               ),
-              if (k < 1)
+              // Only while sweeping: not while the picture is still loading.
+              if (reveal.value > 0 && k < 1)
                 Positioned(
                   left: 0,
                   right: 0,

@@ -9,7 +9,7 @@ import '../../../social/application/social_providers.dart';
 import '../../application/cutout_providers.dart';
 import '../../application/garage_providers.dart';
 import '../../application/profile_providers.dart';
-import '../../application/toy_hooks.dart';
+import '../../application/toy_providers.dart';
 import '../../domain/car.dart';
 import '../../domain/garage_look.dart';
 import '../widgets/car_actions_sheet.dart';
@@ -148,8 +148,7 @@ class _GarageBodyState extends ConsumerState<GarageBody> {
     final carsAsync = ref.watch(userCarsProvider(widget.ownerId));
     // The owner's garage keeps the toy watcher alive: a toy that lands swaps
     // in on its own.
-    final watch = mine ? ref.watch(toyWatchProvider) : null;
-    if (watch != null) ref.watch(watch);
+    if (mine) ref.watch(toyWatcherProvider);
     void add() => context.push(Routes.newCar);
 
     GarageStudio studio({List<Car> cars = const [], GarageFacts facts = const GarageFacts(), bool loading = false, String? error}) => GarageStudio(

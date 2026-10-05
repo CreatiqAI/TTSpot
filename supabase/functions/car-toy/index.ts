@@ -190,12 +190,12 @@ async function finishJob(job: JobRow, resultUrl: string | undefined, via: string
   const t1 = Date.now();
 
   let png: Uint8Array;
-  let reportText = "";
+  let report: Record<string, unknown> = {};
   try {
-    const { png: cleaned, report } = await cleanToy(raw);
-    if (report.coverage < 0.05) throw new Error("Almost nothing in the image");
-    png = cleaned;
-    reportText = JSON.stringify(report);
+    const cleaned = await cleanToy(raw);
+    if (cleaned.report.coverage < 0.05) throw new Error("Almost nothing in the image");
+    png = cleaned.png;
+    report = { ...cleaned.report };
   } catch (e) {
     return await failJob(job, e instanceof EmptyImageError ? "Empty render" : `Clean-up failed: ${String(e).slice(0, 120)}`);
   }
@@ -206,11 +206,12 @@ async function finishJob(job: JobRow, resultUrl: string | undefined, via: string
   if (upErr) return await failJob(job, `Could not save the image: ${upErr.message.slice(0, 120)}`);
   const url = admin.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
   const t3 = Date.now();
+  report = { ...report, via, rawBytes: raw.byteLength, downloadMs: t1 - t0, cleanMs: t2 - t1, uploadMs: t3 - t2 };
 
   // Only a pending job finishes; a second finisher (callback + poll) drops its copy.
   const { data: won } = await admin
     .from("car_toy_jobs")
-    .update({ status: "ready", url, error: null, ready_at: new Date().toISOString() })
+    .update({ status: "ready", url, error: null, ready_at: new Date().toISOString(), report })
     .eq("id", job.id)
     .eq("status", "pending")
     .select("id");
@@ -238,7 +239,7 @@ async function finishJob(job: JobRow, resultUrl: string | undefined, via: string
     .eq("toy_task", job.id);
   const old = pathInBucket(car!.toy_url);
   if (old && old !== path && old.includes("/toys/")) await admin.storage.from(BUCKET).remove([old]).catch(() => {});
-  console.log(`car-toy job ${job.id.slice(0, 8)} ready (${via}): download ${t1 - t0} ms, clean ${t2 - t1} ms, upload ${t3 - t2} ms, raw ${raw.byteLength} B, ${reportText}`);
+  console.log(`car-toy job ${job.id.slice(0, 8)} ready: ${JSON.stringify(report)}`);
 }
 
 // ---------------------------------------------------------------- hook ---

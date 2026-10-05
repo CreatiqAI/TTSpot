@@ -68,6 +68,7 @@ create table if not exists public.car_toy_jobs (
   error       text,
   attempts    int not null default 0,                    -- pg_net posts so far
   manual      boolean not null default false,            -- "Remake" vs automatic
+  report      jsonb,                                     -- the function's timings (download/clean/upload ms, sizes)
   created_at  timestamptz not null default now(),
   posted_at   timestamptz,                               -- last pg_net post
   ready_at    timestamptz

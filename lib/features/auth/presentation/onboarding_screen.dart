@@ -11,6 +11,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../core/constants/malaysian_states.dart';
 import '../../../core/legal/legal_text.dart';
 import '../../../core/router/app_router.dart';
+import '../../../core/supabase/supabase_client.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/titi.dart';
@@ -25,6 +26,7 @@ import '../../cards/domain/cards.dart';
 import '../../profile/application/plate_hiding.dart';
 import '../../profile/application/profile_providers.dart';
 import '../../profile/data/profile_repository.dart';
+import '../../profile/domain/car.dart';
 import '../../profile/domain/car_recognition.dart';
 import '../../profile/presentation/widgets/car_color_picker.dart';
 import '../../profile/presentation/widgets/car_scan_widgets.dart';
@@ -35,6 +37,7 @@ import '../application/account_basics.dart';
 import '../application/auth_controller.dart';
 import '../application/onboarding_controller.dart';
 import '../data/auth_repository.dart';
+import 'garage_setup_screen.dart';
 import 'widgets/username_field.dart';
 
 /// First-run setup, guided by TiTi. One route, three pages switched here
@@ -43,6 +46,8 @@ import 'widgets/username_field.dart';
 /// 1. your ride: one photo; the recogniser guesses make, model, year and
 ///    colour (all editable).
 /// 2. you: avatar, name, handle, state, phone, Terms.
+///    Then "Building your garage" while the toy render of the car is awaited
+///    (new members only; see GarageSetupScreen).
 /// 3. a gift: the first blind box, when one is waiting.
 /// An existing member who only lacks a car, or a phone + Terms, lands on
 /// that step alone: no road, no gift.
@@ -74,6 +79,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   /// Looking for the first blind box after the profile saved.
   bool _giftChecking = false;
   CardBox? _gift;
+  /// "Building your garage" is on: the car it shows, and the gift lookup
+  /// that runs underneath it meanwhile.
+  Car? _building;
+  Future<CardBox?>? _giftLookup;
+  /// The car parked in step 1 this session (null when it was parked earlier).
+  String? _carId;
 
   // step 1 — the car
   final _make = TextEditingController();
@@ -231,7 +242,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         );
     if (id != null && mounted) {
       HapticFeedback.lightImpact();
-      setState(() => _carSaved = true);
+      setState(() {
+        _carSaved = true;
+        _carId = id;
+      });
       ref.invalidate(currentProfileProvider); // carCount updates → step 2, or the router moves on
     }
   }
@@ -316,28 +330,66 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           refreshProfile: false,
         );
     if (!mounted || ref.read(onboardingControllerProvider).hasError) return;
-    await _afterSubmit(existing: existing);
-  }
-
-  /// The profile is saved. A new member gets the first blind box (granted by
-  /// the database the moment the username is set); everyone else moves on.
-  Future<void> _afterSubmit({required bool existing}) async {
     if (existing) {
       ref.invalidate(currentProfileProvider);
       return;
     }
+    await _startBuilding();
+  }
+
+  /// The profile is saved. A new member watches "Building your garage" for
+  /// their car while the first blind box (granted by the database the moment
+  /// the username is set) is looked up underneath; then the gift page, or the
+  /// router moves on. No car to show (should not happen) → straight to the gift.
+  Future<void> _startBuilding() async {
     setState(() => _giftChecking = true);
-    CardBox? box;
+    Car? car;
+    try {
+      final repo = ref.read(profileRepositoryProvider);
+      if (_carId != null) {
+        car = await repo.fetchCar(_carId!);
+      } else {
+        final me = ref.read(currentUserIdProvider);
+        if (me != null) car = (await repo.fetchCars(me)).firstOrNull;
+      }
+    } catch (_) {
+      car = null;
+    }
+    if (!mounted) return;
+    _giftLookup = _findGift();
+    if (car == null) return _showGift(await _giftLookup!);
+    setState(() => _building = car);
+  }
+
+  Future<CardBox?> _findGift() async {
     try {
       ref.invalidate(myBoxesProvider);
       final boxes = await ref.read(myBoxesProvider.future);
-      box = boxes.where((b) => b.sealed).firstOrNull;
+      return boxes.where((b) => b.sealed).firstOrNull;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// "Building your garage" is over (toy ready, cap reached or any error).
+  Future<void> _buildingDone() async {
+    CardBox? box;
+    try {
+      box = await (_giftLookup ?? _findGift());
     } catch (_) {
       box = null;
     }
     if (!mounted) return;
+    _showGift(box);
+  }
+
+  void _showGift(CardBox? box) {
+    if (!mounted) return;
     if (box == null) {
-      setState(() => _giftChecking = false);
+      setState(() {
+        _giftChecking = false;
+        _building = null;
+      });
       ref.invalidate(currentProfileProvider); // the router moves on
       return;
     }
@@ -345,6 +397,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     setState(() {
       _gift = box;
       _giftChecking = false;
+      _building = null;
     });
   }
 
@@ -381,6 +434,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     final basicsDone = basics?.complete ?? false;
 
     if (_gift != null) return _giftPage(_gift!);
+    if (_building != null) {
+      return GarageSetupScreen(
+        key: ValueKey(_building!.id),
+        car: _building!,
+        readCar: ref.read(profileRepositoryProvider).fetchCar,
+        onDone: _buildingDone,
+      );
+    }
 
     // No car yet → step 1. Once it is parked, the profile step (or, for a
     // member whose profile is already complete, the router moves on).

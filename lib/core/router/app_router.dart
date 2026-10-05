@@ -291,15 +291,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       }
       final signedIn = ref.read(currentUserIdProvider) != null;
       final path = state.uri.path;
-      final onAuthPage = path == Routes.signIn || path == '/verify' || path == Routes.welcome;
+      // The intro slides sit between Welcome and Create an account, so they are an auth page too.
+      final onAuthPage = path == Routes.signIn || path == '/verify' || path == Routes.welcome || path == Routes.intro;
 
       if (!signedIn) return onAuthPage || path == Routes.resetPassword ? null : Routes.welcome;
       if (path == Routes.resetPassword) return null;
 
       final profile = ref.read(currentProfileProvider);
       if (profile.isLoading) return null;
-      // The old four-slide intro is gone: TiTi says each value prop inside onboarding.
-      // Settings → About can still replay IntroScreen.
+      // The intro slides show before sign-up (and replay from Settings → About);
+      // a signed-in member who lands on /intro goes to the map below.
       final onboarded = profile.value?.isOnboarded ?? false;
 
       final needsCar = profile.value?.needsCar ?? false;
@@ -315,7 +316,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final skipped = ref.read(locationGateSkippedProvider);
       if (granted.hasValue && !granted.value! && !skipped && !openingBox) return path == Routes.locationGate ? null : Routes.locationGate;
 
-      if (onAuthPage || path == Routes.onboarding || path == Routes.locationGate || path == Routes.intro) return Routes.map;
+      if (onAuthPage || path == Routes.onboarding || path == Routes.locationGate) return Routes.map;
       return null;
     },
     routes: [

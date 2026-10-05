@@ -27,7 +27,7 @@ class _FakeAuth extends AuthController {
   }
 }
 
-/// Log in and Sign up look different, switch both ways, carry the autofill
+/// Sign in and Create an account share the dark panel, switch both ways, carry the autofill
 /// hints iCloud Keychain and Google Password Manager need, and fit a small
 /// phone (320 x 568) at 1.3x text in light and dark without overflowing.
 /// The test font draws every glyph a full em wide, wider than the real ones,
@@ -69,31 +69,33 @@ void main() {
 
     testWidgets('Log in, $theme', (tester) async {
       await pump(tester, signUp: false, dark: dark);
-      expect(find.text('Good to see you again.'), findsOneWidget);
+      expect(find.text('WELCOME BACK'), findsOneWidget);
+      expect(find.text('Sign in and pick up where you parked.'), findsOneWidget);
       expect(find.text('Forgot password?'), findsOneWidget);
-      expect(find.text('Log in'), findsOneWidget);
-      expect(find.text('Collect TiTi cards'), findsNothing);
+      expect(find.text('Sign in'), findsOneWidget);
+      expect(find.text('CREATE YOUR ACCOUNT'), findsNothing);
       expect(find.byType(AutofillGroup), findsOneWidget);
       expect(hints(tester), [
         [AutofillHints.username, AutofillHints.email],
         [AutofillHints.password],
       ]);
 
-      // To Sign up and back.
+      // To Sign up and back (the link scrolls with the panel on a short phone).
+      await tester.ensureVisible(find.textContaining('Create an account'));
       await tester.tap(find.textContaining('Create an account'));
       await tester.pumpAndSettle();
-      expect(find.text('Good to see you again.'), findsNothing);
-      expect(find.text('Collect TiTi cards'), findsOneWidget);
+      expect(find.text('WELCOME BACK'), findsNothing);
+      expect(find.text('CREATE YOUR ACCOUNT'), findsOneWidget);
+      await tester.ensureVisible(find.textContaining('Have an account?'));
       await tester.tap(find.textContaining('Have an account?'));
       await tester.pumpAndSettle();
-      expect(find.text('Good to see you again.'), findsOneWidget);
+      expect(find.text('WELCOME BACK'), findsOneWidget);
     }, variant: TargetPlatformVariant.only(TargetPlatform.android));
 
     testWidgets('Sign up, $theme', (tester) async {
       await pump(tester, signUp: true, dark: dark);
-      expect(find.text('See your friends on the map'), findsOneWidget);
-      expect(find.text('Find meets and car cafés'), findsOneWidget);
-      expect(find.text('Collect TiTi cards'), findsOneWidget);
+      expect(find.text('CREATE YOUR ACCOUNT'), findsOneWidget);
+      expect(find.text('Free. Two minutes to join.'), findsOneWidget);
       expect(find.textContaining('6-digit code'), findsOneWidget);
       expect(find.text('Sign up'), findsOneWidget);
       expect(find.text('Forgot password?'), findsNothing);
@@ -130,10 +132,11 @@ void main() {
     testWidgets('Both modes on iPhone, $theme', (tester) async {
       await pump(tester, signUp: true, dark: dark);
       expect(find.text('Sign up with Apple'), findsOneWidget);
+      await tester.ensureVisible(find.textContaining('Have an account?'));
       await tester.tap(find.textContaining('Have an account?'));
       await tester.pumpAndSettle();
       expect(find.text('Sign in with Apple'), findsOneWidget);
-      expect(find.text('Good to see you again.'), findsOneWidget);
+      expect(find.text('WELCOME BACK'), findsOneWidget);
     }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
   }
 
@@ -145,7 +148,7 @@ void main() {
       ];
 
   for (final signUp in [false, true]) {
-    final what = signUp ? 'Sign up' : 'Log in';
+    final what = signUp ? 'Sign up' : 'Sign in';
 
     testWidgets('$what that works offers to save the password', (tester) async {
       await pump(tester, signUp: signUp, dark: false, authOk: true);

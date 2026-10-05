@@ -10,6 +10,7 @@ import '../../auth/domain/profile.dart';
 import '../../safety/data/safety_repository.dart';
 import '../application/profile_providers.dart';
 import 'garage/garage_body.dart';
+import 'garage/garage_studio.dart';
 
 /// "Keith's garage", or plain "Garage" when there is no name to put on it.
 String garageTitle(Profile? p) {
@@ -18,10 +19,9 @@ String garageTitle(Profile? p) {
 }
 
 /// Someone else's garage, read-only, from the garage row on their profile:
-/// the same full-screen bay or card deck as mine (Bay ⇄ Cards follows my
-/// setting), tap a car for its page. No edit, today's car or add. Only what
-/// anyone may see: `car_mod_list` leaves out private mods and prices, and
-/// papers never show.
+/// the same studio as mine, tap a car for its page. No edit, today's car or
+/// add. Only what anyone may see: `car_mod_list` leaves out private mods and
+/// prices, and papers never show.
 class UserGarageScreen extends ConsumerWidget {
   const UserGarageScreen({super.key, required this.userId});
   final String userId;
@@ -41,18 +41,16 @@ class UserGarageScreen extends ConsumerWidget {
       );
     }
     return Scaffold(
+      backgroundColor: StudioColors.page,
       body: GarageBody(
         ownerId: userId,
         title: garageTitle(profile),
         onBack: () => context.pop(),
         bottomPadding: MediaQuery.paddingOf(context).bottom + 12,
-        empty: Padding(
-          padding: const EdgeInsets.only(top: 80),
-          child: EmptyState(
-            titi: TitiPose.binoculars,
-            title: 'No cars yet',
-            subtitle: '${profile?.displayName ?? profile?.username ?? 'They'} hasn\'t parked a car here yet.',
-          ),
+        empty: GarageEmptyCard(
+          pose: TitiPose.binoculars,
+          title: 'No cars yet',
+          subtitle: '${profile?.displayName ?? profile?.username ?? 'They'} hasn\'t parked a car here yet.',
         ),
       ),
     );

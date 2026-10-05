@@ -6,7 +6,7 @@ import '../../../../core/theme/app_icons.dart';
 import '../../../../core/theme/app_images.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../domain/car.dart';
-import '../garage/collector_card.dart';
+import '../garage/garage_images.dart';
 import '../garage/garage_scenery.dart';
 import 'car_page_model.dart';
 

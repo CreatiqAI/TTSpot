@@ -10,6 +10,19 @@ class ReleaseNote {
 
 const kReleaseNotes = <ReleaseNote>[
   ReleaseNote(
+    version: '0.3.54',
+    date: '6 Oct 2026',
+    title: 'Your car as a toy',
+    points: [
+      'Your garage is new: each car is now a little die-cast toy of your own car, in its real colour.',
+      'The toy is made from your cover photo in about two minutes. Change the cover photo and you get a new one.',
+      'Swipe or tap the small cars to switch between your cars.',
+      'Car menu, Remake toy car: make it again from your cover photo.',
+      'New sign in and create account screens.',
+      'Two short intro screens for new members, and a Building your garage step after sign-up.',
+    ],
+  ),
+  ReleaseNote(
     version: '0.3.53',
     date: '5 Oct 2026',
     title: 'Group chats, #tags and replies',

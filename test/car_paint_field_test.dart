@@ -139,7 +139,7 @@ void main() {
         await tester.pump(const Duration(milliseconds: 300));
         await tester.scrollUntilVisible(find.text('PAINT COLOUR'), 150, scrollable: find.byType(Scrollable).first);
         await tester.pump();
-        expect(find.text('Your toy car is repainted in this colour.'), findsOneWidget);
+        expect(find.text('Your toy car is made in this colour.'), findsOneWidget); // no toy yet
         expect(find.text('Red · your toy\'s paint now'), findsOneWidget);
         await tester.scrollUntilVisible(find.text('Orange'), 150, scrollable: find.byType(Scrollable).first);
         await tester.tap(find.text('Orange'));

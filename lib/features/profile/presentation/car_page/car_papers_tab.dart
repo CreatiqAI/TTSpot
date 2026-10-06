@@ -32,7 +32,7 @@ class CarPapersTab extends StatelessWidget {
         );
       }
       return Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
         child: CarEmptyCard(
           title: 'NEVER MISS A RENEWAL',
           body: 'Add your road tax and insurance dates. We remind you 30 days, 7 days and the day before. Only you see this.',
@@ -49,7 +49,7 @@ class CarPapersTab extends StatelessWidget {
     ];
     final note = (d.note ?? '').trim();
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

@@ -8,7 +8,7 @@ import '../../domain/car.dart';
 import '../../domain/car_documents.dart';
 import '../../domain/car_meet.dart';
 import '../../domain/car_mod.dart';
-import '../../domain/garage_look.dart';
+import '../../domain/car_toy.dart';
 import '../../domain/portrait_style.dart';
 
 // What the car page shows, worked out from plain data so the page body can be
@@ -20,20 +20,13 @@ typedef CarImageResolver = ImageProvider Function(String url);
 
 ImageProvider defaultCarImage(String url) => CachedNetworkImageProvider(url);
 
-// --------------------------------------------------------------- media ---
+// ------------------------------------------------------------ portraits ---
 
-enum CarMediaKind { cutout, photo, portrait }
+/// One finished AI portrait of the car.
+class CarPortraitMedia {
+  const CarPortraitMedia({required this.url, this.style, this.portrait, this.wearing = false});
 
-/// One thing the stage can show: the cut-out, a photo, or a finished portrait.
-class CarMedia {
-  const CarMedia({required this.kind, required this.url, this.index = 0, this.total = 1, this.style, this.portrait});
-
-  final CarMediaKind kind;
   final String url;
-
-  /// Photo n (0-based) of [total].
-  final int index;
-  final int total;
 
   /// The portrait's look (from its row, or its file name for visitors).
   final PortraitStyle? style;
@@ -41,21 +34,11 @@ class CarMedia {
   /// The owner's portrait row (null for visitors, who only see the one in use).
   final CarPortrait? portrait;
 
-  bool get isPortrait => kind == CarMediaKind.portrait;
+  /// The car wears it: it fronts the car where a photo would.
+  final bool wearing;
 
-  /// The small caption bottom-left on the stage.
-  String caption({required bool mine}) => switch (kind) {
-        CarMediaKind.cutout => 'IN THE BAY',
-        CarMediaKind.photo => total == 1 ? (mine ? 'YOUR PHOTO · TAP TO VIEW' : 'PHOTO · TAP TO VIEW') : 'PHOTO ${index + 1} OF $total',
-        CarMediaKind.portrait => style == null ? 'PORTRAIT' : 'PORTRAIT · ${style!.name.toUpperCase()}',
-      };
-
-  /// For the strip's buttons.
-  String get label => switch (kind) {
-        CarMediaKind.cutout => 'Show the car in the bay',
-        CarMediaKind.photo => 'Show photo ${index + 1}',
-        CarMediaKind.portrait => 'Show the ${style?.name ?? 'AI'} portrait',
-      };
+  /// "Night city portrait", for buttons and the viewer.
+  String get label => '${style?.name ?? 'AI'} portrait';
 }
 
 /// `…/portraits/<car>/night_city.png` → Night city.
@@ -66,38 +49,31 @@ PortraitStyle? portraitStyleFromUrl(String url) {
   return PortraitStyle.byId(dot > 0 ? file.substring(0, dot) : file);
 }
 
-/// Everything the stage can show, in strip order: the cut-out (when it's a
-/// good one), every photo, then every finished portrait. The owner passes
-/// their [portraits] (null while loading); visitors only get the portrait the
-/// car wears.
-List<CarMedia> carMediaFor(Car car, {List<CarPortrait>? portraits}) {
-  final out = <CarMedia>[];
-  if (garageLookFor(car) == GarageLook.cutout && car.cutoutUrl != null) {
-    out.add(CarMedia(kind: CarMediaKind.cutout, url: car.cutoutUrl!));
-  }
-  for (var i = 0; i < car.photoUrls.length; i++) {
-    out.add(CarMedia(kind: CarMediaKind.photo, url: car.photoUrls[i], index: i, total: car.photoUrls.length));
-  }
+/// The finished portraits, newest row order: the owner passes their
+/// [portraits] (null while loading); visitors only get the one the car wears.
+List<CarPortraitMedia> carPortraitsFor(Car car, {List<CarPortrait>? portraits}) {
+  final out = <CarPortraitMedia>[];
   final seen = <String>{};
   for (final p in portraits ?? const <CarPortrait>[]) {
     if (!p.isReady || !seen.add(p.url!)) continue;
-    out.add(CarMedia(kind: CarMediaKind.portrait, url: p.url!, style: p.style, portrait: p));
+    out.add(CarPortraitMedia(url: p.url!, style: p.style, portrait: p, wearing: p.url == car.portraitUrl));
   }
   final wearing = car.portraitUrl;
   if (wearing != null && seen.add(wearing)) {
-    out.add(CarMedia(kind: CarMediaKind.portrait, url: wearing, style: portraitStyleFromUrl(wearing)));
+    out.add(CarPortraitMedia(url: wearing, style: portraitStyleFromUrl(wearing), wearing: true));
   }
   return out;
 }
 
-/// Where the stage opens: the cut-out, else the picture the car wears (its
-/// portrait), else the first photo.
-int initialMediaIndex(Car car, List<CarMedia> media) {
-  if (media.isEmpty) return 0;
-  if (media.first.kind == CarMediaKind.cutout) return 0;
-  final wearing = car.portraitUrl == null ? -1 : media.indexWhere((m) => m.url == car.portraitUrl);
-  return wearing >= 0 ? wearing : 0;
-}
+// --------------------------------------------------------------- album ---
+
+/// How the album lays out [count] photos: one wide picture, two or four as
+/// squares two to a row, anything else three to a row.
+({int columns, double aspect}) albumLayout(int count) => switch (count) {
+      1 => (columns: 1, aspect: 16 / 10),
+      2 || 4 => (columns: 2, aspect: 1.0),
+      _ => (columns: 3, aspect: 1.0),
+    };
 
 // --------------------------------------------------------------- specs ---
 
@@ -255,9 +231,9 @@ class CarPageData {
     this.portraitCost = 300,
     this.posts,
     this.meets,
-    this.bayIndex,
     this.promoDismissed = false,
     this.messaging = false,
+    this.toyQuota,
   });
 
   final Car car;
@@ -274,14 +250,19 @@ class CarPageData {
   final List<FeedPost>? posts;
   final List<CarMeet>? meets;
 
-  /// The car's bay in the owner's garage (0-based), when known.
-  final int? bayIndex;
   final bool promoDismissed;
 
   /// "Message owner" is opening the chat.
   final bool messaging;
 
+  /// Toy renders left today (owner, only asked for while a new paint waits).
+  final ToyQuota? toyQuota;
+
   int get readyPortraits => portraits?.where((p) => p.isReady).length ?? 0;
+
+  /// The Portraits section: the owner's when portraits are on or any exist;
+  /// a visitor's only when the car wears one.
+  bool get showPortraits => mine ? (portraitsEnabled || readyPortraits > 0 || portraitNews.isNotEmpty || car.portraitUrl != null) : car.portraitUrl != null;
 
   /// "Make it look pro": the owner, portraits on, none made yet, a photo to
   /// paint from, and not closed on this phone.

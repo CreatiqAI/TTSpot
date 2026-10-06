@@ -46,7 +46,7 @@ class CarBuildTab extends StatelessWidget {
     final canHistory = events.length >= 3;
     final showTimeline = canHistory && history;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -437,7 +437,7 @@ class CarEmptyCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        margin: const EdgeInsets.only(top: 8),
+        margin: const EdgeInsets.only(top: 2),
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(color: AppColors.surfaceGray, borderRadius: BorderRadius.circular(16)),
         child: Column(

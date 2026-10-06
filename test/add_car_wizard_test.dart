@@ -84,8 +84,8 @@ void main() {
         FocusManager.instance.primaryFocus?.unfocus();
         await tester.pump();
         await _reveal(tester, find.text('Silver'));
-        expect(find.text('COLOUR ON THE MAP'), findsOneWidget);
-        expect(find.text('This is how your car shows on the map.'), findsOneWidget);
+        expect(find.text('PAINT COLOUR'), findsOneWidget);
+        expect(find.text('Your toy car is made in this colour.'), findsOneWidget);
         expect(find.byType(MapCarPreview), findsOneWidget);
         await tester.tap(find.text('Silver'));
         await tester.pump();
@@ -107,7 +107,7 @@ void main() {
 
         // 4. Park it: the summary and the button.
         expect(find.text('Park it in my garage'), findsOneWidget);
-        await _reveal(tester, find.text('Silver on the map'));
+        await _reveal(tester, find.text('Silver paint'));
         await _reveal(tester, find.text('Papers skipped'));
         await _reveal(tester, find.text('GARAGE LOOK'));
         await _sweep(tester);

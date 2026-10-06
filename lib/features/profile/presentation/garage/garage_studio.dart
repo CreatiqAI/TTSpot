@@ -4,7 +4,6 @@ import 'package:flutter/services.dart';
 import '../../../../core/theme/app_icons.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/titi.dart';
-import '../../../map/presentation/widgets/car_marker.dart' show kCarColors, kCarColorLabels;
 import '../../domain/car.dart';
 import '../../domain/car_documents.dart';
 import '../widgets/toy_car_image.dart';
@@ -345,8 +344,8 @@ class GarageHeroCard extends StatelessWidget {
     final c = car;
     final ts = _scaler(context);
     final make = [c.make.toUpperCase(), if (c.year != null) '${c.year}'].join(' · ');
-    final colour = (c.color ?? '').trim().isEmpty ? null : c.color!.trim();
-    final colourName = colour == null ? null : (kCarColorLabels[colour] ?? (colour[0].toUpperCase() + colour.substring(1)));
+    // The toy's paint (0110): picking a colour repaints the toy.
+    final paint = toyPaintLine(c, mine: mine);
     return Semantics(
       button: onTap != null,
       label: '${c.make} ${c.model}${today ? ', today\'s car' : ''}',
@@ -413,7 +412,7 @@ class GarageHeroCard extends StatelessWidget {
                   ),
                   SizedBox(
                     height: ts.scale(13) * 1.3,
-                    child: colour == null
+                    child: paint == null
                         ? null
                         : Row(
                             children: [
@@ -422,14 +421,14 @@ class GarageHeroCard extends StatelessWidget {
                                 height: 16,
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color: kCarColors[colour] ?? const Color(0xFFB0B4BC),
+                                  color: paint.swatch,
                                   border: Border.all(color: Colors.white.withValues(alpha: 0.5), width: 2),
                                 ),
                               ),
                               const SizedBox(width: 10),
                               Expanded(
                                 child: Text(
-                                  '$colourName, matched from ${mine ? 'your' : 'the'} photo',
+                                  paint.text,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   textScaler: ts,

@@ -86,6 +86,60 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('repainting: the owner sees the old toy dimmed under the repaint pill; a visitor just the toy', (tester) async {
+    final car = Car(
+      id: 'a',
+      ownerId: 'u1',
+      make: 'Perodua',
+      model: 'Myvi',
+      photoUrls: const ['$_base/a.jpg'],
+      createdAt: DateTime(2026, 9, 1),
+      color: 'blue',
+      toyUrl: '$_base/a_toy.png',
+      toyStatus: 'pending',
+      toySource: '$_base/a.jpg',
+      toyColor: 'red',
+    );
+    expect(ToyCarImage.stateFor(car, mine: true), 'repainting');
+    expect(ToyCarImage.stateFor(car, mine: false), 'toy');
+    await _pump(tester, ToyCarImage(car: car, width: 300, mine: true));
+    expect(tester.getSize(find.byType(ToyCarImage)), const Size(300, 300 * 9 / 16));
+    expect(_shown(tester), const AssetImage('assets/cars/sedan.png'));
+    expect(find.text(kRepaintingCaption), findsOneWidget);
+    expect(find.text('Building your toy car…'), findsNothing);
+    // A narrow card at a big text size: the pill shrinks, never overflows.
+    await tester.pumpWidget(MaterialApp(
+      home: MediaQuery(
+        data: const MediaQueryData(size: Size(360, 640), textScaler: TextScaler.linear(1.3)),
+        child: Scaffold(body: Center(child: ToyCarImage(car: car, width: 220, mine: true))),
+      ),
+    ));
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(tester.takeException(), isNull);
+    // A new cover (same paint) reads as a new toy, not a repaint.
+    final remade = Car(
+      id: 'a',
+      ownerId: 'u1',
+      make: 'Perodua',
+      model: 'Myvi',
+      photoUrls: const ['$_base/b.jpg'],
+      createdAt: DateTime(2026, 9, 1),
+      color: 'red',
+      toyUrl: '$_base/a_toy.png',
+      toyStatus: 'pending',
+      toySource: '$_base/a.jpg',
+      toyColor: 'red',
+    );
+    await _pump(tester, ToyCarImage(car: remade, width: 300, mine: true));
+    expect(find.text(kRemakingCaption), findsOneWidget);
+    await tester.pump(const Duration(seconds: 2));
+    expect(tester.takeException(), isNull);
+  });
+
+  test('no photo: nothing says a toy is coming', () {
+    expect(ToyCarImage.stateFor(_car(photos: const []), mine: true), 'fallback');
+  });
+
   testWidgets('failed or no toy: cut-out, then photo, then the body-type art, no caption', (tester) async {
     final failed = _car(toyStatus: 'failed', cutoutUrl: '$_base/a_cut.png', cutoutSource: '$_base/a.jpg');
     expect(ToyCarImage.stateFor(failed, mine: true), 'fallback');

@@ -14,11 +14,19 @@
 //   2. Kie:  POST ?callback=1&job=<id>&secret=<hmac>  → downloads the result,
 //      cleans the fringe (clean.ts: alpha cut, crop, 800 px wide), uploads it
 //      to car-photos/<uid>/toys/<car>/<ts>.png (immutable, long cache), marks
-//      the job ready and the car too, unless a newer cover or job took over
-//      (then the job is 'stale' and the file is dropped).
+//      the job ready and the car too, unless a newer job took over (a new
+//      cover or paint books one; then this job is 'stale' and the file is
+//      dropped).
 //   3. App (JWT): POST { carId, manual? }  → runs request_car_toy as the
 //      member and answers { jobId } (null when nothing to do). The app calls
 //      the RPC directly; this is a convenience for tools and tests.
+//
+// Paint (migration 0110): a job carries the car's chosen paint (cars.color,
+// one of the nine app colours) or null. With a paint the prompt repaints the
+// toy in it (keeping the photo's own shade when the car already is that
+// colour); without one the toy keeps the photo's colour, as before. The car
+// records the paint its toy was made in (cars.toy_color), so the app can
+// tell "repainting" from "building".
 //
 // Deploy with --no-verify-jwt (Postgres and Kie send no JWT).
 // Secrets: KIE_API_KEY, TOY_HOOK_SECRET (same value as Vault toy_hook_secret;
@@ -55,13 +63,43 @@ const DIE_CAST = "Turn the car in the photo into a premium die-cast toy car, lik
   " the same body shape and wheel design, and exactly the same paint colour as in the photo. Slightly simplified details, a thick glossy" +
   " painted metal body, dark tinted plastic windows, simple moulded lights, rubber-look tyres.";
 
-type CarRow = { id: string; owner_id: string; make: string; model: string; photo_urls: string[] | null; toy_task: string | null; toy_url: string | null };
-type JobRow = { id: string; car_id: string; owner_id: string; source: string; status: string; task_id: string | null };
+/** The nine paints (kCarColors in the app): the word, and how the toy wears it. */
+export const PAINTS: Record<string, { name: string; finish: string }> = {
+  red: { name: "red", finish: "a glossy bright red" },
+  black: { name: "black", finish: "a glossy deep black" },
+  white: { name: "white", finish: "a glossy clean white" },
+  grey: { name: "grey", finish: "a glossy medium grey" },
+  silver: { name: "silver", finish: "a metallic silver" },
+  blue: { name: "blue", finish: "a glossy blue" },
+  yellow: { name: "yellow", finish: "a glossy yellow" },
+  green: { name: "green", finish: "a glossy green" },
+  orange: { name: "orange", finish: "a glossy orange" },
+};
 
-export function buildPrompt(car: Pick<CarRow, "make" | "model">): string {
+/** A paint key the prompt knows, or null ("match the photo"). */
+export function paintKey(raw: string | null | undefined): string | null {
+  const k = (raw ?? "").trim().toLowerCase();
+  return Object.hasOwn(PAINTS, k) ? k : null;
+}
+
+/** The same die-cast style with the body in [paint]; the photo's own shade when the car already is that colour. */
+function paintedDieCast(paint: string): string {
+  const p = PAINTS[paint];
+  return "Turn the car in the photo into a premium die-cast toy car, like a 1:64 scale collectible miniature: the exact same car model," +
+    ` the same body shape and wheel design, with the body painted ${p.name}. If the car in the photo is already ${p.name}, keep exactly` +
+    ` its shade and finish; if it is any other colour, repaint the whole body in ${p.finish} (every painted panel, bumpers and mirrors` +
+    " included) and keep the windows, lights, tyres and wheels as they are. Slightly simplified details, a thick glossy" +
+    " painted metal body, dark tinted plastic windows, simple moulded lights, rubber-look tyres.";
+}
+
+type CarRow = { id: string; owner_id: string; make: string; model: string; color: string | null; photo_urls: string[] | null; toy_task: string | null; toy_url: string | null };
+type JobRow = { id: string; car_id: string; owner_id: string; source: string; status: string; task_id: string | null; paint: string | null };
+
+export function buildPrompt(car: Pick<CarRow, "make" | "model">, paint?: string | null): string {
   const name = [car.make, car.model].map((s) => (s ?? "").trim()).filter(Boolean).join(" ");
   const hint = name ? ` The car in the photo is a ${name}.` : "";
-  return DIE_CAST + hint + TAIL;
+  const key = paintKey(paint);
+  return (key ? paintedDieCast(key) : DIE_CAST) + hint + TAIL;
 }
 
 // -------------------------------------------------------------- crypto ---
@@ -85,7 +123,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 // ---------------------------------------------------------------- jobs ---
 
 async function loadJob(jobId: string): Promise<JobRow | null> {
-  const { data } = await admin.from("car_toy_jobs").select("id, car_id, owner_id, source, status, task_id").eq("id", jobId).maybeSingle<JobRow>();
+  const { data } = await admin.from("car_toy_jobs").select("id, car_id, owner_id, source, status, task_id, paint").eq("id", jobId).maybeSingle<JobRow>();
   return data ?? null;
 }
 
@@ -111,7 +149,7 @@ async function createTask(job: JobRow): Promise<void> {
   const body = JSON.stringify({
     model: MODEL,
     callBackUrl,
-    input: { prompt: buildPrompt(car), input_urls: [job.source], aspect_ratio: "1:1", resolution: "1K", background: "transparent" },
+    input: { prompt: buildPrompt(car, job.paint), input_urls: [job.source], aspect_ratio: "1:1", resolution: "1K", background: "transparent" },
   });
 
   const t0 = Date.now();
@@ -224,8 +262,14 @@ async function finishJob(job: JobRow, resultUrl: string | undefined, via: string
   // The car takes the toy only while this job is its current one and the
   // cover it was made from is still the cover (a stale callback for an older
   // photo must not overwrite a newer toy).
-  const { data: car } = await admin.from("cars").select("id, owner_id, make, model, photo_urls, toy_task, toy_url").eq("id", job.car_id).maybeSingle<CarRow>();
-  const current = !!car && car.toy_task === job.id && (car.photo_urls?.[0] ?? "") === job.source;
+  const { data: car } = await admin.from("cars").select("id, owner_id, make, model, color, photo_urls, toy_task, toy_url").eq("id", job.car_id).maybeSingle<CarRow>();
+  // A newer cover or paint books a newer job (toy_task moves on, 0110), so a
+  // job that is still the car's own is never older than another toy. When
+  // the cover or paint changed but no new job could start (the daily cap),
+  // this toy still lands: toy_source / toy_color say what it was made from,
+  // the app sees it is out of date and asks again once it may, and the car
+  // never sits "pending" on a job that is gone.
+  const current = !!car && car.toy_task === job.id;
   if (!current) {
     await admin.from("car_toy_jobs").update({ status: "stale", url: null }).eq("id", job.id);
     await admin.storage.from(BUCKET).remove([path]);
@@ -234,7 +278,7 @@ async function finishJob(job: JobRow, resultUrl: string | undefined, via: string
   }
   await admin
     .from("cars")
-    .update({ toy_url: url, toy_status: "ready", toy_source: job.source, toy_ready_at: new Date().toISOString() })
+    .update({ toy_url: url, toy_status: "ready", toy_source: job.source, toy_color: paintKey(job.paint), toy_ready_at: new Date().toISOString() })
     .eq("id", job.car_id)
     .eq("toy_task", job.id);
   const old = pathInBucket(car!.toy_url);

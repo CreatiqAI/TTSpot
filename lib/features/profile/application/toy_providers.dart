@@ -36,10 +36,10 @@ const kToyRequestGap = Duration(seconds: 3);
 /// `car.toyUrl` / `car.toy` swap from the fallback to the toy on their own.
 ///
 /// The lazy backfill lives here too: a car whose `toy_status` is null (or
-/// whose cover changed since its toy) gets `request_car_toy` once per
-/// session, one car at a time, [kToyRequestGap] apart. New cars and cover
-/// changes are booked by the database itself (migration 0106), so nothing
-/// else has to call anything.
+/// whose cover or paint changed since its toy) gets `request_car_toy` once
+/// per session, one car at a time, [kToyRequestGap] apart. New cars, cover
+/// changes and paint changes are booked by the database itself (migrations
+/// 0106, 0110), so this only catches up on what the daily cap held back.
 ///
 /// Auto-disposed: leaving the garage tears the channel and timers down.
 final toyWatcherProvider = Provider.autoDispose<void>((ref) {
@@ -133,10 +133,26 @@ class ToyActions {
   Future<void> remake(String carId) async {
     final me = _ref.read(currentUserIdProvider);
     if (me == null) throw const AppException('You\'re signed out. Sign in again.');
-    await _ref.read(toyRepositoryProvider).request(carId, manual: true);
+    try {
+      await _ref.read(toyRepositoryProvider).request(carId, manual: true);
+    } finally {
+      _ref.invalidate(carToyQuotaProvider(carId));
+    }
     _ref.invalidate(userCarsProvider(me));
     _ref.invalidate(carProvider(carId));
   }
 }
 
 final toyActionsProvider = Provider<ToyActions>((ref) => ToyActions(ref));
+
+/// Toy renders left today for one of my cars (the edit form's paint hint,
+/// the car page's "the new paint goes on after…"). Errors read as "unknown"
+/// (null) so a hint never blocks anything.
+final carToyQuotaProvider = FutureProvider.autoDispose.family<ToyQuota?, String>((ref, carId) async {
+  try {
+    return await ref.watch(toyRepositoryProvider).quota(carId);
+  } catch (e) {
+    if (kDebugMode) debugPrint('Toy quota for $carId: $e');
+    return null;
+  }
+});

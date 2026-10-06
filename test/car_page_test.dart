@@ -4,13 +4,20 @@ import 'package:car_meet/features/profile/domain/car.dart';
 import 'package:car_meet/features/profile/domain/car_documents.dart';
 import 'package:car_meet/features/profile/domain/car_meet.dart';
 import 'package:car_meet/features/profile/domain/car_mod.dart';
+import 'package:car_meet/features/profile/domain/car_toy.dart';
 import 'package:car_meet/features/profile/domain/portrait_style.dart';
 import 'package:car_meet/features/profile/presentation/car_page/car_page_model.dart';
 import 'package:car_meet/features/profile/presentation/car_page/car_page_view.dart';
-import 'package:car_meet/features/profile/presentation/car_page/car_stage.dart';
+import 'package:car_meet/features/profile/presentation/garage/garage_images.dart';
+import 'package:car_meet/features/profile/presentation/widgets/toy_car_image.dart';
 import 'package:car_meet/features/social/domain/post.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+// The car page (0.3.56 redesign): the toy in the dark studio, then the
+// summary and the sections, for the owner and a visitor, with and without a
+// toy, with 0, 1 and 6 photos, at 100 % and 130 % text, light and dark. Any
+// overflow or layout error throws.
 
 // ------------------------------------------------------------- fakes ---
 
@@ -19,35 +26,36 @@ const _base = 'https://x.supabase.co/storage/v1/object/public/car-photos/$_owner
 final _today = DateTime.now();
 DateTime _days(int n) => DateTime(_today.year, _today.month, _today.day).add(Duration(days: n));
 
-Car _richCar() => Car(
+Car _car({
+  String owner = _owner,
+  String model = '911 Carrera',
+  int photos = 6,
+  String? color = 'red',
+  String? toyStatus = 'ready',
+  bool toy = true,
+  String? toyColor = 'red',
+  bool today = true,
+  String? portrait,
+  String? description = 'Weekend toy. Sepang twice a year, mamak every Thursday.',
+}) =>
+    Car(
       id: 'c-911',
-      ownerId: _owner,
+      ownerId: owner,
       make: 'Porsche',
-      model: '911 Carrera',
+      model: model,
       year: 2021,
-      color: 'red',
-      isDefault: true,
-      description: 'Weekend toy. Sepang twice a year, mamak every Thursday.',
-      photoUrls: const ['$_base/911_0.jpg', '$_base/911_1.jpg'],
+      color: color,
+      isDefault: today,
+      description: description,
+      photoUrls: [for (var i = 0; i < photos; i++) '$_base/911_$i.jpg'],
       createdAt: _days(-200),
       specs: '3.0 L twin-turbo · 385 hp · 8-speed PDK · RWD',
       bodyStyle: 'coupe',
-      cutoutUrl: '$_base/911_0_cut.png',
-      cutoutSource: '$_base/911_0.jpg',
-      portraitUrl: '$_base/portraits/c-911/night_city.png',
-    );
-
-Car _newCar({String owner = _owner}) => Car(
-      id: 'c-myvi',
-      ownerId: owner,
-      make: 'Perodua',
-      model: 'Myvi 1.5 AV',
-      year: 2019,
-      color: 'white',
-      isDefault: true,
-      photoUrls: const ['$_base/myvi_0.jpg'],
-      createdAt: _days(-3),
-      specs: '1.5 L · — · CVT',
+      portraitUrl: portrait,
+      toyUrl: toy ? '$_base/toys/c-911/1_toy.png' : null,
+      toyStatus: toyStatus,
+      toySource: photos > 0 ? '$_base/911_0.jpg' : null,
+      toyColor: toy ? toyColor : null,
     );
 
 CarMod _mod(String id, ModCategory cat, String title, {double? cost, String? shop, String? vendor, bool private = false, bool photo = false, int daysAgo = 30}) => CarMod(
@@ -83,7 +91,7 @@ FeedPost _post(String id, {bool photo = true, PostKind kind = PostKind.post}) =>
         authorId: _owner,
         kind: kind,
         caption: 'Golden hour at Bukit Tinggi with the crew, long caption to wrap',
-        photoUrls: photo ? ['https://x.supabase.co/storage/v1/object/public/post-photos/$id.jpg', 'https://x.supabase.co/storage/v1/object/public/post-photos/${id}b.jpg'] : const [],
+        photoUrls: photo ? ['https://x.supabase.co/storage/v1/object/public/post-photos/$id.jpg'] : const [],
         coverAspect: 1,
         createdAt: _days(-5),
         likeCount: 3,
@@ -94,15 +102,16 @@ FeedPost _post(String id, {bool photo = true, PostKind kind = PostKind.post}) =>
       savedByMe: false,
     );
 
-CarPageData _rich() => CarPageData(
-      car: _richCar(),
+final _profile = Profile(id: _owner, username: 'keith_gt', createdAt: _days(-400));
+
+CarPageData _rich({Car? car}) => CarPageData(
+      car: car ?? _car(portrait: '$_base/portraits/c-911/night_city.png'),
       mine: true,
-      owner: Profile(id: _owner, username: 'testing', createdAt: _days(-400)),
+      owner: _profile,
       mods: [
         _mod('m1', ModCategory.wheels, 'Forged 20 inch wheels with a really long name that wraps', cost: 18500, shop: 'Auto Lab', photo: true, daysAgo: 21),
         _mod('m2', ModCategory.exhaust, 'Titanium exhaust', cost: 24000, vendor: 'Garage 21 Performance Exhaust Specialists', daysAgo: 60),
         _mod('m3', ModCategory.body, 'Full-front PPF', cost: 6500, shop: 'Detail Haus', private: true, daysAgo: 400),
-        _mod('m4', ModCategory.audio, 'Focal speakers', daysAgo: 90),
       ],
       documents: CarDocuments(
         carId: 'c-911',
@@ -114,7 +123,6 @@ CarPageData _rich() => CarPageData(
         sumInsured: 450000,
         puspakomDue: _days(-12),
         serviceDueKm: 45000,
-        note: 'Spare key in the drawer.',
       ),
       portraits: [
         _portrait('race_poster', PortraitStatus.pending),
@@ -123,26 +131,28 @@ CarPageData _rich() => CarPageData(
         _portrait('film', PortraitStatus.failed, refunded: true),
       ],
       portraitsEnabled: true,
-      posts: [_post('p1'), _post('p2', photo: false), _post('p3', kind: PostKind.spotted), _post('p4')],
+      posts: [_post('p1'), _post('p2', photo: false), _post('p3', kind: PostKind.spotted)],
       meets: [
         CarMeet(eventId: 'e1', title: 'TTDI Thursday', startsAt: _days(-10), venue: 'Plaza TTDI', checkedIn: true),
         CarMeet(eventId: 'e2', title: 'Sepang track day', startsAt: _days(-120), checkedIn: false),
       ],
-      bayIndex: 0,
     );
 
+/// A car just parked: one photo, its first toy still being made, nothing logged.
 CarPageData _fresh() => CarPageData(
-      car: _newCar(),
+      car: _car(model: 'Myvi 1.5 AV', photos: 1, color: 'white', toy: false, toyStatus: 'pending', today: false, description: null),
       mine: true,
       mods: const [],
+      documents: null,
       portraits: const [],
       portraitsEnabled: true,
       posts: const [],
       meets: const [],
     );
 
-CarPageData _visitor() => CarPageData(
-      car: _newCar(owner: 'u-other'),
+/// Someone else's car: a toy, no photos, nothing logged.
+CarPageData _visitor({int photos = 0}) => CarPageData(
+      car: _car(owner: 'u-other', photos: photos, description: null),
       mine: false,
       owner: Profile(id: 'u-other', username: 'titi_onboard1', createdAt: _days(-30)),
       mods: const [],
@@ -156,16 +166,20 @@ final _calls = <String>[];
 
 CarPageActions _actions({bool owner = true}) => CarPageActions(
       back: () => _calls.add('back'),
-      share: (m) => _calls.add('share:${m?.kind.name}'),
-      more: owner ? (m) => _calls.add('more:${m?.kind.name}') : null,
-      openMedia: (media, i) => _calls.add('media:$i/${media.length}'),
+      share: () => _calls.add('share'),
+      more: () => _calls.add(owner ? 'more' : 'visitor-more'),
+      editCar: () => _calls.add('edit'),
+      makeToday: () => _calls.add('today'),
+      retryToy: owner ? () => _calls.add('retry') : null,
+      openPhoto: (urls, i) => _calls.add('photo:$i/${urls.length}'),
       addMod: () => _calls.add('addMod'),
       openMod: (m) => _calls.add('mod:${m.id}'),
       modPhotos: (m) => _calls.add('photos:${m.id}'),
       openPartner: (id) => _calls.add('partner:$id'),
       postAboutIt: () => _calls.add('post'),
       openPapers: () => _calls.add('papers'),
-      paint: () => _calls.add('paint'),
+      newPortrait: () => _calls.add('paint'),
+      openPortrait: (p, all) => _calls.add('portrait:${p.style?.id}/${all.length}'),
       dismissPromo: () => _calls.add('dismiss'),
       messageOwner: () => _calls.add('message'),
       openOwner: () => _calls.add('owner'),
@@ -174,7 +188,7 @@ CarPageActions _actions({bool owner = true}) => CarPageActions(
     );
 
 // Every URL draws a bundled picture: no network in tests.
-ImageProvider _image(String url) => const AssetImage('assets/portrait_samples/showroom.webp');
+ImageProvider _image(String url) => url.endsWith('_toy.png') ? const AssetImage('assets/cars/sedan.png') : const AssetImage('assets/portrait_samples/showroom.webp');
 
 /// A 390 x 844 iPhone (notch and home bar) at [scale] text size.
 Future<void> _pump(WidgetTester tester, CarPageData data, {required double scale, required bool dark, CarPageActions? actions}) async {
@@ -194,44 +208,36 @@ Future<void> _pump(WidgetTester tester, CarPageData data, {required double scale
       ),
     ),
   ));
-  await tester.pump(const Duration(milliseconds: 400));
+  // The toy lands (450 ms) and its light sweep crosses (700 ms).
+  await tester.pump(const Duration(milliseconds: 500));
+  await tester.pump(const Duration(milliseconds: 800));
 }
+
+/// The page's own vertical scrollable.
+Finder get _page => find.byWidgetPredicate((w) => w is Scrollable && w.axisDirection == AxisDirection.down).first;
 
 /// Scrolls to the bottom and back, failing on any layout error (overflow
 /// stripes throw in tests).
 Future<void> _sweep(WidgetTester tester) async {
-  final scroll = find.byType(CustomScrollView);
-  for (var i = 0; i < 8; i++) {
-    await tester.drag(scroll, const Offset(0, -350));
+  for (var i = 0; i < 10; i++) {
+    await tester.drag(_page, const Offset(0, -350), warnIfMissed: false);
     await tester.pump(const Duration(milliseconds: 120));
     expect(tester.takeException(), isNull);
   }
-  for (var i = 0; i < 10; i++) {
-    await tester.drag(scroll, const Offset(0, 400));
+  for (var i = 0; i < 12; i++) {
+    await tester.drag(_page, const Offset(0, 400), warnIfMissed: false);
     await tester.pump(const Duration(milliseconds: 120));
     expect(tester.takeException(), isNull);
   }
 }
-
-/// The page's own vertical scrollable (not the strip or the posts grid).
-Finder get _page => find.byWidgetPredicate((w) => w is Scrollable && w.axisDirection == AxisDirection.down).first;
 
 /// Scrolls [finder] into view (slivers below the fold aren't built yet).
 Future<void> _reveal(WidgetTester tester, Finder finder) async {
-  await tester.scrollUntilVisible(finder, 150, scrollable: _page, maxScrolls: 60);
+  await tester.scrollUntilVisible(finder, 150, scrollable: _page, maxScrolls: 80);
   await tester.pump(const Duration(milliseconds: 100));
 }
 
-Finder _tab(String label) => find.descendant(of: find.byKey(const ValueKey('car-tabs')), matching: find.text(label));
-
-Future<void> _tapTab(WidgetTester tester, String label) async {
-  await _reveal(tester, _tab(label));
-  await tester.tap(_tab(label));
-  await tester.pump(const Duration(milliseconds: 250));
-}
-
-/// Brings [finder] to the middle of the screen (the bottom bar covers the
-/// last ~100 px) and taps it.
+/// Brings [finder] to the middle of the screen (clear of the top bar) and taps it.
 Future<void> _tap(WidgetTester tester, Finder finder) async {
   await _reveal(tester, finder);
   await Scrollable.ensureVisible(tester.element(finder), alignment: 0.5);
@@ -241,157 +247,188 @@ Future<void> _tap(WidgetTester tester, Finder finder) async {
 }
 
 Future<void> _toTop(WidgetTester tester) async {
-  for (var i = 0; i < 12; i++) {
-    await tester.drag(find.byType(CustomScrollView), const Offset(0, 400));
+  for (var i = 0; i < 14; i++) {
+    await tester.drag(_page, const Offset(0, 400), warnIfMissed: false);
     await tester.pump(const Duration(milliseconds: 60));
   }
 }
 
 void main() {
+  setUp(() {
+    garageImageFor = _image;
+  });
+
   for (final dark in [false, true]) {
     for (final scale in [1.0, 1.3]) {
       final mode = '${dark ? 'dark' : 'light'} @$scale';
 
-      testWidgets('owner, rich car ($mode): strip, spec sheet, build list + history, papers rings, posts grid', (tester) async {
+      testWidgets('owner, toy and 6 photos ($mode): studio, summary, album, mods, papers, portraits, posts', (tester) async {
         await _pump(tester, _rich(), scale: scale, dark: dark);
         expect(tester.takeException(), isNull);
 
-        // Cut-out first, then two photos and two finished portraits (the
-        // pending and failed ones show as news, not in the strip).
-        expect(find.byType(CarMediaStrip), findsOneWidget);
-        expect(find.bySemanticsLabel('Show the car in the bay'), findsOneWidget);
-        expect(find.bySemanticsLabel('Show photo 2'), findsOneWidget);
-        expect(find.bySemanticsLabel('Show the Night city portrait'), findsOneWidget);
-        expect(find.bySemanticsLabel('Show the Golden hour portrait'), findsOneWidget);
-        expect(find.text('IN THE BAY'), findsOneWidget);
-        await tester.tap(find.bySemanticsLabel('Show the Night city portrait'));
-        await tester.pump(const Duration(milliseconds: 400));
-        expect(find.text('PORTRAIT · NIGHT CITY'), findsOneWidget);
-        await tester.tap(find.bySemanticsLabel('Show photo 2'));
-        await tester.pump(const Duration(milliseconds: 400));
-        expect(find.text('PHOTO 2 OF 2'), findsOneWidget);
-
-        // Painting / failed news for the owner.
-        await _reveal(tester, find.text('Painting your 911 Carrera…'));
-        expect(find.textContaining('didn\'t come out'), findsOneWidget);
-
-        // Identity: kicker, colour, today's car, four specs + body → sheet.
+        // The studio: make · year, the model, today's car, the toy, its paint.
+        expect(find.byKey(const ValueKey('car-hero')), findsOneWidget);
         expect(find.text('PORSCHE · 2021'), findsOneWidget);
-        expect(find.text('Red'), findsOneWidget);
+        expect(find.descendant(of: find.byKey(const ValueKey('car-hero')), matching: find.text('911 Carrera')), findsOneWidget);
         expect(find.text('TODAY\'S CAR'), findsOneWidget);
-        await _reveal(tester, find.text('SPEC SHEET'));
-        await _reveal(tester, find.text('Coupe'));
-        expect(find.text('Gearbox'), findsOneWidget);
+        expect(ToyCarImage.stateFor(_rich().car, mine: true), 'toy');
+        expect(find.byType(ToyCarImage), findsOneWidget);
+        expect(find.text('Red paint'), findsOneWidget);
+
+        // Summary: specs, the description, the numbers, the buttons.
+        await _reveal(tester, find.text('8-speed PDK'));
+        expect(find.text('Coupe'), findsOneWidget);
         await _reveal(tester, find.text('Spent'));
         expect(find.text('RM 49k'), findsOneWidget);
-        // Portraits exist: no promo.
-        expect(find.text('MAKE IT LOOK PRO'), findsNothing);
+        expect(find.text('In their garage'), findsNothing);
+        expect(find.text('Message owner'), findsNothing);
+        await _tap(tester, find.text('Edit car'));
+        await _tap(tester, find.text('Post about it')); // today's car already
+        await _tap(tester, find.bySemanticsLabel('More'));
+        expect(_calls, ['edit', 'post', 'more']);
 
-        // Build: codes, owner prices, private note, add.
-        await _tapTab(tester, 'Build');
-        expect(find.text('WHL'), findsOneWidget);
+        // Album: six photos three to a row, the first marked as the cover.
+        await _reveal(tester, find.textContaining('Album'));
+        expect(find.text('Album  6'), findsOneWidget);
+        // The section's action sits at the right edge.
+        expect(tester.getRect(find.text('Edit').first).right, greaterThan(390 - 40));
+        await _reveal(tester, find.bySemanticsLabel('Photo 6 of 6'));
+        expect(find.text('COVER'), findsOneWidget);
+        await _tap(tester, find.bySemanticsLabel('Photo 3 of 6'));
+        expect(_calls.last, 'photo:2/6');
+        final first = tester.getRect(find.bySemanticsLabel('Photo 1 of 6'));
+        final third = tester.getRect(find.bySemanticsLabel('Photo 3 of 6'));
+        final fourth = tester.getRect(find.bySemanticsLabel('Photo 4 of 6'));
+        expect(third.top, first.top);
+        expect(fourth.top, greaterThan(first.bottom));
+        expect(first.width, closeTo(first.height, 0.5));
+
+        // Mods with owner prices, the private lock and the timeline.
+        await _reveal(tester, find.text('Mods  3'));
+        await _reveal(tester, find.text('WHL'));
         expect(find.text('RM 18,500'), findsOneWidget);
-        expect(find.text('Garage 21 Performance Exhaust Specialists'), findsOneWidget);
         await _reveal(tester, find.text('Prices are only visible to you.'));
-        expect(find.text('+ Add a mod'), findsOneWidget);
-        await _sweep(tester);
-
-        // History: mods, meets, parked.
+        await _tap(tester, find.text('+ Add a mod'));
+        expect(_calls.last, 'addMod');
         await _tap(tester, find.text('History'));
         await _reveal(tester, find.text('TTDI Thursday'));
-        expect(find.text('Checked in · Plaza TTDI'), findsOneWidget);
-        await _reveal(tester, find.text('Parked in the garage'));
-        await _sweep(tester);
+        await _tap(tester, find.text('TTDI Thursday'));
+        expect(_calls.last, 'event:e1');
+        await _tap(tester, find.text('List'));
 
-        // Papers: rings, soon / overdue tags, mileage service, insurance details.
-        await _tapTab(tester, 'Papers');
-        await _reveal(tester, find.text('Road tax'));
+        // Papers: owner only.
+        await _reveal(tester, find.text('Papers'));
         await _reveal(tester, find.text('Renew soon'));
         await _reveal(tester, find.textContaining('Etiqa · Policy V1234567'));
-        await _reveal(tester, find.text('Overdue'));
         await _reveal(tester, find.text('At 45,000 km'));
-        await _reveal(tester, find.text('Spare key in the drawer.'));
-        await _sweep(tester);
 
-        // Posts: the grid.
-        await _tapTab(tester, 'Posts');
+        // Portraits: painting / failed news, two finished, the one on the car marked.
+        await _reveal(tester, find.text('Portraits  2'));
+        await _reveal(tester, find.text('Painting your 911 Carrera…'));
+        await _reveal(tester, find.bySemanticsLabel('Night city portrait, on the car'));
+        expect(find.text('ON THE CAR'), findsOneWidget);
+        await _tap(tester, find.bySemanticsLabel('Golden hour portrait'));
+        expect(_calls.last, 'portrait:golden_hour/2');
+        expect(find.text('MAKE IT LOOK PRO'), findsNothing);
+
+        // Posts.
+        await _reveal(tester, find.text('Posts  3'));
         await _reveal(tester, find.bySemanticsLabel(RegExp('Golden hour at Bukit Tinggi')).first);
-        await _sweep(tester);
 
-        // Bottom bar.
-        await tester.tap(find.text('Add a mod').last);
-        await tester.tap(find.text('Post about it').last);
-        expect(_calls, containsAllInOrder(['addMod', 'post']));
-        expect(find.text('Message owner'), findsNothing);
-        expect(find.text('In the garage of'), findsNothing);
+        await _sweep(tester);
+        // The top bar: Back and Share over the studio.
+        await _toTop(tester);
+        await tester.tap(find.bySemanticsLabel('Share'));
+        await tester.tap(find.bySemanticsLabel('Back'));
+        expect(_calls.sublist(_calls.length - 2), ['share', 'back']);
         expect(tester.takeException(), isNull);
       });
 
-      testWidgets('owner, new car ($mode): one framed photo, no strip, promo card, empty tabs', (tester) async {
-        await _pump(tester, _fresh(), scale: scale, dark: dark);
+      testWidgets('owner, new car ($mode): toy on its way, 1 photo, empty sections, promo', (tester) async {
+        final d = _fresh();
+        await _pump(tester, d, scale: scale, dark: dark);
         expect(tester.takeException(), isNull);
+        expect(ToyCarImage.stateFor(d.car, mine: true), 'pending');
+        expect(find.text('Building your toy car…'), findsOneWidget);
+        expect(find.text('White paint'), findsOneWidget);
+        expect(find.text('TODAY\'S CAR'), findsNothing);
 
-        expect(find.byType(CarMediaStrip), findsNothing);
-        expect(find.text('YOUR PHOTO · TAP TO VIEW'), findsOneWidget);
-        // Real specs only: the "—" is dropped, two chips, no sheet.
-        expect(find.text('1.5 L'), findsOneWidget);
-        expect(find.text('CVT'), findsOneWidget);
-        expect(find.text('—'), findsNothing);
-        expect(find.text('SPEC SHEET'), findsNothing);
+        await _tap(tester, find.text('Make today\'s car'));
+        expect(_calls.last, 'today');
 
+        // One photo: one wide picture, no cover tag.
+        await _reveal(tester, find.text('Album  1'));
+        final photo = tester.getRect(find.bySemanticsLabel('Photo of the car'));
+        expect(photo.width, closeTo(390 - 32, 0.5));
+        expect(find.text('COVER'), findsNothing);
+        expect(find.text('Edit'), findsOneWidget);
+
+        await _reveal(tester, find.text('STOCK AND PROUD?'));
+        await _tap(tester, find.text('Log a mod'));
+        expect(_calls.last, 'addMod');
+        await _reveal(tester, find.text('NEVER MISS A RENEWAL'));
         await _reveal(tester, find.text('MAKE IT LOOK PRO'));
         await _tap(tester, find.text('Paint my Myvi 1.5 AV · 300 points'));
+        expect(_calls.last, 'paint');
         await _tap(tester, find.bySemanticsLabel('Hide this'));
-        expect(_calls, containsAllInOrder(['paint', 'dismiss']));
-
-        await _tapTab(tester, 'Build');
-        await _reveal(tester, find.text('STOCK AND PROUD?'));
-        expect(find.text('History'), findsNothing);
-        await _sweep(tester);
-        await _tapTab(tester, 'Papers');
-        await _reveal(tester, find.text('NEVER MISS A RENEWAL'));
-        await _tap(tester, find.text('Add road tax date'));
-        expect(_calls.last, 'papers');
-        await _sweep(tester);
-        await _tapTab(tester, 'Posts');
+        expect(_calls.last, 'dismiss');
         await _reveal(tester, find.text('SHOW IT OFF'));
         await _sweep(tester);
-
-        // The stage opens the viewer.
-        await _toTop(tester);
-        await tester.tapAt(const Offset(195, 220));
-        expect(_calls.last, 'media:0/1');
         expect(tester.takeException(), isNull);
       });
 
-      testWidgets('visitor, nothing logged ($mode): no tabs, Message owner, owner row', (tester) async {
+      testWidgets('owner, no photos ($mode): body-type art, no "building", add photos', (tester) async {
+        final d = CarPageData(
+          car: _car(photos: 0, toy: false, toyStatus: null, color: null),
+          mine: true,
+          mods: const [],
+          portraits: const [],
+          posts: const [],
+          meets: const [],
+        );
+        await _pump(tester, d, scale: scale, dark: dark);
+        expect(ToyCarImage.stateFor(d.car, mine: true), 'fallback');
+        expect(find.text('Building your toy car…'), findsNothing);
+        expect(find.textContaining(' paint'), findsNothing);
+        await _reveal(tester, find.text('Album'));
+        await _tap(tester, find.text('+ Add photos of your car'));
+        expect(_calls.last, 'edit');
+        // Portraits are off: no section.
+        expect(find.textContaining('Portraits'), findsNothing);
+        await _sweep(tester);
+        expect(tester.takeException(), isNull);
+      });
+
+      testWidgets('visitor, toy and no photos ($mode): read-only, Message owner, report in More', (tester) async {
         await _pump(tester, _visitor(), scale: scale, dark: dark, actions: _actions(owner: false));
         expect(tester.takeException(), isNull);
+        expect(find.text('DAILY'), findsOneWidget);
+        expect(find.text('Red paint'), findsOneWidget);
+        expect(ToyCarImage.stateFor(_visitor().car, mine: false), 'toy');
 
-        await _reveal(tester, find.text('In the garage of'));
-        expect(find.text('Build'), findsNothing);
-        expect(find.text('Papers'), findsNothing);
-        expect(find.text('Posts'), findsOneWidget); // the stat label only
+        await _reveal(tester, find.text('@titi_onboard1'));
+        expect(find.text('In their garage'), findsOneWidget);
         expect(find.text('Spent'), findsNothing);
-        await _toTop(tester);
-        expect(find.text('MAKE IT LOOK PRO'), findsNothing);
-        expect(find.text('PHOTO · TAP TO VIEW'), findsOneWidget);
-        expect(find.bySemanticsLabel('More'), findsNothing);
-        await _sweep(tester);
-
+        expect(find.text('Edit car'), findsNothing);
+        // Nothing to show: no album, mods, papers, portraits or posts sections.
+        expect(find.textContaining('Album'), findsNothing);
+        expect(find.textContaining('Mods  '), findsNothing);
+        expect(find.text('Papers'), findsNothing);
+        expect(find.textContaining('Portraits'), findsNothing);
         await _tap(tester, find.text('@titi_onboard1'));
-        await tester.tap(find.text('Message owner'));
-        await tester.tap(find.bySemanticsLabel('Share this car'));
-        expect(_calls, containsAllInOrder(['owner', 'message', 'share:photo']));
+        await _tap(tester, find.text('Message owner'));
+        await _tap(tester, find.bySemanticsLabel('More'));
+        expect(_calls, ['owner', 'message', 'visitor-more']);
+        await _sweep(tester);
         expect(tester.takeException(), isNull);
       });
     }
   }
 
-  testWidgets('visitor with mods and posts sees Build and Posts, no prices', (tester) async {
+  testWidgets('visitor with photos, mods and posts: album, mods without prices, the portrait the car wears', (tester) async {
     final rich = _rich();
     final data = CarPageData(
-      car: rich.car,
+      car: _car(owner: 'u-other', photos: 2, portrait: '$_base/portraits/c-911/night_city.png'),
       mine: false,
       owner: rich.owner,
       mods: [for (final m in rich.mods!.where((m) => !m.isPrivate)) _mod(m.id, m.category, m.title, shop: m.shop, daysAgo: 10)],
@@ -399,45 +436,97 @@ void main() {
       meets: rich.meets,
     );
     await _pump(tester, data, scale: 1.3, dark: false, actions: _actions(owner: false));
-    // Visitors see the portrait the car wears, not the owner's others.
-    expect(find.bySemanticsLabel('Show the Night city portrait'), findsOneWidget);
-    expect(find.bySemanticsLabel('Show the Golden hour portrait'), findsNothing);
-    expect(find.bySemanticsLabel('More'), findsNothing);
-    await _reveal(tester, _tab('Build'));
-    expect(_tab('Posts'), findsOneWidget);
-    expect(_tab('Papers'), findsNothing);
+    await _reveal(tester, find.text('Album  2'));
+    expect(find.text('Edit'), findsNothing);
+    final a = tester.getRect(find.bySemanticsLabel('Photo 1 of 2'));
+    final b = tester.getRect(find.bySemanticsLabel('Photo 2 of 2'));
+    expect(a.top, b.top);
+    expect(find.text('COVER'), findsNothing);
     await _reveal(tester, find.text('WHL'));
     expect(find.text('Prices are only visible to you.'), findsNothing);
     expect(find.text('+ Add a mod'), findsNothing);
     expect(find.textContaining('RM '), findsNothing);
+    expect(find.text('Papers'), findsNothing);
+    await _reveal(tester, find.text('Portraits  1'));
+    await _tap(tester, find.bySemanticsLabel('Night city portrait, on the car'));
+    expect(_calls.last, 'portrait:night_city/1');
+    await _reveal(tester, find.text('Posts  3'));
     await _sweep(tester);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('the pinned tab bar follows a theme flip on a live page', (tester) async {
-    await _pump(tester, _fresh(), scale: 1.0, dark: false);
-    await _reveal(tester, _tab('Build'));
-    Color? tabsColour() => (tester.widget<Container>(find.byKey(const ValueKey('car-tabs'))).decoration as BoxDecoration?)?.color;
-    expect(tabsColour(), AppColors.bg);
-    // The app flips AppColors and rebuilds the same page (no new route).
-    AppColors.dark = true;
-    await tester.pumpWidget(MaterialApp(
-      theme: AppTheme.current,
-      home: Builder(
-        builder: (context) => MediaQuery(
-          data: MediaQuery.of(context).copyWith(textScaler: TextScaler.noScaling),
-          child: CarPageView(data: _fresh(), actions: _actions(), imageFor: _image),
-        ),
-      ),
-    ));
-    await tester.pump(const Duration(milliseconds: 100));
-    expect(tabsColour(), AppColors.bg);
-    expect(AppColors.bg, const Color(0xFF0F1115));
-    expect(tester.takeException(), isNull);
+  group('paint and repaint', () {
+    for (final scale in [1.0, 1.3]) {
+      testWidgets('repainting: the old toy dimmed under the pill, "Repainting in Blue…" (@$scale)', (tester) async {
+        final car = _car(color: 'blue', toyColor: 'red', toyStatus: 'pending');
+        expect(car.toyRepainting, isTrue);
+        await _pump(tester, _rich(car: car), scale: scale, dark: false);
+        expect(ToyCarImage.stateFor(car, mine: true), 'repainting');
+        expect(find.text(kRepaintingCaption), findsOneWidget);
+        expect(find.text('Repainting in Blue…'), findsOneWidget);
+        expect(find.text('Try again'), findsNothing);
+        expect(tester.takeException(), isNull);
+      });
+
+      testWidgets('a repaint the cap holds back says when it goes on (@$scale)', (tester) async {
+        final car = _car(color: 'blue', toyColor: 'red', toyStatus: 'ready');
+        expect(car.toyPaintWaiting, isTrue);
+        final next = DateTime.now().add(const Duration(hours: 3));
+        final d = _rich(car: car);
+        final data = CarPageData(
+          car: car,
+          mine: true,
+          mods: d.mods,
+          portraits: const [],
+          posts: const [],
+          meets: const [],
+          toyQuota: ToyQuota(limit: 3, used: 3, nextAt: next),
+        );
+        await _pump(tester, data, scale: scale, dark: true);
+        expect(find.text('Blue paint is next'), findsOneWidget);
+        expect(find.textContaining('3 toy renders a day per car'), findsOneWidget);
+        expect(find.text(kRepaintingCaption), findsNothing);
+        expect(tester.takeException(), isNull);
+      });
+
+      testWidgets('a repaint that failed offers Try again (@$scale)', (tester) async {
+        final car = _car(color: 'blue', toyColor: 'red', toyStatus: 'failed');
+        await _pump(tester, _rich(car: car), scale: scale, dark: false);
+        expect(find.text('The Blue repaint didn\'t work'), findsOneWidget);
+        expect(find.textContaining('The new paint didn\'t take'), findsOneWidget);
+        await tester.tap(find.text('Try again'));
+        expect(_calls.last, 'retry');
+        // Visitors see the toy they see: still red, no notes.
+        await _pump(tester, CarPageData(car: _car(owner: 'u-other', color: 'blue', toyColor: 'red', toyStatus: 'failed'), mine: false), scale: scale, dark: false, actions: _actions(owner: false));
+        expect(find.text('Red paint'), findsOneWidget);
+        expect(find.text('Try again'), findsNothing);
+        expect(tester.takeException(), isNull);
+      });
+    }
+  });
+
+  test('album layout: one wide, two and four in pairs, otherwise threes', () {
+    expect(albumLayout(1), (columns: 1, aspect: 16 / 10));
+    expect(albumLayout(2).columns, 2);
+    expect(albumLayout(3).columns, 3);
+    expect(albumLayout(4).columns, 2);
+    expect(albumLayout(5).columns, 3);
+    expect(albumLayout(6).columns, 3);
+  });
+
+  test('portraits: the owner\'s ready ones (the one worn marked), visitors only the one worn', () {
+    final car = _car(portrait: '$_base/portraits/c-911/night_city.png');
+    final mine = carPortraitsFor(car, portraits: _rich().portraits);
+    expect(mine.map((p) => p.style?.id), ['night_city', 'golden_hour']);
+    expect(mine.first.wearing, isTrue);
+    final theirs = carPortraitsFor(car);
+    expect(theirs, hasLength(1));
+    expect(theirs.single.style?.id, 'night_city');
+    expect(theirs.single.portrait, isNull);
   });
 
   test('history: newest first, and the day it was parked sits under that day\'s mods', () {
-    final car = _newCar();
+    final car = _car(photos: 1);
     final sameDay = CarMod(
       id: 'm-same',
       carId: car.id,
@@ -454,22 +543,10 @@ void main() {
   });
 
   test('specs: labels, blanks dropped, body style added once', () {
-    final specs = carSpecs(_richCar());
+    final specs = carSpecs(_car());
     expect(specs.map((s) => s.label), ['Engine', 'Power', 'Gearbox', 'Drive', 'Body']);
-    expect(carSpecs(_newCar()).map((s) => s.value), ['1.5 L', 'CVT']);
-  });
-
-  test('media: cut-out, photos, then portraits; opens on the cut-out', () {
-    final car = _richCar();
-    final media = carMediaFor(car, portraits: _rich().portraits);
-    expect(media.map((m) => m.kind), [CarMediaKind.cutout, CarMediaKind.photo, CarMediaKind.photo, CarMediaKind.portrait, CarMediaKind.portrait]);
-    expect(initialMediaIndex(car, media), 0);
-    // A stale cut-out (made from another cover) is left out.
-    final stale = Car(id: car.id, ownerId: car.ownerId, make: car.make, model: car.model, photoUrls: car.photoUrls, createdAt: car.createdAt, cutoutUrl: car.cutoutUrl, cutoutSource: 'old.jpg', portraitUrl: car.portraitUrl);
-    final m2 = carMediaFor(stale);
-    expect(m2.first.kind, CarMediaKind.photo);
-    // No cut-out: it opens on the portrait the car wears.
-    expect(m2[initialMediaIndex(stale, m2)].style?.id, 'night_city');
+    final blank = Car(id: 'x', ownerId: 'u', make: 'Perodua', model: 'Myvi', photoUrls: const [], createdAt: _today, specs: '1.5 L · — · CVT');
+    expect(carSpecs(blank).map((s) => s.value), ['1.5 L', 'CVT']);
   });
 
   test('meets: merged per event, checked in wins, future and cancelled left out', () {

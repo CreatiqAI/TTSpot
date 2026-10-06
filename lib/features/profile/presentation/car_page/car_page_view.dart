@@ -1,16 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../../core/theme/app_icons.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../domain/car_mod.dart';
+import '../garage/garage_studio.dart' show StudioColors;
+import 'car_album.dart';
 import 'car_build_tab.dart';
-import 'car_identity.dart';
+import 'car_hero.dart';
 import 'car_page_model.dart';
 import 'car_papers_tab.dart';
+import 'car_portraits.dart';
 import 'car_posts_tab.dart';
-import 'car_stage.dart';
-
-enum CarTab { build, papers, posts }
+import 'car_summary.dart';
 
 /// What the page's buttons do. The screen wires these to routes and sheets;
 /// tests record them.
@@ -19,31 +21,38 @@ class CarPageActions {
     required this.back,
     required this.share,
     required this.more,
-    required this.openMedia,
+    required this.editCar,
+    required this.makeToday,
+    required this.openPhoto,
     required this.addMod,
     required this.openMod,
     required this.modPhotos,
     required this.openPartner,
     required this.postAboutIt,
     required this.openPapers,
-    required this.paint,
+    required this.newPortrait,
+    required this.openPortrait,
     required this.dismissPromo,
     required this.messageOwner,
     required this.openOwner,
     required this.openPost,
     required this.openEvent,
+    this.retryToy,
   });
 
   final VoidCallback back;
+  final VoidCallback share;
 
-  /// With what's on the stage (a portrait can be shared on its own).
-  final void Function(CarMedia? onStage) share;
+  /// The ⋯ sheet: the owner's car menu, a visitor's report (null: none).
+  final VoidCallback? more;
+  final VoidCallback editCar;
+  final VoidCallback makeToday;
 
-  /// The "…" sheet (null for visitors with nothing in it).
-  final void Function(CarMedia? onStage)? more;
+  /// The owner's "Try again" after a toy (or repaint) that didn't work.
+  final VoidCallback? retryToy;
 
-  /// Full screen, at the media's own shape.
-  final void Function(List<CarMedia> media, int index) openMedia;
+  /// Full screen, starting at [index] of [urls].
+  final void Function(List<String> urls, int index) openPhoto;
   final VoidCallback addMod;
 
   /// The owner edits it; anyone else sees its photo.
@@ -52,7 +61,11 @@ class CarPageActions {
   final void Function(String vendorId) openPartner;
   final VoidCallback postAboutIt;
   final VoidCallback openPapers;
-  final VoidCallback paint;
+  final VoidCallback newPortrait;
+
+  /// A portrait tile: the owner gets its sheet (view, use, share), a visitor
+  /// the viewer.
+  final void Function(CarPortraitMedia portrait, List<CarPortraitMedia> all) openPortrait;
   final VoidCallback dismissPromo;
   final VoidCallback messageOwner;
   final VoidCallback openOwner;
@@ -60,9 +73,12 @@ class CarPageActions {
   final void Function(String eventId) openEvent;
 }
 
-/// The car page body: the bay with its media, the strip, who the car is, its
-/// numbers, the tabs and the fixed bottom bar. Draws [data] only; no
-/// providers, so tests can pump it with fakes.
+/// The car page: the dark studio with the toy car on top (in light and dark
+/// mode alike), then on the page's own colours the specs, the owner, the
+/// numbers and the buttons, and one clean section after another: Album (the
+/// member's real photos), Mods, Papers (owner), Portraits, Posts. A plain bar
+/// with the car's name takes over the top once the studio scrolls away.
+/// Draws [data] only; no providers, so tests can pump it with fakes.
 class CarPageView extends StatefulWidget {
   const CarPageView({super.key, required this.data, required this.actions, this.imageFor = defaultCarImage, this.onRefresh});
 
@@ -76,108 +92,167 @@ class CarPageView extends StatefulWidget {
 }
 
 class _CarPageViewState extends State<CarPageView> {
-  /// The media on stage, by URL, so a reload keeps it.
-  String? _onStage;
-  CarTab? _tab;
+  final _scroll = ScrollController();
+  final _heroKey = GlobalKey();
+
+  /// The studio's measured height (it grows with the text size).
+  double _heroH = 460;
   bool _history = false;
 
-  List<CarTab> _tabs(CarPageData d) => d.mine
-      ? const [CarTab.build, CarTab.papers, CarTab.posts]
-      : [if (d.mods?.isNotEmpty ?? false) CarTab.build, if (d.posts?.isNotEmpty ?? false) CarTab.posts];
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  void _measureHero() {
+    final h = _heroKey.currentContext?.size?.height;
+    if (h != null && mounted && (h - _heroH).abs() > 0.5) setState(() => _heroH = h);
+  }
 
   @override
   Widget build(BuildContext context) {
+    WidgetsBinding.instance.addPostFrameCallback((_) => _measureHero());
     final d = widget.data;
     final a = widget.actions;
-    final media = carMediaFor(d.car, portraits: d.portraits);
-    var selected = _onStage == null ? -1 : media.indexWhere((m) => m.url == _onStage);
-    if (selected < 0) selected = initialMediaIndex(d.car, media);
-    final onStage = media.isEmpty ? null : media[selected];
-
-    final tabs = _tabs(d);
-    final tab = tabs.contains(_tab) ? _tab! : tabs.firstOrNull;
-
     final mq = MediaQuery.of(context);
     final topInset = mq.padding.top;
     final bottomInset = mq.padding.bottom;
-    final stageH = (mq.size.width * 0.76).clamp(270.0, 330.0);
-    final tabH = (mq.textScaler.scale(14) + 30).clamp(46.0, 64.0);
-    final news = d.portraitNews;
+    final photos = d.car.photoUrls;
+    final mods = d.mods;
+    final posts = d.posts;
+    final portraits = carPortraitsFor(d.car, portraits: d.portraits);
 
-    final slivers = <Widget>[
-      SliverPersistentHeader(
-        pinned: true,
-        delegate: CarStageDelegate(
-          car: d.car,
-          media: onStage,
-          mine: d.mine,
-          topInset: topInset,
-          stageHeight: stageH,
-          imageFor: widget.imageFor,
-          bayIndex: d.bayIndex,
-          onBack: a.back,
-          onShare: () => a.share(onStage),
-          onMore: a.more == null ? null : () => a.more!(onStage),
-          onOpen: () => a.openMedia(media, selected),
+    final sections = <Widget>[
+      SliverToBoxAdapter(
+        child: CarSummary(
+          data: d,
+          onEdit: a.editCar,
+          onMakeToday: a.makeToday,
+          onPost: a.postAboutIt,
+          onMore: a.more,
+          onMessage: a.messageOwner,
+          onOwner: a.openOwner,
         ),
       ),
-      if (media.length > 1)
+      // Album: the member's own photos (the toy fronts the car instead).
+      if (photos.isNotEmpty || d.mine) ...[
+        SliverToBoxAdapter(child: CarSectionHeader(title: 'Album', count: photos.length, action: d.mine && photos.isNotEmpty ? 'Edit' : null, onAction: a.editCar)),
         SliverToBoxAdapter(
-          child: CarMediaStrip(media: media, selected: selected, imageFor: widget.imageFor, onPick: (i) => setState(() => _onStage = media[i].url)),
-        ),
-      if (news.isNotEmpty) SliverToBoxAdapter(child: PortraitNews(car: d.car, portraits: news, onRetry: a.paint)),
-      SliverToBoxAdapter(child: CarIdentity(car: d.car, top: media.length > 1 || news.isNotEmpty ? 16 : 8)),
-      SliverToBoxAdapter(child: CarStatsCard(data: d)),
-      if (d.showPromo) SliverToBoxAdapter(child: MakeItLookProCard(car: d.car, cost: d.portraitCost, onPaint: a.paint, onDismiss: a.dismissPromo)),
-      if (tabs.isNotEmpty) ...[
-        const SliverToBoxAdapter(child: SizedBox(height: 14)),
-        SliverPersistentHeader(
-          pinned: true,
-          delegate: _TabBarDelegate(tabs: tabs, current: tab!, height: tabH, onPick: (t) => setState(() => _tab = t)),
-        ),
-        SliverToBoxAdapter(
-          child: switch (tab) {
-            CarTab.build => CarBuildTab(
-                data: d,
-                history: _history,
-                onHistory: (v) => setState(() => _history = v),
-                onAddMod: a.addMod,
-                onOpenMod: a.openMod,
-                onModPhotos: a.modPhotos,
-                onPartner: a.openPartner,
-                onMeet: a.openEvent,
-                imageFor: widget.imageFor,
-              ),
-            CarTab.papers => CarPapersTab(documents: d.documents, loading: d.documentsLoading, onEdit: a.openPapers),
-            CarTab.posts => CarPostsTab(posts: d.posts, mine: d.mine, onOpen: a.openPost, onPost: a.postAboutIt, imageFor: widget.imageFor),
-          },
+          child: CarAlbum(
+            photos: photos,
+            mine: d.mine,
+            imageFor: widget.imageFor,
+            onOpen: (i) => a.openPhoto(photos, i),
+            onAdd: d.mine ? a.editCar : null,
+          ),
         ),
       ],
-      if (!d.mine) SliverToBoxAdapter(child: CarOwnerRow(ownerId: d.car.ownerId, owner: d.owner, onTap: a.openOwner)),
-      // Room for the bottom bar.
-      SliverToBoxAdapter(child: SizedBox(height: 96 + bottomInset)),
+      // Mods (and, with three things to tell, the whole history).
+      if (d.mine || (mods?.isNotEmpty ?? false)) ...[
+        // The owner's "+ Add a mod" sits under the list.
+        SliverToBoxAdapter(child: CarSectionHeader(title: 'Mods', count: mods?.length)),
+        SliverToBoxAdapter(
+          child: CarBuildTab(
+            data: d,
+            history: _history,
+            onHistory: (v) => setState(() => _history = v),
+            onAddMod: a.addMod,
+            onOpenMod: a.openMod,
+            onModPhotos: a.modPhotos,
+            onPartner: a.openPartner,
+            onMeet: a.openEvent,
+            imageFor: widget.imageFor,
+          ),
+        ),
+      ],
+      // Papers: only ever the owner's.
+      if (d.mine) ...[
+        SliverToBoxAdapter(child: CarSectionHeader(title: 'Papers', action: (d.documents?.isEmpty ?? true) ? null : 'Edit', onAction: a.openPapers)),
+        SliverToBoxAdapter(child: CarPapersTab(documents: d.documents, loading: d.documentsLoading, onEdit: a.openPapers)),
+      ],
+      if (d.showPortraits) ...[
+        SliverToBoxAdapter(
+          child: CarSectionHeader(
+            title: 'Portraits',
+            count: portraits.length,
+            action: d.mine && d.portraitsEnabled && portraits.isNotEmpty ? 'New' : null,
+            onAction: a.newPortrait,
+          ),
+        ),
+        SliverToBoxAdapter(
+          child: CarPortraitsSection(data: d, imageFor: widget.imageFor, onOpen: a.openPortrait, onNew: a.newPortrait, onDismissPromo: a.dismissPromo),
+        ),
+      ],
+      if (d.mine || (posts?.isNotEmpty ?? false)) ...[
+        SliverToBoxAdapter(child: CarSectionHeader(title: 'Posts', count: posts?.length, action: d.mine && (posts?.isNotEmpty ?? false) ? 'Post' : null, onAction: a.postAboutIt)),
+        SliverToBoxAdapter(child: CarPostsTab(posts: posts, mine: d.mine, onOpen: a.openPost, onPost: a.postAboutIt, imageFor: widget.imageFor)),
+      ],
+      SliverToBoxAdapter(child: SizedBox(height: 40 + bottomInset)),
     ];
 
-    final scroll = CustomScrollView(physics: const AlwaysScrollableScrollPhysics(), slivers: slivers);
+    final scroll = CustomScrollView(
+      controller: _scroll,
+      physics: const AlwaysScrollableScrollPhysics(),
+      slivers: [
+        SliverToBoxAdapter(
+          child: KeyedSubtree(
+            key: _heroKey,
+            child: CarHero(
+              car: d.car,
+              mine: d.mine,
+              topInset: topInset,
+              quota: d.toyQuota,
+              onRetryToy: a.retryToy,
+              onLongPress: d.mine ? a.more : null,
+            ),
+          ),
+        ),
+        // The page's own colour from here down (the studio stays night).
+        DecoratedSliver(
+          decoration: BoxDecoration(color: AppColors.bg),
+          sliver: SliverMainAxisGroup(slivers: sections),
+        ),
+      ],
+    );
+
     return Scaffold(
       backgroundColor: AppColors.bg,
       body: Stack(
         children: [
+          // Night behind the studio, so a pull past the top never shows a
+          // white gap above it.
+          ListenableBuilder(
+            listenable: _scroll,
+            builder: (context, _) {
+              final offset = _scroll.hasClients ? _scroll.offset : 0.0;
+              return Positioned(top: 0, left: 0, right: 0, height: (_heroH - offset).clamp(0.0, double.infinity), child: const ColoredBox(color: StudioColors.page));
+            },
+          ),
           Positioned.fill(
-            child: widget.onRefresh == null ? scroll : RefreshIndicator(edgeOffset: topInset + 56, onRefresh: widget.onRefresh!, child: scroll),
+            child: widget.onRefresh == null
+                ? scroll
+                : RefreshIndicator(edgeOffset: topInset + CarHero.barHeight, onRefresh: widget.onRefresh!, child: scroll),
           ),
           Positioned(
+            top: 0,
             left: 0,
             right: 0,
-            bottom: 0,
-            child: _BottomBar(
-              mine: d.mine,
-              messaging: d.messaging,
-              bottomInset: bottomInset,
-              onPost: a.postAboutIt,
-              onAddMod: a.addMod,
-              onMessage: a.messageOwner,
-              onShare: () => a.share(onStage),
+            child: ListenableBuilder(
+              listenable: _scroll,
+              builder: (context, _) {
+                final offset = _scroll.hasClients ? _scroll.offset : 0.0;
+                // Solid once the studio's lower part slides under the bar.
+                final start = _heroH - topInset - CarHero.barHeight - 90;
+                final t = ((offset - start) / 60).clamp(0.0, 1.0);
+                return _TopBar(
+                  t: t,
+                  title: d.car.model,
+                  topInset: topInset,
+                  onBack: a.back,
+                  onShare: a.share,
+                );
+              },
             ),
           ),
         ],
@@ -186,134 +261,83 @@ class _CarPageViewState extends State<CarPageView> {
   }
 }
 
-/// Build · Papers · Posts, pinned under the top bar while the page scrolls.
-class _TabBarDelegate extends SliverPersistentHeaderDelegate {
-  _TabBarDelegate({required this.tabs, required this.current, required this.height, required this.onPick});
-  final List<CarTab> tabs;
-  final CarTab current;
-  final double height;
-  final ValueChanged<CarTab> onPick;
-
-  static const _labels = {CarTab.build: 'Build', CarTab.papers: 'Papers', CarTab.posts: 'Posts'};
-
-  @override
-  double get minExtent => height;
-
-  @override
-  double get maxExtent => height;
-
-  // Always: the colours come from AppColors, which flips with the theme.
-  @override
-  bool shouldRebuild(_TabBarDelegate old) => true;
-
-  @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) => Container(
-        key: const ValueKey('car-tabs'),
-        decoration: BoxDecoration(color: AppColors.bg, border: Border(bottom: BorderSide(color: AppColors.divider))),
-        child: Row(
-          children: [
-            for (final t in tabs)
-              Expanded(
-                child: Semantics(
-                  button: true,
-                  selected: t == current,
-                  child: InkWell(
-                    onTap: () => onPick(t),
-                    child: Container(
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        border: Border(bottom: BorderSide(color: t == current ? AppColors.brand : Colors.transparent, width: 2.5)),
-                      ),
-                      child: Text(
-                        _labels[t]!,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: t == current ? AppColors.textPrimary : AppColors.textMuted),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
-      );
-}
-
-/// The fixed bar at the bottom: the owner posts or logs a mod; a visitor
-/// messages the owner or shares the car.
-class _BottomBar extends StatelessWidget {
-  const _BottomBar({
-    required this.mine,
-    required this.messaging,
-    required this.bottomInset,
-    required this.onPost,
-    required this.onAddMod,
-    required this.onMessage,
-    required this.onShare,
-  });
-
-  final bool mine;
-  final bool messaging;
-  final double bottomInset;
-  final VoidCallback onPost;
-  final VoidCallback onAddMod;
-  final VoidCallback onMessage;
+/// Back, the car's name (once the studio has scrolled away) and Share. Glass
+/// buttons on the studio ([t] = 0), a plain bar on the page's colour at 1.
+class _TopBar extends StatelessWidget {
+  const _TopBar({required this.t, required this.title, required this.topInset, required this.onBack, required this.onShare});
+  final double t;
+  final String title;
+  final double topInset;
+  final VoidCallback onBack;
   final VoidCallback onShare;
 
   @override
   Widget build(BuildContext context) {
-    ButtonStyle filled(Color bg, Color fg) => FilledButton.styleFrom(
-          minimumSize: const Size.fromHeight(48),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          backgroundColor: bg,
-          foregroundColor: fg,
-          disabledBackgroundColor: bg.withValues(alpha: 0.6),
-          disabledForegroundColor: fg,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-        );
-    Widget label(String text) => Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, softWrap: false);
-    return Container(
-      padding: EdgeInsets.fromLTRB(16, 10, 16, 10 + bottomInset),
-      decoration: BoxDecoration(
-        color: AppColors.bg.withValues(alpha: 0.94),
-        border: Border(top: BorderSide(color: AppColors.divider)),
-      ),
-      child: Row(
-        children: mine
-            ? [
-                Expanded(child: FilledButton(onPressed: onPost, style: filled(AppColors.textPrimary, AppColors.onInk), child: label('Post about it'))),
-                const SizedBox(width: 10),
-                Expanded(child: FilledButton(onPressed: onAddMod, style: filled(AppColors.brand, Colors.white), child: label('Add a mod'))),
-              ]
-            : [
-                Expanded(
-                  child: FilledButton.icon(
-                    onPressed: messaging ? null : onMessage,
-                    style: filled(AppColors.brand, Colors.white),
-                    icon: const Icon(AppIcons.chatCircle, size: 18),
-                    label: label('Message owner'),
-                  ),
+    final overlay = t > 0.5 ? AppTheme.systemOverlay : AppTheme.systemOverlay.copyWith(statusBarIconBrightness: Brightness.light, statusBarBrightness: Brightness.dark);
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: overlay,
+      child: Container(
+        height: topInset + CarHero.barHeight,
+        padding: EdgeInsets.fromLTRB(12, topInset + 6, 12, 6),
+        decoration: BoxDecoration(
+          color: AppColors.bg.withValues(alpha: t),
+          border: Border(bottom: BorderSide(color: AppColors.divider.withValues(alpha: t))),
+        ),
+        child: Row(
+          children: [
+            _BarButton(icon: AppIcons.arrowLeft, tooltip: 'Back', t: t, onTap: onBack),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Opacity(
+                opacity: t,
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  textScaler: MediaQuery.textScalerOf(context).clamp(maxScaleFactor: 1.2),
+                  style: TextStyle(fontFamily: AppFonts.display, fontSize: 21, fontWeight: FontWeight.w800, height: 1.1, color: AppColors.textPrimary),
                 ),
-                const SizedBox(width: 10),
-                Semantics(
-                  button: true,
-                  label: 'Share this car',
-                  excludeSemantics: true,
-                  child: OutlinedButton(
-                    onPressed: onShare,
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size(52, 48),
-                      padding: const EdgeInsets.symmetric(horizontal: 14),
-                      foregroundColor: AppColors.textPrimary,
-                      side: BorderSide(color: AppColors.border),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                    ),
-                    child: const Icon(AppIcons.shareFat, size: 20),
-                  ),
-                ),
-              ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            _BarButton(icon: AppIcons.shareFat, tooltip: 'Share', t: t, onTap: onShare),
+          ],
+        ),
       ),
     );
   }
+}
+
+/// A round button: frosted on the studio, plain once the bar is solid.
+class _BarButton extends StatelessWidget {
+  const _BarButton({required this.icon, required this.tooltip, required this.t, required this.onTap});
+  final IconData icon;
+  final String tooltip;
+  final double t;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+        button: true,
+        label: tooltip,
+        excludeSemantics: true,
+        child: Tooltip(
+          message: tooltip,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onTap,
+            child: Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: 0.10 * (1 - t)),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.16 * (1 - t))),
+              ),
+              child: Icon(icon, size: 20, color: Color.lerp(Colors.white, AppColors.textPrimary, t)),
+            ),
+          ),
+        ),
+      );
 }

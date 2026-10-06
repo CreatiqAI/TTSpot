@@ -17,9 +17,11 @@ import '../application/car_colour_guess.dart';
 import '../application/garage_providers.dart';
 import '../application/plate_hiding.dart';
 import '../application/profile_providers.dart';
+import '../application/toy_providers.dart';
 import '../data/profile_repository.dart';
 import '../domain/car.dart';
 import '../domain/car_recognition.dart';
+import '../domain/car_toy.dart';
 import 'widgets/car_actions_sheet.dart' show GarageLookOption;
 import 'widgets/car_color_picker.dart';
 import 'widgets/car_papers_fields.dart';
@@ -29,10 +31,11 @@ import 'widgets/plate_editor.dart';
 /// Add or edit a car. Pass [carId] to edit.
 ///
 /// Adding is a short wizard: Photos (the first one goes through the
-/// recogniser, like onboarding) → Your car (make, model, year, specs, colour
-/// on the map, all prefilled from the photo) → Papers (road tax, insurance,
+/// recogniser, like onboarding) → Your car (make, model, year, specs, paint
+/// colour, all prefilled from the photo) → Papers (road tax, insurance,
 /// PUSPAKOM; Skip for now) → Park it (summary + garage look). Going back
-/// keeps everything. Editing is one form.
+/// keeps everything. Editing is one form; a new paint colour repaints the
+/// toy car when it is saved (migration 0110), within the daily cap.
 ///
 /// Photos go up as picked unless "Hide my number plate" is on: then every
 /// photo, saved ones too, shows its plate blurred right away, a tap opens
@@ -72,6 +75,8 @@ class _CarFormScreenState extends ConsumerState<CarFormScreen> {
   final _photos = <CarFormPhoto>[];
   bool _loaded = false;
   Car? _loadedCar;
+  /// Toy renders left today for the car being edited (null: not known).
+  ToyQuota? _quota;
   /// Garage look: 'auto' (cut-out) or 'card'.
   String _garageStyle = 'auto';
 
@@ -333,8 +338,24 @@ class _CarFormScreenState extends ConsumerState<CarFormScreen> {
   }
 
   Future<void> _saveEdit() async {
+    // What Save does to the toy, worked out before the car changes under us.
+    final repaint = _repaints && paintKeyOf(_color) != _loadedCar?.paint;
+    final quota = repaint ? _quota : null;
+    final label = _color == null ? null : (kCarColorLabels[_color] ?? _color);
     final id = await _saveCar();
-    if (id != null && mounted) context.pop();
+    if (id == null || !mounted) return;
+    if (repaint) {
+      ref.invalidate(carToyQuotaProvider(id));
+      final text = quota != null && !quota.enabled
+          ? 'Saved. Toy cars are taking a break, so the repaint waits.'
+          : quota != null && quota.capped
+              ? 'Saved. ${toyCapMessage(quota)}'
+              : 'Repainting your toy car${label == null ? '' : ' $label'}. About 2 minutes; it swaps in on its own.';
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(text)));
+    }
+    context.pop();
   }
 
   /// Park it in my garage: the car, then its papers (only when something
@@ -408,6 +429,8 @@ class _CarFormScreenState extends ConsumerState<CarFormScreen> {
     final busy = saving || _hiding;
 
     if (_isEdit) {
+      // Toy renders left today, for the paint field's note.
+      _quota = ref.watch(carToyQuotaProvider(widget.carId!)).value;
       final car = ref.watch(carProvider(widget.carId!));
       if (car.value == null && !car.hasError) {
         return Scaffold(appBar: AppBar(), body: const Center(child: CircularProgressIndicator(strokeWidth: 2)));
@@ -698,8 +721,8 @@ class _CarFormScreenState extends ConsumerState<CarFormScreen> {
       const SizedBox(height: 14),
       _SummaryRow(
         leading: MapCarPreview(color: _color, size: 40),
-        title: colour == null ? 'No colour picked' : '$colour on the map',
-        subtitle: colour == null ? 'It shows grey on the map until you pick one.' : 'This is how your car shows on the map.',
+        title: colour == null ? 'No paint colour picked' : '$colour paint',
+        subtitle: colour == null ? 'Your toy car keeps the colour of your photo.' : 'Your toy car is made in this colour.',
         onEdit: busy ? null : () => _goTo(_Step.car),
       ),
       const SizedBox(height: 10),
@@ -785,6 +808,7 @@ class _CarFormScreenState extends ConsumerState<CarFormScreen> {
     final yearHint = _guess?.yearRange;
     final missingMake = _validate && _make.text.trim().isEmpty;
     final missingModel = _validate && _model.text.trim().isEmpty;
+    final paint = _paintNote();
     return [
       TextField(
         controller: _make,
@@ -828,11 +852,9 @@ class _CarFormScreenState extends ConsumerState<CarFormScreen> {
       const SizedBox(height: 18),
       CarMapColourSection(
         value: _color,
-        note: _color == null
-            ? 'Pick the closest colour below.'
-            : _colorFromPhoto || _colorPicked
-                ? carColourNote(_color, fromPhoto: _colorFromPhoto)
-                : kCarColorLabels[_color] ?? _color,
+        hint: _isEdit ? 'Your toy car is repainted in this colour.' : 'Your toy car is made in this colour.',
+        note: paint.text,
+        noteColor: paint.warn ? const Color(0xFFB45309) : null,
         onChanged: (v) => setState(() {
           _color = v;
           _colorFromPhoto = false;
@@ -841,6 +863,28 @@ class _CarFormScreenState extends ConsumerState<CarFormScreen> {
       ),
     ];
   }
+
+  /// The paint the saved car's toy wears now: the paint it was made in, or
+  /// (no toy yet) the saved colour.
+  String? get _toyPaintNow {
+    final c = _loadedCar;
+    if (c == null) return null;
+    return c.toyUrl != null ? c.toyPaint : c.paint;
+  }
+
+  /// Editing, with a toy to repaint: the picked paint differs from the one
+  /// the toy wears, so saving repaints it.
+  bool get _repaints => _isEdit && _loadedCar?.photoCover != null && _photos.isNotEmpty && paintKeyOf(_color) != _toyPaintNow;
+
+  ({String? text, bool warn}) _paintNote() => paintFieldNote(
+        color: _color,
+        editing: _isEdit,
+        repaints: _repaints,
+        repainting: _isEdit && (_loadedCar?.toyRepainting ?? false) && paintKeyOf(_color) == _loadedCar?.paint,
+        picked: _colorPicked,
+        fromPhoto: _colorFromPhoto,
+        quota: _quota,
+      );
 
   List<Widget> _garageLook({required bool busy}) => [
         Text('GARAGE LOOK', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1, color: AppColors.textSecondary)),
@@ -870,6 +914,34 @@ class _CarFormScreenState extends ConsumerState<CarFormScreen> {
           ),
         ),
       ];
+}
+
+/// The line under "Your toy car is (re)painted in this colour.": where the
+/// colour came from, or what Save does to the toy ([repaints]: the picked
+/// paint differs from the one the toy wears), in amber ([warn]) when the
+/// daily cap or a pause holds the repaint back.
+({String? text, bool warn}) paintFieldNote({
+  required String? color,
+  required bool editing,
+  required bool repaints,
+  required bool picked,
+  required bool fromPhoto,
+  bool repainting = false,
+  ToyQuota? quota,
+  DateTime? now,
+}) {
+  if (color == null) {
+    return (text: editing ? 'Now it keeps the colour of your photo. Pick one to repaint it.' : 'Pick the closest colour below.', warn: false);
+  }
+  final label = kCarColorLabels[color] ?? color;
+  if (repainting) return (text: '$label · your toy is being repainted now, about 2 minutes', warn: false);
+  if (repaints) {
+    if (quota != null && !quota.enabled) return (text: 'Toy cars are taking a break, so the repaint waits. The colour still saves.', warn: true);
+    if (quota != null && quota.capped) return (text: toyCapMessage(quota, now: now), warn: true);
+    return (text: '$label · your toy is repainted when you save, about 2 minutes', warn: false);
+  }
+  if (editing && !picked) return (text: '$label · your toy\'s paint now', warn: false);
+  return (text: carColourNote(color, fromPhoto: fromPhoto), warn: false);
 }
 
 /// Four segments and "Step 2 of 4 · Your car".

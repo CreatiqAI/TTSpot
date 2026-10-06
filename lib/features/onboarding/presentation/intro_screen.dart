@@ -5,14 +5,13 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/router/app_router.dart';
-import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/titi.dart';
 import '../../../core/widgets/light_trails.dart';
 import '../../auth/presentation/widgets/dark_auth.dart';
 
 /// Two slides before sign-up (Intro1.dc.html, Intro2.dc.html): Never miss a
-/// meet, with three glass cards rising in; Your crew, live, with TiTi in a
+/// meet, with three glass cards rising in (a different example each loop); Your crew, live, with TiTi in a
 /// pulsing ring and five friends orbiting him. Always dark. Welcome → Get
 /// started → here → Continue, Continue → Create an account. Skip (top right)
 /// goes straight to Create an account. Settings → About replays it; then the
@@ -179,6 +178,9 @@ class _MeetsSlideState extends State<_MeetsSlide> with SingleTickerProviderState
   // one above. The first time round, a card waits for its turn.
   late final AnimationController _loop = AnimationController(vsync: this, duration: const Duration(seconds: 6));
   bool _first = true;
+  // Which example each row shows: a new one every loop, starting somewhere
+  // different each time the intro opens.
+  int _round = math.Random().nextInt(1000);
 
   @override
   void initState() {
@@ -186,10 +188,22 @@ class _MeetsSlideState extends State<_MeetsSlide> with SingleTickerProviderState
     _loop.addStatusListener((s) {
       if (s == AnimationStatus.completed) {
         _first = false;
+        _round++;
         _loop.forward(from: 0);
       }
     });
     _loop.forward();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Every picture ready up front, so a card never swaps in blank.
+    for (final row in _rows) {
+      for (final c in row) {
+        precacheImage(ResizeImage(AssetImage(c.image), width: 162), context);
+      }
+    }
   }
 
   @override
@@ -219,7 +233,7 @@ class _MeetsSlideState extends State<_MeetsSlide> with SingleTickerProviderState
                   children: [
                     for (var i = 0; i < 3; i++) ...[
                       if (i > 0) const SizedBox(height: 12),
-                      _CardLoop(phase: _phase(i), child: _cards[i](_loop.value)),
+                      _CardLoop(phase: _phase(i), child: _card(_example(i), _loop.value)),
                     ],
                   ],
                 ),
@@ -241,32 +255,74 @@ class _MeetsSlideState extends State<_MeetsSlide> with SingleTickerProviderState
     return v;
   }
 
-  static final _cards = <Widget Function(double t)>[
-    (t) => _GlassCard(
-          leading: ClipRRect(borderRadius: BorderRadius.circular(14), child: Image.asset('assets/covers/tt.jpg', width: 54, height: 54, fit: BoxFit.cover, cacheWidth: 162)),
-          title: 'TT at the mamak',
-          subtitle: 'Tonight, 9:30 PM · Bukit Jalil',
-          trailing: _Live(t: t),
+  /// The example row [i] shows now. A card still finishing last loop (it
+  /// starts a quarter second after the one above) keeps last loop's example.
+  _Example _example(int i) {
+    final row = _rows[i];
+    final behind = _loop.value - i * 0.25 / 6 < 0 && !_first;
+    return row[((behind ? _round - 1 : _round) + i * 2) % row.length];
+  }
+
+  Widget _card(_Example e, double t) => _GlassCard(
+        leading: ClipRRect(
+          borderRadius: BorderRadius.circular(14),
+          child: e.art
+              // A 3D icon on a dark tile.
+              ? Container(
+                  width: 54,
+                  height: 54,
+                  color: const Color(0xFF14161C),
+                  padding: const EdgeInsets.all(8),
+                  child: Image.asset(e.image, cacheWidth: 162),
+                )
+              : Image.asset(e.image, width: 54, height: 54, fit: BoxFit.cover, cacheWidth: 162),
         ),
-    (_) => _GlassCard(
-          leading: ClipRRect(borderRadius: BorderRadius.circular(14), child: Image.asset('assets/covers/convoy.jpg', width: 54, height: 54, fit: BoxFit.cover, cacheWidth: 162)),
-          title: 'Sunrise convoy',
-          subtitle: 'Saturday, 6:00 AM · Genting',
-          trailing: const _Stat(value: '18', label: 'GOING', color: Color(0xFFFFB648)),
-        ),
-    (_) => _GlassCard(
-          leading: Container(
-            width: 54,
-            height: 54,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(color: const Color(0xFF14161C), borderRadius: BorderRadius.circular(14)),
-            child: const Icon(AppIcons.mapPin, size: 26, color: Color(0xFF5CC8FF)),
-          ),
-          title: 'New spot nearby',
-          subtitle: 'Car cafe · 2.4 km from you',
-          trailing: const _Stat(value: '+20', label: 'POINTS', color: Color(0xFF5CC8FF)),
-        ),
+        title: e.title,
+        subtitle: e.subtitle,
+        trailing: e.value == null ? _Live(t: t) : _Stat(value: e.value!, label: e.label!, color: e.color!),
+      );
+
+  // Illustrative examples, not live data (the intro shows before sign-in).
+  // Row 1 happening now, row 2 planned meets, row 3 spots and partner deals.
+  static const _amber = Color(0xFFFFB648);
+  static const _sky = Color(0xFF5CC8FF);
+  static const _green = Color(0xFF3DDC84);
+  static const _rows = <List<_Example>>[
+    [
+      _Example('assets/covers/tt.jpg', 'TT at the mamak', 'Tonight, 9:30 PM · Bukit Jalil'),
+      _Example('assets/covers/meet.jpg', 'Car park meet', 'Happening now · Setia Alam'),
+      _Example('assets/kinds/mamak.png', 'Teh tarik TT', 'Happening now · Kota Damansara', art: true),
+      _Example('assets/covers/club.jpg', 'Club night', 'Tonight, 10:00 PM · Shah Alam'),
+      _Example('assets/kinds/carpark.png', 'Midnight supper run', 'Happening now · Cheras', art: true),
+    ],
+    [
+      _Example('assets/covers/convoy.jpg', 'Sunrise convoy', 'Saturday, 6:00 AM · Genting', value: '18', label: 'GOING', color: _amber),
+      _Example('assets/covers/trackday.jpg', 'Track day', 'Sunday, 8:00 AM · Sepang', value: '42', label: 'GOING', color: _amber),
+      _Example('assets/covers/charity.jpg', 'Charity drive', 'Saturday, 9:00 AM · Putrajaya', value: '65', label: 'GOING', color: _amber),
+      _Example('assets/covers/official.jpg', 'Official club meet', 'Friday, 9:30 PM · Puchong', value: '120', label: 'GOING', color: _amber),
+      _Example('assets/covers/convoy.jpg', "Fraser's Hill run", 'Sunday, 7:00 AM · Bukit Fraser', value: '12', label: 'GOING', color: _amber),
+    ],
+    [
+      _Example('assets/kinds/cafe.png', 'New spot nearby', 'Car cafe · 2.4 km from you', art: true, value: '+20', label: 'POINTS', color: _sky),
+      _Example('assets/partner_covers/detailing.jpg', 'Detailing deal', 'Partner shop · 3.1 km from you', value: '15%', label: 'OFF', color: _green),
+      _Example('assets/kinds/circuit.png', 'Circuit nearby', 'Check in on track day', art: true, value: '+20', label: 'POINTS', color: _sky),
+      _Example('assets/partner_covers/carwash.jpg', 'Car wash deal', 'Partner shop · 1.2 km from you', value: '10%', label: 'OFF', color: _green),
+      _Example('assets/kinds/route.png', 'Scenic route', 'Hill road · 8 km from you', art: true, value: '+20', label: 'POINTS', color: _sky),
+    ],
   ];
+}
+
+/// One example card: a cover photo (or a 3D icon when [art]), two lines and,
+/// on the right, a figure ([value] over [label]) or LIVE when there is none.
+class _Example {
+  const _Example(this.image, this.title, this.subtitle, {this.art = false, this.value, this.label, this.color});
+  final String image;
+  final String title;
+  final String subtitle;
+  final bool art;
+  final String? value;
+  final String? label;
+  final Color? color;
 }
 
 /// CSS `cardloop`: 0 → 10 % rise in (26 px, scale .96, fade), hold to 86 %,

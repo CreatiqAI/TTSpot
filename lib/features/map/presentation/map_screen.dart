@@ -1174,7 +1174,20 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         final photo = f.carPhoto;
         final status = stranger ? null : presenceLabel(f.updatedAt);
         final statusColor = live ? kLiveGreen : kSeenGrey;
-        final pin = !_close
+        // Up close: their own toy car when it has one and it loads.
+        final toyPin = _close && f.carToy != null
+            ? await _carFactory.toy(
+                key: f.user.id,
+                toyUrl: f.carToy!,
+                name: stranger ? (f.carTitle ?? name) : name,
+                ring: relation,
+                status: status,
+                statusColor: statusColor,
+                headingDeg: f.heading,
+                dim: stranger || !live,
+              )
+            : null;
+        final pin = toyPin ?? (!_close
             // Never smaller than ~11 px, so a friend far out stays findable.
             ? await _carFactory.dot(key: f.user.id, color: relation, dim: !live, scale: math.max(_glyphScale, 0.8))
             : photo != null
@@ -1201,7 +1214,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     showFace: !stranger,
                     dim: stranger || !live,
                     relation: relation,
-                  );
+                  ));
         if (await stale()) return;
         if (hasTag) {
           tagged.add((f.latLng, tag, name.split(' ').first));
@@ -1241,8 +1254,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   /// Above every other pin, always.
   static const _meZ = 10;
 
-  /// My marker for the current tier: my car's portrait badge (or the
-  /// top-down car when it has no photo) up close, a red dot on a halo further
+  /// My marker for the current tier: my toy car (else my car's portrait
+  /// badge, else the top-down car) up close, a red dot on a halo further
   /// out. Both carry a heading cone once the phone knows which way I face.
   Future<MapPin> _mePin(String me) {
     final live = ref.read(livePositionProvider);
@@ -1251,7 +1264,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     final showColor = ref.read(settingsProvider).showCarColor;
     final myCars = ref.read(userCarsProvider(me)).value ?? const [];
     final myCar = myCars.where((c) => c.isDefault).firstOrNull ?? myCars.firstOrNull;
-    return _carFactory.me(coverUrl: myCar?.cover, colorKey: showColor ? (myCar?.color ?? 'red') : 'red', headingDeg: heading);
+    return _carFactory.me(toyUrl: myCar?.toyUrl, coverUrl: myCar?.cover, colorKey: showColor ? (myCar?.color ?? 'red') : 'red', headingDeg: heading);
   }
 
   /// Only my own pin moved or turned: swap that one marker instead of

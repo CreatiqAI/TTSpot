@@ -63,9 +63,11 @@ void main() {
       }
 
       expect(find.text('NEVER MISS A MEET'), findsOneWidget);
-      expect(find.text('TT at the mamak'), findsOneWidget);
-      expect(find.text('Sunrise convoy'), findsOneWidget);
-      expect(find.text('New spot nearby'), findsOneWidget);
+      // One example from each row (they rotate, starting at random).
+      int shown(List<String> titles) => titles.where((t) => find.text(t).evaluate().isNotEmpty).length;
+      expect(shown(const ['TT at the mamak', 'Car park meet', 'Teh tarik TT', 'Club night', 'Midnight supper run']), 1);
+      expect(shown(const ['Sunrise convoy', 'Track day', 'Charity drive', 'Official club meet', "Fraser's Hill run"]), 1);
+      expect(shown(const ['New spot nearby', 'Detailing deal', 'Circuit nearby', 'Car wash deal', 'Scenic route']), 1);
       expect(find.text('Skip'), findsOneWidget);
       expect(find.text('Continue'), findsOneWidget);
 

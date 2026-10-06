@@ -254,10 +254,103 @@ class CarMarkerFactory {
     return _cache[k] = pin;
   }
 
-  /// Me, up close: my car's portrait badge when it has a photo, else the
-  /// top-down car, both over a soft red halo and (when known) a heading cone,
-  /// so I am the one thing on the map that cannot be mistaken for anyone else.
-  Future<MapPin> me({required String? coverUrl, required String colorKey, double? headingDeg}) async {
+  /// A person as their own toy car (`cars.toy_url`): the die-cast render
+  /// standing on a ring in the relationship colour, with the name chip
+  /// underneath. The render faces left; it is mirrored while they head east,
+  /// so the car drives the way they do. [me] adds my red halo and heading
+  /// cone. Null when the toy cannot be loaded (callers fall back to [badge]
+  /// or [car]). The anchor is the middle of the ring: where they are.
+  Future<MapPin?> toy({
+    required String key,
+    required String toyUrl,
+    required String name,
+    required Color ring,
+    String? status,
+    Color statusColor = kLiveGreen,
+    double? headingDeg,
+    bool dim = false,
+    bool me = false,
+  }) async {
+    final deg = headingDeg == null ? null : headingDeg % 360;
+    final east = deg != null && deg > 10 && deg < 170;
+    // Friends only flip; my cone turns, so my bitmap is cached per 10°.
+    final h = me && deg != null ? (deg / 10).round() * 10 : null;
+    final k = 'toy|$key|$toyUrl|$name|$status|${statusColor.toARGB32()}|$east|$h|$dim|$me|${ring.toARGB32()}';
+    final cached = _cache[k];
+    if (cached != null) return cached;
+
+    final image = await pins.image(toyUrl, targetWidth: 240);
+    if (image == null || image.width == 0) return null;
+    const carW = 68.0, gap = 3.0;
+    final carH = carW * image.height / image.width;
+    const ringW = carW * 0.86, ringH = ringW * 0.3;
+    final label = pins.text(name.length > 14 ? '${name.substring(0, 13)}…' : name, 11, FontWeight.w800, me ? Colors.white : const Color(0xFF101010));
+    final st = status == null ? null : pins.text(status, 10.5, FontWeight.w700, statusColor);
+    final chipW = label.width + (st == null ? 0 : st.width + 5) + 16;
+    final chipH = label.height + 7;
+    // My halo needs room to fade out inside the bitmap; friends have none.
+    const haloR = carW / 2;
+    final reach = me ? haloReach(haloR) + 1 : 0.0;
+    // The wheels stand on the ring: its middle sits just above the render's bottom edge.
+    final above = math.max(carH, reach);
+    final below = math.max(ringH / 2 + gap + chipH + 6, reach);
+    final totalW = [carW + 12, chipW + 4, reach * 2].reduce(math.max);
+    final totalH = above + below;
+    final cx = totalW / 2;
+    final centre = Offset(cx, above);
+
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder)..scale(devicePixelRatio);
+    final ringColor = dim ? Color.lerp(ring, const Color(0xFFBFC3CA), 0.5)! : ring;
+    if (me) paintHalo(canvas, centre, haloR, night: night);
+    if (me && headingDeg != null) paintHeadingCone(canvas, centre, headingDeg, length: carW / 2 + 10, color: ringColor);
+    // The ring on the ground: a white edge so it reads on any map, the colour,
+    // a light fill, and the car's contact shadow in the middle.
+    final ringRect = Rect.fromCenter(center: centre, width: ringW, height: ringH);
+    canvas.drawOval(ringRect, Paint()..color = ringColor.withValues(alpha: 0.22));
+    canvas.drawOval(ringRect, Paint()..color = Colors.white.withValues(alpha: 0.9)..style = PaintingStyle.stroke..strokeWidth = 4.5);
+    canvas.drawOval(ringRect, Paint()..color = ringColor..style = PaintingStyle.stroke..strokeWidth = 2.5);
+    canvas.drawOval(Rect.fromCenter(center: centre.translate(0, -1), width: carW * 0.78, height: ringH * 0.62), Paint()..color = Colors.black.withValues(alpha: 0.38)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3));
+    // The toy.
+    final dst = Rect.fromLTWH(cx - carW / 2, centre.dy + 4 - carH, carW, carH);
+    final paint = Paint()..filterQuality = FilterQuality.medium;
+    // Last seen / stranger: washed towards grey and a little see-through.
+    if (dim) {
+      paint.colorFilter = const ColorFilter.matrix(<double>[
+          0.55, 0.35, 0.10, 0, 20,
+          0.25, 0.65, 0.10, 0, 20,
+          0.25, 0.35, 0.40, 0, 20,
+          0, 0, 0, 0.7, 0,
+        ]);
+    }
+    canvas.save();
+    if (east) {
+      canvas.translate(cx, 0);
+      canvas.scale(-1, 1);
+      canvas.translate(-cx, 0);
+    }
+    canvas.drawImageRect(image, Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble()), dst, paint);
+    canvas.restore();
+    // name chip
+    final rect = Rect.fromLTWH(cx - chipW / 2, centre.dy + ringH / 2 + gap, chipW, chipH);
+    canvas.drawRRect(RRect.fromRectAndRadius(rect.shift(const Offset(0, 1.5)), const Radius.circular(8)), Paint()..color = Colors.black.withValues(alpha: 0.18));
+    canvas.drawRRect(RRect.fromRectAndRadius(rect, const Radius.circular(8)), Paint()..color = me ? const Color(0xFF101010) : (dim ? const Color(0xFFF2F2F2) : Colors.white));
+    label.paint(canvas, Offset(rect.left + 8, rect.top + 3.5));
+    st?.paint(canvas, Offset(rect.left + 8 + label.width + 5, rect.top + 4));
+
+    final pin = await pins.finish(recorder, totalW, totalH, anchorY: centre.dy / totalH);
+    return _cache[k] = pin;
+  }
+
+  /// Me, up close: my toy car when it has one, else my car's portrait badge
+  /// when it has a photo, else the top-down car, all over a soft red halo and
+  /// (when known) a heading cone, so I am the one thing on the map that
+  /// cannot be mistaken for anyone else.
+  Future<MapPin> me({String? toyUrl, required String? coverUrl, required String colorKey, double? headingDeg}) async {
+    if (toyUrl != null) {
+      final pin = await toy(key: 'me', toyUrl: toyUrl, name: 'Me', ring: kRelationMe, status: 'now', headingDeg: headingDeg, me: true);
+      if (pin != null) return pin;
+    }
     if (coverUrl != null) {
       return badge(key: 'me', coverUrl: coverUrl, name: 'Me', ring: kRelationMe, status: 'now', headingDeg: headingDeg, me: true);
     }

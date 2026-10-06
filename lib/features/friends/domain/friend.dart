@@ -53,6 +53,7 @@ class FriendPin {
     this.carModel,
     this.carColor,
     this.carPhoto,
+    this.carToy,
   });
 
   /// A stranger in nearby mode: rounded position, no face, grey car.
@@ -66,6 +67,8 @@ class FriendPin {
   final String? carColor;
   /// Cover of their default car (portrait, else first photo): the portrait badge on the map.
   final String? carPhoto;
+  /// Their car's toy render (cars.toy_url), drawn on the map up close.
+  final String? carToy;
   String? get carTitle => carMake == null ? null : '$carMake ${carModel ?? ''}'.trim();
 
   /// True when I only see this person because we share a car club.
@@ -110,6 +113,7 @@ class FriendPin {
         carModel: carModel,
         carColor: carColor,
         carPhoto: carPhoto,
+        carToy: carToy,
       );
 
   factory FriendPin.fromMap(Map<String, dynamic> m) => FriendPin(
@@ -131,6 +135,7 @@ class FriendPin {
         carModel: m['car_model'] as String?,
         carColor: m['car_color'] as String?,
         carPhoto: m['car_photo'] as String?,
+        carToy: m['car_toy'] as String?,
       );
 }
 

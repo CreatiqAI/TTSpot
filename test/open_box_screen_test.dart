@@ -37,7 +37,7 @@ class _FakeActions extends CardsActions {
 
 _FakeActions? _actions;
 
-Future<GoRouter> _pump(WidgetTester t, {double scale = 1, Size size = const Size(393, 851), int moreBoxes = 0}) async {
+Future<GoRouter> _pump(WidgetTester t, {double scale = 1, Size size = const Size(393, 851), int moreBoxes = 0, String boxId = 'b1'}) async {
   _actions = null;
   t.view.physicalSize = size * 3;
   t.view.devicePixelRatio = 3;
@@ -50,7 +50,7 @@ Future<GoRouter> _pump(WidgetTester t, {double scale = 1, Size size = const Size
     initialLocation: '/',
     routes: [
       GoRoute(path: '/', builder: (_, _) => const Scaffold(body: Center(child: Text('HOME')))),
-      GoRoute(path: '/box', builder: (_, _) => const OpenBoxScreen(boxId: 'b1')),
+      GoRoute(path: '/box', builder: (_, _) => OpenBoxScreen(boxId: boxId)),
     ],
   );
   await t.pumpWidget(ProviderScope(
@@ -61,6 +61,7 @@ Future<GoRouter> _pump(WidgetTester t, {double scale = 1, Size size = const Size
           ]),
       cardSettingsProvider.overrideWith((ref) async => const CardSettings(common: 89.5, rare: 10, legendary: 0.5)),
       currentProfileProvider.overrideWith((ref) async => null),
+      cardTypesProvider.overrideWith((ref) async => const [_card]),
     ],
     child: MaterialApp.router(
       theme: AppTheme.current,
@@ -199,6 +200,14 @@ void main() {
     await t.dragFrom(const Offset(16, 200), const Offset(0, 220));
     await _settle(t);
     expect(find.text('HOME'), findsOneWidget);
+  });
+
+  testWidgets('the QA preview (debug / local release test) reveals a sample card without the server', (t) async {
+    await _pump(t, boxId: kOpenBoxPreviewId);
+    await _openIt(t);
+    expect(_actions?.opened ?? 0, 0, reason: 'no box opened, nothing rolled');
+    expect(_front, findsOneWidget);
+    await t.pumpWidget(const SizedBox());
   });
 
   testWidgets('before any shake the X leaves at once and never opens the box', (t) async {

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -61,6 +62,13 @@ const _boxOpen = 'assets/titi/box_open.png';
 const _crackColor = Color(0xFFFFF5C2);
 const _seamGold = Color(0xFFFFD54A);
 const _legendaryGold = Color(0xFFF4C542);
+
+/// QA only: `/cards/box/preview` (ttspot://cards/box/preview) runs the whole
+/// reveal on a sample card without the server: no box, no roll, nothing
+/// saved. Debug builds and the local release smoke test only; store builds
+/// compile it out (both flags are const false there).
+const kOpenBoxPreviewId = 'preview';
+const _canPreview = kDebugMode || bool.fromEnvironment('LOCAL_RELEASE_TEST');
 
 class _OpenBoxScreenState extends ConsumerState<OpenBoxScreen> with TickerProviderStateMixin {
   static const _stepsToOpen = 3;
@@ -192,7 +200,7 @@ class _OpenBoxScreenState extends ConsumerState<OpenBoxScreen> with TickerProvid
   /// buzz and the cracks, and on the third waits for the result then bursts.
   Future<void> _advance() async {
     if (_stage != _Stage.idle || _waiting || _leaving) return;
-    _pending ??= ref.read(cardsActionsProvider).openBox(widget.boxId);
+    _pending ??= _canPreview && widget.boxId == kOpenBoxPreviewId ? _previewResult() : ref.read(cardsActionsProvider).openBox(widget.boxId);
     _steps++;
     unawaited(Buzz.step(_steps));
     _jolt.forward(from: 0);
@@ -228,6 +236,20 @@ class _OpenBoxScreenState extends ConsumerState<OpenBoxScreen> with TickerProvid
     });
     _flash.forward(from: 0);
     _burst.forward(from: 0);
+  }
+
+  /// The preview's card: one of the live designs when they have loaded (a
+  /// different one most times), else card 1's art.
+  Future<BoxResult> _previewResult() async {
+    var all = const <CardType>[];
+    try {
+      all = await ref.read(cardTypesProvider.future);
+    } catch (_) {/* the placeholder below */}
+    final types = [for (final t in all) if (t.active) t];
+    final card = types.isEmpty
+        ? const CardType(id: 'c1', setId: 'preview', number: 1, name: 'Preview', rarity: CardRarity.common, color: Color(0xFF9AA0A8), active: true, sort: 1)
+        : types[DateTime.now().millisecond % types.length];
+    return BoxResult(userCardId: 'preview', card: card, held: 1);
   }
 
   // ------------------------------------------------------------------ flip ---

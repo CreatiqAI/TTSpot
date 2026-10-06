@@ -292,6 +292,12 @@ void main() {
     expect(c.read(permissionsStepDoneProvider), isFalse);
   });
 
+  testWidgets('the Optional title is scaled once: "closed" is as tall as the other titles at 1.3', (tester) async {
+    await pump(tester, scale: 1.3, width: 412);
+    expect(find.text('OPTIONAL'), findsOneWidget);
+    expect(tester.getRect(find.text('closed')).height, closeTo(tester.getRect(find.text('Location')).height, 0.5), reason: 'on-screen size, after the span scales it');
+  });
+
   testWidgets('the cards rise in, and all of them end up fully shown', (tester) async {
     await pump(tester, still: false);
     final opacities = tester.widgetList<Opacity>(find.ancestor(of: find.byType(PermissionCard), matching: find.byType(Opacity))).map((o) => o.opacity);

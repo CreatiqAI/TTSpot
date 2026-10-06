@@ -563,16 +563,20 @@ class _Title extends StatelessWidget {
           WidgetSpan(
             alignment: PlaceholderAlignment.baseline,
             baseline: TextBaseline.alphabetic,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              textBaseline: TextBaseline.alphabetic,
-              children: [
-                // Flexible: on a line too thin for both, the word gives way.
-                Flexible(child: Text(last, style: _style)),
-                const SizedBox(width: 8),
-                const _Tag('OPTIONAL'),
-              ],
+            // The span already scales its widget with the text; scaling the
+            // word again inside made "closed" bigger than "Share when" at 1.3.
+            child: MediaQuery.withNoTextScaling(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  // Flexible: on a line too thin for both, the word gives way.
+                  Flexible(child: Text(last, style: _style)),
+                  const SizedBox(width: 8),
+                  const _Tag('OPTIONAL'),
+                ],
+              ),
             ),
           ),
         ],

@@ -10,6 +10,21 @@ class ReleaseNote {
 
 const kReleaseNotes = <ReleaseNote>[
   ReleaseNote(
+    version: '0.3.56',
+    date: '6 Oct 2026',
+    title: 'Your car page, paint colour and club members',
+    points: [
+      'New car page: your toy car up top, your photos in an album below.',
+      'Paint colour: pick a colour and your toy car is repainted in it, in the garage and on the map.',
+      'On the map your car shows a small arrow for the way you are heading.',
+      'Badges on your profile are smaller, with View all.',
+      'Clubs & Events filters fit on one row.',
+      'See every member of a club and their cars: View all on the club page.',
+      "Pick which official club's tag shows on your name, or none: Settings, Club tag on my name.",
+      'Points: tap a way to earn and go straight there.',
+    ],
+  ),
+  ReleaseNote(
     version: '0.3.55',
     date: '6 Oct 2026',
     title: 'Badges with tiers, new points, Clubs & Events',

@@ -421,7 +421,7 @@ class CarMarkerFactory {
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder)..scale(devicePixelRatio);
     final c = Offset(total / 2, total / 2);
-    if (h != null) paintHeadingCone(canvas, c, h.toDouble(), length: beam, color: kRelationMe);
+    if (h != null) paintHeadingCone(canvas, c, h.toDouble(), length: beam, color: const Color(0xFFFF2A33), strength: 1.35);
     canvas.drawCircle(c.translate(0, 1.2), size / 2 + 3, Paint()..color = Colors.black.withValues(alpha: 0.32)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.2));
     canvas.drawCircle(c, size / 2 + 3, Paint()..color = Colors.white);
     canvas.drawCircle(c, size / 2, Paint()..color = kRelationMe);
@@ -627,7 +627,7 @@ void paintPositionDot(Canvas canvas, Offset centre, {required Color color}) {
 /// Translucent beam from [centre] along [headingDeg] (0 = north), like the
 /// phone's own blue-dot beam. Drawn under the marker. It fades with distance
 /// and its sides are feathered by a sweep mask, so it has no straight edge.
-void paintHeadingCone(Canvas canvas, Offset centre, double headingDeg, {required double length, required Color color}) {
+void paintHeadingCone(Canvas canvas, Offset centre, double headingDeg, {required double length, required Color color, double strength = 1}) {
   const half = 38 * math.pi / 180;
   final box = Rect.fromCircle(center: Offset.zero, radius: length);
   canvas.save();
@@ -640,7 +640,7 @@ void paintHeadingCone(Canvas canvas, Offset centre, double headingDeg, {required
       ..moveTo(0, 0)
       ..arcTo(box, math.pi - half, half * 2, false)
       ..close(),
-    Paint()..shader = ui.Gradient.radial(Offset.zero, length, [color.withValues(alpha: 0.7), color.withValues(alpha: 0.45), color.withValues(alpha: 0.0)], const [0.0, 0.6, 1.0]),
+    Paint()..shader = ui.Gradient.radial(Offset.zero, length, [color.withValues(alpha: (0.7 * strength).clamp(0, 1)), color.withValues(alpha: (0.45 * strength).clamp(0, 1)), color.withValues(alpha: 0.0)], const [0.0, 0.6, 1.0]),
   );
   canvas.drawRect(
     box,

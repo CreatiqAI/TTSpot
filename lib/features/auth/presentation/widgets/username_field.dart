@@ -4,10 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/supabase/supabase_client.dart';
 import '../../../../core/theme/app_icons.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../application/onboarding_controller.dart';
+import '../../application/username_suggestion.dart';
 
 /// Username input that checks availability while you type (400 ms after the
 /// last keystroke) and shows a tick or a cross. Validates as a form field.
@@ -50,7 +50,7 @@ class _UsernameFieldState extends ConsumerState<UsernameField> {
     setState(() { _checking = true; _free = null; });
     _timer = Timer(const Duration(milliseconds: 400), () async {
       try {
-        final ok = await ref.read(supabaseProvider).rpc('username_available', params: {'p_username': v}) as bool;
+        final ok = await ref.read(usernameAvailabilityProvider)(v);
         if (!mounted || widget.controller.text.trim().toLowerCase() != v) return;
         setState(() { _free = ok; _checking = false; });
       } catch (_) {

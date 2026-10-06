@@ -19,8 +19,9 @@ import '../../settings/application/background_location_controller.dart';
 import '../../settings/presentation/background_location_screen.dart' show BackgroundLocationDisclosure;
 import '../application/permissions_step.dart';
 
-/// "Turn on permissions": the step after onboarding (route /location), and
-/// on every launch while location is off. One dark card per permission, each
+/// "Turn on permissions": a step of onboarding (between "you" and the gift,
+/// with the progress bar as [header]), and the /location page on later
+/// launches while location is off. One dark card per permission, each
 /// saying which button to tap in the phone's own prompt:
 /// 1. Location, which the map needs.
 /// 2. Notifications, through the push service so this phone registers for
@@ -31,15 +32,22 @@ import '../application/permissions_step.dart';
 /// A permission the phone won't ask for again shows Settings instead of
 /// Enable. Everything is read again when the app comes back to the
 /// foreground (from phone settings or a system prompt). Continue always
-/// works; without location it asks once to be sure. The router moves on to
-/// the map when [permissionsStepDoneProvider] flips.
+/// works; without location it asks once to be sure. It flips
+/// [permissionsStepDoneProvider] (the router then moves on from /location,
+/// and won't send this launch there again), then calls [onDone].
 class PermissionsScreen extends ConsumerStatefulWidget {
-  const PermissionsScreen({super.key, this.confirmBackground});
+  const PermissionsScreen({super.key, this.confirmBackground, this.header, this.onDone});
 
   /// Shows the background-location disclosure; true = Turn on. Defaults to
   /// the full-screen one Settings uses (Google Play wants it before the
   /// prompt). Tests stand in for it.
   final Future<bool?> Function(BuildContext context)? confirmBackground;
+
+  /// Pinned above the page (onboarding's progress bar).
+  final Widget? header;
+
+  /// After Continue (onboarding goes on to the gift).
+  final VoidCallback? onDone;
 
   @override
   ConsumerState<PermissionsScreen> createState() => _PermissionsScreenState();
@@ -278,6 +286,7 @@ class _PermissionsScreenState extends ConsumerState<PermissionsScreen> with Widg
       if (!mounted) return;
     }
     ref.read(permissionsStepDoneProvider.notifier).done();
+    widget.onDone?.call();
   }
 
   /// Null when dismissed (stay here), true = Turn on, false = Not now.
@@ -372,9 +381,10 @@ class _PermissionsScreenState extends ConsumerState<PermissionsScreen> with Widg
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            if (widget.header != null) Padding(padding: const EdgeInsets.symmetric(horizontal: 8), child: widget.header),
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 40, 20, 16),
+                padding: EdgeInsets.fromLTRB(20, widget.header == null ? 40 : 16, 20, 16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [

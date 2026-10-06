@@ -316,10 +316,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final openingBox = path.startsWith('/cards/box/');
       if (!onboarded || !basicsDone || needsCar) return path == Routes.onboarding || openingBox ? null : Routes.onboarding;
 
-      // Location first: the app is a map. The permissions step shows once per
-      // launch while location is off. It stays up after location turns on
-      // (notifications and sharing-while-closed are on the same page) until
-      // the member taps Continue, which flips permissionsStepDoneProvider.
+      // Location first: the app is a map. A new member sees the permissions
+      // page inside onboarding (before the gift); its Continue flips
+      // permissionsStepDoneProvider, so it doesn't show here again this
+      // launch. After that, /location shows once per launch while location
+      // is off. It stays up after location turns on (notifications and
+      // sharing-while-closed are on the same page) until Continue.
       final done = ref.read(permissionsStepDoneProvider);
       if (path == Routes.locationGate) return done ? Routes.map : null;
       final granted = ref.read(locationGrantedProvider);

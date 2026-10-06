@@ -217,7 +217,7 @@ class _Option extends StatelessWidget {
                           duration: const Duration(milliseconds: 150),
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            border: Border.all(color: selected ? AppColors.brand : AppColors.border, width: selected ? 7 : 1.6),
+                            border: Border.all(color: selected ? AppColors.brand : AppColors.textMuted, width: selected ? 7 : 1.6),
                           ),
                         ),
                 ),

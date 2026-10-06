@@ -11,6 +11,9 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/dates.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../../core/widgets/thumb_image.dart';
+import '../../map/application/map_filters.dart' show MapMode;
+import '../../map/application/map_providers.dart' show mapListViewProvider, mapModeProvider;
+import '../../social/domain/post.dart' show PostKind;
 import '../application/points_providers.dart';
 import '../domain/points.dart';
 import '../domain/points_week.dart';
@@ -44,6 +47,38 @@ class PointsScreen extends ConsumerWidget {
     return base;
   }
 
+  /// Every How to earn row is a shortcut to where you earn it:
+  /// * Share a post: the new post page (the + sheet's Post).
+  /// * Check in at a meet: the Map tab on Events; at a spot or partner
+  ///   shop: the Map tab on Spots ([openMapOn]).
+  /// * Earn a badge: my badges. Bring a friend / Join with a code: my QR
+  ///   and code.
+  /// Null (a plain row) for anything else.
+  static VoidCallback? earnTap(BuildContext context, WidgetRef ref, PointRule r, {required String? me}) {
+    switch (r.reason) {
+      case 'weekly_post':
+        return () => context.push(Routes.createPost(PostKind.post));
+      case 'meet_checkin':
+        return () => openMapOn(context, ref, MapMode.events);
+      case 'spot_checkin':
+        return () => openMapOn(context, ref, MapMode.spots);
+      case 'badge':
+        if (me == null) return null;
+        final String id = me;
+        return () => context.push(Routes.badges(id));
+    }
+    if (r.reason.startsWith('referral')) return () => context.push(Routes.myQr);
+    return null;
+  }
+
+  /// The Map tab on [mode] (Events or Spots), showing the map rather than
+  /// its list; the map frames that layer as a tab switch would.
+  static void openMapOn(BuildContext context, WidgetRef ref, MapMode mode) {
+    ref.read(mapModeProvider.notifier).set(mode);
+    ref.read(mapListViewProvider.notifier).set(false);
+    context.go(Routes.map);
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final me = ref.watch(currentUserIdProvider);
@@ -53,12 +88,6 @@ class PointsScreen extends ConsumerWidget {
     final history = ref.watch(pointHistoryProvider);
     final verifications = (ref.watch(myVerificationsProvider).value ?? const <SpotVerification>[]).take(5).toList();
     final earn = rules.where((r) => r.earns).toList();
-
-    VoidCallback? tapFor(PointRule r) {
-      if (r.reason == 'badge' && me != null) return () => context.push(Routes.badges(me));
-      if (r.reason.startsWith('referral')) return () => context.push(Routes.myQr);
-      return null;
-    }
 
     return Scaffold(
       appBar: AppBar(
@@ -90,7 +119,7 @@ class PointsScreen extends ConsumerWidget {
               ),
             ),
             const _Section('HOW TO EARN'),
-            for (final r in earn) EarnRow(rule: r, limit: limitLine(r, week), onTap: tapFor(r)),
+            for (final r in earn) EarnRow(rule: r, limit: limitLine(r, week), onTap: earnTap(context, ref, r, me: me)),
             // The referral rows above pay out through this code.
             if (earn.any((r) => r.reason.startsWith('referral')))
               const Padding(
@@ -182,7 +211,8 @@ class _Balance extends StatelessWidget {
 }
 
 /// One way to earn: the art, the title with its limit under it, the amount
-/// on the right (and a chevron when it leads somewhere).
+/// on the right, and a chevron when it leads somewhere (then the row greys
+/// while pressed).
 class EarnRow extends StatelessWidget {
   const EarnRow({super.key, required this.rule, required this.limit, this.onTap});
   final PointRule rule;
@@ -192,6 +222,7 @@ class EarnRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) => InkWell(
         onTap: onTap,
+        highlightColor: AppColors.surfaceGray,
         child: Padding(
           padding: EdgeInsets.fromLTRB(16, 10, onTap == null ? 16 : 10, 10),
           child: Row(

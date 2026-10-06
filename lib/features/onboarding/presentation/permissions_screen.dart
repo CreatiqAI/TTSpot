@@ -485,13 +485,15 @@ class PermissionCard extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        // The tag flows with the title like a word, never on a line of its own.
+        // The tag flows with the title like a word. No-break spaces glue it to
+        // the last word, so when it wraps it takes "closed" with it and is
+        // never on a line of its own.
         Text.rich(
           TextSpan(
             text: title,
             children: [
               if (optional) ...[
-                const TextSpan(text: '  '),
+                const TextSpan(text: '  '),
                 const WidgetSpan(alignment: PlaceholderAlignment.middle, child: _Tag('OPTIONAL')),
               ],
             ],
@@ -558,9 +560,9 @@ class _Tag extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
         decoration: BoxDecoration(borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.white.withValues(alpha: 0.2))),
-        child: Text(text, style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: Colors.white.withValues(alpha: 0.7))),
+        child: Text(text, style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, letterSpacing: 0.7, color: Colors.white.withValues(alpha: 0.7))),
       );
 }
 

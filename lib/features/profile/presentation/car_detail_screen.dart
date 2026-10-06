@@ -60,6 +60,28 @@ class _CarDetailScreenState extends ConsumerState<CarDetailScreen> {
   }
 
   Future<void> _delete(Car car) async {
+    // Every member keeps at least one car (the server refuses it too).
+    final cars = ref.read(userCarsProvider(car.ownerId)).value ?? const <Car>[];
+    if (cars.length <= 1) {
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Your garage needs a car'),
+          content: const Text('Add another car first, then you can remove this one.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                context.push(Routes.newCar);
+              },
+              child: const Text('Add a car'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -234,23 +256,13 @@ class _CarDetailScreenState extends ConsumerState<CarDetailScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              ListTile(leading: const Icon(AppIcons.pencilSimple), title: const Text('Edit car'), subtitle: const Text('Photos, paint colour, number plate', style: TextStyle(fontSize: 12)), onTap: () => Navigator.pop(ctx, 'edit')),
+              ListTile(leading: const Icon(AppIcons.pencilSimple), title: const Text('Edit car'), subtitle: const Text('Photos, details, number plate', style: TextStyle(fontSize: 12)), onTap: () => Navigator.pop(ctx, 'edit')),
               if (!car.isDefault)
                 ListTile(
                   leading: const Icon(AppIcons.checkCircle),
                   title: const Text('Make it today\'s car'),
                   subtitle: const Text('It fronts your profile and drives on the map', style: TextStyle(fontSize: 12)),
                   onTap: () => Navigator.pop(ctx, 'today'),
-                ),
-              if (car.photoCover != null)
-                ListTile(
-                  leading: const Icon(AppIcons.arrowsClockwise),
-                  title: const Text('Remake toy car'),
-                  subtitle: Text(
-                    car.toyPending ? 'One is being made now' : 'A new toy model from your cover photo, in its paint',
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                  onTap: () => Navigator.pop(ctx, 'toy'),
                 ),
               if (portraitsOn)
                 ListTile(
@@ -282,8 +294,6 @@ class _CarDetailScreenState extends ConsumerState<CarDetailScreen> {
         context.push(Routes.editCar(car.id));
       case 'today':
         await _makeToday(car);
-      case 'toy':
-        await _remakeToy(car);
       case 'paint':
         await showPortraitStyleSheet(context, ref, car);
       case 'papers':

@@ -170,14 +170,8 @@ class CarHero extends StatelessWidget {
   /// What the owner should know about the toy, if anything.
   ({String text, bool retry})? _ownerNote(Car c) {
     if (c.toyPending) return null; // the pill on the toy says it
-    if (c.toy == ToyStatus.failed) {
-      if (c.toyUrl == null) return (text: 'Your toy car didn\'t come out this time.', retry: true);
-      return c.toyPaintStale
-          ? (text: 'The new paint didn\'t take. Your toy keeps its old one for now.', retry: true)
-          : (text: 'The new toy didn\'t come out. You still have the old one.', retry: true);
-    }
-    final q = quota;
-    if (c.toyPaintWaiting && q != null && q.capped) return (text: toyCapMessage(q), retry: false);
+    // One toy per car: only a first toy that didn't come out can be retried.
+    if (c.toy == ToyStatus.failed && c.toyUrl == null) return (text: "Your toy car didn't come out this time.", retry: true);
     return null;
   }
 }

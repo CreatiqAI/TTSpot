@@ -844,18 +844,22 @@ class _CarFormScreenState extends ConsumerState<CarFormScreen> {
           counterText: '',
         ),
       ),
-      const SizedBox(height: 18),
-      CarMapColourSection(
-        value: _color,
-        hint: _isEdit ? 'Your toy car is repainted in this colour.' : 'Your toy car is made in this colour.',
-        note: paint.text,
-        noteColor: paint.warn ? const Color(0xFFB45309) : null,
-        onChanged: (v) => setState(() {
-          _color = v;
-          _colorFromPhoto = false;
-          _colorPicked = true;
-        }),
-      ),
+      // The paint only goes into a car's first toy (one toy per car), so a
+      // car that has its toy no longer offers it.
+      if (!_isEdit || _loadedCar?.toyUrl == null) ...[
+        const SizedBox(height: 18),
+        CarMapColourSection(
+          value: _color,
+          hint: 'Your toy car is made in this colour.',
+          note: paint.text,
+          noteColor: paint.warn ? const Color(0xFFB45309) : null,
+          onChanged: (v) => setState(() {
+            _color = v;
+            _colorFromPhoto = false;
+            _colorPicked = true;
+          }),
+        ),
+      ],
     ];
   }
 

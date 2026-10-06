@@ -468,38 +468,11 @@ void main() {
         expect(tester.takeException(), isNull);
       });
 
-      testWidgets('a repaint the cap holds back says when it goes on (@$scale)', (tester) async {
-        final car = _car(color: 'blue', toyColor: 'red', toyStatus: 'ready');
-        expect(car.toyPaintWaiting, isTrue);
-        final next = DateTime.now().add(const Duration(hours: 3));
-        final d = _rich(car: car);
-        final data = CarPageData(
-          car: car,
-          mine: true,
-          mods: d.mods,
-          portraits: const [],
-          posts: const [],
-          meets: const [],
-          toyQuota: ToyQuota(limit: 3, used: 3, nextAt: next),
-        );
-        await _pump(tester, data, scale: scale, dark: true);
-        expect(find.text('Blue paint is next'), findsOneWidget);
-        expect(find.textContaining('3 toy renders a day per car'), findsOneWidget);
-        expect(find.text(kRepaintingCaption), findsNothing);
-        expect(tester.takeException(), isNull);
-      });
-
-      testWidgets('a repaint that failed offers Try again (@$scale)', (tester) async {
+      testWidgets('one toy per car: a car that has its toy offers no retry or cap note (@$scale)', (tester) async {
         final car = _car(color: 'blue', toyColor: 'red', toyStatus: 'failed');
         await _pump(tester, _rich(car: car), scale: scale, dark: false);
-        expect(find.text('The Blue repaint didn\'t work'), findsOneWidget);
-        expect(find.textContaining('The new paint didn\'t take'), findsOneWidget);
-        await tester.tap(find.text('Try again'));
-        expect(_calls.last, 'retry');
-        // Visitors see the toy they see: still red, no notes.
-        await _pump(tester, CarPageData(car: _car(owner: 'u-other', color: 'blue', toyColor: 'red', toyStatus: 'failed'), mine: false), scale: scale, dark: false, actions: _actions(owner: false));
-        expect(find.text('Red paint'), findsOneWidget);
         expect(find.text('Try again'), findsNothing);
+        expect(find.textContaining('toy renders a day'), findsNothing);
         expect(tester.takeException(), isNull);
       });
     }

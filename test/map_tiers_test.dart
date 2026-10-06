@@ -125,7 +125,7 @@ void main() {
     test('the zoom band changes exactly where a rule does (the map redraws there)', () {
       expect(tierBandAt(5), 0);
       expect(tierBandAt(12.45), tierBandAt(12.3));
-      expect(tierBandAt(12.5), tierBandAt(12.45) + 1);
+      expect(tierBandAt(13.5), tierBandAt(13.45) + 1);
       expect(tierBandAt(11), tierBandAt(10.99) + 1);
       expect(tierBandAt(20), kTierZoomSteps.length);
       for (final z in kTierZoomSteps) {
@@ -293,14 +293,11 @@ void main() {
       expect(nowEvents(const [], const [], _now), isEmpty);
     });
 
-    test('Now places: partners and saved spots at every zoom, other spots from 12.5, smaller below street zoom', () {
+    test('Now places: every spot at every zoom (crowded ones become bubbles), smaller below street zoom', () {
       expect(nowPlaceVisibleAt(3, partner: true, saved: false), isTrue);
       expect(nowPlaceVisibleAt(3, partner: false, saved: true), isTrue);
-      expect(nowPlaceVisibleAt(12.4, partner: false, saved: false), isFalse);
-      expect(nowPlaceVisibleAt(12.5, partner: false, saved: false), isTrue);
+      expect(nowPlaceVisibleAt(3, partner: false, saved: false), isTrue);
       expect(kNowPlaceScale, inExclusiveRange(0.7, 1.0));
-      // The zoom where spots come in is a redraw step, so they appear on time.
-      expect(kTierZoomSteps, contains(kNowSpotMinZoom));
     });
   });
 

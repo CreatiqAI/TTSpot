@@ -196,8 +196,8 @@ void main() {
       expect(resetLabel(DateTime(2026, 10, 10, 12)), 'Sat 12 PM');
     });
 
-    test('the spot check-in snack', () {
-      final fri = DateTime(2026, 10, 9, 18);
+    test('the spot check-in snack (always Malaysia time)', () {
+      final fri = DateTime.utc(2026, 10, 9, 10); // Friday 18:00 in Malaysia
       expect(spotCheckinMessage(isNew: true, total: 4, points: 10), 'Checked in · +10 points. That\'s 4 for this spot.');
       expect(spotCheckinMessage(isNew: true, total: 5, points: 0, againAt: fri), 'Checked in. That\'s 5 for this spot. Points here again after Fri 6 PM.');
       expect(spotCheckinMessage(isNew: false, total: 5, points: 0, againAt: fri), 'Already checked in here today. Points here again after Fri 6 PM.');
@@ -207,7 +207,8 @@ void main() {
       final w = PointsWeek.fromMap({'week_start': '2026-10-02T10:00:00+00:00', 'next_reset': '2026-10-09T10:00:00+00:00', 'post_done': true});
       expect(w.nextReset, DateTime.utc(2026, 10, 9, 10));
       expect(w.postDone, isTrue);
-      expect(w.resetText, resetLabel(DateTime.utc(2026, 10, 9, 10).toLocal()));
+      expect(w.resetText, 'Fri 6 PM'); // whatever zone the phone is in
+      expect(malaysiaClock(DateTime.utc(2026, 10, 9, 10)).hour, 18);
     });
 
     test('How to earn limit lines', () {
@@ -331,6 +332,11 @@ void main() {
           if (n == 3) {
             expect(find.text('Silver'), findsOneWidget);
             expect(find.text('Bronze'), findsOneWidget);
+            // Same height side by side, long names on two lines, not cut.
+            final sizes = [for (final e in find.byType(HonourMedallion).evaluate()) (e.renderObject! as RenderBox).size.height];
+            expect(sizes.toSet().length, 1);
+            final name = t.widget<Text>(find.text('Car meet organizer'));
+            expect(name.maxLines, 2);
           }
           // The rest of the header is still there.
           expect(find.text('Meets'), findsOneWidget);
@@ -369,6 +375,7 @@ void main() {
       PointEntry(id: 3, delta: 10, reason: 'badge', label: 'Earn a badge', note: 'Explorer · Bronze', createdAt: DateTime.now().subtract(const Duration(minutes: 5))),
       PointEntry(id: 2, delta: 10, reason: 'spot_checkin', label: 'Check in at a spot or partner shop', note: "Devi's Corner, Bangsar", createdAt: DateTime.now().subtract(const Duration(minutes: 5))),
       PointEntry(id: 1, delta: -100, reason: 'box', label: 'Blind box', createdAt: DateTime.now().subtract(const Duration(days: 2))),
+      PointEntry(id: 0, delta: 50, reason: 'freepoints', label: 'Free points', note: 'Given by an admin', createdAt: DateTime.now().subtract(const Duration(days: 3))),
     ];
     final week = PointsWeek(weekStart: DateTime.utc(2026, 10, 2, 10), nextReset: DateTime.utc(2026, 10, 9, 10));
 
@@ -437,6 +444,7 @@ void main() {
         await t.scrollUntilVisible(find.text('Blind box'), 200, scrollable: find.byType(Scrollable).first);
         expect(t.takeException(), isNull);
         expect(find.textContaining('Explorer · Bronze'), findsOneWidget);
+        expect(find.textContaining('Given by an admin'), findsNothing); // admin notes stay off
         expect(find.text('-100'), findsOneWidget);
       });
     }

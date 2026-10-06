@@ -225,10 +225,14 @@ class HistoryRow extends StatelessWidget {
   const HistoryRow({super.key, required this.entry});
   final PointEntry entry;
 
+  static const _noteReasons = {'badge', 'spot_checkin', 'spot_verified'};
+
   @override
   Widget build(BuildContext context) {
     final e = entry;
-    final note = (e.note ?? '').trim();
+    // Notes the database writes for the member (the badge and tier, the
+    // spot's name); other notes (admin gifts) stay off the page.
+    final note = _noteReasons.contains(e.reason) ? (e.note ?? '').trim() : '';
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(

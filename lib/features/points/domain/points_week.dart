@@ -21,9 +21,14 @@ DateTime pointsWeekStart(DateTime t) {
 /// When the weekly limits reset next after [t].
 DateTime nextPointsReset(DateTime t) => pointsWeekStart(t).add(const Duration(days: 7));
 
+/// [t] on Malaysia's wall clock (its weekday / hour fields), whatever zone
+/// the phone is set to: the rule is a Malaysia rule, so it always reads
+/// "Fri 6 PM".
+DateTime malaysiaClock(DateTime t) => t.toUtc().add(_myt);
+
 const _weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-/// "Fri 6 PM" for [at] as given (pass a local time to show the phone's clock).
+/// "Fri 6 PM" for [at]'s own weekday and hour fields (see [malaysiaClock]).
 String resetLabel(DateTime at) {
   final h = at.hour % 12 == 0 ? 12 : at.hour % 12;
   final m = at.minute == 0 ? '' : ':${at.minute.toString().padLeft(2, '0')}';
@@ -49,14 +54,14 @@ class PointsWeek {
         postDone: m['post_done'] == true,
       );
 
-  /// "Fri 6 PM" in the phone's time.
-  String get resetText => resetLabel(nextReset.toLocal());
+  /// "Fri 6 PM" (Malaysia time).
+  String get resetText => resetLabel(malaysiaClock(nextReset));
 }
 
 /// The snack after a spot check-in: what it paid, or when this spot pays
-/// again (once per spot per points week). [againAt] in the phone's time.
+/// again (once per spot per points week, read in Malaysia time).
 String spotCheckinMessage({required bool isNew, required int total, required int points, DateTime? againAt}) {
-  final again = againAt == null ? '' : ' Points here again after ${resetLabel(againAt)}.';
+  final again = againAt == null ? '' : ' Points here again after ${resetLabel(malaysiaClock(againAt))}.';
   if (!isNew) return 'Already checked in here today.$again';
   if (points > 0) return 'Checked in · +$points points. That\'s $total for this spot.';
   return 'Checked in. That\'s $total for this spot.$again';

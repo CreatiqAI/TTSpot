@@ -38,16 +38,20 @@ class HonourRow extends StatelessWidget {
   Widget build(BuildContext context) {
     if (badges.isEmpty) return const SizedBox.shrink();
     final shown = badges.take(kHonourMax).toList();
+    // Same height side by side: a long name ("Car meet organizer") takes two
+    // lines instead of being cut.
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          for (var i = 0; i < kHonourMax; i++) ...[
-            if (i > 0) const SizedBox(width: 8),
-            Expanded(child: i < shown.length ? HonourMedallion(badge: shown[i], onTap: onTap) : const SizedBox.shrink()),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (var i = 0; i < kHonourMax; i++) ...[
+              if (i > 0) const SizedBox(width: 8),
+              Expanded(child: i < shown.length ? HonourMedallion(badge: shown[i], onTap: onTap) : const SizedBox.shrink()),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -75,18 +79,20 @@ class HonourMedallion extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.fromLTRB(6, 10, 6, 8),
             decoration: BoxDecoration(borderRadius: radius, border: Border.all(color: AppColors.border)),
+            // Fills the row's height (IntrinsicHeight + stretch): the tier
+            // names line up at the bottom whatever the names wrap to.
             child: Column(
-              mainAxisSize: MainAxisSize.min,
               children: [
                 TierBadgeImage(id: badge.id, tier: badge.tier, size: 44),
                 const SizedBox(height: 6),
                 Text(
                   badge.name,
-                  maxLines: 1,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
                   style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, height: 1.2),
                 ),
+                const Spacer(),
                 const SizedBox(height: 1),
                 Text(
                   badgeTierName(badge.tier),

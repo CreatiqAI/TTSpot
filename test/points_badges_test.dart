@@ -191,23 +191,23 @@ void main() {
     });
 
     test('labels', () {
-      expect(resetLabel(DateTime(2026, 10, 9, 18)), 'Fri 6 PM');
-      expect(resetLabel(DateTime(2026, 10, 9, 0, 30)), 'Fri 12:30 AM');
-      expect(resetLabel(DateTime(2026, 10, 10, 12)), 'Sat 12 PM');
+      expect(resetLabel(DateTime(2026, 10, 9, 18)), 'Fri 6 PM');
+      expect(resetLabel(DateTime(2026, 10, 9, 0, 30)), 'Fri 12:30 AM');
+      expect(resetLabel(DateTime(2026, 10, 10, 12)), 'Sat 12 PM');
     });
 
     test('the spot check-in snack (always Malaysia time)', () {
       final fri = DateTime.utc(2026, 10, 9, 10); // Friday 18:00 in Malaysia
       expect(spotCheckinMessage(isNew: true, total: 4, points: 10), 'Checked in · +10 points. That\'s 4 for this spot.');
-      expect(spotCheckinMessage(isNew: true, total: 5, points: 0, againAt: fri), 'Checked in. That\'s 5 for this spot. Points here again after Fri 6 PM.');
-      expect(spotCheckinMessage(isNew: false, total: 5, points: 0, againAt: fri), 'Already checked in here today. Points here again after Fri 6 PM.');
+      expect(spotCheckinMessage(isNew: true, total: 5, points: 0, againAt: fri), 'Checked in. That\'s 5 for this spot. Points here again after Fri 6 PM.');
+      expect(spotCheckinMessage(isNew: false, total: 5, points: 0, againAt: fri), 'Already checked in here today. Points here again after Fri 6 PM.');
     });
 
     test('reads points_week_status', () {
       final w = PointsWeek.fromMap({'week_start': '2026-10-02T10:00:00+00:00', 'next_reset': '2026-10-09T10:00:00+00:00', 'post_done': true});
       expect(w.nextReset, DateTime.utc(2026, 10, 9, 10));
       expect(w.postDone, isTrue);
-      expect(w.resetText, 'Fri 6 PM'); // whatever zone the phone is in
+      expect(w.resetText, 'Fri 6 PM'); // whatever zone the phone is in
       expect(malaysiaClock(DateTime.utc(2026, 10, 9, 10)).hour, 18);
     });
 

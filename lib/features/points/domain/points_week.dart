@@ -28,11 +28,12 @@ DateTime malaysiaClock(DateTime t) => t.toUtc().add(_myt);
 
 const _weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-/// "Fri 6 PM" for [at]'s own weekday and hour fields (see [malaysiaClock]).
+/// "Fri 6 PM" for [at]'s own weekday and hour fields (see [malaysiaClock]),
+/// with no-break spaces so it never wraps between "6" and "PM".
 String resetLabel(DateTime at) {
   final h = at.hour % 12 == 0 ? 12 : at.hour % 12;
   final m = at.minute == 0 ? '' : ':${at.minute.toString().padLeft(2, '0')}';
-  return '${_weekdays[at.weekday - 1]} $h$m ${at.hour < 12 ? 'AM' : 'PM'}';
+  return '${_weekdays[at.weekday - 1]} $h$m ${at.hour < 12 ? 'AM' : 'PM'}';
 }
 
 /// This points week, from points_week_status().

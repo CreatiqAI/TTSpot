@@ -43,7 +43,7 @@ class CommunityRepository {
   }
 
   Future<List<Profile>> clubMembers(String clubId) async {
-    final rows = await _client.from('club_members').select('role, profiles($profileCols)').eq('club_id', clubId).order('created_at').limit(200);
+    final rows = await _client.from('club_members').select('role, profiles($authorCols)').eq('club_id', clubId).order('created_at').limit(200);
     return rows.map((r) => r['profiles']).whereType<Map<String, dynamic>>().map(Profile.fromMap).toList();
   }
 

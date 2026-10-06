@@ -5,31 +5,12 @@ import 'package:go_router/go_router.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/theme/titi.dart';
-import '../../../core/widgets/glass_tab_bar.dart';
 import 'garage/garage_body.dart';
 import 'garage/garage_studio.dart';
 
-/// The signed-in member's garage on Home (Garage tab): the studio card with
-/// the car's toy, the other cars' thumbnails, the numbers and buttons above
-/// the tab bar. The full-screen twin is [MyGarageScreen].
-class GarageHomeTab extends ConsumerWidget {
-  const GarageHomeTab({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final me = ref.watch(currentUserIdProvider);
-    if (me == null) return const SizedBox.shrink();
-    return GarageBody(
-      ownerId: me,
-      title: 'My garage',
-      // The buttons stay clear of the floating tab bar.
-      bottomPadding: GlassTabBar.clearance(context),
-      empty: const GarageEmpty(),
-    );
-  }
-}
-
-/// Full-screen garage, opened from My garage on the profile.
+/// My garage, full screen: opened from My garage on the profile (and
+/// /garage). It was also a Home tab until 0.3.55, when Clubs & Events took
+/// that place.
 class MyGarageScreen extends ConsumerWidget {
   const MyGarageScreen({super.key});
 

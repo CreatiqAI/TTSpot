@@ -22,6 +22,7 @@ import '../../../safety/presentation/report_sheet.dart';
 import '../../application/social_providers.dart';
 import '../../domain/post.dart';
 import '../share_sheet.dart';
+import 'club_name_tag.dart';
 import 'my_post_stats.dart';
 import 'poll_widget.dart';
 import 'rich_caption.dart';
@@ -220,6 +221,10 @@ class _PostCardState extends ConsumerState<PostCard> {
                           if (club != null) ...[
                             const SizedBox(width: 4),
                             const Icon(AppIcons.sealCheck, size: 14, color: AppColors.brand),
+                          ] else if (author?.clubTag != null) ...[
+                            // Official club tag: the president's, or a member's who wears it.
+                            const SizedBox(width: 6),
+                            ClubNameTag(tag: author!.clubTag),
                           ],
                         ],
                       ),

@@ -4,7 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../auth/domain/profile.dart';
 import '../domain/comment_thread.dart';
-import 'social_repository.dart' show profileCols;
+import 'social_repository.dart' show authorCols, profileCols;
 
 /// Post comments with replies and likes (migration 20261005000102). The
 /// server threads a reply under its top-level parent and sends the reply,
@@ -18,7 +18,7 @@ class CommentRepository {
   Future<List<CommentItem>> fetch(String postId, String? me) async {
     final rows = await _client
         .from('post_comments')
-        .select('id, post_id, user_id, parent_id, reply_to_id, body, created_at, profiles($profileCols), post_comment_likes(count)')
+        .select('id, post_id, user_id, parent_id, reply_to_id, body, created_at, profiles($authorCols), post_comment_likes(count)')
         .eq('post_id', postId)
         .order('created_at')
         .limit(500);

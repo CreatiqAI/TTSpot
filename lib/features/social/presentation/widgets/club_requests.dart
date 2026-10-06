@@ -13,6 +13,43 @@ import '../../../friends/application/friends_providers.dart';
 import '../../application/community_providers.dart';
 import '../../domain/club.dart';
 
+/// The "Join (club name)" sheet for a private club: an optional line about
+/// me and my car. The message (maybe empty) to send, or null when closed.
+Future<String?> askClubJoinMessage(BuildContext context, String clubName) async {
+  final ctrl = TextEditingController();
+  final send = await showModalBottomSheet<bool>(
+    useRootNavigator: true, // above the shell tab bar
+    context: context,
+    isScrollControlled: true,
+    showDragHandle: true,
+    builder: (ctx) => Padding(
+      padding: EdgeInsets.fromLTRB(20, 0, 20, 20 + MediaQuery.viewInsetsOf(ctx).bottom),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('Join $clubName', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 4),
+          Text('The club owner and admins decide. A line about you and your car helps.', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+          const SizedBox(height: 14),
+          TextField(
+            controller: ctrl,
+            autofocus: true,
+            maxLength: 200,
+            minLines: 2,
+            maxLines: 4,
+            textCapitalization: TextCapitalization.sentences,
+            decoration: const InputDecoration(hintText: 'e.g. Myvi daily, TTDI regular, saw you guys at Sunway…'),
+          ),
+          const SizedBox(height: 8),
+          PrimaryButton(label: 'Send request', onPressed: () => Navigator.pop(ctx, true)),
+        ],
+      ),
+    ),
+  );
+  return send == true ? ctrl.text : null;
+}
+
 /// The join button for people outside a club: "Join club" on a public club
 /// (in at once), [JoinRequestButton] on a private one.
 class ClubJoinButton extends ConsumerStatefulWidget {
@@ -64,41 +101,11 @@ class _JoinRequestButtonState extends ConsumerState<JoinRequestButton> {
   bool _busy = false;
 
   Future<void> _ask() async {
-    final ctrl = TextEditingController();
-    final send = await showModalBottomSheet<bool>(
-      useRootNavigator: true, // above the shell tab bar
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.fromLTRB(20, 0, 20, 20 + MediaQuery.viewInsetsOf(ctx).bottom),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text('Join ${widget.clubName}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-            const SizedBox(height: 4),
-            Text('The club owner and admins decide. A line about you and your car helps.', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
-            const SizedBox(height: 14),
-            TextField(
-              controller: ctrl,
-              autofocus: true,
-              maxLength: 200,
-              minLines: 2,
-              maxLines: 4,
-              textCapitalization: TextCapitalization.sentences,
-              decoration: const InputDecoration(hintText: 'e.g. Myvi daily, TTDI regular, saw you guys at Sunway…'),
-            ),
-            const SizedBox(height: 8),
-            PrimaryButton(label: 'Send request', onPressed: () => Navigator.pop(ctx, true)),
-          ],
-        ),
-      ),
-    );
-    if (send != true || !mounted) return;
+    final message = await askClubJoinMessage(context, widget.clubName);
+    if (message == null || !mounted) return;
     setState(() => _busy = true);
     try {
-      await ref.read(communityActionsProvider).requestClubJoin(widget.clubId, ctrl.text);
+      await ref.read(communityActionsProvider).requestClubJoin(widget.clubId, message);
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Request sent. You\'ll hear back in Activity.')));
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));

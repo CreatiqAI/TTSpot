@@ -27,7 +27,7 @@ abstract final class AuthDark {
   /// The app theme, re-coloured for a dark panel: fields, cursor, text,
   /// links and error text. Everything else (sheets, snack bars) stays.
   static ThemeData theme(ThemeData base) {
-    OutlineInputBorder border(Color c) => OutlineInputBorder(borderRadius: BorderRadius.circular(18), borderSide: BorderSide(color: c));
+    OutlineInputBorder border(Color c) => OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: c));
     return base.copyWith(
       brightness: Brightness.dark,
       colorScheme: base.colorScheme.copyWith(brightness: Brightness.dark, surface: panel, onSurface: Colors.white, error: error),
@@ -39,12 +39,12 @@ abstract final class AuthDark {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: field,
-        hintStyle: TextStyle(color: text2, fontSize: 16),
+        hintStyle: TextStyle(color: text2, fontSize: 15),
         helperStyle: TextStyle(color: text, fontSize: 12),
         errorStyle: const TextStyle(color: error, fontSize: 12),
         prefixIconColor: text,
         suffixIconColor: text,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 17),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
         border: border(edge),
         enabledBorder: border(edge),
         focusedBorder: border(Colors.white.withValues(alpha: 0.5)),
@@ -127,10 +127,12 @@ class AuthPanel extends StatelessWidget {
       );
 }
 
-/// 56 px pill. Red with white text by default; [white] flips it.
+/// 48 px pill. Red with white text by default; [white] flips it. [leading]
+/// sits before the label (the Apple logo).
 class AuthPill extends StatelessWidget {
-  const AuthPill({super.key, required this.label, required this.onPressed, this.loading = false, this.white = false, this.glow});
+  const AuthPill({super.key, required this.label, required this.onPressed, this.loading = false, this.white = false, this.glow, this.leading});
   final String label;
+  final Widget? leading;
   final VoidCallback? onPressed;
   final bool loading;
   final bool white;
@@ -144,9 +146,9 @@ class AuthPill extends StatelessWidget {
     return PressScale(
       enabled: onPressed != null && !loading,
       child: Container(
-        height: 56,
+        height: 48,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(28),
+          borderRadius: BorderRadius.circular(24),
           boxShadow: glow == null ? null : [BoxShadow(color: AppColors.brand.withValues(alpha: 0.45 + 0.4 * glow!), blurRadius: 22 + 18 * glow!)],
         ),
         child: FilledButton(
@@ -155,14 +157,16 @@ class AuthPill extends StatelessWidget {
             foregroundColor: fg,
             disabledBackgroundColor: bg.withValues(alpha: 0.5),
             disabledForegroundColor: fg.withValues(alpha: 0.8),
-            minimumSize: const Size.fromHeight(56),
+            minimumSize: const Size.fromHeight(48),
             shape: const StadiumBorder(),
-            textStyle: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+            textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
           ),
           onPressed: loading ? null : onPressed,
           child: loading
-              ? SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.2, color: fg))
-              : Text(label),
+              ? SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2.2, color: fg))
+              : leading == null
+                  ? Text(label)
+                  : Row(mainAxisSize: MainAxisSize.min, children: [leading!, const SizedBox(width: 8), Flexible(child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis))]),
         ),
       ),
     );

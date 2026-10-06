@@ -108,7 +108,7 @@ class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
                     top: 0,
                     child: AuthIconButton(icon: AppIcons.arrowLeft, tooltip: 'Back', onPressed: () => context.canPop() ? context.pop() : context.go('/sign-in')),
                   ),
-                  Positioned(left: 24, top: 44, child: Image.asset('assets/brand/logo_dark.png', height: 56, filterQuality: FilterQuality.medium)),
+                  Positioned(left: 24, top: 44, child: Image.asset('assets/brand/logo_dark.png', height: 48, filterQuality: FilterQuality.medium)),
                 ],
               ),
             ),
@@ -120,7 +120,7 @@ class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Text('CHECK YOUR EMAIL', style: AuthDark.display(38)),
+                      Text('CHECK YOUR EMAIL', style: AuthDark.display(30)),
                       const SizedBox(height: 10),
                       Text.rich(
                         TextSpan(

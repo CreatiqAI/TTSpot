@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:sign_in_with_apple/sign_in_with_apple.dart' show SignInWithAppleButton, SignInWithAppleButtonStyle;
+import 'package:sign_in_with_apple/sign_in_with_apple.dart' show AppleLogoPainter;
 import 'package:supabase_flutter/supabase_flutter.dart' show AuthException;
 
 import '../../../core/router/app_router.dart';
@@ -176,7 +176,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> with SingleTickerPr
 
     final emailField = TextFormField(
       controller: _email,
-      style: const TextStyle(fontSize: 16, color: Colors.white),
+      style: const TextStyle(fontSize: 15, color: Colors.white),
       keyboardType: TextInputType.emailAddress,
       autocorrect: false,
       enableSuggestions: false,
@@ -193,7 +193,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> with SingleTickerPr
     );
     final passwordField = TextFormField(
       controller: _password,
-      style: const TextStyle(fontSize: 16, color: Colors.white),
+      style: const TextStyle(fontSize: 15, color: Colors.white),
       obscureText: !_showPassword,
       autocorrect: false,
       enableSuggestions: false,
@@ -224,8 +224,8 @@ class _SignInScreenState extends ConsumerState<SignInScreen> with SingleTickerPr
           builder: (context, c) {
             // The top holds the logo and TiTi: about a third of the page,
             // just the logo while the keyboard is up, so fields never hide.
-            final topH = keyboard ? 64.0 : (c.maxHeight * 0.34).clamp(168.0, 290.0);
-            final titiH = (topH - 60).clamp(0.0, 180.0);
+            final topH = keyboard ? 64.0 : (c.maxHeight * 0.28).clamp(150.0, 240.0);
+            final titiH = (topH - 56).clamp(0.0, 150.0);
             return Column(
               children: [
                 AnimatedContainer(
@@ -245,7 +245,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> with SingleTickerPr
                       Positioned(
                         left: keyboard ? (canPop ? 60 : 24) : 24,
                         top: keyboard ? 12 : (canPop ? 44 : 16),
-                        child: Image.asset('assets/brand/logo_dark.png', height: keyboard ? 36 : 64, filterQuality: FilterQuality.medium),
+                        child: Image.asset('assets/brand/logo_dark.png', height: keyboard ? 32 : 48, filterQuality: FilterQuality.medium),
                       ),
                       if (!keyboard && titiH >= 88)
                         Positioned(
@@ -275,7 +275,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> with SingleTickerPr
                       child: AuthPanel(
                         padding: EdgeInsets.zero,
                         child: SingleChildScrollView(
-                          padding: EdgeInsets.fromLTRB(24, 26, 24, 24 + bottomPad),
+                          padding: EdgeInsets.fromLTRB(24, 22, 24, 24 + bottomPad),
                           child: Form(
                             key: _formKey,
                             autovalidateMode: _validate ? AutovalidateMode.always : AutovalidateMode.disabled,
@@ -287,11 +287,11 @@ class _SignInScreenState extends ConsumerState<SignInScreen> with SingleTickerPr
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Text(signUp ? 'CREATE YOUR ACCOUNT' : 'WELCOME BACK', style: AuthDark.display(38)),
-                                      const SizedBox(height: 10),
+                                      Text(signUp ? 'CREATE YOUR ACCOUNT' : 'WELCOME BACK', style: AuthDark.display(30)),
+                                      const SizedBox(height: 6),
                                       Text(
                                         signUp ? 'Free. Two minutes to join.' : 'Sign in and pick up where you parked.',
-                                        style: TextStyle(fontSize: 15, color: AuthDark.text, height: 1.35),
+                                        style: TextStyle(fontSize: 14, color: AuthDark.text, height: 1.35),
                                       ),
                                     ],
                                   ),
@@ -320,7 +320,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> with SingleTickerPr
                                               _StrengthHint(_password),
                                               const SizedBox(height: 10),
                                               Text(
-                                                'We email you a 6-digit code to confirm. Next: your name, phone number and the Terms.',
+                                                'Next: your name, phone number and the Terms.',
                                                 style: TextStyle(fontSize: 12.5, color: AuthDark.text, height: 1.4),
                                               ),
                                             ],
@@ -344,12 +344,12 @@ class _SignInScreenState extends ConsumerState<SignInScreen> with SingleTickerPr
                                   const SizedBox(height: 6),
                                   const AuthOr(),
                                   const SizedBox(height: 6),
-                                  SignInWithAppleButton(
-                                    height: 56,
-                                    text: signUp ? 'Sign up with Apple' : 'Sign in with Apple',
-                                    style: SignInWithAppleButtonStyle.white,
-                                    borderRadius: const BorderRadius.all(Radius.circular(28)),
-                                    onPressed: busy ? () {} : () => ref.read(authControllerProvider.notifier).signInWithApple(),
+                                  // Apple's black-on-white style (logo + label), at our pill size.
+                                  AuthPill(
+                                    white: true,
+                                    label: signUp ? 'Sign up with Apple' : 'Sign in with Apple',
+                                    leading: const SizedBox(width: 13, height: 16, child: CustomPaint(painter: AppleLogoPainter(color: AuthDark.page))),
+                                    onPressed: busy ? null : () => ref.read(authControllerProvider.notifier).signInWithApple(),
                                   ),
                                 ],
 
@@ -365,7 +365,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> with SingleTickerPr
                                       key: ValueKey(signUp),
                                       textAlign: TextAlign.center,
                                       TextSpan(
-                                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w400, color: AuthDark.text),
+                                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w400, color: AuthDark.text),
                                         children: [
                                           TextSpan(text: signUp ? 'Have an account? ' : 'New to TT Spot? '),
                                           TextSpan(
@@ -432,7 +432,8 @@ class _ModeSwitch extends StatelessWidget {
 enum _Strength { empty, tooShort, weak, okay, strong }
 
 /// Rough strength: length first, then how many kinds of character (lower,
-/// upper, digit, symbol) it mixes. Only a nudge; the server's rule is 6+.
+/// upper, digit, symbol) it mixes. Only a nudge: anything of 6+ characters
+/// signs up (Supabase's minimum, which cannot go lower).
 _Strength _strengthOf(String p) {
   if (p.isEmpty) return _Strength.empty;
   if (p.length < 6) return _Strength.tooShort;
@@ -454,9 +455,10 @@ class _StrengthHint extends StatelessWidget {
           final s = _strengthOf(value.text);
           final (bars, color, label) = switch (s) {
             _Strength.empty => (0, AuthDark.text2, 'At least 6 characters. Longer is stronger.'),
-            _Strength.tooShort => (1, AuthDark.error, 'Too short. Use at least 6 characters.'),
-            _Strength.weak => (1, AuthDark.error, 'Weak. Make it longer, or mix in numbers and symbols.'),
-            _Strength.okay => (2, Colors.white, 'Okay. A few more characters make it strong.'),
+            _Strength.tooShort => (1, AuthDark.error, 'Needs at least 6 characters.'),
+            // Only a reminder: any password of 6+ is accepted (the server's floor).
+            _Strength.weak => (1, const Color(0xFFFFB648), 'Weak, but you can use it. Longer is safer.'),
+            _Strength.okay => (2, Colors.white, 'Okay. Longer is even safer.'),
             _Strength.strong => (3, const Color(0xFF3DDC84), 'Strong password.'),
           };
           final textColor = s == _Strength.empty || s == _Strength.okay ? AuthDark.text : color;

@@ -96,7 +96,7 @@ void main() {
       await pump(tester, signUp: true, dark: dark);
       expect(find.text('CREATE YOUR ACCOUNT'), findsOneWidget);
       expect(find.text('Free. Two minutes to join.'), findsOneWidget);
-      expect(find.textContaining('6-digit code'), findsOneWidget);
+      expect(find.textContaining('Next: your name'), findsOneWidget);
       expect(find.text('Sign up'), findsOneWidget);
       expect(find.text('Forgot password?'), findsNothing);
       expect(hints(tester), [
@@ -108,10 +108,10 @@ void main() {
       final password = find.byType(EditableText).last;
       await tester.enterText(password, 'abc');
       await tester.pump();
-      expect(find.textContaining('Too short'), findsOneWidget);
+      expect(find.textContaining('Needs at least 6'), findsOneWidget);
       await tester.enterText(password, 'abcdefg');
       await tester.pump();
-      expect(find.textContaining('Weak'), findsOneWidget);
+      expect(find.textContaining('Weak, but you can use it'), findsOneWidget);
       await tester.enterText(password, 'abcdef12');
       await tester.pump();
       expect(find.textContaining('Okay'), findsOneWidget);

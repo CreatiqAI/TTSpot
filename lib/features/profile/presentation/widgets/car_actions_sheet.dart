@@ -36,12 +36,6 @@ Future<void> showCarActionsSheet(BuildContext context, WidgetRef ref, Car car) a
               ),
               onTap: () => Navigator.pop(ctx, 'toy'),
             ),
-          ListTile(
-            leading: Icon(car.garageStyle == 'card' ? AppIcons.cards : AppIcons.scissors),
-            title: const Text('Garage look'),
-            subtitle: Text(garageLookLabel(car), style: const TextStyle(fontSize: 12)),
-            onTap: () => Navigator.pop(ctx, 'look'),
-          ),
           if (ref.read(portraitsEnabledProvider).value ?? false) ListTile(leading: const Icon(AppIcons.sparkle), title: const Text('AI portrait'), subtitle: const Text('Turn a photo into plate-free artwork', style: TextStyle(fontSize: 12)), onTap: () => Navigator.pop(ctx, 'portrait')),
           ListTile(leading: const Icon(AppIcons.car), title: const Text('Open car page'), onTap: () => Navigator.pop(ctx, 'open')),
           const SizedBox(height: 8),
@@ -61,8 +55,6 @@ Future<void> showCarActionsSheet(BuildContext context, WidgetRef ref, Car car) a
       } catch (e) {
         messenger.showSnackBar(SnackBar(content: Text(friendlyError(e))));
       }
-    case 'look':
-      await showGarageLookSheet(context, ref, car);
     case 'portrait':
       await showPortraitStyleSheet(context, ref, car);
     case 'open':

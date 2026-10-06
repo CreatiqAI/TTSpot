@@ -26,7 +26,6 @@ import '../domain/car_mod.dart';
 import '../domain/car_toy.dart';
 import 'car_page/car_page_model.dart';
 import 'car_page/car_page_view.dart';
-import 'widgets/car_actions_sheet.dart';
 import 'widgets/portrait_style_sheet.dart';
 
 /// A car's page (`/car/:id`, `ttspot://car/:id`): the toy car in its studio,
@@ -267,12 +266,6 @@ class _CarDetailScreenState extends ConsumerState<CarDetailScreen> {
                 onTap: () => Navigator.pop(ctx, 'papers'),
               ),
               ListTile(
-                leading: Icon(car.garageStyle == 'card' ? AppIcons.cards : AppIcons.scissors),
-                title: const Text('Garage look'),
-                subtitle: Text('While the toy is being made: ${garageLookLabel(car)}', style: const TextStyle(fontSize: 12)),
-                onTap: () => Navigator.pop(ctx, 'look'),
-              ),
-              ListTile(
                 leading: const Icon(AppIcons.trash, color: AppColors.danger),
                 title: const Text('Delete car', style: TextStyle(color: AppColors.danger)),
                 onTap: () => Navigator.pop(ctx, 'delete'),
@@ -295,8 +288,6 @@ class _CarDetailScreenState extends ConsumerState<CarDetailScreen> {
         await showPortraitStyleSheet(context, ref, car);
       case 'papers':
         context.push(Routes.carDocuments(car.id));
-      case 'look':
-        await showGarageLookSheet(context, ref, car);
       case 'delete':
         await _delete(car);
     }

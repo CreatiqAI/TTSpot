@@ -22,7 +22,6 @@ import '../data/profile_repository.dart';
 import '../domain/car.dart';
 import '../domain/car_recognition.dart';
 import '../domain/car_toy.dart';
-import 'widgets/car_actions_sheet.dart' show GarageLookOption;
 import 'widgets/car_color_picker.dart';
 import 'widgets/car_papers_fields.dart';
 import 'widgets/car_scan_widgets.dart';
@@ -464,8 +463,6 @@ class _CarFormScreenState extends ConsumerState<CarFormScreen> {
             ..._photoStrip(saving: saving, busy: busy),
             const SizedBox(height: 12),
             ..._carFields(),
-            const SizedBox(height: 18),
-            ..._garageLook(busy: busy),
           ],
         ),
       ),
@@ -743,8 +740,6 @@ class _CarFormScreenState extends ConsumerState<CarFormScreen> {
         subtitle: _photos.isEmpty ? 'Your garage shows a drawing of the car until you add one.' : (_hidePlate ? 'Number plate hidden' : 'Number plate showing'),
         onEdit: busy ? null : () => _goTo(_Step.photos),
       ),
-      const SizedBox(height: 20),
-      ..._garageLook(busy: busy),
     ];
   }
 
@@ -885,35 +880,6 @@ class _CarFormScreenState extends ConsumerState<CarFormScreen> {
         fromPhoto: _colorFromPhoto,
         quota: _quota,
       );
-
-  List<Widget> _garageLook({required bool busy}) => [
-        Text('GARAGE LOOK', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1, color: AppColors.textSecondary)),
-        const SizedBox(height: 4),
-        Text('How this car stands in your garage.', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-        const SizedBox(height: 8),
-        Container(
-          decoration: BoxDecoration(border: Border.all(color: AppColors.border), borderRadius: BorderRadius.circular(AppRadius.md)),
-          child: Column(
-            children: [
-              GarageLookOption(
-                selected: _garageStyle != 'card',
-                icon: AppIcons.scissors,
-                title: 'Cut-out',
-                subtitle: 'Your car stands in the bay, cut out of its cover photo on your phone.',
-                onTap: busy ? () {} : () => setState(() => _garageStyle = 'auto'),
-              ),
-              Divider(height: 1, color: AppColors.divider),
-              GarageLookOption(
-                selected: _garageStyle == 'card',
-                icon: AppIcons.cards,
-                title: 'Photo card',
-                subtitle: 'The cover photo in a silver frame. Pick this if the cut-out looks wrong.',
-                onTap: busy ? () {} : () => setState(() => _garageStyle = 'card'),
-              ),
-            ],
-          ),
-        ),
-      ];
 }
 
 /// The line under "Your toy car is (re)painted in this colour.": where the

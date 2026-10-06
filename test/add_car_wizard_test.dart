@@ -109,7 +109,6 @@ void main() {
         expect(find.text('Park it in my garage'), findsOneWidget);
         await _reveal(tester, find.text('Silver paint'));
         await _reveal(tester, find.text('Papers skipped'));
-        await _reveal(tester, find.text('GARAGE LOOK'));
         await _sweep(tester);
       });
     }

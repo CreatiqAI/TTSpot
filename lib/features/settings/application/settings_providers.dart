@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/supabase/supabase_client.dart';
 import '../../auth/data/auth_repository.dart';
+import '../../events/application/live_activity.dart';
 import '../../profile/data/profile_repository.dart';
 
 /// My settings (profiles.settings). Missing keys fall back to defaults here.
@@ -54,6 +55,9 @@ class AppSettings {
   /// Auto check-in when I'm at a meet I joined.
   bool get autoCheckin => _b('auto_checkin', true);
 
+  /// iPhone: the meet countdown on the lock screen / Dynamic Island.
+  bool get liveActivities => _b('live_activities', true);
+
   /// "Hide my number plate" when adding car photos (off: the original goes up).
   bool get hidePlate => _b('hide_plate', false);
 
@@ -105,6 +109,7 @@ class SettingsActions {
       }
     }
     await _ref.read(supabaseProvider).rpc('delete_my_account');
+    await _ref.read(liveActivityServiceProvider).endAll();
     await _ref.read(supabaseProvider).auth.signOut();
   }
 }

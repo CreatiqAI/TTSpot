@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -12,6 +13,7 @@ import '../../../core/utils/geo.dart';
 import '../../map/application/map_providers.dart';
 import '../../social/application/chat_providers.dart';
 import '../domain/event.dart';
+import 'live_activity.dart';
 
 // "I'm on my way": a member who joined a meet (or its host) posts their
 // driving ETA in the meet chat. One Mapbox Directions request; a straight-line
@@ -168,6 +170,7 @@ class OnMyWayActions {
     await chat.send(conv, text);
     throttle.mark(event.id, DateTime.now());
     _ref.invalidate(inboxProvider);
+    unawaited(_ref.read(liveActivityServiceProvider).onMyWay(event));
 
     // The send path doesn't return the row; find it for Undo.
     String? id;

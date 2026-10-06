@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_messaging/firebase_messaging.dart' show AuthorizationStatus;
 import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
@@ -20,6 +22,7 @@ import '../../auth/application/auth_controller.dart';
 import '../../auth/application/account_basics.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../auth/presentation/widgets/confirm_logout.dart';
+import '../../events/application/live_activity.dart';
 import '../../friends/application/friends_providers.dart';
 import '../../friends/domain/friend.dart';
 import '../../map/presentation/widgets/visibility_sheet.dart';
@@ -128,6 +131,18 @@ class SettingsScreen extends ConsumerWidget {
             },
           ),
           const TitiTipsSwitch(),
+          if (_isIOS)
+            _Toggle(
+              icon: AppIcons.timer,
+              title: 'Live Activities',
+              subtitle: 'Meet countdown on your lock screen',
+              value: s.liveActivities,
+              onChanged: (v) async {
+                await set({'live_activities': v});
+                final live = ref.read(liveActivityServiceProvider);
+                unawaited(v ? live.sync(fresh: true) : live.endAll());
+              },
+            ),
 
           const _Head('APPEARANCE'),
           _Choice(

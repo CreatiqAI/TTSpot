@@ -95,16 +95,12 @@ void main() {
       expect(tierRule(PinTier.minor).side, 32);
     });
 
-    test('tier 1 shows from far out, tier 2 from towns, tier 3 from districts', () {
-      expect(tierVisibleAt(PinTier.major, 5.9), isFalse);
-      expect(tierVisibleAt(PinTier.major, 6), isTrue);
-      expect(tierVisibleAt(PinTier.major, 8), isTrue);
-      expect(tierVisibleAt(PinTier.partner, 8), isFalse);
-      expect(tierVisibleAt(PinTier.partner, 10.49), isFalse);
-      expect(tierVisibleAt(PinTier.partner, 10.5), isTrue);
-      expect(tierVisibleAt(PinTier.minor, 12.49), isFalse);
-      expect(tierVisibleAt(PinTier.minor, 12.5), isTrue);
-      expect(tierVisibleAt(PinTier.minor, 18), isTrue);
+    test('every tier shows at every zoom, however far out', () {
+      for (final t in PinTier.values) {
+        for (final z in [2.0, 5.0, 8.0, 10.4, 12.4, 18.0]) {
+          expect(tierVisibleAt(t, z), isTrue, reason: '$t at $z');
+        }
+      }
     });
 
     test('at every zoom a bigger tier shows wherever a smaller one does', () {
@@ -130,7 +126,7 @@ void main() {
       expect(tierBandAt(5), 0);
       expect(tierBandAt(12.45), tierBandAt(12.3));
       expect(tierBandAt(12.5), tierBandAt(12.45) + 1);
-      expect(tierBandAt(10.5), tierBandAt(10.49) + 1);
+      expect(tierBandAt(11), tierBandAt(10.99) + 1);
       expect(tierBandAt(20), kTierZoomSteps.length);
       for (final z in kTierZoomSteps) {
         expect(tierBandAt(z), greaterThan(tierBandAt(z - 0.01)), reason: 'step $z');
@@ -297,18 +293,14 @@ void main() {
       expect(nowEvents(const [], const [], _now), isEmpty);
     });
 
-    test('Now places: partners and saved spots from 10.5, other spots from 12.5, smaller below street zoom', () {
-      expect(nowPlaceVisibleAt(10.4, partner: true, saved: false), isFalse);
-      expect(nowPlaceVisibleAt(10.5, partner: true, saved: false), isTrue);
-      expect(nowPlaceVisibleAt(10.5, partner: false, saved: true), isTrue);
+    test('Now places: partners and saved spots at every zoom, other spots from 12.5, smaller below street zoom', () {
+      expect(nowPlaceVisibleAt(3, partner: true, saved: false), isTrue);
+      expect(nowPlaceVisibleAt(3, partner: false, saved: true), isTrue);
       expect(nowPlaceVisibleAt(12.4, partner: false, saved: false), isFalse);
       expect(nowPlaceVisibleAt(12.5, partner: false, saved: false), isTrue);
-      // Partners come in no later than partner events, spots with the smallest event tier.
-      expect(nowPlaceMinZoom(partner: true, saved: false), tierRule(PinTier.partner).minZoom);
-      expect(nowPlaceMinZoom(partner: false, saved: false), tierRule(PinTier.minor).minZoom);
       expect(kNowPlaceScale, inExclusiveRange(0.7, 1.0));
-      // The zooms where places come in are redraw steps, so they appear on time.
-      expect(kTierZoomSteps, containsAll([10.5, 12.5]));
+      // The zoom where spots come in is a redraw step, so they appear on time.
+      expect(kTierZoomSteps, contains(kNowSpotMinZoom));
     });
   });
 

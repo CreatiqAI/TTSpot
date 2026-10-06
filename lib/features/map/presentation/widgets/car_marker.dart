@@ -303,26 +303,27 @@ class CarMarkerFactory {
     final st = status == null ? null : pins.text(status, 10.5, FontWeight.w700, statusColor);
     final chipW = label.width + (st == null ? 0 : st.width + 5) + 16;
     final chipH = label.height + 7;
-    // My halo needs room to fade out inside the bitmap; friends have none.
-    const haloR = kToyHaloRadius;
-    final reach = me ? haloReach(haloR) + 1 : 0.0;
+    // Parked (no heading): just the car, its wheels on the spot where they
+    // are; no dot, no glow. Moving: the wheels stand just above the arrow.
+    final moving = pose.arrowDeg != null;
+    final lift = moving ? kToyWheelLift : 0.0;
     // The arrow (any way it turns, outline and shadow included) fits in
-    // [arrowReach] round the anchor; the wheels stand just above its middle.
-    final arrowReach = navArrowReach();
-    // The chip's top: past the arrow's wing tips and white edge, not its shadow.
-    const chipDrop = kToyArrowSize * 0.63 + 4;
-    final above = math.max(carH + kToyWheelLift, reach) + 2;
-    final below = math.max(chipDrop + chipH + 6, reach);
-    final totalW = [carW + 12, chipW + 4, reach * 2, arrowReach * 2].reduce(math.max);
+    // [arrowReach] round the anchor.
+    final arrowReach = moving ? navArrowReach() : 0.0;
+    // The chip's top: past the arrow's wing tips and white edge, or just
+    // under the wheels.
+    final chipDrop = moving ? kToyArrowSize * 0.63 + 4 : 5.0;
+    final above = carH + lift + 2;
+    final below = chipDrop + chipH + 6;
+    final totalW = [carW + 12, chipW + 4, arrowReach * 2].reduce(math.max);
     final totalH = above + below;
     final cx = totalW / 2;
     final centre = Offset(cx, above);
-    final wheels = centre.dy - kToyWheelLift;
+    final wheels = centre.dy - lift;
 
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder)..scale(devicePixelRatio);
     final tint = dim ? Color.lerp(color, const Color(0xFFBFC3CA), 0.5)! : color;
-    if (me) paintHalo(canvas, centre, haloR, night: night, strength: night ? 0.6 : 0.8);
     // A soft contact shadow under the wheels, so the toy stands on the map.
     canvas.drawOval(
       Rect.fromCenter(center: Offset(cx, wheels - 1), width: carW * 0.74, height: 7),
@@ -348,13 +349,9 @@ class CarMarkerFactory {
     }
     canvas.drawImageRect(image, Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble()), dst, paint);
     canvas.restore();
-    // Where they are, on top of everything: the arrow, or a dot.
+    // Moving: the arrow where they are, on top of everything.
     final arrowDeg = pose.arrowDeg;
-    if (arrowDeg != null) {
-      paintNavArrow(canvas, centre, arrowDeg.toDouble(), color: tint);
-    } else {
-      paintPositionDot(canvas, centre, color: tint);
-    }
+    if (arrowDeg != null) paintNavArrow(canvas, centre, arrowDeg.toDouble(), color: tint);
     // name chip, just clear of the arrow's white edge
     final rect = Rect.fromLTWH(cx - chipW / 2, centre.dy + chipDrop, chipW, chipH);
     canvas.drawRRect(RRect.fromRectAndRadius(rect.shift(const Offset(0, 1.5)), const Radius.circular(8)), Paint()..color = Colors.black.withValues(alpha: 0.18));
@@ -407,27 +404,26 @@ class CarMarkerFactory {
     return _cache[k] = pin;
   }
 
-  /// Me, zoomed out: a red dot with a white ring on a soft halo, plus a
-  /// heading chevron when known. Always findable, whatever the zoom.
+  /// Me, zoomed out: a red dot in a thick white ring with a soft shadow, and
+  /// (when the phone knows which way I face) a soft beam fanning out that
+  /// way. No glow round it.
   Future<MapPin> meDot({double? headingDeg, double scale = 1}) async {
     final h = headingDeg == null ? null : ((headingDeg % 360) / 15).round() * 15;
-    final size = 18.0 * scale.clamp(0.8, 1.2);
+    final size = 16.0 * scale.clamp(0.8, 1.2);
     // Keyed by the size drawn, not the scale asked for: every scale past the
     // clamp shares one bitmap.
-    final k = 'medot|$h|${size.toStringAsFixed(2)}';
+    final k = 'medot2|$h|${size.toStringAsFixed(2)}';
     final cached = _cache[k];
     if (cached != null) return cached;
-    final haloR = size / 2 + 8;
-    // Room for the halo to fade out inside the bitmap (see [haloReach]).
-    final pad = (haloReach(haloR) - size / 2 + 1).ceilToDouble();
+    final beam = size / 2 + 30;
+    final pad = h == null ? 10.0 : beam + 1;
     final total = size + pad * 2;
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder)..scale(devicePixelRatio);
     final c = Offset(total / 2, total / 2);
-    paintHalo(canvas, c, haloR, night: night);
-    if (headingDeg != null) paintHeadingCone(canvas, c, headingDeg, length: size / 2 + 12, color: kRelationMe);
-    canvas.drawCircle(c.translate(0, 1), size / 2 + 1, Paint()..color = Colors.black.withValues(alpha: 0.25)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2));
-    canvas.drawCircle(c, size / 2 + 2.5, Paint()..color = Colors.white);
+    if (h != null) paintHeadingCone(canvas, c, h.toDouble(), length: beam, color: kRelationMe);
+    canvas.drawCircle(c.translate(0, 1.2), size / 2 + 3, Paint()..color = Colors.black.withValues(alpha: 0.32)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.2));
+    canvas.drawCircle(c, size / 2 + 3, Paint()..color = Colors.white);
     canvas.drawCircle(c, size / 2, Paint()..color = kRelationMe);
     final pin = await pins.finish(recorder, total, total, anchorY: 0.5);
     return _cache[k] = pin;

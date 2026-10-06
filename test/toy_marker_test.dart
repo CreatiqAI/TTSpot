@@ -123,7 +123,7 @@ void main() {
   });
 
   group('toy pin', () {
-    test('a heading draws an arrow in their colour pointing that way; none draws a dot', () async {
+    test('a heading draws an arrow in their colour pointing that way; parked draws no dot', () async {
       final blank = await _render(blank: true);
       for (final heading in [90.0, 200.0, 315.0]) {
         final pin = await _draw(blank, heading: heading);
@@ -133,12 +133,10 @@ void main() {
         // Behind the notch there is nothing opaque (a dot's white ring would be).
         expect(pin.at(pin.anchor - d * 7).$4, lessThan(160), reason: 'behind the tail, heading $heading');
       }
-      final dot = await _draw(blank);
-      _expectColour(dot.at(dot.anchor), kRelationFriend, reason: 'dot middle');
+      // Parked: just the car, its wheels on the spot; nothing drawn there.
+      final parked = await _draw(blank);
       for (final a in [0.0, 90.0, 180.0, 270.0]) {
-        final (r, g, b, alpha) = dot.at(dot.anchor + _dir(a) * 6.6);
-        expect(alpha > 240 && r > 235 && g > 235 && b > 235, isTrue, reason: 'white ring at $a°: ${(r, g, b, alpha)}');
-        expect(dot.at(dot.anchor + _dir(a) * 9.5).$4, lessThan(160), reason: 'small: nothing opaque past 9.5 px');
+        expect(parked.at(parked.anchor + _dir(a) * 4).$4, lessThan(160), reason: 'no dot at $a°');
       }
     });
 
@@ -163,21 +161,23 @@ void main() {
       expect(box.right - a.dx, greaterThan(a.dx - box.left), reason: 'the tip side reaches further');
     });
 
-    test('mirrored to face east, as drawn otherwise; the wheels stand just above the arrow', () async {
+    test('mirrored to face east, as drawn otherwise; wheels just above the arrow, or on the spot when parked', () async {
       final toy = await _render(); // red on its left half
       const carH = kToyCarWidth * 88 / 160;
       for (final (heading, east) in [(90.0, true), (60.0, true), (270.0, false), (null, false), (180.0, false)]) {
         final pin = await _draw(toy, heading: heading);
-        final mid = pin.anchor.dy - kToyWheelLift - carH / 2;
+        // Moving: the wheels stand kToyWheelLift above the arrow; parked: on the spot.
+        final lift = heading == null ? 0.0 : kToyWheelLift;
+        final mid = pin.anchor.dy - lift - carH / 2;
         final left = pin.at(Offset(pin.anchor.dx - kToyCarWidth / 4, mid));
         final right = pin.at(Offset(pin.anchor.dx + kToyCarWidth / 4, mid));
         final redLeft = left.$4 > 200 && left.$1 > 200 && left.$2 < 60;
         final redRight = right.$4 > 200 && right.$1 > 200 && right.$2 < 60;
         expect(redRight, east, reason: 'heading $heading: red on the right = mirrored');
         expect(redLeft, !east, reason: 'heading $heading');
-        // The render's bottom edge sits kToyWheelLift above the anchor.
-        final under = pin.at(Offset(pin.anchor.dx + (east ? 20 : -20), pin.anchor.dy - kToyWheelLift + 1));
-        final inside = pin.at(Offset(pin.anchor.dx + (east ? 20 : -20), pin.anchor.dy - kToyWheelLift - 1));
+        // The render's bottom edge sits `lift` above the anchor.
+        final under = pin.at(Offset(pin.anchor.dx + (east ? 20 : -20), pin.anchor.dy - lift + 1));
+        final inside = pin.at(Offset(pin.anchor.dx + (east ? 20 : -20), pin.anchor.dy - lift - 1));
         expect(inside.$1 > 200 && inside.$2 < 60, isTrue, reason: 'heading $heading: the render reaches down to the wheels line');
         expect(under.$1 > 200 && under.$2 < 60 && under.$4 > 200, isFalse, reason: 'heading $heading: and no further');
       }

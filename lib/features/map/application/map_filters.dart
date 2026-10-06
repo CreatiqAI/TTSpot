@@ -51,14 +51,14 @@ class TierRule {
   final double groupPx;
 }
 
-/// Tier 1: 56 px, from zoom 6 (the whole peninsula on a phone) with its name
-/// from zoom 11 (a city). Tier 2: 44 px from zoom 10.5 (a few towns), named
-/// from 13.5. Tier 3: 32 px from zoom 12.5 (a district), named at street
-/// zoom (14.5) like every other small pin.
+/// Every event shows at every zoom (owner, 2026-10-06: meets must stay
+/// findable however far out); crowded ones fold into count bubbles. Tier 1:
+/// 56 px, named from zoom 11 (a city). Tier 2: 44 px, named from 13.5.
+/// Tier 3: 32 px, named at street zoom (14.5) like every other small pin.
 const kTierRules = {
-  PinTier.major: TierRule(side: 56, minZoom: 6, labelZoom: 11, groupPx: 46),
-  PinTier.partner: TierRule(side: 44, minZoom: 10.5, labelZoom: 13.5, groupPx: 38),
-  PinTier.minor: TierRule(side: 32, minZoom: 12.5, labelZoom: 14.5, groupPx: 32),
+  PinTier.major: TierRule(side: 56, minZoom: 0, labelZoom: 11, groupPx: 46),
+  PinTier.partner: TierRule(side: 44, minZoom: 0, labelZoom: 13.5, groupPx: 38),
+  PinTier.minor: TierRule(side: 32, minZoom: 0, labelZoom: 14.5, groupPx: 32),
 };
 
 TierRule tierRule(PinTier t) => kTierRules[t]!;
@@ -72,7 +72,8 @@ bool tierLabelAt(PinTier tier, double zoom) => zoom >= tierRule(tier).labelZoom;
 /// Every zoom at which something about the event pins changes. The map
 /// redraws when the zoom crosses one of them.
 final List<double> kTierZoomSteps = {
-  for (final r in kTierRules.values) ...[r.minZoom, r.labelZoom],
+  for (final r in kTierRules.values) ...[if (r.minZoom > 0) r.minZoom, r.labelZoom],
+  kNowSpotMinZoom,
 }.toList()
   ..sort();
 
@@ -332,13 +333,13 @@ List<Event> nowEvents(List<Event> live, List<Event> inView, DateTime now) {
   ];
 }
 
-/// On the Now tab places share the map with people and events, so they
-/// come in later than on the Spots tab (where every place shows at every
-/// zoom): partner shops and my saved spots from partner zoom (10.5, a few
-/// towns), the other spots from district zoom (12.5), like the smallest
-/// event tier.
-double nowPlaceMinZoom({required bool partner, required bool saved}) =>
-    partner || saved ? tierRule(PinTier.partner).minZoom : tierRule(PinTier.minor).minZoom;
+/// On the Now tab places share the map with people and events: partner
+/// shops and my saved spots show at every zoom (crowded ones fold into a
+/// count bubble), the other spots from district zoom ([kNowSpotMinZoom]).
+double nowPlaceMinZoom({required bool partner, required bool saved}) => partner || saved ? 0 : kNowSpotMinZoom;
+
+/// On Now, ordinary spots (not partners, not saved) come in at district zoom.
+const kNowSpotMinZoom = 12.5;
 
 bool nowPlaceVisibleAt(double zoom, {required bool partner, required bool saved}) => zoom >= nowPlaceMinZoom(partner: partner, saved: saved);
 

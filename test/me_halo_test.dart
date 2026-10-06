@@ -55,18 +55,19 @@ void main() {
         }
       });
 
-      test('dot: glow ends inside the bitmap and is round ($label)', () async {
+      test('dot: no glow, its shadow ends inside the bitmap and it is round ($label)', () async {
         for (final scale in [0.8, 1.0, 1.2]) {
           final pin = await factory().meDot(scale: scale);
           final (w, h, d) = await _decode(pin);
           expect(_maxBorderAlpha(w, h, d), 0, reason: 'scale $scale');
-          // Same alpha all the way round at a radius between the dot and the rim.
-          final c = pin.size.width / 2 * dpr, r = c * 0.7;
+          // Same alpha all the way round inside the white ring (the dot is
+          // 16 px across at scale 1, the ring 3 px wide).
+          final c = pin.size.width / 2 * dpr, r = (16 * scale / 2 + 1.5) * dpr;
           final samples = [
             for (var i = 0; i < 16; i++) _alphaAt(d, w, c + r * math.cos(i * math.pi / 8), c + r * math.sin(i * math.pi / 8)),
           ];
           expect(samples.reduce(math.max) - samples.reduce(math.min), lessThanOrEqualTo(3), reason: 'scale $scale: $samples');
-          expect(samples.reduce(math.min), greaterThan(0), reason: 'the glow reaches that far');
+          expect(samples.reduce(math.min), greaterThan(0), reason: 'the white ring reaches that far');
         }
       });
     }

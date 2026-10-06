@@ -90,7 +90,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   /// the map, for the toolbar's "N more up close".
   int _moreUpClose = 0;
   /// Key rows for friends I gave a colour, from [_updateKey].
-  List<({Color color, String names})> _tagged = const [];
+  List<({Color color, String tag, String names})> _tagged = const [];
   List<AppMarker> _markerSet = const [];
   /// What kinds of pin are on the map right now; feeds the key.
   Set<LegendGlyph> _present = const {};
@@ -790,8 +790,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     final generation = ++_generation;
     final mode = ref.read(mapModeProvider);
     final built = <AppMarker>[];
-    // Where each kind of pin is drawn: the key lists the kinds in view.
-    final keyed = <(LatLng, LegendGlyph)>[];
+    // Where each kind of pin is drawn and what a tap on it does: the key
+    // lists the kinds in view, and a tap on a row opens the nearest one.
+    final keyed = <_Keyed>[];
     // Pins that can merge into count bubbles or hide under a bigger one
     // (events, spots, partner shops), gathered first.
     final drops = <_Drop>[];
@@ -864,7 +865,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       if (group.length == 1) {
         final d = group.first;
         for (final g in d.glyphs) {
-          keyed.add((d.at, g));
+          keyed.add((d.at, g, d.onTap));
         }
         built.add(AppMarker(id: d.id, position: d.at, image: pin.bytes, size: pin.size, anchor: pin.anchor, zIndex: d.z, onTap: d.onTap));
       } else {
@@ -872,7 +873,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
           group.map((d) => d.at.latitude).reduce((a, b) => a + b) / group.length,
           group.map((d) => d.at.longitude).reduce((a, b) => a + b) / group.length,
         );
-        keyed.add((at, LegendGlyph.cluster));
+        keyed.add((at, LegendGlyph.cluster, () => _zoomToGroup(group)));
         built.add(AppMarker(id: 'group:${group.first.id}', position: at, image: pin.bytes, size: pin.size, anchor: pin.anchor, zIndex: group.first.event ? group.first.z : 5, onTap: () => _zoomToGroup(group)));
       }
     }
@@ -897,7 +898,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         final m = moments[i];
         final at = m.latLng!;
         final pin = momentPins[i];
-        keyed.add((at, LegendGlyph.moment));
+        keyed.add((at, LegendGlyph.moment, () => _openAt(at, () => _openMoment(m))));
         built.add(AppMarker(
           id: 'moment:${m.id}',
           position: at,
@@ -909,7 +910,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         ));
       }
     }
-    final tagged = <(LatLng, String, String)>[];
+    final tagged = <_TaggedKeyed>[];
     final livePeople = <LatLng>[];
     await _addPeople(built, stale, keyed, tagged, livePeople, onlyMe: !withPeople);
     if (await stale()) return;
@@ -959,10 +960,11 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     }
   }
 
-  /// Every drawn pin's kind and place, from the last rebuild.
-  List<(LatLng, LegendGlyph)> _keyed = const [];
-  /// Friends drawn in a colour I gave them: where, the colour key, first name.
-  List<(LatLng, String, String)> _taggedKeyed = const [];
+  /// Every drawn pin's place, kind and tap, from the last rebuild.
+  List<_Keyed> _keyed = const [];
+  /// Friends drawn in a colour I gave them: where, the colour key, first
+  /// name, and a tap on their pin.
+  List<_TaggedKeyed> _taggedKeyed = const [];
   /// Where the live people (position under a minute old) are drawn: the
   /// green pulse ([_syncPulses]).
   List<LatLng> _livePeople = const [];
@@ -998,7 +1000,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     }
     final tagged = [
       for (final e in kTagColors.entries)
-        if (byTag[e.key] case final names?) (color: e.value, names: names.join(', ')),
+        if (byTag[e.key] case final names?) (color: e.value, tag: e.key, names: names.join(', ')),
     ];
     final sameTagged = tagged.length == _tagged.length &&
         [for (var i = 0; i < tagged.length; i++) tagged[i] == _tagged[i]].every((x) => x);
@@ -1009,6 +1011,88 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       });
     }
   }
+
+  /// The key row whose pins taps are stepping through (see [KeyCycle]).
+  KeyCycle? _keyCycle;
+
+  /// A row of the key: fly to the nearest pin of that kind in view and open
+  /// it as a tap on the pin would (a spot or partner shop: its card; an
+  /// event or a person: their page; a group: zoom in). The same row again:
+  /// the next nearest, round and round. "You": back to me.
+  void _onKeyRow(String row) {
+    if (!_map.isReady) return;
+    HapticFeedback.selectionClick();
+    final glyph = glyphOfKeyRow(row);
+    if (glyph == LegendGlyph.me) {
+      if (_keyCycle != null) setState(() => _keyCycle = null);
+      _locateMe();
+      return;
+    }
+    final next = KeyCycle.tap(_keyCycle, row, DateTime.now(), inView: () => _keyTargets(row), origin: _keyOrigin());
+    if (next == null) return;
+    setState(() => _keyCycle = next);
+    final (at, open) = next.current;
+    _goToKeyTarget(glyph, at, open);
+  }
+
+  /// "Nearest" is to me when I am in view, else to the middle of the map.
+  LatLng? _keyOrigin() {
+    final view = ref.read(mapViewportProvider);
+    final here = ref.read(userLocationProvider).value ?? _lastHere;
+    if (here != null && view != null && view.contains(here)) return here;
+    return _view?.centre ?? here;
+  }
+
+  /// The pins behind a key row that are in view now. Plain loops with the
+  /// null test first (see the 0.3.49 note in [_updateKey]).
+  List<KeyTarget> _keyTargets(String row) {
+    final view = ref.read(mapViewportProvider);
+    final glyph = glyphOfKeyRow(row);
+    final tag = glyph == null && row.startsWith('t:') ? row.substring(2) : null;
+    final found = <KeyTarget>[];
+    if (view == null) {
+      for (final k in _keyed) {
+        if (k.$2 == glyph) found.add((k.$1, k.$3));
+      }
+      for (final t in _taggedKeyed) {
+        if (tag != null && t.$2 == tag) found.add((t.$1, t.$4));
+      }
+    } else {
+      for (final k in _keyed) {
+        if (k.$2 == glyph && view.contains(k.$1)) found.add((k.$1, k.$3));
+      }
+      for (final t in _taggedKeyed) {
+        if (tag != null && t.$2 == tag && view.contains(t.$1)) found.add((t.$1, t.$4));
+      }
+    }
+    return found;
+  }
+
+  /// Places open their card (it glides in and centres the place above it);
+  /// a group zooms until it comes apart; anything else glides in to street
+  /// zoom first so you see where it is, then opens like its pin.
+  Future<void> _goToKeyTarget(LegendGlyph? glyph, LatLng at, VoidCallback? open) async {
+    _movedToUser = true;
+    final place = glyph != null && _placeGlyphs.contains(glyph);
+    if (place || glyph == LegendGlyph.cluster) {
+      if (open != null) {
+        open();
+      } else {
+        _focus(at, zoom: 16);
+      }
+      return;
+    }
+    await _map.animateTo(at, zoom: math.max(_zoom, 16), ms: 650);
+    await Future<void>.delayed(const Duration(milliseconds: 700));
+    if (!mounted || open == null) return;
+    open();
+  }
+
+  /// Key rows whose pins are spots or partner shops (their tap opens the card).
+  static const _placeGlyphs = {
+    LegendGlyph.spot, LegendGlyph.topSpot, LegendGlyph.savedSpot, LegendGlyph.cafe, LegendGlyph.mamak, LegendGlyph.carpark,
+    LegendGlyph.route, LegendGlyph.circuit, LegendGlyph.mall, LegendGlyph.workshop, LegendGlyph.partner,
+  };
 
   /// Below street zoom, pins are claimed biggest tier first. A pin that
   /// would sit under a pin of a bigger tier is left out (it shows once the
@@ -1183,8 +1267,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   Future<void> _addPeople(
     List<AppMarker> built,
     Future<bool> Function() stale,
-    List<(LatLng, LegendGlyph)> keyed,
-    List<(LatLng, String, String)> tagged,
+    List<_Keyed> keyed,
+    List<_TaggedKeyed> tagged,
     List<LatLng> livePeople, {
     bool onlyMe = false,
   }) async {
@@ -1244,11 +1328,12 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     relation: relation,
                   ));
         if (await stale()) return;
+        void open() => _openAt(f.latLng, () => context.push(Routes.profile(f.user.id)));
         if (hasTag) {
-          tagged.add((f.latLng, tag, name.split(' ').first));
-          if (!live) keyed.add((f.latLng, LegendGlyph.seen));
+          tagged.add((f.latLng, tag, name.split(' ').first, open));
+          if (!live) keyed.add((f.latLng, LegendGlyph.seen, open));
         } else {
-          keyed.add((f.latLng, !live ? LegendGlyph.seen : stranger ? LegendGlyph.nearby : (f.viaClub ? LegendGlyph.club : LegendGlyph.friend)));
+          keyed.add((f.latLng, !live ? LegendGlyph.seen : stranger ? LegendGlyph.nearby : (f.viaClub ? LegendGlyph.club : LegendGlyph.friend), open));
         }
         if (live) livePeople.add(f.latLng);
         built.add(AppMarker(
@@ -1257,7 +1342,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
           image: pin.bytes, size: pin.size,
           anchor: pin.anchor,
           zIndex: stranger ? 2 : 7,
-          onTap: () => _openAt(f.latLng, () => context.push(Routes.profile(f.user.id))),
+          onTap: open,
           onLongPress: stranger ? null : () => _pickColour(f, name),
         ));
       }
@@ -1268,7 +1353,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     if (here != null && me != null) {
       final pin = await _mePin(me);
       if (await stale()) return;
-      keyed.add((here, LegendGlyph.me));
+      keyed.add((here, LegendGlyph.me, null));
       built.add(AppMarker(id: 'me', position: here, image: pin.bytes, size: pin.size, anchor: pin.anchor, zIndex: _meZ));
     }
   }
@@ -1314,7 +1399,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     final idx = _markerSet.indexWhere((m) => m.id == 'me');
     if (idx < 0) return;
     setState(() => _markerSet = [..._markerSet]..[idx] = AppMarker(id: 'me', position: here, image: pin.bytes, size: pin.size, anchor: pin.anchor, zIndex: _meZ));
-    _keyed = [for (final k in _keyed) if (k.$2 != LegendGlyph.me) k, (here, LegendGlyph.me)];
+    _keyed = [for (final k in _keyed) if (k.$2 != LegendGlyph.me) k, (here, LegendGlyph.me, null)];
     _updateKey();
     _checkAway();
   }
@@ -1358,6 +1443,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   @override
   Widget build(BuildContext context) {
     ref.listen(mapModeProvider, (prev, next) {
+      _keyCycle = null; // another layer: the key's next tap starts afresh
       _scheduleRebuild();
       _paintCircles();
       _syncPulses();
@@ -1520,7 +1606,16 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     Flexible(
                       child: Padding(
                         padding: EdgeInsets.only(top: 4, left: 12, bottom: toolbarBottom + (_cardOpen ? _cardHeight + 16 : MapToolbar.height + 120)),
-                        child: MapLegend(light: !_isNight, present: _present, tagged: _tagged),
+                        child: MapLegend(
+                          light: !_isNight,
+                          present: _present,
+                          tagged: _tagged,
+                          onRow: _onKeyRow,
+                          cycle: switch (_keyCycle) {
+                            final c? => (row: c.row, index: c.index, total: c.targets.length),
+                            null => null,
+                          },
+                        ),
                       ),
                     ),
                   ],
@@ -1705,6 +1800,14 @@ class _Drop {
 
   bool get event => rank < 4;
 }
+
+/// A drawn pin for the key: where, its kind, and what a tap on it does
+/// (null for my own pin).
+typedef _Keyed = (LatLng, LegendGlyph, VoidCallback?);
+
+/// A friend drawn in a colour I gave them: where, the colour key, their
+/// first name, and a tap on their pin.
+typedef _TaggedKeyed = (LatLng, String, String, VoidCallback?);
 
 // ------------------------------------------------------------------ widgets ---
 

@@ -5,6 +5,7 @@ import '../../../../core/theme/app_images.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/user_avatar.dart';
 import '../../../auth/domain/profile.dart';
+import '../../../badges/presentation/honour_row.dart';
 import '../../../friends/domain/friend.dart';
 import '../../../friends/presentation/nickname_sheet.dart' show ProfileNameLines;
 import '../../../social/domain/post.dart';
@@ -143,6 +144,7 @@ class ProfileHeader extends StatelessWidget {
             ],
           ),
         ),
+        ProfileHonourRow(userId: p.id, isMe: isMe), // up to 3 badge medallions (nothing without badges)
         // -------------------------------------------------------- identity ---
         // My nickname for them (备注) big, "Real name · @handle" under it.
         ProfileNameLines(profile: p, isMe: isMe),

@@ -12,6 +12,9 @@ import 'social_repository.dart';
 
 const _clubSelect = '*, members:club_members(count)';
 
+/// A spot check-in's answer (checkin_place).
+typedef PlaceCheckin = ({bool isNew, int total, int points, DateTime? pointsAgainAt});
+
 /// Clubs, places, car mods (build timeline).
 class CommunityRepository {
   CommunityRepository(this._client);
@@ -211,11 +214,19 @@ class CommunityRepository {
     return rows.map((r) => Place.fromMap((r as Map).cast<String, dynamic>())).toList();
   }
 
-  /// Stand-alone check-in; the database enforces the 300 m rule.
-  Future<({bool isNew, int total})> checkInPlace({required String placeId, required double lat, required double lng}) async {
+  /// Stand-alone check-in; the database enforces the 300 m rule. [points]:
+  /// what it paid (0 when this spot already paid this points week, then
+  /// [pointsAgainAt] says when it pays again).
+  Future<PlaceCheckin> checkInPlace({required String placeId, required double lat, required double lng}) async {
     final v = await _client.rpc('checkin_place', params: {'p_place': placeId, 'p_lat': lat, 'p_lng': lng});
     final m = (v as Map).cast<String, dynamic>();
-    return (isNew: m['new'] as bool? ?? false, total: (m['total'] as num?)?.toInt() ?? 0);
+    final again = m['points_again_at'] as String?;
+    return (
+      isNew: m['new'] as bool? ?? false,
+      total: (m['total'] as num?)?.toInt() ?? 0,
+      points: (m['points'] as num?)?.toInt() ?? 0,
+      pointsAgainAt: again == null ? null : DateTime.parse(again).toLocal(),
+    );
   }
 
   Future<bool> myPlaceCheckinToday(String placeId) async {

@@ -79,7 +79,7 @@ class _SpotVerifyScreenState extends ConsumerState<SpotVerifyScreen> {
     final (art, title, body) = switch (r.status) {
       VerificationStatus.approved => (AppArt.star, 'Verified!', 'Your car is on the record here.'),
       VerificationStatus.rejected => (AppArt.prohibited, 'Not approved', r.reason ?? 'The photo didn\'t pass.'),
-      _ => (AppArt.stopwatch, 'In review', r.reason ?? 'A human will check within 24 hours. Points land when it\'s approved.'),
+      _ => (AppArt.stopwatch, 'In review', r.reason ?? 'A human will check within 24 hours. It counts as your check-in once it\'s approved.'),
     };
     return showDialog<void>(
       context: context,
@@ -110,8 +110,6 @@ class _SpotVerifyScreenState extends ConsumerState<SpotVerifyScreen> {
   @override
   Widget build(BuildContext context) {
     final place = ref.watch(placeProvider(widget.placeId)).value;
-    final rules = ref.watch(pointRulesProvider).value ?? const [];
-    final pts = rules.where((r) => r.reason == 'spot_verified').firstOrNull?.points ?? 50;
 
     return Scaffold(
       appBar: AppBar(
@@ -130,7 +128,7 @@ class _SpotVerifyScreenState extends ConsumerState<SpotVerifyScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(place?.name ?? 'Spot', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-                    Text('Sticker scanned · +$pts points when approved', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+                    Text('Sticker scanned · counts as your check-in when approved',style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
                   ],
                 ),
               ),

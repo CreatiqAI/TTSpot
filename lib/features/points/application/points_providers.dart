@@ -16,6 +16,7 @@ import '../../social/application/social_providers.dart';
 import '../../vendors/application/vendors_providers.dart';
 import '../data/points_repository.dart';
 import '../domain/points.dart';
+import '../domain/points_week.dart';
 import '../domain/verification.dart';
 
 /// My balance. Invalidate after anything that earns or spends.
@@ -35,6 +36,17 @@ final pointHistoryProvider = FutureProvider<List<PointEntry>>((ref) {
 });
 
 final pointRulesProvider = FutureProvider<List<PointRule>>((ref) => ref.watch(pointsRepositoryProvider).rules());
+
+/// This points week (resets Friday 6 PM Malaysia time). Falls back to the
+/// phone's own sums when signed out or when the server doesn't answer.
+final pointsWeekProvider = FutureProvider.autoDispose<PointsWeek>((ref) async {
+  if (ref.watch(currentUserIdProvider) == null) return PointsWeek.at(DateTime.now());
+  try {
+    return await ref.watch(pointsRepositoryProvider).week();
+  } catch (_) {
+    return PointsWeek.at(DateTime.now());
+  }
+});
 
 final myReferralsProvider = FutureProvider<({int total, int rewarded})>((ref) async {
   final me = ref.watch(currentUserIdProvider);
@@ -89,6 +101,7 @@ class PointsActions {
   void refreshBalance() {
     _ref.invalidate(pointsBalanceProvider);
     _ref.invalidate(pointHistoryProvider);
+    _ref.invalidate(pointsWeekProvider);
   }
 
   Future<void> rotateQr() async {

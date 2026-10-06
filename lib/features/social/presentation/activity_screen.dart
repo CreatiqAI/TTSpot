@@ -13,6 +13,8 @@ import '../../../core/utils/friendly_error.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/thumb_image.dart';
 import '../../../core/widgets/user_avatar.dart';
+import '../../badges/domain/badges.dart';
+import '../../badges/presentation/tier_badge_image.dart';
 import '../../friends/application/friends_providers.dart';
 import '../../friends/presentation/friend_request_buttons.dart';
 import '../application/chat_providers.dart';
@@ -111,7 +113,10 @@ class _ActivityListState extends ConsumerState<ActivityList> {
           loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
           error: (e, _) => Center(child: Text(friendlyError(e))),
           data: (fresh) {
-            final items = keepAnsweredRows(fresh, _kept.values, id: (n) => n.id, newerFirst: (a, b) => b.createdAt.compareTo(a.createdAt));
+            // The old one-shot badges are retired (0108): their rows stay out.
+            final items = keepAnsweredRows(fresh, _kept.values, id: (n) => n.id, newerFirst: (a, b) => b.createdAt.compareTo(a.createdAt))
+                .where((n) => n.type != NotificationType.badge || !isRetiredBadgeRow(n.badgeId))
+                .toList();
             return items.isEmpty
                 ? LayoutBuilder(
                     builder: (_, c) => SingleChildScrollView(
@@ -214,7 +219,7 @@ bool isClubVoice(AppNotification n) => n.type == NotificationType.clubPost || n.
       NotificationType.eventCancelled => ('cancelled ${n.eventTitle ?? 'a meet you joined'}.', n.eventId == null ? null : Routes.event(n.eventId!)),
       NotificationType.spottedClaim => ('claimed the car you spotted.', n.postId == null ? null : Routes.post(n.postId!)),
       NotificationType.badge => (
-          badgeAsset(n.badgeId) != null ? 'You earned the ${badge?.name ?? 'a new'} badge.' : 'You earned the ${badge?.name ?? 'a new'} badge ${badge?.emoji ?? '🏅'}',
+          badgeActivityText(badge?.name ?? kBadgeNames[n.badgeId] ?? 'a new', n.body),
           me == null ? null : Routes.badges(me)
         ),
       NotificationType.carOfWeek => (n.body ?? 'Your build is Car of the Week!', n.postId == null ? null : Routes.post(n.postId!)),
@@ -315,8 +320,8 @@ class ActivityRow extends ConsumerWidget {
                 height: 44,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(color: AppColors.surfaceGray, shape: BoxShape.circle),
-                child: n.type == NotificationType.badge && badgeAsset(n.badgeId) != null
-                    ? BadgeImage(id: n.badgeId!, size: 36)
+                child: n.type == NotificationType.badge && !isRetiredBadgeRow(n.badgeId)
+                    ? TierBadgeImage(id: n.badgeId!, tier: int.tryParse(n.body ?? '') ?? 1, size: 36)
                     : n.type == NotificationType.points
                     ? const PointsCoin(size: 28)
                     : ArtIcon.emoji(

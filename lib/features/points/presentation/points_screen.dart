@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/router/app_router.dart';
+import '../../../core/supabase/supabase_client.dart';
 import '../../../core/theme/app_art.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_images.dart';
@@ -11,32 +12,53 @@ import '../../../core/utils/dates.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../../core/widgets/thumb_image.dart';
 import '../application/points_providers.dart';
-import 'widgets/referral_code_card.dart';
 import '../domain/points.dart';
+import '../domain/points_week.dart';
 import '../domain/verification.dart';
+import 'widgets/referral_code_card.dart';
 
-/// Points & rewards in one place: the balance, the way into the rewards
-/// shop / my vouchers / partners, how to earn, and the ledger.
+/// Points & rewards: the balance (and the way to spend it), how to earn with
+/// each limit spelled out, and the ledger.
 class PointsScreen extends ConsumerWidget {
   const PointsScreen({super.key});
 
-  static String _art(String reason) => switch (reason) {
+  static String art(String reason) => switch (reason) {
         'meet_checkin' => AppArt.flag,
-        'spot_checkin' || 'spot_verified' => AppArt.pin,
+        'spot_checkin' || 'spot_verified' || 'spot_suggested' => AppArt.pin,
+        'weekly_post' || 'first_post' => AppArt.camera,
         'referral_referrer' || 'referral_referee' => AppArt.hug,
         'car_of_week' => AppArt.trophy,
         'badge' => AppArt.medal,
+        'club_president_bonus' => AppArt.megaphone,
         'redeem' => AppArt.coffee,
         'box' => AppArt.gift,
         _ => kCoinAsset,
       };
 
+  /// The line under a How to earn title: the limit, and for the weekly ones
+  /// when they reset (or that this week's post already paid).
+  static String limitLine(PointRule r, PointsWeek week) {
+    final base = r.limitNote ?? r.description;
+    if (r.reason == 'weekly_post' && week.postDone) return 'Paid this week · next one after ${week.resetText}';
+    if (r.weekly) return '$base · resets ${week.resetText}';
+    return base;
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final me = ref.watch(currentUserIdProvider);
     final balance = ref.watch(pointsBalanceProvider).value ?? 0;
     final rules = ref.watch(pointRulesProvider).value ?? const <PointRule>[];
+    final week = ref.watch(pointsWeekProvider).value ?? PointsWeek.at(DateTime.now());
     final history = ref.watch(pointHistoryProvider);
     final verifications = (ref.watch(myVerificationsProvider).value ?? const <SpotVerification>[]).take(5).toList();
+    final earn = rules.where((r) => r.earns).toList();
+
+    VoidCallback? tapFor(PointRule r) {
+      if (r.reason == 'badge' && me != null) return () => context.push(Routes.badges(me));
+      if (r.reason.startsWith('referral')) return () => context.push(Routes.myQr);
+      return null;
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -47,33 +69,14 @@ class PointsScreen extends ConsumerWidget {
       body: RefreshIndicator(
         onRefresh: () async {
           ref.read(pointsActionsProvider).refreshBalance();
+          ref.invalidate(pointRulesProvider);
           await ref.read(pointHistoryProvider.future);
         },
         child: ListView(
           padding: const EdgeInsets.only(bottom: 32),
           children: [
-            Container(
-              margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(color: AppColors.warnColor, borderRadius: BorderRadius.circular(AppRadius.lg)),
-              child: Row(
-                children: [
-                  const PointsCoin(size: 52),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('$balance', style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w800, color: Colors.white, height: 1)),
-                        const SizedBox(height: 2),
-                        const Text('points', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white70)),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            // The rewards side of the hub: spend points, show vouchers, find partners.
+            _Balance(points: balance),
+            // Spend points, show vouchers, find partners.
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
               child: Row(
@@ -87,16 +90,9 @@ class PointsScreen extends ConsumerWidget {
               ),
             ),
             const _Section('HOW TO EARN'),
-            for (final r in rules.where((r) => r.points > 0))
-              ListTile(
-                leading: ArtIcon(_art(r.reason), size: 32),
-                title: Text(r.label, style: const TextStyle(fontWeight: FontWeight.w600)),
-                subtitle: Text(r.description, style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
-                trailing: Text('+${r.points}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
-                onTap: r.reason.startsWith('referral') ? () => context.push(Routes.myQr) : null,
-              ),
+            for (final r in earn) EarnRow(rule: r, limit: limitLine(r, week), onTap: tapFor(r)),
             // The referral rows above pay out through this code.
-            if (rules.any((r) => r.reason.startsWith('referral')))
+            if (earn.any((r) => r.reason.startsWith('referral')))
               const Padding(
                 padding: EdgeInsets.fromLTRB(16, 8, 16, 4),
                 child: ReferralCodeCard(),
@@ -110,7 +106,7 @@ class PointsScreen extends ConsumerWidget {
                     borderRadius: BorderRadius.circular(6),
                     child: ThumbImage(v.photoUrl, width: 40, height: 40, error: const SizedBox(width: 40, height: 40)),
                   ),
-                  title: Text(v.placeName),
+                  title: Text(v.placeName, maxLines: 1, overflow: TextOverflow.ellipsis),
                   subtitle: Text(
                     v.status == VerificationStatus.approved ? timeAgo(v.createdAt) : (v.reason ?? v.status.label),
                     maxLines: 1,
@@ -138,27 +134,127 @@ class PointsScreen extends ConsumerWidget {
               error: (e, _) => Padding(padding: const EdgeInsets.all(16), child: Text(friendlyError(e))),
               data: (list) => list.isEmpty
                   ? Padding(
-                      padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                       child: Text('Nothing yet. Check in at a meet or a spot to start.', style: TextStyle(color: AppColors.textSecondary)),
                     )
-                  : Column(
-                      children: [
-                        for (final e in list)
-                          ListTile(
-                            dense: true,
-                            leading: ArtIcon(_art(e.reason), size: 26),
-                            title: Text(e.label),
-                            subtitle: Text(timeAgo(e.createdAt), style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-                            trailing: Text(
-                              '${e.delta > 0 ? '+' : ''}${e.delta}',
-                              style: TextStyle(fontWeight: FontWeight.w800, color: e.delta > 0 ? AppColors.success : AppColors.danger),
-                            ),
-                          ),
-                      ],
-                    ),
+                  : Column(children: [for (final e in list) HistoryRow(entry: e)]),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// The balance, big, on the brand red.
+class _Balance extends StatelessWidget {
+  const _Balance({required this.points});
+  final int points;
+
+  static String _grouped(int n) => n.toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (_) => ',');
+
+  @override
+  Widget build(BuildContext context) => Container(
+        margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(color: AppColors.warnColor, borderRadius: BorderRadius.circular(AppRadius.lg)),
+        child: Row(
+          children: [
+            const PointsCoin(size: 52),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(_grouped(points), style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w800, color: Colors.white, height: 1)),
+                  ),
+                  const SizedBox(height: 2),
+                  const Text('points', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white70)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+}
+
+/// One way to earn: the art, the title with its limit under it, the amount
+/// on the right (and a chevron when it leads somewhere).
+class EarnRow extends StatelessWidget {
+  const EarnRow({super.key, required this.rule, required this.limit, this.onTap});
+  final PointRule rule;
+  final String limit;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) => InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(16, 10, onTap == null ? 16 : 10, 10),
+          child: Row(
+            children: [
+              ArtIcon(PointsScreen.art(rule.reason), size: 32),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(rule.label, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, height: 1.25)),
+                    const SizedBox(height: 2),
+                    Text(limit, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.3)),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text('+${rule.points}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+              if (onTap != null) ...[
+                const SizedBox(width: 4),
+                Icon(AppIcons.caretRight, size: 16, color: AppColors.textSecondary),
+              ],
+            ],
+          ),
+        ),
+      );
+}
+
+/// One ledger line: what, where or which badge, when, and the amount.
+class HistoryRow extends StatelessWidget {
+  const HistoryRow({super.key, required this.entry});
+  final PointEntry entry;
+
+  @override
+  Widget build(BuildContext context) {
+    final e = entry;
+    final note = (e.note ?? '').trim();
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        children: [
+          ArtIcon(PointsScreen.art(e.reason), size: 26),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(e.label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                Text(
+                  note.isEmpty ? timeAgo(e.createdAt) : '$note · ${timeAgo(e.createdAt)}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Text(
+            '${e.delta > 0 ? '+' : ''}${e.delta}',
+            style: TextStyle(fontWeight: FontWeight.w800, color: e.delta > 0 ? AppColors.success : AppColors.danger),
+          ),
+        ],
       ),
     );
   }

@@ -251,7 +251,7 @@ class CommunityActions {
   }
 
   /// Check in at a spot with a fresh GPS fix (must be within 300 m).
-  Future<({bool isNew, int total})> checkInAtPlace(String placeId) async {
+  Future<PlaceCheckin> checkInAtPlace(String placeId) async {
     Position pos;
     try {
       if (!await Geolocator.isLocationServiceEnabled()) throw const AppException('Turn on location to check in.');

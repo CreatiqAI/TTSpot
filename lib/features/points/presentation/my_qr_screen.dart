@@ -24,7 +24,7 @@ class MyQrScreen extends ConsumerWidget {
     final payload = ref.watch(myQrPayloadProvider);
     final referrals = ref.watch(myReferralsProvider).value;
     final rules = ref.watch(pointRulesProvider).value ?? const [];
-    final referrerPts = rules.where((r) => r.reason == 'referral_referrer').firstOrNull?.points ?? 100;
+    final referrerPts = rules.where((r) => r.reason == 'referral_referrer').firstOrNull?.points ?? 5;
 
     return Scaffold(
       appBar: AppBar(

@@ -24,12 +24,24 @@ class PointEntry {
 
 /// How to earn: one row per rule in `point_rules`.
 class PointRule {
-  const PointRule({required this.reason, required this.points, required this.label, required this.description, required this.sort});
+  const PointRule({required this.reason, required this.points, required this.label, required this.description, required this.sort, this.active = true, this.limitNote});
   final String reason;
   final int points;
   final String label;
   final String description;
   final int sort;
+
+  /// Retired rules (kept for history labels) are inactive and pay nothing.
+  final bool active;
+
+  /// The limit, under the title: "Once per spot per week", "1 post a week".
+  final String? limitNote;
+
+  /// Shown under How to earn.
+  bool get earns => active && points > 0;
+
+  /// Counts towards a limit that resets each Friday 6 PM.
+  bool get weekly => reason == 'spot_checkin' || reason == 'weekly_post';
 
   factory PointRule.fromMap(Map<String, dynamic> m) => PointRule(
         reason: m['reason'] as String,
@@ -37,6 +49,8 @@ class PointRule {
         label: m['label'] as String,
         description: m['description'] as String,
         sort: (m['sort'] as num?)?.toInt() ?? 100,
+        active: m['active'] as bool? ?? true,
+        limitNote: m['limit_note'] as String?,
       );
 }
 

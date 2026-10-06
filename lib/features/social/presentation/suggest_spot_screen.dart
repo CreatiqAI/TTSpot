@@ -72,7 +72,7 @@ class _SuggestSpotScreenState extends ConsumerState<SuggestSpotScreen> {
         'photo_url': photoUrl,
       });
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Thanks. TT Spot will check it and add it to the map. 30 points when it goes live.')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Thanks. TT Spot will check it and add it to the map.')));
       context.pop();
     } catch (e) {
       if (mounted) _snack(friendlyError(e));

@@ -191,7 +191,7 @@ void main() {
       await _pump(t, _overrides(repo: _FakeShareRepo()), scale: scale);
       expect(find.byKey(const Key('share-ride-card')), findsOneWidget);
       expect(find.text('Share your ride'), findsOneWidget);
-      expect(find.text('Your first post earns 50 points'), findsOneWidget);
+      expect(find.text('Your first post earns 10 points'), findsOneWidget);
       expect(find.text('Post it'), findsOneWidget);
       expect(find.text('Not now'), findsOneWidget);
       expect(t.takeException(), isNull);
@@ -223,7 +223,7 @@ void main() {
       expect(repo.shared.single.id, 'car-1');
       expect(opened, ['new-post']);
       expect(find.text('Your ride is up'), findsOneWidget);
-      expect(find.text('Your 50 points are on the way'), findsOneWidget);
+      expect(find.text('Your 10 points are on the way'), findsOneWidget);
       expect(find.text('View post'), findsOneWidget);
       expect(t.takeException(), isNull);
       // View post opens it again; Done closes the card.

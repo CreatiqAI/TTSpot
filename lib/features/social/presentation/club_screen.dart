@@ -171,6 +171,8 @@ class ClubScreen extends ConsumerWidget {
                       clipBehavior: Clip.antiAlias,
                       child: SwitchListTile.adaptive(
                         value: sharing,
+                        // Off must read as a switch on the grey tile too.
+                        inactiveTrackColor: AppColors.textMuted.withValues(alpha: 0.45),
                         onChanged: (v) async {
                           try {
                             await ref.read(communityActionsProvider).setClubShare(clubId, v);

@@ -32,7 +32,7 @@ class ProfileHonourRow extends ConsumerWidget {
     if (badges.isEmpty) {
       // Mine: the link once we know there is nothing to show (a load error
       // too: the page itself says what's wrong). Theirs: no row at all.
-      if (!isMe || honour.isLoading) return const SizedBox.shrink();
+      if (!isMe || (!honour.hasValue && !honour.hasError)) return const SizedBox.shrink();
       return HonourRow(badges: const [], onOpen: open);
     }
     return HonourRow(badges: badges, onOpen: open);

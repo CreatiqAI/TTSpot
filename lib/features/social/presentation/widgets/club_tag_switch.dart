@@ -57,6 +57,8 @@ class _ClubTagSwitchState extends ConsumerState<ClubTagSwitch> {
           key: const Key('club-tag-switch'),
           value: wearing,
           onChanged: _pending != null ? null : _set,
+          // Off must read as a switch on the grey tile too.
+          inactiveTrackColor: AppColors.textMuted.withValues(alpha: 0.45),
           secondary: Icon(AppIcons.sealCheck, color: officialGold()),
           title: Row(
             children: [

@@ -485,21 +485,7 @@ class PermissionCard extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        // The tag flows with the title like a word. No-break spaces glue it to
-        // the last word, so when it wraps it takes "closed" with it and is
-        // never on a line of its own.
-        Text.rich(
-          TextSpan(
-            text: title,
-            children: [
-              if (optional) ...[
-                const TextSpan(text: '  '),
-                const WidgetSpan(alignment: PlaceholderAlignment.middle, child: _Tag('OPTIONAL')),
-              ],
-            ],
-          ),
-          style: const TextStyle(fontSize: 16, height: 1.25, fontWeight: FontWeight.w700, color: Colors.white),
-        ),
+        _Title(title, optional: optional),
         const SizedBox(height: 4),
         Text(hint, style: TextStyle(fontSize: 13, height: 1.38, color: AuthDark.text2)),
       ],
@@ -550,6 +536,48 @@ class PermissionCard extends StatelessWidget {
           );
         },
       ),
+    );
+  }
+}
+
+/// The card title. With [optional], the tag sits inline after it: the last
+/// word and the tag are one unbreakable piece, so when the title wraps the
+/// tag goes along with "closed" and is never on a line of its own.
+class _Title extends StatelessWidget {
+  const _Title(this.text, {this.optional = false});
+  final String text;
+  final bool optional;
+
+  static const _style = TextStyle(fontSize: 16, height: 1.25, fontWeight: FontWeight.w700, color: Colors.white);
+
+  @override
+  Widget build(BuildContext context) {
+    if (!optional) return Text(text, style: _style);
+    final cut = text.lastIndexOf(' ');
+    final head = cut < 0 ? '' : text.substring(0, cut + 1);
+    final last = cut < 0 ? text : text.substring(cut + 1);
+    return Text.rich(
+      TextSpan(
+        text: head,
+        children: [
+          WidgetSpan(
+            alignment: PlaceholderAlignment.baseline,
+            baseline: TextBaseline.alphabetic,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
+                // Flexible: on a line too thin for both, the word gives way.
+                Flexible(child: Text(last, style: _style)),
+                const SizedBox(width: 8),
+                const _Tag('OPTIONAL'),
+              ],
+            ),
+          ),
+        ],
+      ),
+      style: _style,
     );
   }
 }

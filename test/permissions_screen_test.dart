@@ -87,7 +87,7 @@ void main() {
     expect(find.text('So the map works for you.'), findsOneWidget);
     expect(pillIn('Location', 'Enable'), findsOneWidget);
     expect(pillIn('Notifications', 'Enable'), findsOneWidget);
-    expect(pillIn('Share when closed', 'Enable'), findsOneWidget);
+    expect(pillIn('Share when', 'Enable'), findsOneWidget);
     expect(find.text('OPTIONAL'), findsOneWidget);
     // Android wording of the phone's own prompts.
     expect(find.text('Tap "While using the app".'), findsOneWidget);
@@ -103,7 +103,7 @@ void main() {
     await pump(tester, bgState: onBg);
     expect(pillIn('Location', 'On'), findsOneWidget);
     expect(pillIn('Notifications', 'On'), findsOneWidget);
-    expect(pillIn('Share when closed', 'On'), findsOneWidget);
+    expect(pillIn('Share when', 'On'), findsOneWidget);
     expect(find.text('Enable'), findsNothing);
     expect(device.registers, greaterThan(0), reason: 'allowed notifications register this phone for push');
     await tapPill(tester, pillIn('Location', 'On'));
@@ -118,7 +118,7 @@ void main() {
     await pump(tester, bgState: needsAlwaysBg);
     expect(pillIn('Location', 'Settings'), findsOneWidget);
     expect(pillIn('Notifications', 'Settings'), findsOneWidget);
-    expect(pillIn('Share when closed', 'Settings'), findsOneWidget);
+    expect(pillIn('Share when', 'Settings'), findsOneWidget);
     expect(find.text('Tap "Allow While Using App".'), findsNothing);
     expect(find.text('Turned off · fix in Settings'), findsNWidgets(2));
 
@@ -218,27 +218,27 @@ void main() {
       asked++;
       return false;
     });
-    await tapPill(tester, pillIn('Share when closed', 'Enable'));
+    await tapPill(tester, pillIn('Share when', 'Enable'));
     await tester.pumpAndSettle();
     expect(asked, 1);
     expect(bg.enables, 0);
-    expect(pillIn('Share when closed', 'Enable'), findsOneWidget);
+    expect(pillIn('Share when', 'Enable'), findsOneWidget);
   });
 
   testWidgets('Share my spot: Turn on in the disclosure runs the opt-in, then On', (tester) async {
     await pump(tester);
-    await tapPill(tester, pillIn('Share when closed', 'Enable'));
+    await tapPill(tester, pillIn('Share when', 'Enable'));
     await tester.pumpAndSettle();
     expect(bg.enables, 1);
-    expect(pillIn('Share when closed', 'On'), findsOneWidget);
+    expect(pillIn('Share when', 'On'), findsOneWidget);
     expect(haptics(), 1);
   });
 
   testWidgets('Share my spot: "Always" not given yet shows Settings and says what to choose', (tester) async {
     await pump(tester, bgOutcome: BgEnableOutcome.needsAlways);
-    await tapPill(tester, pillIn('Share when closed', 'Enable'));
+    await tapPill(tester, pillIn('Share when', 'Enable'));
     await tester.pumpAndSettle();
-    expect(pillIn('Share when closed', 'Settings'), findsOneWidget);
+    expect(pillIn('Share when', 'Settings'), findsOneWidget);
     expect(find.text('Needs "Allow all the time"'), findsOneWidget);
   });
 

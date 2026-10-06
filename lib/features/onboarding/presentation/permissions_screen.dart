@@ -518,7 +518,8 @@ class PermissionCard extends StatelessWidget {
       child: LayoutBuilder(
         builder: (context, c) {
           // Room for the words beside the widest button ("Settings")?
-          final beside = c.maxWidth - 40 - 12 - 10 - _PillButton.widestWidth(context) >= 112;
+          // (At 1.3 on a 412 px phone the words got about 140 px: too thin.)
+          final beside = c.maxWidth - 40 - 12 - 10 - _PillButton.widestWidth(context) >= 150;
           final tile = AnimatedContainer(
             duration: const Duration(milliseconds: 220),
             width: 40,

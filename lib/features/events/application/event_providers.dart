@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 
@@ -11,6 +13,7 @@ import '../domain/checkin_row.dart';
 import '../domain/event.dart';
 import '../domain/event_car.dart';
 import '../domain/event_detail.dart';
+import 'live_activity.dart';
 import 'my_events_provider.dart';
 
 /// Event + organizer + attendee preview + whether I'm going.
@@ -96,6 +99,7 @@ class EventActions {
   Future<void> join(String eventId, {String? carId}) async {
     await _repo.join(eventId: eventId, userId: _me, carId: carId);
     _refresh(eventId);
+    unawaited(_ref.read(liveActivityServiceProvider).joined(eventId));
   }
 
   /// Switch the car I'm bringing to a meet I joined / checked in at.
@@ -109,6 +113,7 @@ class EventActions {
   Future<void> leave(String eventId) async {
     await _repo.leave(eventId: eventId, userId: _me);
     _refresh(eventId);
+    unawaited(_ref.read(liveActivityServiceProvider).end(eventId));
   }
 
   Future<bool> toggleBookmark(String eventId) async {
@@ -120,6 +125,7 @@ class EventActions {
   Future<void> cancel(String eventId) async {
     await _repo.cancel(eventId);
     _refresh(eventId);
+    unawaited(_ref.read(liveActivityServiceProvider).end(eventId));
   }
 
   Future<String> ttNow({required double lat, required double lng, String? venue, int minutes = 60, List<String>? invitees, String? address, String? carId}) async {
@@ -127,6 +133,7 @@ class EventActions {
     final id = await _repo.ttNow(lat: lat, lng: lng, venue: v == null || v.isEmpty ? null : v, minutes: minutes, invitees: invitees, address: address, carId: carId);
     _ref.invalidate(myCheckinsProvider);
     _ref.invalidate(myEventsProvider);
+    unawaited(_ref.read(liveActivityServiceProvider).joined(id));
     return id;
   }
 

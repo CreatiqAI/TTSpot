@@ -43,6 +43,13 @@ import Vision
         BackgroundLocation.shared.handle(call, result: result)
       }
     }
+    // Meet countdown on the lock screen (iOS 16.1+); see LiveActivityBridge.swift.
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "TTSpotLiveActivity") {
+      let channel = FlutterMethodChannel(name: "my.ttspot.app/live_activity", binaryMessenger: registrar.messenger())
+      channel.setMethodCallHandler { call, result in
+        LiveActivityBridge.handle(call, result: result)
+      }
+    }
   }
 }
 

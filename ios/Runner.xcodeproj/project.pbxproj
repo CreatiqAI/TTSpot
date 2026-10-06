@@ -18,6 +18,14 @@
 		97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */; };
 		D1A0E0042F0B000100A1B201 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A0E0012F0B000100A1B201 /* NotificationService.swift */; };
 		D1A0E0052F0B000100A1B201 /* NotificationService.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = D1A0E0032F0B000100A1B201 /* NotificationService.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		D1A0E1112F0B000100A1B201 /* TTSpotActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A0E1012F0B000100A1B201 /* TTSpotActivityAttributes.swift */; };
+		D1A0E1122F0B000100A1B201 /* TTSpotLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A0E1022F0B000100A1B201 /* TTSpotLiveActivity.swift */; };
+		D1A0E1132F0B000100A1B201 /* TTSpotWidgetsBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A0E1032F0B000100A1B201 /* TTSpotWidgetsBundle.swift */; };
+		D1A0E1142F0B000100A1B201 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D1A0E1052F0B000100A1B201 /* Assets.xcassets */; };
+		D1A0E1152F0B000100A1B201 /* TTSpotWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = D1A0E1062F0B000100A1B201 /* TTSpotWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		D1A0E1162F0B000100A1B201 /* LiveActivityBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A0E1072F0B000100A1B201 /* LiveActivityBridge.swift */; };
+		D1A0E1172F0B000100A1B201 /* TTSpotActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A0E1012F0B000100A1B201 /* TTSpotActivityAttributes.swift */; };
+		D1A0E1182F0B000100A1B201 /* ActivityKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D1A0E1082F0B000100A1B201 /* ActivityKit.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -34,6 +42,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = D1A0E00C2F0B000100A1B201;
 			remoteInfo = NotificationService;
+		};
+		D1A0E1312F0B000100A1B201 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 97C146E61CF9000F007C117D /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D1A0E1512F0B000100A1B201;
+			remoteInfo = TTSpotWidgets;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -55,6 +70,7 @@
 			dstSubfolderSpec = 13;
 			files = (
 				D1A0E0052F0B000100A1B201 /* NotificationService.appex in Embed Foundation Extensions */,
+				D1A0E1152F0B000100A1B201 /* TTSpotWidgets.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -82,6 +98,14 @@
 		D1A0E0012F0B000100A1B201 /* NotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
 		D1A0E0022F0B000100A1B201 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		D1A0E0032F0B000100A1B201 /* NotificationService.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = NotificationService.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		D1A0E1012F0B000100A1B201 /* TTSpotActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TTSpotActivityAttributes.swift; sourceTree = "<group>"; };
+		D1A0E1022F0B000100A1B201 /* TTSpotLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TTSpotLiveActivity.swift; sourceTree = "<group>"; };
+		D1A0E1032F0B000100A1B201 /* TTSpotWidgetsBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TTSpotWidgetsBundle.swift; sourceTree = "<group>"; };
+		D1A0E1042F0B000100A1B201 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		D1A0E1052F0B000100A1B201 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		D1A0E1062F0B000100A1B201 /* TTSpotWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = TTSpotWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		D1A0E1072F0B000100A1B201 /* LiveActivityBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityBridge.swift; sourceTree = "<group>"; };
+		D1A0E1082F0B000100A1B201 /* ActivityKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ActivityKit.framework; path = System/Library/Frameworks/ActivityKit.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -90,10 +114,18 @@
 			buildActionMask = 2147483647;
 			files = (
 				78A318202AECB46A00862997 /* FlutterGeneratedPluginSwiftPackage in Frameworks */,
+				D1A0E1182F0B000100A1B201 /* ActivityKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		D1A0E0082F0B000100A1B201 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D1A0E1422F0B000100A1B201 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -131,6 +163,8 @@
 				97C146EF1CF9000F007C117D /* Products */,
 				331C8082294A63A400263BE5 /* RunnerTests */,
 				D1A0E00B2F0B000100A1B201 /* NotificationService */,
+				D1A0E1212F0B000100A1B201 /* TTSpotWidgets */,
+				D1A0E1222F0B000100A1B201 /* Frameworks */,
 			);
 			sourceTree = "<group>";
 		};
@@ -140,6 +174,7 @@
 				97C146EE1CF9000F007C117D /* Runner.app */,
 				331C8081294A63A400263BE5 /* RunnerTests.xctest */,
 				D1A0E0032F0B000100A1B201 /* NotificationService.appex */,
+				D1A0E1062F0B000100A1B201 /* TTSpotWidgets.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -155,6 +190,7 @@
 				1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */,
 				74858FAE1ED2DC5600515810 /* AppDelegate.swift */,
 				7884E8672EC3CC0400C636F2 /* SceneDelegate.swift */,
+				D1A0E1072F0B000100A1B201 /* LiveActivityBridge.swift */,
 				74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */,
 			);
 			path = Runner;
@@ -167,6 +203,26 @@
 				D1A0E0022F0B000100A1B201 /* Info.plist */,
 			);
 			path = NotificationService;
+			sourceTree = "<group>";
+		};
+		D1A0E1212F0B000100A1B201 /* TTSpotWidgets */ = {
+			isa = PBXGroup;
+			children = (
+				D1A0E1032F0B000100A1B201 /* TTSpotWidgetsBundle.swift */,
+				D1A0E1022F0B000100A1B201 /* TTSpotLiveActivity.swift */,
+				D1A0E1012F0B000100A1B201 /* TTSpotActivityAttributes.swift */,
+				D1A0E1052F0B000100A1B201 /* Assets.xcassets */,
+				D1A0E1042F0B000100A1B201 /* Info.plist */,
+			);
+			path = TTSpotWidgets;
+			sourceTree = "<group>";
+		};
+		D1A0E1222F0B000100A1B201 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				D1A0E1082F0B000100A1B201 /* ActivityKit.framework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -205,6 +261,7 @@
 			);
 			dependencies = (
 				D1A0E00D2F0B000100A1B201 /* PBXTargetDependency */,
+				D1A0E1322F0B000100A1B201 /* PBXTargetDependency */,
 			);
 			name = Runner;
 			packageProductDependencies = (
@@ -231,6 +288,23 @@
 			productReference = D1A0E0032F0B000100A1B201 /* NotificationService.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		D1A0E1512F0B000100A1B201 /* TTSpotWidgets */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D1A0E1522F0B000100A1B201 /* Build configuration list for PBXNativeTarget "TTSpotWidgets" */;
+			buildPhases = (
+				D1A0E1412F0B000100A1B201 /* Sources */,
+				D1A0E1422F0B000100A1B201 /* Frameworks */,
+				D1A0E1432F0B000100A1B201 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = TTSpotWidgets;
+			productName = TTSpotWidgets;
+			productReference = D1A0E1062F0B000100A1B201 /* TTSpotWidgets.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -250,6 +324,9 @@
 						LastSwiftMigration = 1100;
 					};
 					D1A0E00C2F0B000100A1B201 = {
+						CreatedOnToolsVersion = 15.0;
+					};
+					D1A0E1512F0B000100A1B201 = {
 						CreatedOnToolsVersion = 15.0;
 					};
 				};
@@ -273,6 +350,7 @@
 				97C146ED1CF9000F007C117D /* Runner */,
 				331C8080294A63A400263BE5 /* RunnerTests */,
 				D1A0E00C2F0B000100A1B201 /* NotificationService */,
+				D1A0E1512F0B000100A1B201 /* TTSpotWidgets */,
 			);
 		};
 /* End PBXProject section */
@@ -300,6 +378,14 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D1A0E1432F0B000100A1B201 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D1A0E1142F0B000100A1B201 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -355,6 +441,8 @@
 				74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */,
 				1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */,
 				7884E8682EC3CC0700C636F2 /* SceneDelegate.swift in Sources */,
+				D1A0E1162F0B000100A1B201 /* LiveActivityBridge.swift in Sources */,
+				D1A0E1172F0B000100A1B201 /* TTSpotActivityAttributes.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -363,6 +451,16 @@
 			buildActionMask = 2147483647;
 			files = (
 				D1A0E0042F0B000100A1B201 /* NotificationService.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D1A0E1412F0B000100A1B201 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D1A0E1132F0B000100A1B201 /* TTSpotWidgetsBundle.swift in Sources */,
+				D1A0E1122F0B000100A1B201 /* TTSpotLiveActivity.swift in Sources */,
+				D1A0E1112F0B000100A1B201 /* TTSpotActivityAttributes.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -378,6 +476,11 @@
 			isa = PBXTargetDependency;
 			target = D1A0E00C2F0B000100A1B201 /* NotificationService */;
 			targetProxy = D1A0E0062F0B000100A1B201 /* PBXContainerItemProxy */;
+		};
+		D1A0E1322F0B000100A1B201 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D1A0E1512F0B000100A1B201 /* TTSpotWidgets */;
+			targetProxy = D1A0E1312F0B000100A1B201 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -759,6 +862,84 @@
 			};
 			name = Profile;
 		};
+		D1A0E1532F0B000100A1B201 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 9740EEB21CF90195004384FC /* Debug.xcconfig */;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = TTSpotWidgets/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = my.ttspot.app.TTSpotWidgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		D1A0E1542F0B000100A1B201 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 7AFA3C8E1D35360C0083082E /* Release.xcconfig */;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = TTSpotWidgets/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = my.ttspot.app.TTSpotWidgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		D1A0E1552F0B000100A1B201 /* Profile */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 7AFA3C8E1D35360C0083082E /* Release.xcconfig */;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = TTSpotWidgets/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = my.ttspot.app.TTSpotWidgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Profile;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -798,6 +979,16 @@
 				D1A0E00E2F0B000100A1B201 /* Debug */,
 				D1A0E00F2F0B000100A1B201 /* Release */,
 				D1A0E0102F0B000100A1B201 /* Profile */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D1A0E1522F0B000100A1B201 /* Build configuration list for PBXNativeTarget "TTSpotWidgets" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D1A0E1532F0B000100A1B201 /* Debug */,
+				D1A0E1542F0B000100A1B201 /* Release */,
+				D1A0E1552F0B000100A1B201 /* Profile */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

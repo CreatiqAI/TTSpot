@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/events/application/live_activity.dart';
 import '../../features/friends/application/friends_providers.dart';
 import '../../features/profile/presentation/profile_menu.dart';
 import '../../features/social/presentation/create_hub_sheet.dart';
@@ -36,6 +37,7 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(locationPublisherProvider.notifier).start();
       ref.read(pushServiceProvider).start();
+      ref.read(liveActivityServiceProvider).sync();
     });
   }
 
@@ -54,6 +56,8 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
     ref.invalidate(managedClubsProvider);
     ref.invalidate(currentProfileProvider);
     ref.invalidate(accountBasicsProvider);
+    // Lock-screen meet countdown: end finished ones, start one that's due.
+    ref.read(liveActivityServiceProvider).sync();
   }
 
   /// Not a branch: the centre + opens the Create sheet.

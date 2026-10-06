@@ -14,8 +14,11 @@ name: iOS → TestFlight
 #   IOS_CERT_PRIVATE_KEY                          RSA key the distribution certificate is tied to
 #
 # The app embeds a Notification Service Extension (my.ttspot.app.NotificationService,
-# chat pushes as Communication Notifications). fetch-signing-files matches every
-# bundle ID that starts with my.ttspot.app, so both get an App Store profile.
+# chat pushes as Communication Notifications) and a WidgetKit extension
+# (my.ttspot.app.TTSpotWidgets, the meet Live Activity). fetch-signing-files
+# matches every bundle ID that starts with my.ttspot.app, so all three get an
+# App Store profile; the widget's bundle ID is registered by the step below
+# the first time (fetch-signing-files only creates one when none match at all).
 
 on:
   workflow_dispatch:
@@ -79,6 +82,19 @@ jobs:
           flutter config --enable-swift-package-manager
           flutter pub get
 
+      # Live Activities need no capability, so the App ID can be registered
+      # through the API. Once registered this is a no-op.
+      - name: Register the widget extension's bundle ID
+        run: |
+          set -e
+          WID="$BUNDLE_ID.TTSpotWidgets"
+          n=$(app-store-connect bundle-ids list --bundle-id-identifier "$WID" --strict-match-identifier --platform IOS --json | python3 -c 'import json,sys; print(len(json.load(sys.stdin)))')
+          if [ "$n" = 0 ]; then
+            app-store-connect bundle-ids create "$WID" --name "TT Spot Widgets" --platform IOS
+          else
+            echo "$WID is registered"
+          fi
+
       - name: Signing (certificate + App Store profile via the API)
         run: |
           set -e
@@ -138,6 +154,31 @@ jobs:
           /usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP/Info.plist"
           security cms -D -i "$EXT/embedded.mobileprovision" | grep -A1 -E '<key>(Name|application-identifier)</key>'
           echo "Extension embedded and signed"
+
+      # The Live Activity widget extension: embedded, signed with its own
+      # profile, a WidgetKit extension; the app opts in to Live Activities and
+      # links ActivityKit weakly (the app still opens on iOS 15).
+      - name: Check the Live Activity widget extension
+        run: |
+          set -e
+          APP=$(find "$RUNNER_TEMP/ipa/Payload" -maxdepth 1 -name '*.app' | head -1)
+          WEXT="$APP/PlugIns/TTSpotWidgets.appex"
+          test -d "$WEXT" || { echo "::error::TTSpotWidgets.appex is missing from the app"; exit 1; }
+          codesign --verify --strict "$WEXT"
+          [ "$(/usr/libexec/PlistBuddy -c 'Print :NSExtension:NSExtensionPointIdentifier' "$WEXT/Info.plist")" = com.apple.widgetkit-extension ] \
+            || { echo "::error::TTSpotWidgets.appex is not a WidgetKit extension"; exit 1; }
+          [ "$(/usr/libexec/PlistBuddy -c 'Print :NSSupportsLiveActivities' "$APP/Info.plist")" = true ] \
+            || { echo "::error::The app's Info.plist lacks NSSupportsLiveActivities = YES"; exit 1; }
+          echo "widget MinimumOSVersion: $(/usr/libexec/PlistBuddy -c 'Print :MinimumOSVersion' "$WEXT/Info.plist")"
+          echo "app MinimumOSVersion: $(/usr/libexec/PlistBuddy -c 'Print :MinimumOSVersion' "$APP/Info.plist")"
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$WEXT/Info.plist"
+          security cms -D -i "$WEXT/embedded.mobileprovision" | grep -A1 -E '<key>(Name|application-identifier)</key>'
+          BIN="$APP/$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APP/Info.plist")"
+          LINK=$(otool -l "$BIN" | awk '/cmd LC_LOAD/ {cmd=$2} /name .*ActivityKit/ {print cmd}')
+          echo "ActivityKit load command: ${LINK:-none}"
+          [ "$LINK" = LC_LOAD_WEAK_DYLIB ] || { echo "::error::ActivityKit must be weak-linked in the app (iOS 15 would crash at launch)"; exit 1; }
+          ls "$WEXT"
+          echo "Widget extension embedded and signed"
 
       - name: Upload to TestFlight
         if: ${{ inputs.upload }}

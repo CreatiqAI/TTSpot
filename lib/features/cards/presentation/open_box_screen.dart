@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:flutter/gestures.dart' show VelocityTracker, kTouchSlop;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -256,25 +257,57 @@ class _OpenBoxScreenState extends ConsumerState<OpenBoxScreen> with TickerProvid
 
   bool get _canFlip => _stage == _Stage.revealed && !_collecting;
 
-  void _flipStart(DragStartDetails _) {
-    if (!_canFlip) return;
-    _turn.stop();
-    _dragFrom = _turn.value.roundToDouble();
+  // Swipes on the card come from raw pointer events, not a drag recognizer:
+  // the card's finger tilt (TiltCard's pan) would otherwise win the gesture
+  // arena on a fast flick whose first move already passes the pan slop, and
+  // that swipe would not turn the card. This way both happen at once.
+  int? _flipPointer;
+  Offset _flipDown = Offset.zero;
+  bool _flipDragging = false;
+  VelocityTracker? _flipVelocity;
+
+  void _cardDown(PointerDownEvent e) {
+    if (!_canFlip || _flipPointer != null) return;
+    _flipPointer = e.pointer;
+    _flipDown = e.position;
+    _flipDragging = false;
+    _flipVelocity = VelocityTracker.withKind(e.kind)..addPosition(e.timeStamp, e.position);
   }
 
-  /// Follows the finger, at most one turn per swipe.
-  void _flipUpdate(DragUpdateDetails d, double width) {
-    if (!_canFlip) return;
-    _turn.value = (_turn.value + d.primaryDelta! / (width * 0.9)).clamp(_dragFrom - 1, _dragFrom + 1);
+  /// Once the finger has moved sideways past the touch slop the card
+  /// follows it, at most one turn per swipe.
+  void _cardMove(PointerMoveEvent e, double width) {
+    if (e.pointer != _flipPointer || !_canFlip) return;
+    _flipVelocity?.addPosition(e.timeStamp, e.position);
+    final d = e.position - _flipDown;
+    if (!_flipDragging) {
+      if (d.dx.abs() < kTouchSlop || d.dx.abs() < d.dy.abs()) return;
+      _flipDragging = true;
+      _turn.stop();
+      _dragFrom = _turn.value.roundToDouble();
+    }
+    _turn.value = (_dragFrom + d.dx / (width * 0.9)).clamp(_dragFrom - 1, _dragFrom + 1);
   }
 
   /// A flick turns it over that way; a slow drag past halfway does too;
   /// anything less springs back.
-  void _flipEnd(DragEndDetails d) {
+  void _cardUp(PointerUpEvent e) {
+    if (e.pointer != _flipPointer) return;
+    _flipPointer = null;
+    if (!_flipDragging) return;
+    _flipDragging = false;
     if (!_canFlip) return;
-    final v = d.primaryVelocity ?? 0;
+    final v = _flipVelocity?.getVelocity().pixelsPerSecond.dx ?? 0;
     final step = v.abs() > 350 ? v.sign : (_turn.value - _dragFrom).roundToDouble();
     _turnTo(_dragFrom + step);
+  }
+
+  void _cardCancel(PointerCancelEvent e) {
+    if (e.pointer != _flipPointer) return;
+    _flipPointer = null;
+    if (!_flipDragging) return;
+    _flipDragging = false;
+    if (_canFlip) _turnTo(_turn.value.roundToDouble());
   }
 
   /// Tap: over to the other side.
@@ -873,14 +906,17 @@ class _OpenBoxScreenState extends ConsumerState<OpenBoxScreen> with TickerProvid
             // Hidden while its copy flies into "My cards".
             Opacity(
               opacity: _collecting && _flyFrom != null ? 0 : 1,
-              child: GestureDetector(
-                key: _cardKey,
-                behavior: HitTestBehavior.opaque,
-                onTap: _tapFlip,
-                onHorizontalDragStart: _flipStart,
-                onHorizontalDragUpdate: (d) => _flipUpdate(d, cardW),
-                onHorizontalDragEnd: _flipEnd,
-                child: SizedBox(width: cardW, height: cardH, child: TiltCard(child: _turningCard(r.card, cardW))),
+              child: Listener(
+                onPointerDown: _cardDown,
+                onPointerMove: (e) => _cardMove(e, cardW),
+                onPointerUp: _cardUp,
+                onPointerCancel: _cardCancel,
+                child: GestureDetector(
+                  key: _cardKey,
+                  behavior: HitTestBehavior.opaque,
+                  onTap: _tapFlip,
+                  child: SizedBox(width: cardW, height: cardH, child: TiltCard(child: _turningCard(r.card, cardW))),
+                ),
               ),
             )
           else
@@ -1131,7 +1167,13 @@ class _OpenBoxScreenState extends ConsumerState<OpenBoxScreen> with TickerProvid
               Center(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: AnimatedSwitcher(duration: const Duration(milliseconds: 180), child: label),
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 220),
+                    // out first, then in: the two labels never overlap
+                    switchInCurve: const Interval(0.5, 1, curve: Curves.easeOut),
+                    switchOutCurve: const Interval(0.5, 1, curve: Curves.easeIn),
+                    child: label,
+                  ),
                 ),
               ),
             ],

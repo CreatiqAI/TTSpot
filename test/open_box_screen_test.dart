@@ -146,6 +146,21 @@ void main() {
     await t.pumpWidget(const SizedBox());
   });
 
+  testWidgets('a fast flick whose first move is already long still flips (the finger tilt never steals it)', (t) async {
+    await _pump(t);
+    await _openIt(t);
+    for (final expectBack in [true, false, true, false]) {
+      final g = await t.startGesture(t.getCenter(find.byType(TiltCard)));
+      await g.moveBy(const Offset(-120, 0), timeStamp: const Duration(milliseconds: 16)); // past the pan slop in one event
+      await g.moveBy(const Offset(-120, 0), timeStamp: const Duration(milliseconds: 32));
+      await g.up(timeStamp: const Duration(milliseconds: 40));
+      await _frames(t, 500);
+      expect(expectBack ? _back : _front, findsOneWidget);
+    }
+    expect(t.takeException(), isNull);
+    await t.pumpWidget(const SizedBox());
+  });
+
   testWidgets('Add to my cards: the card flies into "My cards", +1, saved, then the screen closes', (t) async {
     await _pump(t);
     await _openIt(t);

@@ -88,6 +88,7 @@ void paintTeardrop(
   Color outline = Colors.white,
   SpotKind? kind,
   IconData? glyph,
+  ui.Image? picture,
   bool recommended = false,
   bool saved = false,
   bool selected = false,
@@ -104,7 +105,22 @@ void paintTeardrop(
   c.drawPath(_teardropPath(16, teardropTip.dy).shift(const Offset(0, 1.5)), Paint()..color = Colors.black.withValues(alpha: 0.28)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.2));
   c.drawPath(body, Paint()..color = outline..style = PaintingStyle.stroke..strokeWidth = outlineW * 2..strokeJoin = StrokeJoin.round);
   c.drawPath(body, Paint()..color = color);
-  if (kind != null) {
+  if (picture != null) {
+    // A partner's logo: a round picture on a white disc filling the head.
+    const r = 11.5;
+    c.drawCircle(_headCentre, r + 1.5, Paint()..color = Colors.white);
+    c.save();
+    c.clipPath(Path()..addOval(Rect.fromCircle(center: _headCentre, radius: r)));
+    final w = picture.width.toDouble(), h = picture.height.toDouble();
+    final side = math.min(w, h);
+    c.drawImageRect(
+      picture,
+      Rect.fromCenter(center: Offset(w / 2, h / 2), width: side, height: side),
+      Rect.fromCircle(center: _headCentre, radius: r),
+      Paint()..filterQuality = FilterQuality.medium,
+    );
+    c.restore();
+  } else if (kind != null) {
     paintSpotSilhouette(c, kind, _headCentre, 19);
   } else if (glyph != null) {
     final tp = TextPainter(
@@ -316,6 +332,8 @@ class GlyphMarkerFactory {
     Color outline = Colors.white,
     SpotKind? kind,
     IconData? glyph,
+    ui.Image? picture,
+    String? pictureKey,
     bool recommended = false,
     bool saved = false,
     bool selected = false,
@@ -325,10 +343,10 @@ class GlyphMarkerFactory {
   }) {
     final m = selected ? teardropHaloMargin : 0.0;
     return _build(
-      't|${color.toARGB32()}|${outline.toARGB32()}|${kind?.index}|${glyph?.codePoint}|$recommended|$saved|$selected|$label|$sub|$scale',
+      't|${color.toARGB32()}|${outline.toARGB32()}|${kind?.index}|${glyph?.codePoint}|${picture == null ? null : pictureKey}|$recommended|$saved|$selected|$label|$sub|$scale',
       Size(teardropSize.width + m * 2, teardropSize.height + m) * scale,
       (teardropTip + Offset(m, m)) * scale,
-      (c) => paintTeardrop(c, Offset(m, m) * scale, scale: scale, color: color, outline: outline, kind: kind, glyph: glyph, recommended: recommended, saved: saved, selected: selected),
+      (c) => paintTeardrop(c, Offset(m, m) * scale, scale: scale, color: color, outline: outline, kind: kind, glyph: glyph, picture: picture, recommended: recommended, saved: saved, selected: selected),
       label,
       sub,
     );

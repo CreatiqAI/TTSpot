@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -52,7 +53,8 @@ import '../../settings/application/settings_providers.dart';
 /// Home. One map, three tabs, each with quick-filter chips under the switch:
 /// Now is the whole map (friends, clubmates, nearby drivers, moments, live
 /// meets and the rest of the week's meets, spots and partner shops); Events
-/// (every meet in view, live or to come, as picture pins sized by tier) and
+/// (every meet in view, live or to come, as picture pins sized by tier, plus
+/// partner shops with their logo, behind the meets) and
 /// Spots (places to check in and partner shops) are filters of it that keep
 /// one kind. My own pin is on every tab.
 ///
@@ -718,6 +720,16 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
   /// Photos land one by one; redraw once they have stopped landing for a
   /// moment (each redraw finds the earlier bitmaps in the cache).
+  final _logoFetches = <String>{};
+
+  /// Downloads a partner's logo once, then redraws the pins.
+  void _fetchLogo(String url) {
+    if (!_logoFetches.add(url)) return;
+    _pinFactory.image(url, targetWidth: 96).then((img) {
+      if (img != null) _onPinImage();
+    });
+  }
+
   void _onPinImage() {
     _imageRedraw?.cancel();
     _imageRedraw = Timer(const Duration(milliseconds: 250), () {
@@ -831,8 +843,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         drops.add(eventDrop(e, live: live, sub: live ? (e.checkinCount > 0 ? '${e.checkinCount} here' : null) : relativeShort(e.startsAt, now: now)));
       }
     }
-    // The picked place (its card is up) is drawn on every tab.
-    _addPlaces(drops, onNow: mode == MapMode.now, pickedOnly: !layers.places);
+    // The picked place (its card is up) is drawn on every tab. Events also
+    // shows partner shops (they host and sponsor meets), smaller, behind them.
+    final events = mode == MapMode.events;
+    _addPlaces(drops, onNow: mode == MapMode.now || events, partnersOnly: events, pickedOnly: !layers.places && !events);
     // Every pin at once: bitmaps already in the cache come straight back,
     // the rest paint side by side instead of one after another.
     final pinScale = _pinScale;
@@ -1073,8 +1087,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   /// [onNow]: every place in view (Now has its own chips, not the Spots
   /// tab's), shown from [nowPlaceMinZoom] and at [kNowPlaceScale] below
   /// street zoom. [pickedOnly]: just the picked place (Events, or Now with
-  /// the Spots chip off).
-  void _addPlaces(List<_Drop> drops, {bool onNow = false, bool pickedOnly = false}) {
+  /// the Spots chip off). [partnersOnly]: only partner shops (Events).
+  void _addPlaces(List<_Drop> drops, {bool onNow = false, bool partnersOnly = false, bool pickedOnly = false}) {
     final savedIds = ref.read(savedPlaceIdsProvider);
     final picked = _cardOpen ? _card : null;
     final places = pickedOnly ? const <Place>[] : (onNow ? ref.read(mapAllPlacesProvider) : ref.read(mapPlacesProvider));
@@ -1095,12 +1109,24 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     }
     final shrink = onNow && !_close ? kNowPlaceScale : 1.0;
     for (final p in all) {
+      final selected = p.id == pickedId;
+      if (partnersOnly && !p.isPartner && !selected) continue;
       final kind = spotKindOf(p.kind);
       final saved = savedIds.contains(p.id);
-      final selected = p.id == pickedId;
       if (onNow && !selected && !nowPlaceVisibleAt(_zoom, partner: p.isPartner, saved: saved)) continue;
       final factor = selected ? 1.4 : shrink;
       final partnerLabel = p.vendorName ?? p.name;
+      // A partner's logo in its pin once downloaded (the storefront until then,
+      // so a slow logo never holds the map up).
+      final logoUrl = p.isPartner ? p.vendorLogo : null;
+      ui.Image? logo;
+      if (logoUrl != null && logoUrl.isNotEmpty) {
+        if (_pinFactory.isLoaded(logoUrl)) {
+          logo = _pinFactory.cachedImage(logoUrl);
+        } else {
+          _fetchLogo(logoUrl);
+        }
+      }
       double scaleFor(double pinScale) => pinScale * factor;
       drops.add(_Drop(
         id: 'place:${p.id}',
@@ -1119,6 +1145,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 color: kInk,
                 outline: kEventRed,
                 glyph: AppIcons.storefrontFill,
+                picture: logo,
+                pictureKey: logoUrl,
                 selected: selected,
                 label: _close ? partnerLabel : null,
                 scale: scaleFor(pinScale),

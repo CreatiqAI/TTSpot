@@ -143,6 +143,32 @@ jobs:
         if: ${{ inputs.upload }}
         run: app-store-connect publish --path "$(find build/ios/ipa -name '*.ipa' | head -1)"
 
+      # Crashlytics needs each build's dSYMs to turn native iOS crash addresses
+      # (Flutter engine, App.framework, plugins) into file:line; without them
+      # Firebase mails "Missing dSYM". The app configures Firebase from env.json,
+      # so a minimal GoogleService-Info.plist is written just for the tool.
+      # Never blocks a release.
+      - name: Upload dSYMs to Crashlytics
+        if: ${{ inputs.upload }}
+        continue-on-error: true
+        run: |
+          set -e
+          DSYMS=build/ios/archive/Runner.xcarchive/dSYMs
+          ls "$DSYMS"
+          UP=$(find ios/Pods "$HOME/Library/Developer/Xcode/DerivedData" -type f -name upload-symbols -path '*Crashlytics*' 2>/dev/null | head -1)
+          if [ -z "$UP" ]; then
+            curl -fsSL -o "$RUNNER_TEMP/upload-symbols" https://raw.githubusercontent.com/firebase/firebase-ios-sdk/main/Crashlytics/upload-symbols
+            chmod +x "$RUNNER_TEMP/upload-symbols"
+            UP="$RUNNER_TEMP/upload-symbols"
+          fi
+          python3 - "$RUNNER_TEMP/GoogleService-Info.plist" <<'PY'
+          import json, plistlib, sys
+          e = json.load(open('env.json'))
+          plistlib.dump({'GOOGLE_APP_ID': e['FIREBASE_IOS_APP_ID'], 'API_KEY': e['FIREBASE_IOS_API_KEY'], 'PROJECT_ID': e['FIREBASE_PROJECT_ID'],
+                         'GCM_SENDER_ID': e['FIREBASE_SENDER_ID'], 'BUNDLE_ID': 'my.ttspot.app'}, open(sys.argv[1], 'wb'))
+          PY
+          "$UP" -gsp "$RUNNER_TEMP/GoogleService-Info.plist" -p ios "$DSYMS"
+
       - uses: actions/upload-artifact@v4
         with:
           name: TTSpot-ios-appstore

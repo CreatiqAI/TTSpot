@@ -1,3 +1,5 @@
+import '../../social/domain/club_tag.dart';
+
 /// A row from `public.profiles`.
 class Profile {
   const Profile({
@@ -12,6 +14,7 @@ class Profile {
     this.isAdmin = false,
     this.clubOwner = false,
     this.settings = const {},
+    this.clubTag,
   });
 
   final String id;
@@ -28,6 +31,9 @@ class Profile {
   final bool clubOwner;
   /// profiles.settings (see AppSettings).
   final Map<String, dynamic> settings;
+  /// Official club tag beside the name; only filled when the select asks for
+  /// `club_tag` (post and comment authors, club members).
+  final ClubTag? clubTag;
 
   /// Admins can run clubs without applying.
   bool get canRunClubs => clubOwner || isAdmin;
@@ -50,6 +56,7 @@ class Profile {
         isAdmin: m['is_admin'] as bool? ?? false,
         clubOwner: m['club_owner'] as bool? ?? false,
         settings: (m['settings'] as Map?)?.cast<String, dynamic>() ?? const {},
+        clubTag: ClubTag.fromJson(m['club_tag']),
       );
 
   static int? _count(Object? embed) {
@@ -78,5 +85,6 @@ class Profile {
         isAdmin: isAdmin,
         clubOwner: clubOwner,
         settings: settings,
+        clubTag: clubTag,
       );
 }

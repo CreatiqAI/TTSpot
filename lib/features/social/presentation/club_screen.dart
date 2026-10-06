@@ -28,7 +28,9 @@ import '../../profile/presentation/profile_menu.dart';
 import 'create_hub_sheet.dart';
 import 'widgets/club_join_policy.dart';
 import 'widgets/club_logo.dart';
+import 'widgets/club_name_tag.dart';
 import 'widgets/club_requests.dart';
+import 'widgets/club_tag_switch.dart';
 import 'widgets/club_tier_widgets.dart';
 import 'widgets/follow_button.dart';
 import 'widgets/masonry_grid.dart';
@@ -186,6 +188,8 @@ class ClubScreen extends ConsumerWidget {
                       ),
                     ),
                   ),
+                // Official clubs: wear the club's tag beside my name (presidents always do).
+                if (isMember || isManager) ClubTagSwitch(club: c, isOwner: isOwner),
                 if (members.isNotEmpty) ...[
                   _Section('MEMBERS · ${members.length}'),
                   SizedBox(
@@ -379,7 +383,20 @@ class _MemberTile extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 4),
-            SizedBox(width: 62, child: Text(m.username ?? '', maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center, style: const TextStyle(fontSize: 11))),
+            SizedBox(
+              width: 62,
+              child: m.clubTag == null
+                  ? Text(m.username ?? '', maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center, style: const TextStyle(fontSize: 11))
+                  // The official club tag they wear (or carry as president): the crest beside the name.
+                  : Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Flexible(child: Text(m.username ?? '', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11))),
+                        const SizedBox(width: 2),
+                        ClubNameTag(tag: m.clubTag, compact: true),
+                      ],
+                    ),
+            ),
             if (role != 'member')
               Text(clubRoleShort(role), style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, color: AppColors.textSecondary)),
           ],

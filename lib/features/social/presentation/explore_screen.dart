@@ -20,11 +20,13 @@ import 'widgets/post_card.dart';
 import 'widgets/seen_tracker.dart';
 import 'widgets/share_ride_card.dart';
 import '../../../core/widgets/brand_logo.dart';
-import '../../profile/presentation/garage_home_tab.dart';
+import 'clubs_events_tab.dart';
 
 /// Home. "For you" is a RedNote-style ranked grid; "Following" is an
-/// Instagram-style card feed of friends, follows and clubs; "Garage" is my
-/// cars and today's car. Spots live on the map.
+/// Instagram-style card feed of friends, follows and clubs; "Clubs & Events"
+/// lists car clubs (official first) and the meets that are on or coming up.
+/// The garage moved off Home in 0.3.55: My garage on the profile, or /garage.
+/// Spots live on the map.
 class ExploreScreen extends ConsumerWidget {
   const ExploreScreen({super.key});
 
@@ -48,10 +50,10 @@ class ExploreScreen extends ConsumerWidget {
             indicatorWeight: 1.5,
             dividerColor: AppColors.border,
             labelStyle: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-            tabs: [Tab(text: 'Feed'), Tab(text: 'Garage')],
+            tabs: [Tab(text: 'Feed'), Tab(text: 'Clubs & Events')],
           ),
         ),
-        body: const TabBarView(children: [_Feed(), GarageHomeTab()]),
+        body: const TabBarView(children: [_Feed(), ClubsEventsTab(tabIndex: 1)]),
       ),
     );
   }
@@ -69,7 +71,7 @@ class _Feed extends ConsumerStatefulWidget {
   ConsumerState<_Feed> createState() => _FeedState();
 }
 
-// Kept alive behind the Garage tab so it keeps its For you / Following choice and its place.
+// Kept alive behind the Clubs & Events tab so it keeps its For you / Following choice and its place.
 class _FeedState extends ConsumerState<_Feed> with AutomaticKeepAliveClientMixin {
   bool _following = false;
   final _refresh = GlobalKey<RefreshIndicatorState>();
@@ -78,10 +80,11 @@ class _FeedState extends ConsumerState<_Feed> with AutomaticKeepAliveClientMixin
   @override
   bool get wantKeepAlive => true;
 
-  /// Home tapped again: Feed tab, scroll to the top, then pull fresh posts.
+  /// Home tapped again on the Feed tab: scroll to the top, then pull fresh
+  /// posts. On Clubs & Events that list does the same for itself.
   Future<void> _backToTop() async {
     final tabs = DefaultTabController.maybeOf(context);
-    if (tabs != null && tabs.index != 0) tabs.animateTo(0);
+    if (tabs != null && tabs.index != 0) return;
     final scroll = PrimaryScrollController.maybeOf(context);
     if (scroll != null && scroll.hasClients) await scroll.animateTo(0, duration: const Duration(milliseconds: 400), curve: Curves.easeOutCubic);
     if (mounted) _refresh.currentState?.show();

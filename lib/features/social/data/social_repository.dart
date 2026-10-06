@@ -15,10 +15,15 @@ import '../domain/post.dart';
 import '../domain/post_video.dart';
 
 const profileCols = 'id, username, display_name, bio, avatar_url, home_state, created_at';
+
+/// [profileCols] plus the official club tag shown beside the name (the
+/// `club_tag` computed field, migration 0109). Only where a name is drawn
+/// with its tag: post authors, comment authors, club members.
+const authorCols = '$profileCols, club_tag';
 const _storySelect = '*, profiles:profiles!stories_author_id_fkey($profileCols), events(title), places(name)';
 
 const _postSelect = '*, '
-    'author:profiles!posts_author_id_fkey($profileCols), '
+    'author:profiles!posts_author_id_fkey($authorCols), '
     'claimer:profiles!posts_claimed_by_fkey($profileCols), '
     'car:cars(id, make, model), place:places(id, name), event:events(id, title), club:clubs(id, name, handle, avatar_url), vendor:vendors(id, name, logo_url), '
     'likes:post_likes(count), comments:post_comments(count), votes:poll_votes(count)';

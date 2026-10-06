@@ -8,6 +8,7 @@ import '../../../auth/domain/profile.dart';
 import '../../../friends/domain/friend.dart';
 import '../../../friends/presentation/nickname_sheet.dart' show ProfileNameLines;
 import '../../../social/domain/post.dart';
+import '../../../social/presentation/widgets/club_name_tag.dart' show ClubNameTagFor;
 import '../../domain/car.dart';
 import '../user_garage_screen.dart' show garageTitle;
 import 'profile_meets_sheet.dart';
@@ -145,7 +146,8 @@ class ProfileHeader extends StatelessWidget {
         ),
         // -------------------------------------------------------- identity ---
         // My nickname for them (备注) big, "Real name · @handle" under it.
-        ProfileNameLines(profile: p, isMe: isMe),
+        // The official club tag sits beside the name (presidents, members who wear it).
+        ProfileNameLines(profile: p, isMe: isMe, trailing: ClubNameTagFor(userId: p.id, known: p.clubTag)),
         // ------------------------------------------------------------- bio ---
         if ((p.bio ?? '').trim().isNotEmpty)
           Padding(

@@ -175,7 +175,7 @@ abstract final class Routes {
   static const suggestSpot = '/suggest-spot';
   static const editProfile = '/edit-profile';
   static const newCar = '/car/new';
-  /// My garage full-screen (same widget as Home, Garage).
+  /// My garage full-screen (My garage on the profile).
   static const myGarage = '/garage';
   static const search = '/search';
   static const saved = '/saved';

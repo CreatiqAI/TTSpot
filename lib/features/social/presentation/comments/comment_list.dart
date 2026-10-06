@@ -16,6 +16,7 @@ import '../../../safety/data/safety_repository.dart';
 import '../../../safety/presentation/report_sheet.dart';
 import '../../application/comment_providers.dart';
 import '../../domain/comment_thread.dart';
+import '../widgets/club_name_tag.dart';
 import '../widgets/rich_caption.dart';
 import 'comments_controller.dart';
 
@@ -287,7 +288,16 @@ class CommentTile extends StatelessWidget {
                   RichCaption(
                     text: c.body,
                     style: TextStyle(fontSize: 14, color: AppColors.textPrimary, height: 1.4),
-                    leading: [TextSpan(text: '${c.handle}  ', style: const TextStyle(fontWeight: FontWeight.w600))],
+                    leading: [
+                      TextSpan(text: c.handle, style: const TextStyle(fontWeight: FontWeight.w600)),
+                      // Official club tag beside the name (the president's, or a member's who wears it).
+                      if (c.author?.clubTag != null)
+                        WidgetSpan(
+                          alignment: PlaceholderAlignment.middle,
+                          child: Padding(padding: const EdgeInsets.only(left: 5), child: ClubNameTag(tag: c.author!.clubTag, maxWidth: 104)),
+                        ),
+                      const TextSpan(text: '  '),
+                    ],
                   ),
                   const SizedBox(height: 3),
                   Wrap(

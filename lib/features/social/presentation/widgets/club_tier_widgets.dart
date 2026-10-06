@@ -31,6 +31,12 @@ String clubRoleShort(String role) => switch (role) {
       _ => 'Member',
     };
 
+/// The official club plan's price (was RM 69.90 until 0.3.55). Admin
+/// screens show it; member-facing copy only while [kShowPlanPricing] is on.
+/// The partner plan (RM 69) is a different product.
+const kOfficialClubPrice = 'RM 58';
+const kOfficialClubPricePerMonth = '$kOfficialClubPrice / month';
+
 /// What each tier gets. Shown on the club page and in the Go official sheet.
 const kOfficialPerks = [
   ('Meets with notifications', 'Every member hears about a new meet.'),
@@ -50,7 +56,7 @@ const kUndergroundPerks = [
 ];
 
 /// Official / Underground card. Owners of an underground club can request
-/// the official tier; admins approve after payment (RM 69.90 / month).
+/// the official tier; admins approve after payment ([kOfficialClubPricePerMonth]).
 class ClubTierCard extends ConsumerStatefulWidget {
   const ClubTierCard({super.key, required this.club, required this.isOwner});
   final Club club;
@@ -77,7 +83,7 @@ class _ClubTierCardState extends ConsumerState<ClubTierCard> {
             children: [
               const Row(children: [Icon(AppIcons.sealCheck, color: Color(0xFFD4A017)), SizedBox(width: 8), Text('Go official', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800))]),
               const SizedBox(height: 4),
-              Text('RM 69.90 a month. We confirm the payment with you, then switch the club over.', style: TextStyle(fontSize: 13.5, color: AppColors.textSecondary, height: 1.4)),
+              Text('$kOfficialClubPrice a month. We confirm the payment with you, then switch the club over.', style: TextStyle(fontSize: 13.5, color: AppColors.textSecondary, height: 1.4)),
               const SizedBox(height: 12),
               for (final p in kOfficialPerks)
                 Padding(

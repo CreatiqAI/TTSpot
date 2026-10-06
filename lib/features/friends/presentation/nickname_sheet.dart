@@ -117,9 +117,12 @@ class _NicknameSheetState extends ConsumerState<_NicknameSheet> {
 /// The name block on someone's profile: my nickname big with "Real name ·
 /// @handle" under it, else their name and @handle as before.
 class ProfileNameLines extends ConsumerWidget {
-  const ProfileNameLines({super.key, required this.profile, required this.isMe});
+  const ProfileNameLines({super.key, required this.profile, required this.isMe, this.trailing});
   final Profile profile;
   final bool isMe;
+
+  /// Beside the big name (the official club tag); the name gives way to it.
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -134,7 +137,15 @@ class ProfileNameLines extends ConsumerWidget {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-          child: Text(big, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, height: 1.2)),
+          child: trailing == null
+              ? Text(big, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, height: 1.2))
+              : Row(
+                  children: [
+                    Flexible(child: Text(big, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, height: 1.2))),
+                    const SizedBox(width: 6),
+                    trailing!,
+                  ],
+                ),
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 1, 16, 0),

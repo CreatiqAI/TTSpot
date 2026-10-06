@@ -10,6 +10,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/dates.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../../core/widgets/user_avatar.dart';
+import '../../social/presentation/widgets/club_tier_widgets.dart' show kOfficialClubPricePerMonth;
 import '../application/vendors_providers.dart';
 import '../domain/vendor.dart';
 
@@ -77,7 +78,7 @@ class _Head extends StatelessWidget {
       );
 }
 
-/// A club asking to go official (approve after RM 69.90 is paid), or one that already is.
+/// A club asking to go official (approve after [kOfficialClubPricePerMonth] is paid), or one that already is.
 class _OfficialRow extends ConsumerWidget {
   const _OfficialRow({required this.c});
   final OfficialClubRequest c;
@@ -100,7 +101,7 @@ class _OfficialRow extends ConsumerWidget {
       subtitle: Text(
         isOfficial
             ? 'Official until ${c.officialUntil == null ? '—' : formatDate(c.officialUntil!)} · ${c.members} members · @${c.ownerUsername ?? ''}'
-            : 'Asked ${c.requestedAt == null ? '' : timeAgo(c.requestedAt!)} · ${c.members} members · @${c.ownerUsername ?? ''} · RM 69.90 / month',
+            : 'Asked ${c.requestedAt == null ? '' : timeAgo(c.requestedAt!)} · ${c.members} members · @${c.ownerUsername ?? ''} · $kOfficialClubPricePerMonth',
         style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
       ),
       trailing: isOfficial

@@ -8,6 +8,7 @@ import '../../../core/theme/app_art.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_images.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/titi.dart';
 import '../../../core/utils/dates.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../../core/widgets/empty_state.dart';
@@ -271,6 +272,8 @@ bool isClubVoice(AppNotification n) => n.type == NotificationType.clubPost || n.
       NotificationType.luckyDraw => (n.body ?? 'Lucky draw update.', n.eventId == null ? null : Routes.event(n.eventId!)),
       // Road tax / insurance running out; the body is the whole sentence.
       NotificationType.carDoc => (n.body ?? 'A car document runs out soon.', Routes.myGarage),
+      // TiTi wrote first; the row opens his chat.
+      NotificationType.titiNudge => ('TiTi: ${n.body ?? ''}', Routes.titi),
       NotificationType.unknown => ('did something.', null),
     };
 }
@@ -305,7 +308,8 @@ class ActivityRow extends ConsumerWidget {
         n.type == NotificationType.voucher ||
         (n.type == NotificationType.cards && n.actor == null) ||
         n.type == NotificationType.portrait ||
-        n.type == NotificationType.carDoc;
+        n.type == NotificationType.carDoc ||
+        n.type == NotificationType.titiNudge;
 
     return InkWell(
       onTap: route == null ? null : () => context.push(route),
@@ -322,6 +326,8 @@ class ActivityRow extends ConsumerWidget {
                 decoration: BoxDecoration(color: AppColors.surfaceGray, shape: BoxShape.circle),
                 child: n.type == NotificationType.badge && !isRetiredBadgeRow(n.badgeId)
                     ? TierBadgeImage(id: n.badgeId!, tier: int.tryParse(n.body ?? '') ?? 1, size: 36)
+                    : n.type == NotificationType.titiNudge
+                    ? const TitiAvatar(TitiPose.chat, size: 44)
                     : n.type == NotificationType.points
                     ? const PointsCoin(size: 28)
                     : ArtIcon.emoji(

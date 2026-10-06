@@ -32,6 +32,7 @@ import '../../social/presentation/widgets/club_tag_chooser.dart';
 import '../application/settings_providers.dart';
 import '../../../core/push/push_service.dart';
 import 'background_location_screen.dart';
+import 'titi_tips_switch.dart';
 
 bool get _isIOS => defaultTargetPlatform == TargetPlatform.iOS;
 
@@ -126,6 +127,7 @@ class SettingsScreen extends ConsumerWidget {
               );
             },
           ),
+          const TitiTipsSwitch(),
 
           const _Head('APPEARANCE'),
           _Choice(
@@ -455,7 +457,8 @@ enum PushKind {
   followers('notif_followers', AppIcons.userPlus, 'New followers', 'Someone starts following you'),
   clubMembers('notif_club_members', AppIcons.usersThree, 'New club members', "Someone joins a club you're in"),
   clubFollows('notif_club_follows', AppIcons.flagBanner, 'Clubs you follow', 'New posts and official meets from clubs you follow'),
-  rewards('notif_rewards', AppIcons.gift, 'Rewards', 'Points, vouchers, badges and cards');
+  rewards('notif_rewards', AppIcons.gift, 'Rewards', 'Points, vouchers, badges and cards'),
+  titiTips('titi_tips', AppIcons.sparkle, TitiTipsSwitch.title, TitiTipsSwitch.subtitle);
 
   const PushKind(this.key, this.icon, this.title, this.subtitle);
   final String key;
@@ -476,6 +479,7 @@ enum PushKind {
         clubMembers => s.notifClubMembers,
         clubFollows => s.notifClubFollows,
         rewards => s.notifRewards,
+        titiTips => s.titiTips,
       };
 }
 

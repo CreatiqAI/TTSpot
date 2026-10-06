@@ -4,7 +4,9 @@ enum NotificationType {
   follow, postLike, postComment, eventJoin, eventComment, eventReminder, eventCancelled, spottedClaim, badge, carOfWeek, clubJoin,
   friendRequest, friendAccepted, ttNow, checkin, referral, points, partner, voucher, clubInvite, clubRequest, clubEvent, partnerEvent, garage, clubOfficial, cards, portrait, meetStart, announcement, luckyDraw, carDoc,
   friendPost, friendTt, clubMember,
-  mention, commentReply, commentLike, clubPost, clubMeet, unknown;
+  mention, commentReply, commentLike, clubPost, clubMeet,
+  // TiTi's own daily line (titi-nudge); the body is the whole message.
+  titiNudge, unknown;
 
   static NotificationType fromDb(String v) => switch (v) {
         'follow' => follow,
@@ -46,6 +48,7 @@ enum NotificationType {
         'comment_like' => commentLike,
         'club_post' => clubPost,
         'club_meet' => clubMeet,
+        'titi_nudge' => titiNudge,
         _ => unknown,
       };
 }

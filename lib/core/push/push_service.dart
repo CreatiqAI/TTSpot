@@ -11,6 +11,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../features/social/application/chat_providers.dart';
 import '../../features/social/application/notification_providers.dart';
 import '../../features/social/domain/chat.dart' show Conversation;
+import '../../features/titi/application/titi_controller.dart' show titiControllerProvider;
 import '../location/location_gate.dart' show locationGrantedProvider;
 import '../router/app_router.dart';
 import '../supabase/supabase_client.dart';
@@ -212,6 +213,10 @@ class PushService {
     final muted = {for (final c in _ref.read(inboxProvider).value ?? const <Conversation>[]) if (c.muted) c.id};
     _ref.invalidate(notificationsProvider);
     _ref.invalidate(inboxProvider);
+    // TiTi wrote into his chat: show it there if the chat is already loaded.
+    if (m.data['kind'] == 'titi_nudge' && _ref.exists(titiControllerProvider)) {
+      unawaited(_ref.read(titiControllerProvider.notifier).ensureLatest());
+    }
     final notice = InAppNotice.fromPush(m.data, title: m.notification?.title, body: m.notification?.body, messageId: m.messageId);
     if (notice == null) return;
     final path = _currentPath();

@@ -425,3 +425,6 @@ verify_jwt = false
 
 [functions.moderate-content]
 verify_jwt = false
+
+[functions.titi-nudge]
+verify_jwt = false

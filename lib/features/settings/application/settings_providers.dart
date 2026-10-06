@@ -24,6 +24,9 @@ class AppSettings {
   bool get notifReplies => _b('notif_replies', true);
   bool get notifClubFollows => _b('notif_club_follows', true);
 
+  /// "TiTi tips": TiTi may message me first, once a day at most (titi-nudge).
+  bool get titiTips => _b('titi_tips', true);
+
   /// 'auto' (light by day, dark after 7 pm) | 'light' | 'dark'
   /// 'auto' (light 7 am–7 pm, dark otherwise) | 'light' | 'dark'. Older builds saved it as map_theme.
   String get theme => (_m['theme'] as String?) ?? (_m['map_theme'] as String?) ?? 'auto';

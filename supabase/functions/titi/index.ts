@@ -54,6 +54,7 @@
 // TITI_DAILY_LIMIT (default 60), MAPBOX_TOKEN (optional, to place "near
 // Bangsar"; without it TiTi uses the member's own location only).
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
+import { detectLang, type Lang, langOf } from "../_shared/lang.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -113,14 +114,21 @@ function buildSystem(v2: boolean): string {
 - Pass "after" with a short follow-up the app shows once it's done (e.g. "You're in. Want directions?").`
     : "";
 
-  return `You are TiTi, the orange traffic-cone mascot of TT Spot, a Malaysian car-community app. You are the member's pit crew: a friendly, knowledgeable Malaysian car buddy who lives inside the app${v2 ? " and knows their account" : ""}.
+  return `You are TiTi, the orange traffic-cone mascot of TT Spot, a Malaysian car-community app. You are the member's car soulmate and pit crew: a warm, funny, caring Malaysian car buddy who lives inside the app${v2 ? " and knows their account" : ""}. You love their car almost as much as they do.
 
+# Your personality
+- A good friend, never a help desk: warm, a little cheeky, genuinely glad to hear from them. Never official, corporate or salesy.
+- Funny in a light way: a quick joke or a playful line when it fits, never at their expense, never when they're stressed, stuck or worried (a breakdown, an accident, a fine): then be calm, kind and practical first.
+- Caring: you notice the little things (rain on the way, road tax due, a long drive) and say so like a mate would.
+- Still accurate and useful: the joke never replaces the answer, and you never make things up to be fun.
+- The voice, for example: "Good news: a squeak in the rain is usually just wet pads clearing their throat." / "Nothing on tonight near you. Even the mamak's quiet. Want me to look in PJ?" / "75 points! Your Myvi's practically a VIP."
+${v2 ? "- You sometimes message the member first with a short heads-up (rain, a meet, road tax, a box to open). If they reply to one, carry on naturally.\n" : ""}
 # What you do
 ${what}${v2Sections}
 
 # How you write
-- Reply in the member's language: English, Malay or Chinese (Simplified unless they write Traditional). Match light Manglish if they use it.
-- Short, upbeat and plain. Most replies are 1-3 short bubbles. No walls of text. Use at most one exclamation mark in the whole reply (often none).
+- Reply in the member's language: English, Malay or Chinese (Simplified unless they write Traditional). Match light Manglish if they use it. If their message has no clear language (a photo, "ok"), use the one in "Right now".
+- Short and plain. Most replies are 1-3 short bubbles of a sentence or two. No walls of text, no filler, no "Great question". Use at most one exclamation mark in the whole reply (often none), and at most one emoji (often none).
 - Split a longer reply into bubbles with a line that holds only ---. One idea per bubble.
 - You may use **bold** for a key word, bullet lines starting with "- " (5 at most), numbered steps "1. ", and links written as [label](url).
 - App links open the app itself; use only these paths: ${APP_LINKS}
@@ -169,7 +177,8 @@ const APP_LINKS = [
   "[Settings](/settings)",
 ].join(", ");
 
-// Points and badges as of 20261006000108_points_badges.sql (2026-10-06).
+// Points and badges as of 20261006000108_points_badges.sql, 0112 (president
+// bonus removed) and 0113 (one toy per car), checked 2026-10-07.
 // Read from the app's code and migrations on 2026-09-30 (point_rules, blind_box,
 // vendors, meet_checkin_flow, event_car, organizer, lucky_draw, club_tiers...).
 // Keep in step when those rules change.
@@ -178,7 +187,8 @@ const APP_FACTS = `The app's tabs: Posts, Map, Chats, Me, and the centre + butto
 Points (balance, history and how to earn: Me → Points, /me/points)
 - Check in at a meet: +10 (once per meet). Check in at a spot or a partner shop: +10 (within 300 m; the same spot pays once per week, and checking in again that week still counts but earns 0).
 - Share a post: +10 for one post a week (it must pass the photo check). Earn a badge: +10, and +10 again every time a badge moves up a tier.
-- Bring a friend: you get +5 and they get +5 when they do their first check-in.
+- Bring a friend: you get +5 when they join with your code and do their first check-in. Join with a friend's code: +5 for you too, at your first check-in.
+- Nothing else pays points: no points for suggesting a spot, no club president bonus.
 - Weekly limits reset every Friday at 6 PM Malaysia time.
 - Spend points on blind boxes (100 each) and partner vouchers (the partner sets the price; some are free).
 - No daily login bonus and no levels.
@@ -218,10 +228,11 @@ Partners
 
 Spots
 - Spots are where car people hang out: car cafés, mamaks, carparks, circuits, driving roads and partner shops. Map → Spots shows them.
-- Suggest one: Create → Suggest a spot (/suggest-spot); +30 points if it goes live. Bookmark spots to save them.
+- Suggest one: Create → Suggest a spot (/suggest-spot); an admin checks it before it goes live (no points for it). Bookmark spots to save them.
 
 Your car pages
 - Each car in the garage has Documents (road tax, insurance, PUSPAKOM, next service; only you see them, and the app reminds you 30, 7 and 1 day before road tax or insurance runs out) and Mods (a log with prices only you see).
+- Every car gets its own toy car (a die-cast style model made from its cover photo) shown in the garage and on the map, free. One toy per car; it is not repainted or remade.
 - AI car portraits cost 300 points (refunded if one fails).
 
 Friends, moments, privacy
@@ -1672,12 +1683,14 @@ function historyInput(list: any[], urls: Map<string, string>): any[] {
   });
 }
 
-function contextNote(name: string | null, here: Point | null, newChat: boolean, headsUp: string[]): string {
+const LANG_LABEL: Record<Lang, string> = { en: "English", zh: "Chinese (Simplified)", ms: "Malay" };
+
+function contextNote(name: string | null, here: Point | null, newChat: boolean, headsUp: string[], lang: Lang = "en"): string {
   const now = new Date();
   const day = new Intl.DateTimeFormat("en-GB", { timeZone: MYT, weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(now);
   const time = new Intl.DateTimeFormat("en-GB", { timeZone: MYT, hour: "numeric", minute: "2-digit", hour12: true }).format(now);
   const iso = new Date(now.getTime() + 8 * 3600e3).toISOString().slice(0, 19) + "+08:00";
-  let s = `\n\n# Right now\n- Malaysia time: ${day}, ${time} (${iso}).\n- Member: ${name ?? "unknown name"}.\n- Their location: ${here ? `known (${here.lat.toFixed(3)}, ${here.lng.toFixed(3)}); pass near "me" to use it` : "unknown"}.`;
+  let s = `\n\n# Right now\n- Malaysia time: ${day}, ${time} (${iso}).\n- Member: ${name ?? "unknown name"}.\n- Reply in: ${LANG_LABEL[lang]} (the language of their question, else their usual one).\n- Their location: ${here ? `known (${here.lat.toFixed(3)}, ${here.lng.toFixed(3)}); pass near "me" to use it` : "unknown"}.`;
   if (headsUp.length) s += `\n\n# Heads-up (from their account; mention the most useful one briefly if it fits, once)\n${headsUp.map((h) => `- ${h}`).join("\n")}`;
   if (newChat) s += `\n\n# New chat\nThis is the first question of a new chat. After the chips line, add one more line: [[title: a 2-5 word title for this chat, in the same language as their question]].`;
   return s;
@@ -1741,7 +1754,7 @@ Deno.serve(async (req) => {
   if (!message && !images.length) return json({ error: "message required" }, 400);
 
   const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
-  const profileP = asUser.from("profiles").select("display_name, username").eq("id", user.id).maybeSingle();
+  const profileP = asUser.from("profiles").select("display_name, username, settings").eq("id", user.id).maybeSingle();
 
   const history = histRows.reverse();
   // A Retry sends the same question again: don't store or send it twice.
@@ -1831,7 +1844,16 @@ Deno.serve(async (req) => {
         });
 
         const first = (profile?.display_name ?? "").trim().split(/\s+/)[0] || profile?.username || null;
-        const instructions = (v2 ? INSTRUCTIONS : INSTRUCTIONS_V1) + contextNote(first, here, v2 && needTitle, heads);
+        // The language to answer in: this question's own when it has one (a
+        // photo or "ok" doesn't), else this chat's, else their usual one
+        // (profiles.settings.titi_lang, refreshed after each question below).
+        const savedLang = (["en", "zh", "ms"] as const).find((l) => l === profile?.settings?.titi_lang);
+        const userTexts = history.filter((r) => r.role === "user").map((r) => String(r.content ?? ""));
+        // A two-word "ok thanks" in a Chinese chat isn't a switch to English.
+        const own = langOf(message);
+        const clear = own && (own !== "en" || message.trim().split(/\s+/).length >= 3) ? own : null;
+        const lang: Lang = clear ?? (userTexts.length ? detectLang(userTexts) : savedLang ?? own ?? "en");
+        const instructions = (v2 ? INSTRUCTIONS : INSTRUCTIONS_V1) + contextNote(first, here, v2 && needTitle, heads, lang);
         const tools = v2 ? V2_TOOLS : V1_TOOLS;
         const shaper = new Shaper(v2 ? /meet|spot|club|car|voucher|offer/ : /meet|spot|club|car/);
 
@@ -2008,6 +2030,15 @@ Deno.serve(async (req) => {
           }));
         }
         if (title) writes.push(asUser.from("titi_sessions").update({ title }).eq("id", sessionId));
+        // The language TiTi's own daily line (titi-nudge) is written in:
+        // profiles.settings.titi_lang, from their last 10 messages in any chat.
+        writes.push(
+          admin.from("titi_messages").select("content").eq("user_id", user.id).eq("role", "user").order("created_at", { ascending: false }).limit(10)
+            .then(({ data }) => {
+              const l = detectLang(((data ?? []) as { content: string }[]).map((r) => r.content ?? "").reverse());
+              return l === savedLang ? null : admin.rpc("titi_set_lang", { p_user: user.id, p_lang: l });
+            }),
+        );
         const results = await Promise.allSettled(writes);
         for (const r of results) {
           const err = r.status === "rejected" ? r.reason : (r.value as any)?.error;

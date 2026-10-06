@@ -183,6 +183,8 @@ const SETTING: Record<string, string> = {
   // 20261005000102: comments and clubs you follow.
   mention: "notif_mentions", comment_reply: "notif_replies", comment_like: "notif_replies",
   club_post: "notif_club_follows", club_meet: "notif_club_follows",
+  // 20261007000114: TiTi's own daily line (the "TiTi tips" switch).
+  titi_nudge: "titi_tips",
   points: "notif_rewards", referral: "notif_rewards", badge: "notif_rewards", voucher: "notif_rewards",
   spotted_claim: "notif_rewards", car_of_week: "notif_rewards", cards: "notif_rewards", portrait: "notif_rewards",
 };
@@ -303,12 +305,15 @@ async function fromNotification(id: string): Promise<Push | null> {
         return [ev, rest.length ? `${head}: ${rest.join(" ")}` : head, ev_];
       }
       case "lucky_draw": return [ev, b ?? "Lucky draw update.", ev_];
-      default: return ["TT Spot", b ?? "Something new for you.", null];
+      // TiTi speaks (titi-nudge): his line is the body; it opens his chat.
+      case "titi_nudge": return ["TiTi", b ?? "", "/titi"];      default: return ["TT Spot", b ?? "Something new for you.", null];
     }
   })();
   // The face on the banner: the person when the title is them, else the club, else the person.
   const personTitled = !!who && title === who;
-  const avatar = personTitled || !x.club_id ? avatarOf(x.actor, x.actor_id) : (x.club?.avatar_url ?? avatarOf(x.actor, x.actor_id));
+  // TiTi's face: one of his default-avatar poses.
+  const avatar = x.type === "titi_nudge" ? `${SUPABASE_URL}/storage/v1/object/public/avatars/defaults/a1.png`
+    : personTitled || !x.club_id ? avatarOf(x.actor, x.actor_id) : (x.club?.avatar_url ?? avatarOf(x.actor, x.actor_id));
   const text = { title: title || "TT Spot", body };
   return {
     userIds: [x.user_id],

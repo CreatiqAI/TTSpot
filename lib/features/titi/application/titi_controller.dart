@@ -73,6 +73,22 @@ class TitiState {
       );
 }
 
+/// Whether the chat on screen is behind [latest] (the newest chat on the
+/// server): another chat is newer, or this one has a message newer than the
+/// newest one showing (TiTi's daily line lands while the app is open). A
+/// minute's slack covers the gap between an answer's local time and the
+/// server saving it.
+bool titiChatIsBehind({required String? openId, required List<TitiMessage> messages, required TitiSession latest}) {
+  if (latest.id != openId) return true;
+  DateTime? newest;
+  for (final m in messages) {
+    final at = m.at;
+    if (at != null && (newest == null || at.isAfter(newest))) newest = at;
+  }
+  if (newest == null) return messages.isEmpty;
+  return latest.updatedAt.isAfter(newest.add(const Duration(minutes: 1)));
+}
+
 /// My chats with TiTi, latest first. Invalidated when one starts, gets its
 /// title or is deleted.
 final titiSessionsProvider = FutureProvider.autoDispose<List<TitiSession>>((ref) {
@@ -119,13 +135,16 @@ class TitiController extends Notifier<TitiState> {
     }
   }
 
-  /// The screen opens (Chats row, "Ask TiTi"): back to the latest chat if
-  /// another one is showing. Leaves an answer that is still coming alone.
+  /// The screen opens (Chats row, "Ask TiTi", TiTi's push): back to the
+  /// latest chat if another one is showing, or reloaded when TiTi wrote into
+  /// it since (his daily line, titi-nudge). Leaves an answer that is still
+  /// coming alone.
   Future<void> ensureLatest() async {
     if (state.streaming || state.loading) return;
     try {
       final list = await _repo.sessions(limit: 1);
-      if (list.isEmpty || list.first.id == state.sessionId || state.streaming) return;
+      if (list.isEmpty || state.streaming) return;
+      if (!titiChatIsBehind(openId: state.sessionId, messages: state.messages, latest: list.first)) return;
       await open(list.first.id, title: list.first.title);
     } catch (_) {
       // Offline: stay on what's showing.

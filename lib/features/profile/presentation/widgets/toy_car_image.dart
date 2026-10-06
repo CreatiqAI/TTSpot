@@ -1,26 +1,37 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_images.dart';
+import '../../../map/presentation/widgets/car_marker.dart' show kCarColors, kCarColorLabels;
 import '../../domain/car.dart';
+import '../../domain/car_toy.dart';
 import '../../domain/garage_look.dart';
 import '../garage/garage_images.dart';
 
 /// Width over height of the toy's box (the renders are about 640 x 350).
 const kToyAspect = 16 / 9;
 
+/// The pill on the owner's toy while a new paint goes on.
+const kRepaintingCaption = 'Repainting your toy car… about 2 minutes';
+
+/// The pill while a new toy is made from a new cover photo.
+const kRemakingCaption = 'Making your new toy car… about 2 minutes';
+
 /// A car as its toy model, in a fixed 16:9 box [width] wide, so nothing
 /// moves when the toy arrives. In order: the toy render (`toy_url`); while
 /// one is being made (`toy_status` pending, or not asked yet on the owner's
 /// own car) the cut-out or the cover photo in a rounded frame under a small
 /// "Building your toy car…" caption; otherwise (failed, or a visitor's car
-/// with no toy) the cut-out, the photo, or the body-type art.
+/// with no toy) the cut-out, the photo, or the body-type art. On the owner's
+/// own car, a toy being repainted (or remade from a new cover) stays on show,
+/// dimmed, under "Repainting your toy car… about 2 minutes".
 class ToyCarImage extends StatelessWidget {
   const ToyCarImage({super.key, required this.car, required this.width, this.mine = false, this.caption = true, this.semanticLabel});
 
   final Car car;
   final double width;
 
-  /// The owner's own car: a toy not asked for yet counts as on its way.
+  /// The owner's own car: a toy not asked for yet counts as on its way, and
+  /// a repaint shows as one.
   final bool mine;
 
   /// The "Building your toy car…" caption on the pending fallback (off on
@@ -30,11 +41,14 @@ class ToyCarImage extends StatelessWidget {
 
   double get height => width / kToyAspect;
 
-  /// What this car shows: 'toy', 'pending' or 'fallback'.
+  /// What this car shows: 'toy', 'repainting', 'pending' or 'fallback'.
   static String stateFor(Car car, {required bool mine}) {
-    if (garageToyProvider(car) != null) return 'toy';
+    if (garageToyProvider(car) != null) {
+      return mine && !toyDemoOn && car.toyPending ? 'repainting' : 'toy';
+    }
     final status = toyDemoStatus(car) ?? car.toyStatus;
-    if (status == 'pending' || (status == null && mine)) return 'pending';
+    // No photo: no toy is coming, so nothing says one is.
+    if (status == 'pending' || (status == null && mine && car.photoCover != null)) return 'pending';
     return 'fallback';
   }
 
@@ -45,6 +59,26 @@ class ToyCarImage extends StatelessWidget {
     final Widget body;
     if (state == 'toy') {
       body = _Toy(image: garageToyProvider(car)!, label: label);
+    } else if (state == 'repainting') {
+      body = Stack(
+        fit: StackFit.expand,
+        children: [
+          Opacity(opacity: 0.45, child: _Toy(image: garageToyProvider(car)!, label: label)),
+          if (caption)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: Center(
+                child: _BuildingCaption(
+                  scale: (width / 300).clamp(0.6, 1.0),
+                  maxWidth: width * 0.94,
+                  text: car.toyPaintStale ? kRepaintingCaption : kRemakingCaption,
+                ),
+              ),
+            ),
+        ],
+      );
     } else {
       body = Stack(
         fit: StackFit.expand,
@@ -55,7 +89,7 @@ class ToyCarImage extends StatelessWidget {
               left: 0,
               right: 0,
               bottom: 0,
-              child: Center(child: _BuildingCaption(scale: (width / 300).clamp(0.6, 1.0))),
+              child: Center(child: _BuildingCaption(scale: (width / 300).clamp(0.6, 1.0), maxWidth: width * 0.94)),
             ),
         ],
       );
@@ -126,10 +160,13 @@ class _Fallback extends StatelessWidget {
       );
 }
 
-/// A small dark pill with a band of light sliding over the words.
+/// A small dark pill with a band of light sliding over the words. Shrinks to
+/// fit [maxWidth] rather than wrap or overflow at large text sizes.
 class _BuildingCaption extends StatefulWidget {
-  const _BuildingCaption({required this.scale});
+  const _BuildingCaption({required this.scale, required this.maxWidth, this.text = 'Building your toy car…'});
   final double scale;
+  final double maxWidth;
+  final String text;
 
   @override
   State<_BuildingCaption> createState() => _BuildingCaptionState();
@@ -147,33 +184,56 @@ class _BuildingCaptionState extends State<_BuildingCaption> with SingleTickerPro
   @override
   Widget build(BuildContext context) {
     final s = widget.scale;
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 10 * s, vertical: 5 * s),
-      decoration: BoxDecoration(
-        color: const Color(0xCC07080B),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-      ),
-      child: AnimatedBuilder(
-        animation: _ctrl,
-        builder: (_, child) => ShaderMask(
-          blendMode: BlendMode.srcIn,
-          shaderCallback: (r) => LinearGradient(
-            colors: const [Color(0xFF9AA0AA), Colors.white, Color(0xFF9AA0AA)],
-            stops: const [0.35, 0.5, 0.65],
-            transform: _Slide((_ctrl.value * 2.6 - 1.3) * r.width),
-          ).createShader(r),
-          child: child,
-        ),
-        child: Text(
-          'Building your toy car…',
-          maxLines: 1,
-          textScaler: MediaQuery.textScalerOf(context).clamp(maxScaleFactor: 1.2),
-          style: TextStyle(fontSize: 11.5 * s, fontWeight: FontWeight.w600, color: Colors.white, height: 1.2),
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: widget.maxWidth),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Container(
+          padding: EdgeInsets.symmetric(horizontal: 10 * s, vertical: 5 * s),
+          decoration: BoxDecoration(
+            color: const Color(0xCC07080B),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+          ),
+          child: AnimatedBuilder(
+            animation: _ctrl,
+            builder: (_, child) => ShaderMask(
+              blendMode: BlendMode.srcIn,
+              shaderCallback: (r) => LinearGradient(
+                colors: const [Color(0xFF9AA0AA), Colors.white, Color(0xFF9AA0AA)],
+                stops: const [0.35, 0.5, 0.65],
+                transform: _Slide((_ctrl.value * 2.6 - 1.3) * r.width),
+              ).createShader(r),
+              child: child,
+            ),
+            child: Text(
+              widget.text,
+              maxLines: 1,
+              softWrap: false,
+              textScaler: MediaQuery.textScalerOf(context).clamp(maxScaleFactor: 1.2),
+              style: TextStyle(fontSize: 11.5 * s, fontWeight: FontWeight.w600, color: Colors.white, height: 1.2),
+            ),
+          ),
         ),
       ),
     );
   }
+}
+
+/// The line under a toy: its paint. The owner reads the paint they picked
+/// ("Blue paint", "Repainting in Blue…" while it goes on, "Blue paint is
+/// next" while the daily cap holds it back); visitors read the paint of the
+/// toy they see. Null when no colour was picked (the toy keeps the photo's).
+({Color swatch, String text})? toyPaintLine(Car car, {required bool mine}) {
+  final key = mine || car.toyUrl == null ? car.paint : (car.toyPaint ?? car.paint);
+  if (key == null) return null;
+  final name = kCarColorLabels[key] ?? key;
+  final swatch = kCarColors[key] ?? const Color(0xFFB0B4BC);
+  if (mine && car.toyRepainting) return (swatch: swatch, text: 'Repainting in $name…');
+  if (mine && car.toyPaintWaiting) {
+    return (swatch: swatch, text: car.toy == ToyStatus.failed ? 'The $name repaint didn\'t work' : '$name paint is next');
+  }
+  return (swatch: swatch, text: '$name paint');
 }
 
 /// Moves a gradient sideways by [dx] px.

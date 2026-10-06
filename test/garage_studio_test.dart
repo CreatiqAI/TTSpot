@@ -31,6 +31,7 @@ Car _toy() => Car(
       bodyStyle: 'mpv',
       toyUrl: '$_base/a_toy.png',
       toyStatus: 'ready',
+      toyColor: 'white',
     );
 
 Car _pending() => Car(
@@ -192,7 +193,7 @@ void main() {
           expect(find.text('Estima'), findsOneWidget);
           expect(find.text('TOYOTA · 2007'), findsOneWidget);
           expect(find.text('TODAY\'S CAR'), findsOneWidget);
-          expect(find.text('White, matched from your photo'), findsOneWidget);
+          expect(find.text('White paint'), findsOneWidget);
           final hero = _hero(tester, 'a');
           expect(hero.left, 20);
           expect(hero.right, size.width - 20);
@@ -251,7 +252,7 @@ void main() {
           await tester.drag(find.byKey(const ValueKey('hero-b')), Offset(-size.width * 0.7, 0));
           await _settle(tester);
           expect(find.text('Myvi'), findsOneWidget);
-          expect(find.textContaining('matched from'), findsNothing);
+          expect(find.textContaining(' paint'), findsNothing);
           expect(find.text('Building your toy car…'), findsNothing);
           // And one car back with a swipe the other way.
           await tester.drag(find.byKey(const ValueKey('hero-c')), Offset(size.width * 0.7, 0));
@@ -267,7 +268,7 @@ void main() {
           expect(find.text('TITI_ONBOARD1\'S GARAGE'), findsOneWidget);
           expect(find.bySemanticsLabel('Add a car'), findsNothing);
           expect(find.text('DAILY'), findsOneWidget);
-          expect(find.text('White, matched from the photo'), findsOneWidget);
+          expect(find.text('White paint'), findsOneWidget);
           expect(find.byType(ToyRail), findsNothing);
           await _reveal(tester, find.text('Open car'));
           expect(find.text('Spent'), findsNothing);

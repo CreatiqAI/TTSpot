@@ -28,12 +28,12 @@ class CarPostsTab extends StatelessWidget {
     if (list.isEmpty) {
       if (!mine) return const SizedBox.shrink();
       return Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
         child: CarEmptyCard(title: 'SHOW IT OFF', body: 'Posts that tag this car show up here.', action: 'Post about it', onAction: onPost),
       );
     }
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
       child: GridView.builder(
         shrinkWrap: true,
         primary: false,

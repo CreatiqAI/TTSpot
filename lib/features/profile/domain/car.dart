@@ -23,6 +23,7 @@ class Car {
     this.toyUrl,
     this.toyStatus,
     this.toySource,
+    this.toyColor,
   });
 
   final String id;
@@ -33,7 +34,9 @@ class Car {
   final String? description;
   final List<String> photoUrls;
   final DateTime createdAt;
-  /// One of kCarColors keys (red, black, white, grey, silver, blue, yellow, green, orange).
+  /// The paint: one of kCarColors keys (red, black, white, grey, silver,
+  /// blue, yellow, green, orange), or null (match the photo). The toy car is
+  /// rendered in it (migration 0110) and the map's plain car marker uses it.
   final String? color;
   /// Fronts the profile, drives on the map, goes with me to meets.
   final bool isDefault;
@@ -63,6 +66,9 @@ class Car {
   /// The cover photo [toyUrl] was made from; a different cover means the toy
   /// is stale and a new one is on its way.
   final String? toySource;
+  /// The paint [toyUrl] was made in (null: the photo's own colour); a
+  /// different [color] means a repaint is on its way (or waiting).
+  final String? toyColor;
 
   String get title => '$make $model';
   /// Spec line worth showing, or null.
@@ -93,6 +99,7 @@ class Car {
         toyUrl: m['toy_url'] as String?,
         toyStatus: m['toy_status'] as String?,
         toySource: m['toy_source'] as String?,
+        toyColor: m['toy_color'] as String?,
       );
 }
 

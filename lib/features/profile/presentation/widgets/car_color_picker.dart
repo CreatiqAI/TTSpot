@@ -43,24 +43,32 @@ class CarColorPicker extends StatelessWidget {
   }
 }
 
-/// "Colour on the map": the label, a top-down preview of the car as it
-/// draws on the map, one line on what the colour is for, and the swatches.
-/// Shared by onboarding, Add car and Edit car (members didn't get what
-/// "Colour" was for).
+/// "Paint colour": the label, a little car in the picked paint, one line on
+/// what it does (the toy car is made, or repainted, in it: migration 0110),
+/// and the swatches. Shared by onboarding, Add car and Edit car (members
+/// didn't get what "Colour on the map" was for, and nothing they could see
+/// changed).
 class CarMapColourSection extends StatelessWidget {
-  const CarMapColourSection({super.key, required this.value, required this.onChanged, this.note});
+  const CarMapColourSection({super.key, required this.value, required this.onChanged, this.note, this.hint = 'Your toy car is made in this colour.', this.noteColor});
   final String? value;
   final ValueChanged<String>? onChanged;
 
-  /// Where the colour came from ("Silver · from the photo"), under the line.
+  /// Where the colour came from ("Silver · from the photo") or what saving
+  /// does, under the line.
   final String? note;
+
+  /// The one line on what the colour is for.
+  final String hint;
+
+  /// The note's colour (a warning reads in amber), else secondary text.
+  final Color? noteColor;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text('COLOUR ON THE MAP', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1.2, color: AppColors.textSecondary)),
+        Text('PAINT COLOUR', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1.2, color: AppColors.textSecondary)),
         const SizedBox(height: 8),
         Row(
           children: [
@@ -70,10 +78,10 @@ class CarMapColourSection extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('This is how your car shows on the map.', style: TextStyle(fontSize: 13.5, height: 1.35, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+                  Text(hint, style: TextStyle(fontSize: 13.5, height: 1.35, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
                   if (note != null) ...[
                     const SizedBox(height: 2),
-                    Text(note!, style: TextStyle(fontSize: 12.5, height: 1.35, color: AppColors.textSecondary)),
+                    Text(note!, style: TextStyle(fontSize: 12.5, height: 1.35, color: noteColor ?? AppColors.textSecondary)),
                   ],
                 ],
               ),

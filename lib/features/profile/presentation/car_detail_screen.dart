@@ -10,6 +10,8 @@ import '../../../core/utils/friendly_error.dart';
 import '../../../core/utils/share_links.dart';
 import '../../../core/widgets/photo_viewer.dart';
 import '../../../core/widgets/share_options_sheet.dart';
+import '../../safety/data/safety_repository.dart' show ReportTarget;
+import '../../safety/presentation/report_sheet.dart';
 import '../../social/application/chat_providers.dart';
 import '../../social/application/social_providers.dart';
 import '../../social/domain/post.dart';
@@ -18,19 +20,20 @@ import '../application/garage_providers.dart';
 import '../application/portrait_providers.dart';
 import '../application/portrait_share.dart';
 import '../application/profile_providers.dart';
+import '../application/toy_providers.dart';
 import '../domain/car.dart';
 import '../domain/car_mod.dart';
+import '../domain/car_toy.dart';
 import 'car_page/car_page_model.dart';
 import 'car_page/car_page_view.dart';
-import 'garage/garage_body.dart' show garageOrder;
 import 'widgets/car_actions_sheet.dart';
 import 'widgets/portrait_style_sheet.dart';
 
-/// A car's page (`/car/:id`, `ttspot://car/:id`): the garage bay with its
-/// cut-out, photos and portraits, who the car is, its mods, papers and posts.
-/// The owner gets the "…" actions and Post / Add a mod; anyone else gets a
-/// read-only page with Message owner. This widget gathers the data; the page
-/// itself is [CarPageView].
+/// A car's page (`/car/:id`, `ttspot://car/:id`): the toy car in its studio,
+/// who the car is, then its album, mods, papers, portraits and posts. The
+/// owner gets Edit, today's car and the "…" menu; anyone else gets a
+/// read-only page with Message owner and Report. This widget gathers the
+/// data and wires the buttons; the page itself is [CarPageView].
 class CarDetailScreen extends ConsumerStatefulWidget {
   const CarDetailScreen({super.key, required this.carId});
   final String carId;
@@ -103,7 +106,18 @@ class _CarDetailScreenState extends ConsumerState<CarDetailScreen> {
     }
   }
 
-  Future<void> _sharePortrait(Car car, CarMedia m) async {
+  /// A fresh toy from the cover photo, in the car's paint (free, capped a
+  /// day per car; the server says when the cap is reached).
+  Future<void> _remakeToy(Car car) async {
+    try {
+      await ref.read(toyActionsProvider).remake(car.id);
+      _snack(car.toyPaintStale ? 'Repainting your toy car. About 2 minutes; it swaps in on its own.' : 'Making your toy car again. About 2 minutes; it swaps in on its own.');
+    } catch (e) {
+      _snack(friendlyError(e));
+    }
+  }
+
+  Future<void> _sharePortrait(Car car, CarPortraitMedia m) async {
     final box = context.findRenderObject() as RenderBox?;
     final styleName = m.style?.name ?? 'an AI portrait';
     _snack('Getting it ready…');
@@ -119,10 +133,9 @@ class _CarDetailScreenState extends ConsumerState<CarDetailScreen> {
     }
   }
 
-  void _share(Car car, CarMedia? onStage) {
+  void _share(Car car) {
     final owner = ref.read(profileProvider(car.ownerId)).value;
     final whose = owner?.username == null ? '' : ' in @${owner!.username}\'s garage';
-    final mine = car.ownerId == ref.read(currentUserIdProvider);
     showShareOptions(
       context,
       ShareItem(
@@ -132,30 +145,18 @@ class _CarDetailScreenState extends ConsumerState<CarDetailScreen> {
         carId: car.id,
         text: '${car.title}$whose on TT Spot\n${shareLink('car', car.id)}',
       ),
-      extras: [
-        if (onStage != null && onStage.isPortrait && mine)
-          ShareExtra(
-            icon: AppIcons.sparkle,
-            label: 'This portrait',
-            subtitle: 'The picture itself, with a small TT Spot logo',
-            onTap: () => _sharePortrait(car, onStage),
-          ),
-      ],
     );
   }
 
-  /// The owner's "…": what's on the stage first (a portrait: use it, share
-  /// it), then the car's own actions, Delete last.
-  Future<void> _more(Car car, CarMedia? onStage) async {
-    // Right after a cold start the switch may still be loading: wait briefly
-    // so "New AI portrait" isn't missing from the sheet.
-    final settings = ref.read(portraitSettingsProvider).value ??
-        await ref.read(portraitSettingsProvider.future).timeout(const Duration(seconds: 3), onTimeout: () => (enabled: false, cost: kDefaultPortraitCost));
-    if (!mounted) return;
-    final portraitsOn = settings.enabled;
-    final cost = settings.cost;
-    final portrait = onStage != null && onStage.isPortrait ? onStage : null;
-    final wearing = portrait != null && car.portraitUrl == portrait.url;
+  /// A portrait tile. The owner: view it, put it on the car (or go back to
+  /// the photos), share it. Anyone else: the viewer.
+  Future<void> _openPortrait(Car car, bool mine, CarPortraitMedia p, List<CarPortraitMedia> all) async {
+    final urls = [for (final m in all) m.url];
+    final index = urls.indexOf(p.url).clamp(0, urls.length - 1);
+    if (!mine) {
+      showPhotoViewer(context, urls, initial: index);
+      return;
+    }
     final action = await showModalBottomSheet<String>(
       useRootNavigator: true,
       context: context,
@@ -166,30 +167,75 @@ class _CarDetailScreenState extends ConsumerState<CarDetailScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (portrait != null) ...[
-                if (wearing)
-                  ListTile(
-                    leading: const Icon(AppIcons.images),
-                    title: const Text('Use the photos instead'),
-                    subtitle: const Text('Your photo fronts the car again', style: TextStyle(fontSize: 12)),
-                    onTap: () => Navigator.pop(ctx, 'photos'),
-                  )
-                else if (portrait.portrait != null)
-                  ListTile(
-                    leading: const Icon(AppIcons.star),
-                    title: const Text('Use this portrait as the car picture'),
-                    subtitle: const Text('It fronts the car on your profile and the map', style: TextStyle(fontSize: 12)),
-                    onTap: () => Navigator.pop(ctx, 'use'),
-                  ),
+              ListTile(leading: const Icon(AppIcons.arrowsOut), title: const Text('View full screen'), onTap: () => Navigator.pop(ctx, 'view')),
+              if (p.wearing)
                 ListTile(
-                  leading: const Icon(AppIcons.shareFat),
-                  title: const Text('Share this portrait'),
-                  subtitle: const Text('With a small TT Spot logo', style: TextStyle(fontSize: 12)),
-                  onTap: () => Navigator.pop(ctx, 'share-portrait'),
+                  leading: const Icon(AppIcons.images),
+                  title: const Text('Use the photos instead'),
+                  subtitle: const Text('Your photo fronts the car again', style: TextStyle(fontSize: 12)),
+                  onTap: () => Navigator.pop(ctx, 'photos'),
+                )
+              else if (p.portrait != null)
+                ListTile(
+                  leading: const Icon(AppIcons.star),
+                  title: const Text('Use this portrait as the car picture'),
+                  subtitle: const Text('It fronts the car where a photo would', style: TextStyle(fontSize: 12)),
+                  onTap: () => Navigator.pop(ctx, 'use'),
                 ),
-                const Divider(height: 8),
-              ],
-              ListTile(leading: const Icon(AppIcons.pencilSimple), title: const Text('Edit car'), onTap: () => Navigator.pop(ctx, 'edit')),
+              ListTile(
+                leading: const Icon(AppIcons.shareFat),
+                title: const Text('Share this portrait'),
+                subtitle: const Text('With a small TT Spot logo', style: TextStyle(fontSize: 12)),
+                onTap: () => Navigator.pop(ctx, 'share'),
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (action == null || !mounted) return;
+    switch (action) {
+      case 'view':
+        showPhotoViewer(context, urls, initial: index);
+      case 'use':
+        try {
+          await ref.read(portraitActionsProvider).choose(p.portrait!);
+          _snack('Your ${car.model} now wears the ${p.style?.name ?? 'new'} portrait.');
+        } catch (e) {
+          _snack(friendlyError(e));
+        }
+      case 'photos':
+        try {
+          await ref.read(portraitActionsProvider).usePhotos(car.id);
+        } catch (e) {
+          _snack(friendlyError(e));
+        }
+      case 'share':
+        await _sharePortrait(car, p);
+    }
+  }
+
+  /// The owner's "…": the car's own actions, Delete last.
+  Future<void> _more(Car car) async {
+    // Right after a cold start the switch may still be loading: wait briefly
+    // so "New AI portrait" isn't missing from the sheet.
+    final settings = ref.read(portraitSettingsProvider).value ??
+        await ref.read(portraitSettingsProvider.future).timeout(const Duration(seconds: 3), onTimeout: () => (enabled: false, cost: kDefaultPortraitCost));
+    if (!mounted) return;
+    final portraitsOn = settings.enabled;
+    final cost = settings.cost;
+    final action = await showModalBottomSheet<String>(
+      useRootNavigator: true,
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (ctx) => SafeArea(
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(leading: const Icon(AppIcons.pencilSimple), title: const Text('Edit car'), subtitle: const Text('Photos, paint colour, number plate', style: TextStyle(fontSize: 12)), onTap: () => Navigator.pop(ctx, 'edit')),
               if (!car.isDefault)
                 ListTile(
                   leading: const Icon(AppIcons.checkCircle),
@@ -197,12 +243,16 @@ class _CarDetailScreenState extends ConsumerState<CarDetailScreen> {
                   subtitle: const Text('It fronts your profile and drives on the map', style: TextStyle(fontSize: 12)),
                   onTap: () => Navigator.pop(ctx, 'today'),
                 ),
-              ListTile(
-                leading: Icon(car.garageStyle == 'card' ? AppIcons.cards : AppIcons.scissors),
-                title: const Text('Garage look'),
-                subtitle: Text(garageLookLabel(car), style: const TextStyle(fontSize: 12)),
-                onTap: () => Navigator.pop(ctx, 'look'),
-              ),
+              if (car.photoCover != null)
+                ListTile(
+                  leading: const Icon(AppIcons.arrowsClockwise),
+                  title: const Text('Remake toy car'),
+                  subtitle: Text(
+                    car.toyPending ? 'One is being made now' : 'A new toy model from your cover photo, in its paint',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                  onTap: () => Navigator.pop(ctx, 'toy'),
+                ),
               if (portraitsOn)
                 ListTile(
                   leading: const Icon(AppIcons.sparkle),
@@ -217,6 +267,12 @@ class _CarDetailScreenState extends ConsumerState<CarDetailScreen> {
                 onTap: () => Navigator.pop(ctx, 'papers'),
               ),
               ListTile(
+                leading: Icon(car.garageStyle == 'card' ? AppIcons.cards : AppIcons.scissors),
+                title: const Text('Garage look'),
+                subtitle: Text('While the toy is being made: ${garageLookLabel(car)}', style: const TextStyle(fontSize: 12)),
+                onTap: () => Navigator.pop(ctx, 'look'),
+              ),
+              ListTile(
                 leading: const Icon(AppIcons.trash, color: AppColors.danger),
                 title: const Text('Delete car', style: TextStyle(color: AppColors.danger)),
                 onTap: () => Navigator.pop(ctx, 'delete'),
@@ -229,33 +285,52 @@ class _CarDetailScreenState extends ConsumerState<CarDetailScreen> {
     );
     if (action == null || !mounted) return;
     switch (action) {
-      case 'use':
-        try {
-          await ref.read(portraitActionsProvider).choose(portrait!.portrait!);
-          _snack('Your ${car.model} now wears the ${portrait.style?.name ?? 'new'} portrait.');
-        } catch (e) {
-          _snack(friendlyError(e));
-        }
-      case 'photos':
-        try {
-          await ref.read(portraitActionsProvider).usePhotos(car.id);
-        } catch (e) {
-          _snack(friendlyError(e));
-        }
-      case 'share-portrait':
-        await _sharePortrait(car, portrait!);
       case 'edit':
         context.push(Routes.editCar(car.id));
       case 'today':
         await _makeToday(car);
-      case 'look':
-        await showGarageLookSheet(context, ref, car);
+      case 'toy':
+        await _remakeToy(car);
       case 'paint':
         await showPortraitStyleSheet(context, ref, car);
       case 'papers':
         context.push(Routes.carDocuments(car.id));
+      case 'look':
+        await showGarageLookSheet(context, ref, car);
       case 'delete':
         await _delete(car);
+    }
+  }
+
+  /// A visitor's "…": share, or report the owner.
+  Future<void> _visitorMore(Car car) async {
+    final owner = ref.read(profileProvider(car.ownerId)).value;
+    final who = owner?.username == null ? 'the owner' : '@${owner!.username}';
+    final action = await showModalBottomSheet<String>(
+      useRootNavigator: true,
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(leading: const Icon(AppIcons.shareFat), title: const Text('Share this car'), onTap: () => Navigator.pop(ctx, 'share')),
+            ListTile(
+              leading: const Icon(AppIcons.flag, color: AppColors.danger),
+              title: Text('Report $who', style: const TextStyle(color: AppColors.danger)),
+              onTap: () => Navigator.pop(ctx, 'report'),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (action == null || !mounted) return;
+    switch (action) {
+      case 'share':
+        _share(car);
+      case 'report':
+        await showReportSheet(context, target: ReportTarget.profile, targetId: car.ownerId);
     }
   }
 
@@ -266,6 +341,7 @@ class _CarDetailScreenState extends ConsumerState<CarDetailScreen> {
     if (mine) {
       ref.invalidate(carDocumentsProvider(car.id));
       ref.invalidate(carPortraitsProvider(car.id));
+      ref.invalidate(carToyQuotaProvider(car.id));
     }
     ref.invalidate(carProvider(car.id));
     try {
@@ -291,14 +367,16 @@ class _CarDetailScreenState extends ConsumerState<CarDetailScreen> {
           return _Shell(child: Text('This car is no longer in the garage.', textAlign: TextAlign.center, style: TextStyle(color: AppColors.textSecondary)));
         }
         final mine = me != null && car.ownerId == me;
+        // My car: keep it fresh while its toy is made or repainted (realtime
+        // plus a light poll), and catch up on a paint the cap held back.
+        if (mine) ref.watch(toyWatcherProvider);
         final mods = ref.watch(carModsProvider(car.id));
         final docs = mine ? ref.watch(carDocumentsProvider(car.id)) : null;
         final portraits = mine ? ref.watch(carPortraitsProvider(car.id)) : null;
         final settings = ref.watch(portraitSettingsProvider).value;
         final posts = ref.watch(postsWhereProvider((column: 'car_id', value: car.id)));
         final meets = ref.watch(carMeetsProvider(car.id));
-        final ownerCars = ref.watch(userCarsProvider(car.ownerId)).value;
-        final bay = ownerCars == null ? -1 : garageOrder(ownerCars).indexWhere((c) => c.id == car.id);
+        final quota = mine && car.toyPaintWaiting ? ref.watch(carToyQuotaProvider(car.id)).value : null;
         // Hidden until the phone has said whether it was closed, so it never flashes.
         final dismissed = mine ? (ref.watch(carPromoDismissalsProvider).value?.contains(car.id) ?? true) : true;
 
@@ -315,9 +393,9 @@ class _CarDetailScreenState extends ConsumerState<CarDetailScreen> {
           portraitCost: settings?.cost ?? kDefaultPortraitCost,
           posts: posts.value ?? (posts.hasError ? const <FeedPost>[] : null),
           meets: meets.value,
-          bayIndex: bay < 0 ? null : bay,
           promoDismissed: dismissed,
           messaging: _opening,
+          toyQuota: quota,
         );
 
         return CarPageView(
@@ -325,9 +403,12 @@ class _CarDetailScreenState extends ConsumerState<CarDetailScreen> {
           onRefresh: () => _refresh(car, mine),
           actions: CarPageActions(
             back: _back,
-            share: (m) => _share(car, m),
-            more: mine ? (m) => _more(car, m) : null,
-            openMedia: (media, i) => showPhotoViewer(context, [for (final m in media) m.url], initial: i),
+            share: () => _share(car),
+            more: mine ? () => _more(car) : () => _visitorMore(car),
+            editCar: () => context.push(Routes.editCar(car.id)),
+            makeToday: () => _makeToday(car),
+            retryToy: mine ? () => _remakeToy(car) : null,
+            openPhoto: (urls, i) => showPhotoViewer(context, urls, initial: i),
             addMod: () => context.push(Routes.newCarMod(car.id)),
             openMod: (m) {
               if (mine) {
@@ -342,7 +423,8 @@ class _CarDetailScreenState extends ConsumerState<CarDetailScreen> {
             openPartner: (id) => context.push(Routes.partner(id)),
             postAboutIt: () => context.push(Routes.createPost(PostKind.post, carId: car.id)),
             openPapers: () => context.push(Routes.carDocuments(car.id)),
-            paint: () => showPortraitStyleSheet(context, ref, car),
+            newPortrait: () => showPortraitStyleSheet(context, ref, car),
+            openPortrait: (p, all) => _openPortrait(car, mine, p, all),
             dismissPromo: () => ref.read(carPromoDismissalsProvider.notifier).dismiss(car.id),
             messageOwner: () => _messageOwner(car.ownerId),
             openOwner: () => context.push(Routes.profile(car.ownerId)),

@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'package:flutter/foundation.dart' show Uint8List;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../core/constants/malaysian_states.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/theme/app_icons.dart';
+import '../../../core/widgets/avatar_crop_screen.dart';
 import '../../../core/widgets/picker_field.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../../core/widgets/titi_avatar_grid.dart';
@@ -30,7 +31,8 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   final _username = TextEditingController();
   final _bio = TextEditingController();
   String? _homeState;
-  XFile? _avatar;
+  /// The cropped photo (a square JPEG), uploaded on Done.
+  Uint8List? _avatar;
   /// A picked TiTi default avatar (0..7); saved as its public URL.
   int? _preset;
   bool _prefilled = false;
@@ -80,12 +82,16 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     if (choice is! ImageSource) return;
     try {
       final f = await pickAvatarImage(choice);
-      if (f != null) {
-        setState(() {
-          _avatar = f;
-          _preset = null;
-        });
-      }
+      if (f == null || !mounted) return;
+      final bytes = await f.readAsBytes();
+      if (!mounted) return;
+      // Zoom and move it under the circle: that square is what goes up.
+      final cropped = await cropAvatar(context, bytes);
+      if (cropped == null || !mounted) return;
+      setState(() {
+        _avatar = cropped;
+        _preset = null;
+      });
     } catch (e) {
       if (mounted) _snack(friendlyError(e));
     }
@@ -98,7 +104,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
           displayName: _name.text,
           homeState: _homeState ?? '',
           bio: _bio.text,
-          avatar: _avatar,
+          avatar: _avatar == null ? null : XFile.fromData(_avatar!, name: 'avatar.jpg', mimeType: 'image/jpeg'),
           presetAvatarUrl: _preset == null ? null : DefaultAvatars.publicUrl(_preset!),
         );
     final state = ref.read(onboardingControllerProvider);
@@ -152,7 +158,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                             height: 96,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              image: DecorationImage(image: FileImage(File(_avatar!.path)), fit: BoxFit.cover),
+                              image: DecorationImage(image: MemoryImage(_avatar!), fit: BoxFit.cover),
                             ),
                           )
                         : _preset != null

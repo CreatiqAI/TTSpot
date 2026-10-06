@@ -10,6 +10,23 @@ class ReleaseNote {
 
 const kReleaseNotes = <ReleaseNote>[
   ReleaseNote(
+    version: '0.3.55',
+    date: '6 Oct 2026',
+    title: 'Badges with tiers, new points, Clubs & Events',
+    points: [
+      'Badges now have four tiers: bronze, silver, platinum and gold. Posts, Car meet organizer, Car meet joining, Explorer and Popular.',
+      'Show up to 3 badges on your profile. Pick them on the Badges page.',
+      'New points: check in at a spot, partner shop or meet +10 (same spot once a week), share a post +10 (once a week), earn a badge or a new tier +10, bring a friend +5, join with a code +5.',
+      'Weekly limits reset every Friday at 6 PM.',
+      'Home has a new Clubs & Events tab: official clubs, underground clubs and events in one list. Your garage is on your profile.',
+      'Official club presidents show their club tag next to their name. Members can switch theirs on from the club page.',
+      'Drivers show as their own toy car on the map, and partner shops show their logo.',
+      'Tap a row in the map key to jump to the nearest pin of that kind.',
+      'Blind box: swipe or tap to flip the card as often as you like, and a clearer Add to my cards.',
+      'Smaller, cleaner sign in and create account screens. Weak passwords are allowed, with a reminder.',
+    ],
+  ),
+  ReleaseNote(
     version: '0.3.54',
     date: '6 Oct 2026',
     title: 'Your car as a toy',

@@ -15,7 +15,6 @@ import '../../../../core/utils/geo.dart';
 import '../../../../core/directions/directions.dart';
 import '../../../../core/utils/open_external.dart';
 import '../../../../core/widgets/glass.dart';
-import '../../../../core/widgets/primary_button.dart';
 import '../../../../core/widgets/thumb_image.dart';
 import '../../../../core/widgets/user_avatar.dart';
 import '../../../friends/application/friends_providers.dart';
@@ -75,7 +74,9 @@ List<FriendPin> friendsAt(List<FriendPin> pins, Place p) => [
 
 /// The card that slides up when a spot or a partner shop is picked on the
 /// map (its pin, the list, Search, "Show on map"): what it is, how far, who
-/// is there, and the next step. The full page is one tap away.
+/// is there, and the next step. The full page is the main action: a
+/// full-width red "View shop" / "View spot", and the header (picture, name
+/// and chevron) opens it too. Go now and TT here sit under it as a pair.
 class PlacePreviewCard extends ConsumerWidget {
   const PlacePreviewCard({super.key, required this.place, required this.onClose});
   final Place place;
@@ -91,9 +92,10 @@ class PlacePreviewCard extends ConsumerWidget {
     final km = here == null ? null : distanceKm(here, p.latLng);
     final vendor = p.isPartner ? ref.watch(vendorPublicProvider(p.vendorId!)).value : null;
     final name = p.isPartner ? (vendor?.name ?? p.vendorName ?? p.name) : p.name;
+    void openPage() => context.push(p.isPartner ? Routes.partner(p.vendorId!) : Routes.place(p.id));
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(14, 6, 14, 2),
+      padding: const EdgeInsets.fromLTRB(14, 6, 14, 14),
       decoration: BoxDecoration(
         color: pal.surface,
         borderRadius: BorderRadius.circular(22),
@@ -108,33 +110,25 @@ class PlacePreviewCard extends ConsumerWidget {
           Center(child: Container(width: 36, height: 4, decoration: BoxDecoration(color: pal.handle, borderRadius: BorderRadius.circular(2)))),
           const SizedBox(height: 8),
           if (p.isPartner)
-            _PartnerBody(place: p, vendor: vendor, name: name, km: km, onClose: onClose)
+            _PartnerBody(place: p, vendor: vendor, name: name, km: km, onClose: onClose, onOpen: openPage)
           else
-            _SpotBody(place: p, km: km, onClose: onClose),
+            _SpotBody(place: p, km: km, onClose: onClose, onOpen: openPage),
           const SizedBox(height: 12),
+          _ViewButton(key: const ValueKey('place-card-view'), label: p.isPartner ? 'View shop' : 'View spot', onPressed: openPage),
+          const SizedBox(height: 8),
           Row(
             children: [
-              Expanded(child: PrimaryButton(
+              Expanded(
+                child: _OutlineButton(
                   label: 'Go now',
                   icon: AppIcons.navigationArrow,
                   onPressed: () => openDirections(context, lat: p.lat, lng: p.lng, label: name),
                   onLongPress: () => openDirections(context, lat: p.lat, lng: p.lng, label: name, choose: true),
-                )),
+                ),
+              ),
               const SizedBox(width: 8),
               Expanded(child: _OutlineButton(label: 'TT here', icon: AppIcons.flag, onPressed: () => ttHere(context, ref, p, name))),
             ],
-          ),
-          TextButton(
-            onPressed: () => context.push(p.isPartner ? Routes.partner(p.vendorId!) : Routes.place(p.id)),
-            style: TextButton.styleFrom(foregroundColor: pal.text, minimumSize: const Size.fromHeight(42)),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(p.isPartner ? 'View shop' : 'View more', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
-                const SizedBox(width: 4),
-                Icon(AppIcons.caretRight, size: 14, color: pal.text),
-              ],
-            ),
           ),
         ],
       ),
@@ -145,10 +139,12 @@ class PlacePreviewCard extends ConsumerWidget {
 // -------------------------------------------------------------------- spot ---
 
 class _SpotBody extends ConsumerWidget {
-  const _SpotBody({required this.place, required this.km, required this.onClose});
+  const _SpotBody({required this.place, required this.km, required this.onClose, required this.onOpen});
   final Place place;
   final double? km;
   final VoidCallback onClose;
+  /// The spot's page: the header is a button too.
+  final VoidCallback onOpen;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -171,36 +167,40 @@ class _SpotBody extends ConsumerWidget {
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(14),
-              child: SizedBox(width: 78, height: 78, child: p.coverUrl == null ? fallback : ThumbImage(p.coverUrl!, placeholder: fallback, error: fallback)),
-            ),
-            const SizedBox(width: 12),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Flexible(child: Text(p.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: pal.text, fontSize: 17, fontWeight: FontWeight.w800, height: 1.2))),
-                      if (p.recommended) ...[
-                        const SizedBox(width: 6),
-                        const _Tag(icon: AppIcons.starFill, text: 'TOP SPOT'),
+              child: _Header(
+                onTap: onOpen,
+                picture: ClipRRect(
+                  borderRadius: BorderRadius.circular(14),
+                  child: SizedBox(width: 78, height: 78, child: p.coverUrl == null ? fallback : ThumbImage(p.coverUrl!, placeholder: fallback, error: fallback)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(child: Text(p.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: pal.text, fontSize: 17, fontWeight: FontWeight.w800, height: 1.2))),
+                        if (p.recommended) ...[
+                          const SizedBox(width: 6),
+                          const _Tag(icon: AppIcons.starFill, text: 'TOP SPOT'),
+                        ],
+                        const SizedBox(width: 2),
+                        Icon(AppIcons.caretRight, size: 16, color: pal.text2),
                       ],
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      [p.kindLabel, if (km != null) '${formatDistance(km!)} away'].join(' · '),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: pal.text2, fontSize: 13),
+                    ),
+                    if (stats.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Wrap(spacing: 6, runSpacing: 6, children: [for (final (icon, text) in stats) _StatChip(icon: icon, text: text)]),
                     ],
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    [p.kindLabel, if (km != null) '${formatDistance(km!)} away'].join(' · '),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: pal.text2, fontSize: 13),
-                  ),
-                  if (stats.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    Wrap(spacing: 6, runSpacing: 6, children: [for (final (icon, text) in stats) _StatChip(icon: icon, text: text)]),
                   ],
-                ],
+                ),
               ),
             ),
             _CloseButton(onTap: onClose),
@@ -234,12 +234,14 @@ class _SpotBody extends ConsumerWidget {
 // ----------------------------------------------------------------- partner ---
 
 class _PartnerBody extends ConsumerWidget {
-  const _PartnerBody({required this.place, required this.vendor, required this.name, required this.km, required this.onClose});
+  const _PartnerBody({required this.place, required this.vendor, required this.name, required this.km, required this.onClose, required this.onOpen});
   final Place place;
   final PublicVendor? vendor;
   final String name;
   final double? km;
   final VoidCallback onClose;
+  /// The shop's page: the header is a button too.
+  final VoidCallback onOpen;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -261,43 +263,47 @@ class _PartnerBody extends ConsumerWidget {
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 78,
-              height: 78,
-              padding: const EdgeInsets.all(3),
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18), border: Border.all(color: pal.divider)),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(15),
-                child: logo == null ? noLogo : Image(image: CachedNetworkImageProvider(logo), fit: BoxFit.cover, errorBuilder: (_, _, _) => noLogo),
-              ),
-            ),
-            const SizedBox(width: 12),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Flexible(child: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: pal.text, fontSize: 17, fontWeight: FontWeight.w800, height: 1.2))),
-                      const SizedBox(width: 6),
-                      const _Tag(icon: AppIcons.sealCheck, text: 'PARTNER'),
-                    ],
+              child: _Header(
+                onTap: onOpen,
+                picture: Container(
+                  width: 78,
+                  height: 78,
+                  padding: const EdgeInsets.all(3),
+                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18), border: Border.all(color: pal.divider)),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(15),
+                    child: logo == null ? noLogo : Image(image: CachedNetworkImageProvider(logo), fit: BoxFit.cover, errorBuilder: (_, _, _) => noLogo),
                   ),
-                  const SizedBox(height: 3),
-                  Text(meta, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(color: pal.text2, fontSize: 13)),
-                  if (status != null) ...[
-                    const SizedBox(height: 6),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Row(
                       children: [
-                        Icon(AppIcons.clock, size: 14, color: open ? AppColors.success : pal.text2),
-                        const SizedBox(width: 4),
-                        Flexible(
-                          child: Text(status, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: open ? AppColors.success : pal.text2, fontSize: 13, fontWeight: FontWeight.w700)),
-                        ),
+                        Flexible(child: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: pal.text, fontSize: 17, fontWeight: FontWeight.w800, height: 1.2))),
+                        const SizedBox(width: 6),
+                        const _Tag(icon: AppIcons.sealCheck, text: 'PARTNER'),
+                        const SizedBox(width: 2),
+                        Icon(AppIcons.caretRight, size: 16, color: pal.text2),
                       ],
                     ),
+                    const SizedBox(height: 3),
+                    Text(meta, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(color: pal.text2, fontSize: 13)),
+                    if (status != null) ...[
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Icon(AppIcons.clock, size: 14, color: open ? AppColors.success : pal.text2),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(status, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: open ? AppColors.success : pal.text2, fontSize: 13, fontWeight: FontWeight.w700)),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
             _CloseButton(onTap: onClose),
@@ -418,7 +424,8 @@ class _StatChip extends StatelessWidget {
         children: [
           Icon(icon, size: 13, color: pal.text),
           const SizedBox(width: 4),
-          Text(text, style: TextStyle(color: pal.text, fontSize: 12, fontWeight: FontWeight.w700)),
+          // Ellipsis rather than overflow on a narrow phone with big text.
+          Flexible(child: Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: pal.text, fontSize: 12, fontWeight: FontWeight.w700))),
         ],
       ),
     );
@@ -476,12 +483,72 @@ class _CloseButton extends StatelessWidget {
   }
 }
 
-/// Outlined twin of [PrimaryButton] in the map's colours.
+/// The picture and the words at the top of the card, as one button to the
+/// full page (a soft highlight while pressed).
+class _Header extends StatelessWidget {
+  const _Header({required this.picture, required this.child, required this.onTap});
+  final Widget picture;
+  final Widget child;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final pal = MapPalette.of(context);
+    return Material(
+      type: MaterialType.transparency,
+      child: InkWell(
+        key: const ValueKey('place-card-header'),
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        highlightColor: pal.text.withValues(alpha: 0.06),
+        splashColor: pal.text.withValues(alpha: 0.05),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            picture,
+            const SizedBox(width: 12),
+            Expanded(child: child),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The card's main action, full width in the brand red: "View shop ›".
+class _ViewButton extends StatelessWidget {
+  const _ViewButton({super.key, required this.label, required this.onPressed});
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return PressScale(
+      child: FilledButton(
+        onPressed: onPressed,
+        style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48), textStyle: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w800)),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis)),
+            const SizedBox(width: 6),
+            const Icon(AppIcons.caretRight, size: 16, color: Colors.white),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The secondary pair under it (Go now, TT here): outlined, in the map's
+/// colours.
 class _OutlineButton extends StatelessWidget {
-  const _OutlineButton({required this.label, required this.icon, required this.onPressed});
+  const _OutlineButton({required this.label, required this.icon, required this.onPressed, this.onLongPress});
   final String label;
   final IconData icon;
   final VoidCallback onPressed;
+  /// e.g. Go now: long-press always shows the app chooser.
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -489,9 +556,14 @@ class _OutlineButton extends StatelessWidget {
     return PressScale(
       child: OutlinedButton.icon(
         onPressed: onPressed,
+        onLongPress: onLongPress,
         icon: Icon(icon, size: 18, color: pal.text),
-        label: Text(label),
-        style: OutlinedButton.styleFrom(foregroundColor: pal.text, side: BorderSide(color: pal.text.withValues(alpha: 0.28), width: 1.5)),
+        label: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: pal.text,
+          minimumSize: const Size.fromHeight(44),
+          side: BorderSide(color: pal.text.withValues(alpha: 0.28), width: 1.5),
+        ),
       ),
     );
   }

@@ -12,6 +12,7 @@ import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/titi.dart';
 import '../../../core/utils/friendly_error.dart';
+import '../../../core/widgets/glass.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../share/share_card_renderer.dart';
 import '../application/cards_providers.dart';
@@ -30,10 +31,18 @@ import 'widgets/card_face.dart';
 /// flash, the open box blows up and fades while confetti flies in the rarity
 /// colour, and the card drops in face-down and flips itself over.
 ///
-/// Stage C (revealed): rarity glow, the card in a TiltCard you can still swipe
-/// to flip, name and description, TiTi's verdict, and the footer actions.
+/// Stage C (revealed): rarity glow, the card in a TiltCard that turns over
+/// on every swipe (either way) or tap, name and description, TiTi's verdict,
+/// and a big red "Add to my cards" that rises in and breathes. Pressing it
+/// flies the card down into the button ("My cards", +1) and closes.
 /// Rare glows silver. Secret (legendary) pulls get a longer rumble, golden
 /// sparkles and a bigger gold glow.
+///
+/// Leaving never loses a card: `open_box()` adds it to `user_cards` and
+/// marks the box opened in the same transaction, on the first shake, before
+/// anything is shown. "Add to my cards" is the celebration, not a save. So
+/// once it is revealed, every way out (the X, a tap outside the card, back,
+/// a swipe down) plays the same flight, quicker, and closes.
 ///
 /// This screen is also the last onboarding step, so leaving it may need to
 /// refresh the profile provider before the router notices we are onboarded.
@@ -55,6 +64,15 @@ const _legendaryGold = Color(0xFFF4C542);
 
 class _OpenBoxScreenState extends ConsumerState<OpenBoxScreen> with TickerProviderStateMixin {
   static const _stepsToOpen = 3;
+
+  /// "Add to my cards": the flight into the button, its bump, a beat on "Saved".
+  static const _collectSlow = Duration(milliseconds: 1100);
+  /// Any other way out after the reveal: the same flight, quicker.
+  static const _collectFast = Duration(milliseconds: 700);
+  /// Where in [_collect] the card lands in the button.
+  static const _landAt = 0.66;
+  /// A drag down this far (from outside the card) closes.
+  static const _pullToClose = 90.0;
 
   _Stage _stage = _Stage.idle;
   int _steps = 0;
@@ -79,6 +97,35 @@ class _OpenBoxScreenState extends ConsumerState<OpenBoxScreen> with TickerProvid
   late final AnimationController _sparkle = AnimationController(vsync: this, duration: const Duration(seconds: 4))..repeat();
   late final List<_Particle> _particles = List.generate(46, (i) => _Particle.random(i));
 
+  // stage C
+  /// The revealed card's turn in half turns: even = front, odd = back. No
+  /// bounds, so it keeps turning over either way for as long as you like.
+  late final AnimationController _turn = AnimationController.unbounded(vsync: this);
+  /// Where [_turn] is heading (a whole number).
+  double _turnTarget = 0;
+  double _dragFrom = 0;
+  /// "Add to my cards" rising in once the card has settled.
+  late final AnimationController _cta = AnimationController(vsync: this, duration: const Duration(milliseconds: 1100));
+  /// Its slow breath and the shine across it.
+  late final AnimationController _pulse = AnimationController(vsync: this, duration: const Duration(milliseconds: 2400));
+  /// The card flying into "My cards" on the way out.
+  late final AnimationController _collect = AnimationController(vsync: this, duration: _collectSlow);
+  /// Swipe down to close: how far the page is pulled.
+  late final AnimationController _pull = AnimationController.unbounded(vsync: this);
+  bool _collecting = false;
+  bool _landed = false;
+  bool _leaving = false;
+  /// The card's box when the flight started (in [_stackKey]'s space) and
+  /// the way to the button's centre.
+  Rect? _flyFrom;
+  Offset _flyDelta = Offset.zero;
+  int? _pullPointer;
+  Offset _pullStart = Offset.zero;
+  final _stackKey = GlobalKey();
+  final _cardKey = GlobalKey();
+  final _targetKey = GlobalKey();
+  final _scroll = ScrollController();
+
   @override
   void initState() {
     super.initState();
@@ -93,11 +140,26 @@ class _OpenBoxScreenState extends ConsumerState<OpenBoxScreen> with TickerProvid
     });
     _flip.addStatusListener((s) {
       if (s == AnimationStatus.completed && mounted && _stage == _Stage.flip) {
+        _turn.value = 0;
+        _turnTarget = 0;
         setState(() => _stage = _Stage.revealed);
         _reveal.forward(from: 0);
+        _cta.forward(from: 0);
         HapticFeedback.heavyImpact();
         if (_result?.card.rarity == CardRarity.legendary) unawaited(Buzz.rumble());
       }
+    });
+    _cta.addStatusListener((s) {
+      if (s != AnimationStatus.completed || !mounted || _collecting) return;
+      if (!MediaQuery.disableAnimationsOf(context)) _pulse.repeat();
+    });
+    _collect.addListener(() {
+      if (_landed || _collect.value < _landAt || !mounted) return;
+      HapticFeedback.mediumImpact();
+      setState(() => _landed = true);
+    });
+    _collect.addStatusListener((s) {
+      if (s == AnimationStatus.completed && mounted) _leave();
     });
   }
 
@@ -115,6 +177,12 @@ class _OpenBoxScreenState extends ConsumerState<OpenBoxScreen> with TickerProvid
     _pop.dispose();
     _reveal.dispose();
     _sparkle.dispose();
+    _turn.dispose();
+    _cta.dispose();
+    _pulse.dispose();
+    _collect.dispose();
+    _pull.dispose();
+    _scroll.dispose();
     super.dispose();
   }
 
@@ -123,7 +191,7 @@ class _OpenBoxScreenState extends ConsumerState<OpenBoxScreen> with TickerProvid
   /// One shake or tap. Starts the server roll on the first, escalates the
   /// buzz and the cracks, and on the third waits for the result then bursts.
   Future<void> _advance() async {
-    if (_stage != _Stage.idle || _waiting) return;
+    if (_stage != _Stage.idle || _waiting || _leaving) return;
     _pending ??= ref.read(cardsActionsProvider).openBox(widget.boxId);
     _steps++;
     unawaited(Buzz.step(_steps));
@@ -164,20 +232,118 @@ class _OpenBoxScreenState extends ConsumerState<OpenBoxScreen> with TickerProvid
 
   // ------------------------------------------------------------------ flip ---
 
-  void _dragFlip(DragUpdateDetails d, double width) {
-    if (_stage != _Stage.revealed) return;
-    _flip.value = (_flip.value + d.primaryDelta! / (width * 0.9)).clamp(0.0, 1.0);
+  bool get _canFlip => _stage == _Stage.revealed && !_collecting;
+
+  void _flipStart(DragStartDetails _) {
+    if (!_canFlip) return;
+    _turn.stop();
+    _dragFrom = _turn.value.roundToDouble();
   }
 
-  void _endFlip(DragEndDetails d) {
-    if (_stage != _Stage.revealed) return;
+  /// Follows the finger, at most one turn per swipe.
+  void _flipUpdate(DragUpdateDetails d, double width) {
+    if (!_canFlip) return;
+    _turn.value = (_turn.value + d.primaryDelta! / (width * 0.9)).clamp(_dragFrom - 1, _dragFrom + 1);
+  }
+
+  /// A flick turns it over that way; a slow drag past halfway does too;
+  /// anything less springs back.
+  void _flipEnd(DragEndDetails d) {
+    if (!_canFlip) return;
     final v = d.primaryVelocity ?? 0;
-    final forward = v > 400 || (v > -400 && _flip.value > 0.5);
-    if (forward) {
-      _flip.animateTo(1, duration: const Duration(milliseconds: 280), curve: Curves.easeOut);
+    final step = v.abs() > 350 ? v.sign : (_turn.value - _dragFrom).roundToDouble();
+    _turnTo(_dragFrom + step);
+  }
+
+  /// Tap: over to the other side.
+  void _tapFlip() {
+    if (!_canFlip) return;
+    _turnTo(_turnTarget.roundToDouble() + 1);
+  }
+
+  void _turnTo(double target, {int ms = 380}) {
+    if (target.round().isOdd != _turn.value.round().isOdd) HapticFeedback.selectionClick();
+    _turnTarget = target;
+    _turn.animateTo(target, duration: Duration(milliseconds: ms), curve: Curves.easeOutCubic);
+  }
+
+  // ------------------------------------------------------------- closing ---
+
+  /// The X, back, a tap outside the card or a swipe down. Before the reveal
+  /// it leaves at once (the box stays sealed, or, once a shake started the
+  /// roll, the card is already in the collection). After it the card flies
+  /// into "My cards" first.
+  void _close() {
+    if (_collecting || _leaving) return;
+    if (_stage == _Stage.revealed) {
+      _startCollect(fast: true);
     } else {
-      _flip.animateBack(0, duration: const Duration(milliseconds: 280), curve: Curves.easeOut);
+      _leave();
     }
+  }
+
+  void _addToCards() {
+    if (_collecting || _leaving || _stage != _Stage.revealed) return;
+    _startCollect(fast: false);
+  }
+
+  /// The card shrinks and flies down into the button, which then bumps and
+  /// says it's saved; the screen closes when the flight ends.
+  void _startCollect({required bool fast}) {
+    HapticFeedback.lightImpact();
+    _pulse.stop();
+    final stack = _stackKey.currentContext?.findRenderObject();
+    final card = _cardKey.currentContext?.findRenderObject();
+    final target = _targetKey.currentContext?.findRenderObject();
+    if (stack is RenderBox && card is RenderBox && stack.hasSize && card.hasSize) {
+      final from = card.localToGlobal(Offset.zero, ancestor: stack) & card.size;
+      final to = target is RenderBox && target.hasSize
+          ? target.localToGlobal(target.size.center(Offset.zero), ancestor: stack)
+          : Offset(from.center.dx, stack.size.height + from.height / 2);
+      _flyFrom = from;
+      _flyDelta = to - from.center;
+    }
+    // Front up on the way down.
+    final front = (_turnTarget / 2).roundToDouble() * 2;
+    if (front != _turnTarget) _turnTo(front, ms: 300);
+    setState(() => _collecting = true);
+    _collect.duration = fast ? _collectFast : _collectSlow;
+    _collect.forward(from: 0);
+  }
+
+  // Swipe down: raw pointer events, so the card's own drags (flip, tilt)
+  // and the buttons never compete with it. Only from outside the card, and
+  // only while the page is not scrolled.
+  void _onPointerDown(PointerDownEvent e) {
+    if (_stage != _Stage.revealed || _collecting || _leaving || _pullPointer != null) return;
+    if (_scroll.hasClients && _scroll.offset > 0) return;
+    final card = _cardKey.currentContext?.findRenderObject();
+    if (card is RenderBox && card.hasSize && (card.localToGlobal(Offset.zero) & card.size).contains(e.position)) return;
+    _pull.stop();
+    _pullPointer = e.pointer;
+    _pullStart = e.position;
+  }
+
+  void _onPointerMove(PointerMoveEvent e) {
+    if (e.pointer != _pullPointer) return;
+    _pull.value = math.max(0.0, e.position.dy - _pullStart.dy);
+  }
+
+  void _onPointerUp(PointerUpEvent e) {
+    if (e.pointer != _pullPointer) return;
+    _pullPointer = null;
+    final d = e.position - _pullStart;
+    if (d.dy > _pullToClose && d.dy > d.dx.abs()) {
+      _close();
+    } else {
+      _pull.animateTo(0, duration: const Duration(milliseconds: 220), curve: Curves.easeOut);
+    }
+  }
+
+  void _onPointerCancel(PointerCancelEvent e) {
+    if (e.pointer != _pullPointer) return;
+    _pullPointer = null;
+    _pull.animateTo(0, duration: const Duration(milliseconds: 220), curve: Curves.easeOut);
   }
 
   // ------------------------------------------------------------- navigation ---
@@ -186,6 +352,8 @@ class _OpenBoxScreenState extends ConsumerState<OpenBoxScreen> with TickerProvid
   /// says "not onboarded": refresh it and wait for the answer BEFORE moving,
   /// or the router bounces through /onboarding for a frame on the way out.
   Future<void> _leave() async {
+    if (_leaving) return;
+    _leaving = true;
     final onboarded = ref.read(currentProfileProvider).value?.isOnboarded == true;
     if (!onboarded) {
       ref.invalidate(currentProfileProvider);
@@ -202,6 +370,7 @@ class _OpenBoxScreenState extends ConsumerState<OpenBoxScreen> with TickerProvid
   }
 
   void _openAnother() {
+    if (_collecting || _leaving) return;
     final next = ref.read(sealedBoxesProvider).where((b) => b.id != widget.boxId).firstOrNull;
     if (next == null) return;
     context.pushReplacement(Routes.openBox(next.id));
@@ -209,7 +378,7 @@ class _OpenBoxScreenState extends ConsumerState<OpenBoxScreen> with TickerProvid
 
   void _share() {
     final c = _result?.card;
-    if (c == null) return;
+    if (c == null || _collecting) return;
     showShareCardSheet(context, CardPullShareSpec(card: c));
   }
 
@@ -259,72 +428,139 @@ class _OpenBoxScreenState extends ConsumerState<OpenBoxScreen> with TickerProvid
     return total == null ? 'NO. $serial' : 'NO. $serial OF $total';
   }
 
+  /// 0 → 1 over [from]..[to] of [t].
+  static double _span(double t, double from, double to) => ((t - from) / (to - from)).clamp(0.0, 1.0);
+
   // ------------------------------------------------------------------- build ---
 
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
-    final cardW = math.min(size.width * 0.58, 224.0);
+    // Shorter phones get a smaller card, so the verdict and buttons still fit.
+    final cardW = math.min(math.min(size.width * 0.58, 224.0), size.height * 0.39 * kCardAspect);
     final boxW = math.min(size.width * 0.6, 230.0);
     final rarity = _result?.card.rarity;
     final moreBoxes = ref.watch(sealedBoxesProvider).where((b) => b.id != widget.boxId).length;
     final revealed = _stage == _Stage.revealed;
     final legendary = rarity == CardRarity.legendary;
     final rare = rarity == CardRarity.rare;
+    final result = _result;
 
-    return Scaffold(
-      backgroundColor: AppColors.ink,
-      body: Stack(
-        children: [
-          // rarity glow once revealed (silver for rare; bigger + gold for the Secret)
-          Positioned.fill(
-            child: AnimatedBuilder(
-              animation: Listenable.merge([_reveal, _sparkle]),
-              builder: (_, _) {
-                final t = Curves.easeOut.transform(_reveal.value);
-                final pulse = 0.85 + 0.15 * math.sin(_sparkle.value * 2 * math.pi);
-                return DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: RadialGradient(
-                      center: const Alignment(0, -0.2),
-                      radius: (legendary ? 1.15 : (rare ? 0.95 : 0.85)) * pulse,
-                      colors: [_glowFor(rarity).withValues(alpha: (legendary ? 0.6 : (rare ? 0.5 : 0.45)) * t), AppColors.ink.withValues(alpha: 0)],
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-          if (revealed && legendary) Positioned.fill(child: IgnorePointer(child: CustomPaint(painter: _SparklePainter(_sparkle)))),
-          SafeArea(
-            child: Column(
-              children: [
-                _topRow(moreBoxes + 1),
-                Expanded(
-                  child: Center(
-                    child: SingleChildScrollView(
-                      child: switch (_stage) {
-                        _Stage.idle => _boxStage(boxW),
-                        _ => _cardStage(cardW, boxW),
-                      },
-                    ),
-                  ),
-                ),
-                _footer(moreBoxes),
-              ],
-            ),
-          ),
-          // white flash at the burst
-          if (_stage == _Stage.burst)
+    return PopScope(
+      // Back always comes through here: after the reveal it flies the card
+      // home first, and at the end of onboarding [_leave] refreshes the
+      // profile before moving.
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _close();
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.ink,
+        body: Stack(
+          key: _stackKey,
+          children: [
+            // rarity glow once revealed (silver for rare; bigger + gold for the Secret)
             Positioned.fill(
-              child: IgnorePointer(
-                child: AnimatedBuilder(
-                  animation: _flash,
-                  builder: (_, _) => Opacity(opacity: 1 - Curves.easeOut.transform(_flash.value), child: const ColoredBox(color: Colors.white)),
+              child: AnimatedBuilder(
+                animation: Listenable.merge([_reveal, _sparkle]),
+                builder: (_, _) {
+                  final t = Curves.easeOut.transform(_reveal.value);
+                  final pulse = 0.85 + 0.15 * math.sin(_sparkle.value * 2 * math.pi);
+                  return DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: RadialGradient(
+                        center: const Alignment(0, -0.2),
+                        radius: (legendary ? 1.15 : (rare ? 0.95 : 0.85)) * pulse,
+                        colors: [_glowFor(rarity).withValues(alpha: (legendary ? 0.6 : (rare ? 0.5 : 0.45)) * t), AppColors.ink.withValues(alpha: 0)],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            if (revealed && legendary) Positioned.fill(child: IgnorePointer(child: CustomPaint(painter: _SparklePainter(_sparkle)))),
+            // After the reveal, everything outside the card is the backdrop:
+            // a tap on it closes (the card is already saved), and so does a
+            // swipe down that starts outside the card.
+            Positioned.fill(
+              child: Listener(
+                onPointerDown: _onPointerDown,
+                onPointerMove: _onPointerMove,
+                onPointerUp: _onPointerUp,
+                onPointerCancel: _onPointerCancel,
+                child: GestureDetector(
+                  key: const ValueKey('open-box-backdrop'),
+                  behavior: HitTestBehavior.opaque,
+                  onTap: revealed && !_collecting ? _close : null,
+                  child: AnimatedBuilder(
+                    animation: _pull,
+                    builder: (_, child) {
+                      final pull = math.max(0.0, _pull.value);
+                      return Opacity(
+                        opacity: 1 - (pull / 500).clamp(0.0, 0.35),
+                        child: Transform.translate(offset: Offset(0, pull * 0.6), child: child),
+                      );
+                    },
+                    child: SafeArea(
+                      child: Column(
+                        children: [
+                          _topRow(moreBoxes + 1),
+                          Expanded(
+                            child: Center(
+                              child: SingleChildScrollView(
+                                controller: _scroll,
+                                child: switch (_stage) {
+                                  _Stage.idle => _boxStage(boxW),
+                                  _ => _cardStage(cardW, boxW),
+                                },
+                              ),
+                            ),
+                          ),
+                          _footer(moreBoxes),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),
-        ],
+            // the card on its way into "My cards", above everything
+            if (_flyFrom case final from? when _collecting && result != null)
+              Positioned.fromRect(
+                rect: from,
+                child: IgnorePointer(
+                  child: AnimatedBuilder(
+                    animation: _collect,
+                    builder: (_, child) {
+                      final p = _collect.value;
+                      final hop = Curves.easeOut.transform(_span(p, 0, 0.2));
+                      final fly = Curves.easeInCubic.transform(_span(p, 0.14, _landAt));
+                      final scale = (1 - 0.06 * hop) * (1 - 0.86 * fly);
+                      final offset = Offset(0, -18 * hop * (1 - fly)) + _flyDelta * fly;
+                      return Opacity(
+                        opacity: 1 - _span(p, _landAt - 0.08, _landAt),
+                        child: Transform.translate(
+                          offset: offset,
+                          child: Transform.rotate(angle: -0.2 * fly, child: Transform.scale(scale: scale, child: child)),
+                        ),
+                      );
+                    },
+                    child: _turningCard(result.card, from.width),
+                  ),
+                ),
+              ),
+            // white flash at the burst
+            if (_stage == _Stage.burst)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: AnimatedBuilder(
+                    animation: _flash,
+                    builder: (_, _) => Opacity(opacity: 1 - Curves.easeOut.transform(_flash.value), child: const ColoredBox(color: Colors.white)),
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -351,12 +587,28 @@ class _OpenBoxScreenState extends ConsumerState<OpenBoxScreen> with TickerProvid
       label = const SizedBox(key: ValueKey('none'));
     }
     return SizedBox(
-      height: 56,
+      height: 60,
       child: Row(
         children: [
-          IconButton(icon: const Icon(AppIcons.x, color: Colors.white), onPressed: _leave),
+          const SizedBox(width: 60),
           Expanded(child: Center(child: AnimatedSwitcher(duration: const Duration(milliseconds: 220), child: label))),
-          const SizedBox(width: 48),
+          // Always there, in the corner people look for it: a filled round X.
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: Tooltip(
+              message: 'Close',
+              child: Material(
+                color: Colors.white.withValues(alpha: 0.16),
+                shape: const CircleBorder(),
+                child: InkWell(
+                  key: const ValueKey('open-box-close'),
+                  customBorder: const CircleBorder(),
+                  onTap: _close,
+                  child: const SizedBox(width: 44, height: 44, child: Icon(AppIcons.x, color: Colors.white, size: 22)),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -403,13 +655,20 @@ class _OpenBoxScreenState extends ConsumerState<OpenBoxScreen> with TickerProvid
         AnimatedBuilder(
           animation: _bob,
           builder: (_, child) => Opacity(opacity: 0.7 + 0.3 * _bob.value, child: child),
-          child: const Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(AppIcons.vibrate, color: Colors.white, size: 24),
-              SizedBox(width: 10),
-              Text('SHAKE TO OPEN', style: TextStyle(fontFamily: AppFonts.display, fontSize: 26, fontWeight: FontWeight.w800, letterSpacing: 3, color: Colors.white, height: 1)),
-            ],
+          // Shrinks rather than overflows on a narrow phone with big text.
+          child: const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 24),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(AppIcons.vibrate, color: Colors.white, size: 24),
+                  SizedBox(width: 10),
+                  Text('SHAKE TO OPEN', style: TextStyle(fontFamily: AppFonts.display, fontSize: 26, fontWeight: FontWeight.w800, letterSpacing: 3, color: Colors.white, height: 1)),
+                ],
+              ),
+            ),
           ),
         ),
         const SizedBox(height: 8),
@@ -502,12 +761,33 @@ class _OpenBoxScreenState extends ConsumerState<OpenBoxScreen> with TickerProvid
 
   // ----------------------------------------------------------- stage B + C ---
 
+  /// The revealed card at its current turn: the front on even half turns,
+  /// the back on odd ones, never mirrored.
+  Widget _turningCard(CardType card, double width) {
+    return AnimatedBuilder(
+      animation: _turn,
+      builder: (_, _) {
+        final angle = _turn.value * math.pi;
+        final front = math.cos(angle) >= 0;
+        final m = Matrix4.identity()
+          ..setEntry(3, 2, 0.0014)
+          ..rotateY(front ? angle : angle - math.pi);
+        return Transform(
+          alignment: Alignment.center,
+          transform: m,
+          child: front ? CardFace(key: const ValueKey('card-front'), card: card, width: width) : CardBack(key: const ValueKey('card-back'), width: width),
+        );
+      },
+    );
+  }
+
   Widget _cardStage(double cardW, double boxW) {
     final r = _result!;
     final cardH = cardW / kCardAspect;
     final revealed = _stage == _Stage.revealed;
 
-    final card = AnimatedBuilder(
+    // the drop-in: face-down, then it turns itself over
+    final dropCard = AnimatedBuilder(
       animation: _flip,
       builder: (_, _) {
         final angle = _flip.value * math.pi;
@@ -533,7 +813,7 @@ class _OpenBoxScreenState extends ConsumerState<OpenBoxScreen> with TickerProvid
           child: Transform.translate(offset: Offset(0, -(1 - t) * 240), child: child),
         );
       },
-      child: card,
+      child: dropCard,
     );
 
     final cardArea = SizedBox(
@@ -567,11 +847,19 @@ class _OpenBoxScreenState extends ConsumerState<OpenBoxScreen> with TickerProvid
             ),
           ],
           if (revealed)
-            GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onHorizontalDragUpdate: (d) => _dragFlip(d, cardW),
-              onHorizontalDragEnd: _endFlip,
-              child: SizedBox(width: cardW, height: cardH, child: TiltCard(child: card)),
+            // Swipe either way, as often as you like, or tap: it turns over.
+            // Hidden while its copy flies into "My cards".
+            Opacity(
+              opacity: _collecting && _flyFrom != null ? 0 : 1,
+              child: GestureDetector(
+                key: _cardKey,
+                behavior: HitTestBehavior.opaque,
+                onTap: _tapFlip,
+                onHorizontalDragStart: _flipStart,
+                onHorizontalDragUpdate: (d) => _flipUpdate(d, cardW),
+                onHorizontalDragEnd: _flipEnd,
+                child: SizedBox(width: cardW, height: cardH, child: TiltCard(child: _turningCard(r.card, cardW))),
+              ),
             )
           else
             dropped,
@@ -579,56 +867,95 @@ class _OpenBoxScreenState extends ConsumerState<OpenBoxScreen> with TickerProvid
       ),
     );
 
+    // Fades in with the reveal, out as the card leaves.
+    Widget revealFade(Widget child, {double rise = 18}) => AnimatedBuilder(
+          animation: Listenable.merge([_reveal, _collect]),
+          builder: (_, child) {
+            final t = Curves.easeOutCubic.transform(_reveal.value);
+            final out = _collecting ? _span(_collect.value, 0, 0.3) : 0.0;
+            return Opacity(opacity: (t * (1 - out)).clamp(0.0, 1.0), child: Transform.translate(offset: Offset(0, (1 - t) * rise), child: child));
+          },
+          child: child,
+        );
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         const SizedBox(height: 8),
         cardArea,
-        const SizedBox(height: 22),
-        // name, description, count and TiTi's verdict slide in on reveal
-        AnimatedBuilder(
-          animation: _reveal,
-          builder: (_, child) {
-            final t = Curves.easeOutCubic.transform(_reveal.value);
-            return Opacity(opacity: t, child: Transform.translate(offset: Offset(0, (1 - t) * 18), child: child));
-          },
+        // "Swipe to flip", right under the card
+        SizedBox(
+          height: 40,
           child: revealed
-              ? Column(
-                  children: [
-                    Text(r.card.name, textAlign: TextAlign.center, style: const TextStyle(fontFamily: AppFonts.display, fontSize: 40, fontWeight: FontWeight.w800, color: Colors.white, height: 1)),
-                    if (r.card.description != null) ...[
-                      const SizedBox(height: 8),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 40),
-                        child: Text(r.card.description!, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white60, fontSize: 13, height: 1.4)),
-                      ),
-                    ],
-                    const SizedBox(height: 8),
-                    Text(
-                      r.isNew ? 'NEW · first one in your collection' : 'You now have ${r.held} of these',
-                      style: TextStyle(color: r.isNew ? AppColors.brand : Colors.white70, fontSize: 13.5, fontWeight: FontWeight.w700),
+              ? revealFade(
+                  rise: 6,
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 24),
+                    child: Row(
+                      key: ValueKey('flip-hint'),
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(AppIcons.arrowLeft, color: Colors.white54, size: 14),
+                        SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            'Swipe or tap to flip',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(color: Colors.white70, fontSize: 12.5, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                        SizedBox(width: 8),
+                        Icon(AppIcons.arrowRight, color: Colors.white54, size: 14),
+                      ],
                     ),
-                    if (_serialLabel(r) case final no?) ...[
-                      const SizedBox(height: 6),
-                      Text(no, style: const TextStyle(fontFamily: AppFonts.display, fontSize: 22, fontWeight: FontWeight.w800, letterSpacing: 1, color: _legendaryGold)),
-                    ],
-                    const SizedBox(height: 18),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          const TitiAvatar(TitiPose.celebrate, size: 48, background: Colors.white),
-                          const SizedBox(width: 10),
-                          Flexible(child: TitiBubble(_verdict(r.card.rarity), dark: false, fontSize: 14)),
-                        ],
-                      ),
-                    ),
-                  ],
+                  ),
                 )
-              // roughly the height of the text block, so the card barely moves on reveal
-              : const SizedBox(height: 200),
+              : null,
         ),
+        // name, description, count and TiTi's verdict slide in on reveal
+        if (revealed)
+          revealFade(
+            Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Text(r.card.name, textAlign: TextAlign.center, style: const TextStyle(fontFamily: AppFonts.display, fontSize: 40, fontWeight: FontWeight.w800, color: Colors.white, height: 1)),
+                ),
+                if (r.card.description != null) ...[
+                  const SizedBox(height: 8),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 40),
+                    child: Text(r.card.description!, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white60, fontSize: 13, height: 1.4)),
+                  ),
+                ],
+                const SizedBox(height: 8),
+                Text(
+                  r.isNew ? 'NEW · first one in your collection' : 'You now have ${r.held} of these',
+                  style: TextStyle(color: r.isNew ? AppColors.brand : Colors.white70, fontSize: 13.5, fontWeight: FontWeight.w700),
+                ),
+                if (_serialLabel(r) case final no?) ...[
+                  const SizedBox(height: 6),
+                  Text(no, style: const TextStyle(fontFamily: AppFonts.display, fontSize: 22, fontWeight: FontWeight.w800, letterSpacing: 1, color: _legendaryGold)),
+                ],
+                const SizedBox(height: 16),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      const TitiAvatar(TitiPose.celebrate, size: 48, background: Colors.white),
+                      const SizedBox(width: 10),
+                      Flexible(child: TitiBubble(_verdict(r.card.rarity), dark: false, fontSize: 14)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          )
+        // roughly the height of the text block, so the card barely moves on reveal
+        else
+          const SizedBox(height: 180),
       ],
     );
   }
@@ -656,57 +983,219 @@ class _OpenBoxScreenState extends ConsumerState<OpenBoxScreen> with TickerProvid
         ),
       );
     }
+    // Everything but the button steps aside while the card flies into it.
+    Widget aside(Widget child) => AnimatedBuilder(
+          animation: Listenable.merge([_cta, _collect]),
+          builder: (_, child) => Opacity(
+            opacity: (_span(_cta.value, 0.5, 0.9) * (1 - (_collecting ? _span(_collect.value, 0, 0.25) : 0))).clamp(0.0, 1.0),
+            child: child,
+          ),
+          child: child,
+        );
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
+      padding: const EdgeInsets.fromLTRB(24, 6, 24, 12),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          ScaleTransition(
-            scale: _pop,
-            child: Row(
-              children: [
-                Expanded(
-                  child: FilledButton(
-                    style: FilledButton.styleFrom(backgroundColor: Colors.white, foregroundColor: AppColors.ink, minimumSize: const Size(0, 54)),
-                    onPressed: _leave,
-                    child: const Text('Add to my cards'),
-                  ),
-                ),
-                const SizedBox(width: 10),
+          Row(
+            children: [
+              Expanded(child: _collectButton()),
+              const SizedBox(width: 10),
+              aside(
                 SizedBox(
-                  width: 54,
-                  height: 54,
+                  width: 56,
+                  height: 56,
                   child: OutlinedButton(
                     style: OutlinedButton.styleFrom(
                       padding: EdgeInsets.zero,
+                      minimumSize: const Size(56, 56),
                       foregroundColor: Colors.white,
                       side: const BorderSide(color: Colors.white38),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                     ),
                     onPressed: _share,
                     child: const Icon(AppIcons.export, size: 22),
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
           if (moreBoxes > 0) ...[
             const SizedBox(height: 10),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton(
-                style: OutlinedButton.styleFrom(foregroundColor: Colors.white, side: const BorderSide(color: Colors.white38), minimumSize: const Size(0, 48)),
-                onPressed: _openAnother,
-                child: Text('Open another ($moreBoxes)'),
+            aside(
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  style: OutlinedButton.styleFrom(foregroundColor: Colors.white, side: const BorderSide(color: Colors.white38), minimumSize: const Size(0, 48)),
+                  onPressed: _openAnother,
+                  child: Text('Open another ($moreBoxes)'),
+                ),
               ),
             ),
           ],
-          const SizedBox(height: 12),
-          const Text('Swipe the card to see the back · 7 to collect', style: TextStyle(color: Colors.white70, fontSize: 13)),
+          const SizedBox(height: 10),
+          aside(
+            const Text(
+              'Already in your cards · tap outside to close',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.white54, fontSize: 12.5),
+            ),
+          ),
         ],
       ),
     );
   }
+
+  /// "Add to my cards": rises in once the card has settled, then breathes
+  /// with a shine sweeping across. Pressed, it becomes the "My cards" the
+  /// card flies into, bumps when it lands and shows +1.
+  Widget _collectButton() {
+    final Widget label;
+    if (!_collecting) {
+      label = const Row(
+        key: ValueKey('add'),
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(AppIcons.plusCircle, color: Colors.white, size: 22),
+          SizedBox(width: 8),
+          Flexible(child: Text('Add to my cards', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w800))),
+        ],
+      );
+    } else if (!_landed) {
+      label = const Row(
+        key: ValueKey('target'),
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(AppIcons.cards, color: Colors.white, size: 22),
+          SizedBox(width: 8),
+          Flexible(child: Text('My cards', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w800))),
+        ],
+      );
+    } else {
+      label = const Row(
+        key: ValueKey('saved'),
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(AppIcons.checkCircleFill, color: Colors.white, size: 22),
+          SizedBox(width: 8),
+          Flexible(child: Text('Saved to My cards', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w800))),
+        ],
+      );
+    }
+
+    final button = Container(
+      key: _targetKey,
+      height: 56,
+      decoration: BoxDecoration(color: AppColors.brand, borderRadius: BorderRadius.circular(16)),
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          key: const ValueKey('open-box-add'),
+          onTap: _addToCards,
+          borderRadius: BorderRadius.circular(16),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // the shine: a soft band sweeping across now and then
+              ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: IgnorePointer(
+                  child: AnimatedBuilder(
+                    animation: _pulse,
+                    builder: (_, _) => _pulse.isAnimating ? CustomPaint(painter: _ShinePainter(_span(_pulse.value, 0.05, 0.5))) : const SizedBox.shrink(),
+                  ),
+                ),
+              ),
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: AnimatedSwitcher(duration: const Duration(milliseconds: 180), child: label),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    return AnimatedBuilder(
+      animation: Listenable.merge([_cta, _pulse, _collect]),
+      builder: (_, child) {
+        final shown = _span(_cta.value, 0.35, 0.65);
+        final rise = Curves.easeOutBack.transform(_span(_cta.value, 0.35, 1));
+        final breath = _pulse.isAnimating ? math.sin(_pulse.value * 2 * math.pi) : 0.0;
+        final bump = _collecting ? math.sin(math.pi * _span(_collect.value, _landAt, _landAt + 0.18)) : 0.0;
+        final glow = (0.3 + 0.15 * breath + 0.4 * bump) * shown;
+        return Opacity(
+          opacity: shown,
+          child: Transform.translate(
+            offset: Offset(0, (1 - rise) * 72),
+            child: Transform.scale(
+              scale: 1 + 0.022 * breath + 0.09 * bump,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [BoxShadow(color: AppColors.brand.withValues(alpha: glow.clamp(0.0, 1.0)), blurRadius: 22, spreadRadius: 1)],
+                ),
+                child: child,
+              ),
+            ),
+          ),
+        );
+      },
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          PressScale(enabled: !_collecting, child: button),
+          // +1 pops on the corner when the card lands
+          Positioned(
+            top: -10,
+            right: -6,
+            child: IgnorePointer(
+              child: AnimatedScale(
+                scale: _landed ? 1 : 0,
+                duration: const Duration(milliseconds: 260),
+                curve: Curves.easeOutBack,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(999)),
+                  child: const Text('+1', style: TextStyle(color: AppColors.brand, fontSize: 13, fontWeight: FontWeight.w900)),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A soft white band sweeping left to right across the button at [t] (0..1).
+class _ShinePainter extends CustomPainter {
+  const _ShinePainter(this.t);
+  final double t;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (t <= 0 || t >= 1) return;
+    final band = size.height * 1.1;
+    final x = -band + (size.width + band * 2) * Curves.easeInOut.transform(t);
+    final rect = Rect.fromLTWH(x - band / 2, 0, band, size.height);
+    final paint = Paint()
+      ..shader = LinearGradient(
+        colors: [Colors.white.withValues(alpha: 0), Colors.white.withValues(alpha: 0.32), Colors.white.withValues(alpha: 0)],
+      ).createShader(rect);
+    canvas.save();
+    // lean the band like light across a glossy face
+    canvas.translate(x, size.height / 2);
+    canvas.skew(-0.45, 0);
+    canvas.translate(-x, -size.height / 2);
+    canvas.drawRect(rect, paint);
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_ShinePainter old) => old.t != t;
 }
 
 /// Cracks spreading from the lid seam, a golden glow leaking out of it, and

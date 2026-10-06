@@ -1411,6 +1411,17 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     });
     ref.listen(livePositionProvider, (_, _) => _paintCircles());
     ref.listen(myLocationProvider, (_, _) => _paintCircles());
+    // My cars load after the map's first draw (cold start): redraw my pin so
+    // my toy replaces the stand-in, and again whenever my default car or its
+    // toy changes.
+    final myId = ref.watch(currentUserIdProvider);
+    if (myId != null) {
+      ref.listen(userCarsProvider(myId), (p, n) {
+        final before = p?.value?.where((c) => c.isDefault).firstOrNull;
+        final after = n.value?.where((c) => c.isDefault).firstOrNull ?? n.value?.firstOrNull;
+        if (before?.id != after?.id || before?.toyUrl != after?.toyUrl || p?.value == null) _updateMe();
+      });
+    }
     ref.listen(friendTagsProvider, (p, n) {
       if (_newData(p, n)) _scheduleRebuild();
     });

@@ -10,6 +10,18 @@ class ReleaseNote {
 
 const kReleaseNotes = <ReleaseNote>[
   ReleaseNote(
+    version: '0.3.57',
+    date: '7 Oct 2026',
+    title: 'Cleaner map and a permissions step',
+    points: [
+      'Zoomed in, your car sits right where you are: no dot, no glow. An arrow shows only while you drive.',
+      'Zoomed out, you are a clean dot with a soft beam showing your direction.',
+      'Partner shops and events stay on the map however far you zoom out. Partner pins are bigger.',
+      'New members get one simple page to turn on location and notifications.',
+      'Your garage always keeps at least one car.',
+    ],
+  ),
+  ReleaseNote(
     version: '0.3.56',
     date: '6 Oct 2026',
     title: 'Your car page, paint colour and club members',

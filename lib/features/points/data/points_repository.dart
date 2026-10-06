@@ -6,6 +6,7 @@ import '../../../core/config/media.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/utils/thumbnails.dart';
 import '../domain/points.dart';
+import '../domain/points_week.dart';
 import '../domain/verification.dart';
 
 /// Points ledger, earn rules, referral codes, and the QR RPCs.
@@ -26,6 +27,12 @@ class PointsRepository {
   Future<List<PointRule>> rules() async {
     final rows = await _client.from('point_rules').select().order('sort', ascending: true);
     return rows.map(PointRule.fromMap).toList();
+  }
+
+  /// When the weekly limits reset and whether this week's post has paid.
+  Future<PointsWeek> week() async {
+    final v = await _client.rpc('points_week_status');
+    return PointsWeek.fromMap((v as Map).cast<String, dynamic>());
   }
 
   // -------------------------------------------------------------- referrals ---

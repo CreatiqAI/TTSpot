@@ -169,16 +169,20 @@ const APP_LINKS = [
   "[Settings](/settings)",
 ].join(", ");
 
+// Points and badges as of 20261006000108_points_badges.sql (2026-10-06).
 // Read from the app's code and migrations on 2026-09-30 (point_rules, blind_box,
 // vendors, meet_checkin_flow, event_car, organizer, lucky_draw, club_tiers...).
 // Keep in step when those rules change.
 const APP_FACTS = `The app's tabs: Posts, Map, Chats, Me, and the centre + button (Create).
 
 Points (balance, history and how to earn: Me → Points, /me/points)
-- Check in at a meet: +30 (once per meet). Check in at a spot: +20 (within 300 m, once per spot per day). Verified spot check-in (scan the spot's sticker and snap your car, then it's approved): +50.
-- A spot you suggested goes live: +30. Each badge unlocked: +25. Invite a friend: you get +100 and they get +50 when they do their first check-in.
+- Check in at a meet: +10 (once per meet). Check in at a spot or a partner shop: +10 (within 300 m; the same spot pays once per week, and checking in again that week still counts but earns 0).
+- Share a post: +10 for one post a week (it must pass the photo check). Earn a badge: +10, and +10 again every time a badge moves up a tier.
+- Bring a friend: you get +5 and they get +5 when they do their first check-in.
+- Weekly limits reset every Friday at 6 PM Malaysia time.
 - Spend points on blind boxes (100 each) and partner vouchers (the partner sets the price; some are free).
-- No daily login bonus and no levels. 12 badges (Me → Badges).
+- No daily login bonus and no levels.
+- Badges (Me → Badges): 5 badges, each with 4 tiers: Bronze, Silver, Platinum, Gold. Posts (1/10/20/50 posts), Car meet organizer (1/10/20/50 meets hosted or co-hosted), Car meet joining (1/20/50/100 meets joined), Explorer (1/10/20/50 different spots, partner shops and meets checked in at; TT sessions don't count), Popular (1/50/100/200 followers). Members pick up to 3 to show on their profile.
 
 Blind box cards (/cards)
 - One free box when you finish sign-up; after that a box costs 100 points.
@@ -193,7 +197,7 @@ Vouchers (/rewards)
 
 Check-ins
 - Meets: check-in opens 1 hour before the start and closes when the meet ends (or 6 hours after the start). Tap "I'm here · check in" within 500 m, or scan the host's QR within 300 m. If you're going, the app can check you in by itself when you arrive. Hosts of small meets confirm who was really there.
-- Spots: tap Check in on the spot's page within 300 m, once a day per spot. A moment posted at the spot counts too.
+- Spots: tap Check in on the spot's page within 300 m, once a day per spot (points once a week per spot). A moment posted at the spot counts too.
 
 TT now, TT sessions and meets
 - TT now: the red TT NOW button at the top of Create. Tell friends where you are right now: pick the place, how long (1 hour by default, 15 minutes to 8 hours) and who to ping (all friends by default). Friends and clubmates see it on the map, and you're checked in.

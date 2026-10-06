@@ -41,8 +41,6 @@ final unreadNotificationsProvider = StreamProvider<int>((ref) {
 });
 
 final allBadgesProvider = FutureProvider<List<AppBadge>>((ref) => ref.watch(notificationsRepositoryProvider).allBadges());
-final earnedBadgesProvider = FutureProvider.family<List<EarnedBadge>, String>((ref, userId) => ref.watch(notificationsRepositoryProvider).earnedBadges(userId));
-final ttStreakProvider = FutureProvider.family<int, String>((ref, userId) => ref.watch(notificationsRepositoryProvider).ttStreak(userId));
 
 class NotificationActions {
   NotificationActions(this._ref);

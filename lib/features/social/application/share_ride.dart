@@ -23,8 +23,8 @@ import 'social_providers.dart';
 // my empty Posts tab. Every member adds car photos at sign-up, few post. One
 // tap turns the car into a normal post: its photos copied into post-photos
 // (with grid thumbnails, like any upload), "My <make> <model>", the car
-// tagged. The database gives 50 points for a first post (point_rules
-// 'first_post', once per member, when the photo check says ok).
+// tagged. The database gives 10 points for it (point_rules 'weekly_post':
+// the first post of each points week, when the photo check says ok).
 
 /// profiles.settings key: "Not now" was tapped (kept across devices).
 const kShareRideDismissedKey = 'share_ride_dismissed';

@@ -10,8 +10,9 @@ import '../../../../core/widgets/thumb_image.dart';
 import '../../../profile/domain/car.dart';
 import '../../application/share_ride.dart';
 
-/// Points for a first post, as the card words it (point_rules 'first_post').
-const kFirstPostPoints = 50;
+/// Points for a first post, as the card words it: point_rules 'weekly_post'
+/// (+10 for the first post of each points week, 20261006000108).
+const kFirstPostPoints = 10;
 
 /// "Share your ride" where it belongs (top of For you, my empty Posts tab):
 /// shows itself only when [shareRideCarProvider] has a car for me, then the

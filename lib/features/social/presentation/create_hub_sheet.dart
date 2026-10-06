@@ -165,7 +165,7 @@ class _CreateHubContentState extends State<CreateHubContent> {
           _Row(icon: AppIcons.chartBar, title: 'Poll', subtitle: 'Ask the community', onTap: () => go(Routes.createPost(PostKind.poll))),
         ],
         _Row(icon: AppIcons.chatCircleDots, title: 'Ask TiTi', subtitle: 'Meets, spots, app help, car tips', onTap: () => go(Routes.titi)),
-        _Row(icon: AppIcons.mapPinPlus, title: 'Suggest a spot', subtitle: 'A good mamak, carpark or road. 30 points if it goes live', onTap: () => go(Routes.suggestSpot)),
+        _Row(icon: AppIcons.mapPinPlus, title: 'Suggest a spot', subtitle: 'A good mamak, carpark or road we should add', onTap: () => go(Routes.suggestSpot)),
         _Row(icon: AppIcons.car, title: 'Add a car', subtitle: 'Park it in your garage', onTap: () => go(Routes.newCar)),
         _Row(icon: AppIcons.images, title: 'Moment album', subtitle: 'Group moments on your profile', onTap: () => go(Routes.newAlbum)),
         if (kSocialFeed) _Row(icon: AppIcons.shield, title: 'Start a car club', subtitle: 'Clubs and partners host public events', onTap: () => go(Routes.clubApply)),

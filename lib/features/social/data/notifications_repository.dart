@@ -49,18 +49,6 @@ class NotificationsRepository {
     return rows.map(AppBadge.fromMap).toList();
   }
 
-  Future<List<EarnedBadge>> earnedBadges(String userId) async {
-    final rows = await _client.from('user_badges').select('awarded_at, badges(*)').eq('user_id', userId).order('awarded_at', ascending: false);
-    return rows
-        .where((r) => r['badges'] != null)
-        .map((r) => EarnedBadge(badge: AppBadge.fromMap(r['badges'] as Map<String, dynamic>), awardedAt: DateTime.parse(r['awarded_at'] as String).toLocal()))
-        .toList();
-  }
-
-  Future<int> ttStreak(String userId) async {
-    final v = await _client.rpc('tt_streak_weeks', params: {'p_user': userId});
-    return (v as num?)?.toInt() ?? 0;
-  }
 }
 
 final notificationsRepositoryProvider =

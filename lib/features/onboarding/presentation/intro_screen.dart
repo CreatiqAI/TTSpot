@@ -303,11 +303,11 @@ class _MeetsSlideState extends State<_MeetsSlide> with SingleTickerProviderState
       _Example('assets/covers/convoy.jpg', "Fraser's Hill run", 'Sunday, 7:00 AM · Bukit Fraser', value: '12', label: 'GOING', color: _amber),
     ],
     [
-      _Example('assets/kinds/cafe.png', 'New spot nearby', 'Car cafe · 2.4 km from you', art: true, value: '+20', label: 'POINTS', color: _sky),
+      _Example('assets/kinds/cafe.png', 'New spot nearby', 'Car cafe · 2.4 km from you', art: true, value: '+10', label: 'POINTS', color: _sky),
       _Example('assets/partner_covers/detailing.jpg', 'Detailing deal', 'Partner shop · 3.1 km from you', value: '15%', label: 'OFF', color: _green),
-      _Example('assets/kinds/circuit.png', 'Circuit nearby', 'Check in on track day', art: true, value: '+20', label: 'POINTS', color: _sky),
+      _Example('assets/kinds/circuit.png', 'Circuit nearby', 'Check in on track day', art: true, value: '+10', label: 'POINTS', color: _sky),
       _Example('assets/partner_covers/carwash.jpg', 'Car wash deal', 'Partner shop · 1.2 km from you', value: '10%', label: 'OFF', color: _green),
-      _Example('assets/kinds/route.png', 'Scenic route', 'Hill road · 8 km from you', art: true, value: '+20', label: 'POINTS', color: _sky),
+      _Example('assets/kinds/route.png', 'Scenic route', 'Hill road · 8 km from you', art: true, value: '+10', label: 'POINTS', color: _sky),
     ],
   ];
 }
@@ -428,7 +428,7 @@ class _Live extends StatelessWidget {
   }
 }
 
-/// "18 / GOING", "+20 / POINTS".
+/// "18 / GOING", "+10 / POINTS".
 class _Stat extends StatelessWidget {
   const _Stat({required this.value, required this.label, required this.color});
   final String value;

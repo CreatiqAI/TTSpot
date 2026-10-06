@@ -19,6 +19,8 @@ import '../../../core/widgets/user_avatar.dart';
 import '../../events/application/event_providers.dart';
 import '../../map/application/map_providers.dart';
 import '../../map/presentation/widgets/place_card.dart' show showPlaceOnMap;
+import '../../points/application/points_providers.dart' show pointsActionsProvider;
+import '../../points/domain/points_week.dart' show spotCheckinMessage;
 import '../application/community_providers.dart';
 import '../application/social_providers.dart';
 import '../domain/club.dart';
@@ -53,7 +55,8 @@ class _PlaceScreenState extends ConsumerState<PlaceScreen> {
     setState(() => _busy = true);
     try {
       final r = await ref.read(communityActionsProvider).checkInAtPlace(id);
-      _snack(r.isNew ? 'Checked in. That\'s ${r.total} for this spot.' : 'Already checked in here today.');
+      _snack(spotCheckinMessage(isNew: r.isNew, total: r.total, points: r.points, againAt: r.pointsAgainAt));
+      if (r.points > 0) ref.read(pointsActionsProvider).refreshBalance();
     } catch (e) {
       _snack(friendlyError(e));
     } finally {

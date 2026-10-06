@@ -10,6 +10,16 @@ class ReleaseNote {
 
 const kReleaseNotes = <ReleaseNote>[
   ReleaseNote(
+    version: '0.3.58',
+    date: '7 Oct 2026',
+    title: 'Live Activities and a friendlier TiTi',
+    points: [
+      'iPhone: a countdown to your meet on the lock screen and Dynamic Island, then a live timer once it starts.',
+      'TiTi is warmer and funnier, and answers in the language you write in.',
+      'TiTi tips: a short daily heads-up from TiTi, like rain in your area. Turn it off in Settings.',
+    ],
+  ),
+  ReleaseNote(
     version: '0.3.57',
     date: '7 Oct 2026',
     title: 'Cleaner map and a permissions step',

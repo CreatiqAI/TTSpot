@@ -44,7 +44,6 @@ const kOfficialPerks = [
   ('Exclusive club badge on the map', 'Gold pin for your meets.'),
   ('No member limit', 'Underground clubs stop at 100.'),
   ('Partner benefits', 'Extra vendor perks for your members.'),
-  ('10 % bonus points', 'President earns 10 % on every member check-in.'),
 ];
 
 const kUndergroundPerks = [

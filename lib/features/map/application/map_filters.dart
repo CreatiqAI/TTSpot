@@ -346,6 +346,11 @@ bool nowPlaceVisibleAt(double zoom, {required bool partner, required bool saved}
 /// Spots-tab size, so the people and events on top stay easy to read.
 const kNowPlaceScale = 0.85;
 
+/// Partner shop pins are drawn this much bigger than a spot's teardrop (51 ×
+/// 64 px at street zoom against 32 × 40), on every tab: a partner pays to be
+/// seen, and its logo has to read on the map.
+const kPartnerPinScale = 1.6;
+
 // ------------------------------------------------------------------ tabs ---
 
 /// The map's three tabs. Now is the whole map: people, moments, every meet

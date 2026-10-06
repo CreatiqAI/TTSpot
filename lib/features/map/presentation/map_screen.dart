@@ -1114,7 +1114,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       final kind = spotKindOf(p.kind);
       final saved = savedIds.contains(p.id);
       if (onNow && !selected && !nowPlaceVisibleAt(_zoom, partner: p.isPartner, saved: saved)) continue;
-      final factor = selected ? 1.4 : shrink;
+      // Partner shops are signboards: their logo pin about as big as my own
+      // car, never shrunk on Now. Picked pins grow a little more.
+      final factor = p.isPartner ? (selected ? kPartnerPinScale * 1.15 : kPartnerPinScale) : (selected ? 1.4 : shrink);
       final partnerLabel = p.vendorName ?? p.name;
       // A partner's logo in its pin once downloaded (the storefront until then,
       // so a slow logo never holds the map up).

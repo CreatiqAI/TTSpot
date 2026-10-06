@@ -67,7 +67,7 @@ void main() {
 
   /// The pill inside the card titled [title].
   Finder pillIn(String title, String label) => find.descendant(
-        of: find.ancestor(of: find.text(title), matching: find.byType(PermissionCard)),
+        of: find.ancestor(of: find.textContaining(title), matching: find.byType(PermissionCard)),
         matching: find.text(label),
       );
 
@@ -84,15 +84,15 @@ void main() {
   testWidgets('everything off: three Enable pills, the title, the line and the Optional tag', (tester) async {
     await pump(tester);
     expect(find.text('TURN ON PERMISSIONS'), findsOneWidget);
-    expect(find.text('So the map can show you, your friends and the meets around you.'), findsOneWidget);
+    expect(find.text('So the map works for you.'), findsOneWidget);
     expect(pillIn('Location', 'Enable'), findsOneWidget);
     expect(pillIn('Notifications', 'Enable'), findsOneWidget);
-    expect(pillIn('Share my spot when the app is closed', 'Enable'), findsOneWidget);
+    expect(pillIn('Share when closed', 'Enable'), findsOneWidget);
     expect(find.text('OPTIONAL'), findsOneWidget);
     // Android wording of the phone's own prompts.
     expect(find.text('Tap "While using the app".'), findsOneWidget);
-    expect(find.text('Tap "Allow" so you hear about meets, friends and messages.'), findsOneWidget);
-    expect(find.textContaining('Choose "Allow all the time" when asked.'), findsOneWidget);
+    expect(find.text('Tap "Allow" for meets, friends and messages.'), findsOneWidget);
+    expect(find.text('Choose "Allow all the time".'), findsOneWidget);
     expect(device.stepShownCalls, 1);
   });
 
@@ -103,7 +103,7 @@ void main() {
     await pump(tester, bgState: onBg);
     expect(pillIn('Location', 'On'), findsOneWidget);
     expect(pillIn('Notifications', 'On'), findsOneWidget);
-    expect(pillIn('Share my spot when the app is closed', 'On'), findsOneWidget);
+    expect(pillIn('Share when closed', 'On'), findsOneWidget);
     expect(find.text('Enable'), findsNothing);
     expect(device.registers, greaterThan(0), reason: 'allowed notifications register this phone for push');
     await tapPill(tester, pillIn('Location', 'On'));
@@ -118,10 +118,9 @@ void main() {
     await pump(tester, bgState: needsAlwaysBg);
     expect(pillIn('Location', 'Settings'), findsOneWidget);
     expect(pillIn('Notifications', 'Settings'), findsOneWidget);
-    expect(pillIn('Share my spot when the app is closed', 'Settings'), findsOneWidget);
+    expect(pillIn('Share when closed', 'Settings'), findsOneWidget);
     expect(find.text('Tap "Allow While Using App".'), findsNothing);
-    expect(find.textContaining('"While Using the App"'), findsOneWidget);
-    expect(find.textContaining('"Allow Notifications"'), findsOneWidget);
+    expect(find.text('Turned off · fix in Settings'), findsNWidgets(2));
 
     await tapPill(tester, pillIn('Location', 'Settings'));
     await tester.pumpAndSettle();
@@ -137,8 +136,8 @@ void main() {
     device.notif = AuthorizationStatus.notDetermined;
     await pump(tester);
     expect(find.text('Tap "Allow While Using App".'), findsOneWidget);
-    expect(find.text('Tap "Allow" so you hear about meets, friends and messages.'), findsOneWidget);
-    expect(find.textContaining('Tap "Change to Always Allow" when asked.'), findsOneWidget);
+    expect(find.text('Tap "Allow" for meets, friends and messages.'), findsOneWidget);
+    expect(find.text('Tap "Change to Always Allow".'), findsOneWidget);
   }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
 
   testWidgets('Android: "denied" before the first prompt still says Enable', (tester) async {
@@ -219,28 +218,28 @@ void main() {
       asked++;
       return false;
     });
-    await tapPill(tester, pillIn('Share my spot when the app is closed', 'Enable'));
+    await tapPill(tester, pillIn('Share when closed', 'Enable'));
     await tester.pumpAndSettle();
     expect(asked, 1);
     expect(bg.enables, 0);
-    expect(pillIn('Share my spot when the app is closed', 'Enable'), findsOneWidget);
+    expect(pillIn('Share when closed', 'Enable'), findsOneWidget);
   });
 
   testWidgets('Share my spot: Turn on in the disclosure runs the opt-in, then On', (tester) async {
     await pump(tester);
-    await tapPill(tester, pillIn('Share my spot when the app is closed', 'Enable'));
+    await tapPill(tester, pillIn('Share when closed', 'Enable'));
     await tester.pumpAndSettle();
     expect(bg.enables, 1);
-    expect(pillIn('Share my spot when the app is closed', 'On'), findsOneWidget);
+    expect(pillIn('Share when closed', 'On'), findsOneWidget);
     expect(haptics(), 1);
   });
 
   testWidgets('Share my spot: "Always" not given yet shows Settings and says what to choose', (tester) async {
     await pump(tester, bgOutcome: BgEnableOutcome.needsAlways);
-    await tapPill(tester, pillIn('Share my spot when the app is closed', 'Enable'));
+    await tapPill(tester, pillIn('Share when closed', 'Enable'));
     await tester.pumpAndSettle();
-    expect(pillIn('Share my spot when the app is closed', 'Settings'), findsOneWidget);
-    expect(find.textContaining('"Allow all the time", then come back'), findsOneWidget);
+    expect(pillIn('Share when closed', 'Settings'), findsOneWidget);
+    expect(find.text('Needs "Allow all the time"'), findsOneWidget);
   });
 
   testWidgets('Continue with location on goes straight to the map', (tester) async {

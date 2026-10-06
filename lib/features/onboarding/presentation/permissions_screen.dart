@@ -255,9 +255,8 @@ class _PermissionsScreenState extends ConsumerState<PermissionsScreen> with Widg
     switch (outcome) {
       case BgEnableOutcome.on:
       case BgEnableOutcome.denied: // the Location card still says Enable
+      case BgEnableOutcome.needsAlways: // the card says what's missing, with a Settings button
         break;
-      case BgEnableOutcome.needsAlways:
-        _snack(_ios ? 'Almost there: in Settings, set Location to "Always" for TT Spot.' : 'Almost there: set TT Spot\'s location to "Allow all the time", then come back.');
       case BgEnableOutcome.locationOff:
         _snack('Turn on your phone\'s location, then tap Enable again.');
       case BgEnableOutcome.blocked:
@@ -299,7 +298,7 @@ class _PermissionsScreenState extends ConsumerState<PermissionsScreen> with Widg
                 const Text('Use TT Spot without location?', style: TextStyle(fontSize: 20, height: 1.2, fontWeight: FontWeight.w800, color: Colors.white)),
                 const SizedBox(height: 8),
                 Text(
-                  'The map can\'t show where you are, and check-ins at meets and spots won\'t work. You can turn it on any time.',
+                  'The map can\'t show you, and check-ins won\'t work.',
                   style: TextStyle(fontSize: 14, height: 1.4, color: AuthDark.text),
                 ),
                 const SizedBox(height: 20),
@@ -318,34 +317,26 @@ class _PermissionsScreenState extends ConsumerState<PermissionsScreen> with Widg
 
   // ───────────────────────────────────────────────────────────── words ──
 
+  // One short line each (the owner wants it clean): the button to tap in the
+  // phone's prompt, what it's for once on, and "fix in Settings" when the
+  // phone won't ask again. No menu paths: the Settings pill goes there.
+
   String _locationHint(PermPill pill) => switch (pill) {
         PermPill.enable => _ios ? 'Tap "Allow While Using App".' : 'Tap "While using the app".',
-        PermPill.on => 'The map can show you and the meets around you.',
-        PermPill.settings => locationAllowed(_location) && !_serviceOn
-            ? 'Your phone\'s location is off. Tap Settings and turn it on.'
-            : _ios
-                ? 'It was turned off. In Settings, tap Location, then "While Using the App".'
-                : 'It was turned off. In Settings, tap Permissions › Location › "Allow only while using the app".',
+        PermPill.on => 'So friends and meets can find you.',
+        PermPill.settings => locationAllowed(_location) && !_serviceOn ? 'Phone location is off · fix in Settings' : 'Turned off · fix in Settings',
       };
 
   String _notificationsHint(PermPill pill) => switch (pill) {
-        PermPill.enable => 'Tap "Allow" so you hear about meets, friends and messages.',
-        PermPill.on => 'You\'ll hear about meets, friends and messages.',
-        PermPill.settings => _ios
-            ? 'It was turned off. In Settings, tap Notifications, then turn on "Allow Notifications".'
-            : 'It was turned off. In Settings, turn on "All TT Spot notifications".',
+        PermPill.enable => 'Tap "Allow" for meets, friends and messages.',
+        PermPill.on => 'Meets, friends and messages.',
+        PermPill.settings => 'Turned off · fix in Settings',
       };
 
   String _backgroundHint(PermPill pill, BgLocationState s) => switch (pill) {
-        PermPill.enable => _ios
-            ? 'Friends see you on the map even when TT Spot is closed. Tap "Change to Always Allow" when asked.'
-            : 'Friends see you on the map even when TT Spot is closed. Choose "Allow all the time" when asked.',
-        PermPill.on => s.view == BgView.hidden
-            ? 'On, and paused while your map visibility is Nobody.'
-            : 'Friends see you on the map even when TT Spot is closed. Turn it off any time in Settings.',
-        PermPill.settings => _ios
-            ? 'Almost there. In Settings, tap Location, then "Always".'
-            : 'Almost there. In Settings, set Location to "Allow all the time".',
+        PermPill.enable => _ios ? 'Tap "Change to Always Allow".' : 'Choose "Allow all the time".',
+        PermPill.on => s.view == BgView.hidden ? 'Paused while you\'re on Nobody.' : 'Friends see you when it\'s closed.',
+        PermPill.settings => _ios ? 'Needs "Always" · fix in Settings' : 'Needs "Allow all the time"',
       };
 
   // ──────────────────────────────────────────────────────────── layout ──
@@ -392,7 +383,7 @@ class _PermissionsScreenState extends ConsumerState<PermissionsScreen> with Widg
                     _rise(
                       1,
                       Text(
-                        'So the map can show you, your friends and the meets around you.',
+                        'So the map works for you.',
                         textAlign: TextAlign.center,
                         style: TextStyle(fontSize: 16, height: 23 / 16, color: AuthDark.text),
                       ),
@@ -427,7 +418,7 @@ class _PermissionsScreenState extends ConsumerState<PermissionsScreen> with Widg
                         4,
                         PermissionCard(
                           icon: AppIcons.navigationArrow,
-                          title: 'Share my spot when the app is closed',
+                          title: 'Share when closed',
                           optional: true,
                           hint: _backgroundHint(bgPill, bg),
                           pill: bgPill,
@@ -447,7 +438,7 @@ class _PermissionsScreenState extends ConsumerState<PermissionsScreen> with Widg
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text('You can change these any time in Settings.', textAlign: TextAlign.center, style: TextStyle(fontSize: 12.5, color: AuthDark.text2)),
+                    Text('Change these any time in Settings.', textAlign: TextAlign.center, style: TextStyle(fontSize: 12.5, color: AuthDark.text2)),
                     const SizedBox(height: 12),
                     AuthPill(label: 'Continue', onPressed: _continue),
                   ],
@@ -494,14 +485,18 @@ class PermissionCard extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Wrap(
-          spacing: 8,
-          runSpacing: 4,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            Text(title, style: const TextStyle(fontSize: 16, height: 1.25, fontWeight: FontWeight.w700, color: Colors.white)),
-            if (optional) const _Tag('OPTIONAL'),
-          ],
+        // The tag flows with the title like a word, never on a line of its own.
+        Text.rich(
+          TextSpan(
+            text: title,
+            children: [
+              if (optional) ...[
+                const TextSpan(text: '  '),
+                const WidgetSpan(alignment: PlaceholderAlignment.middle, child: _Tag('OPTIONAL')),
+              ],
+            ],
+          ),
+          style: const TextStyle(fontSize: 16, height: 1.25, fontWeight: FontWeight.w700, color: Colors.white),
         ),
         const SizedBox(height: 4),
         Text(hint, style: TextStyle(fontSize: 13, height: 1.38, color: AuthDark.text2)),

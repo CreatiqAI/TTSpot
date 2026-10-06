@@ -215,6 +215,10 @@ class BackgroundLocationController extends Notifier<BgLocationState> {
     final what = defaultTargetPlatform == TargetPlatform.iOS ? '"Always" location' : '"Allow all the time"';
     Future<void>.delayed(const Duration(seconds: 2), () {
       if (ref.read(currentUserIdProvider) == null) return;
+      // The permissions step shows this on its own card (with a Settings button).
+      try {
+        if (ref.read(appRouterProvider).state.uri.path == Routes.locationGate) return;
+      } catch (_) {}
       rootMessengerKey.currentState?.showSnackBar(SnackBar(
         content: Text('TT Spot can\'t share your location while closed: $what was turned off.'),
         duration: const Duration(seconds: 8),

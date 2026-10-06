@@ -10,6 +10,17 @@ class ReleaseNote {
 
 const kReleaseNotes = <ReleaseNote>[
   ReleaseNote(
+    version: '0.3.59',
+    date: '7 Oct 2026',
+    title: 'Smoother sign-up',
+    points: [
+      'Sign-up has a clean progress bar and a permissions step before your gift.',
+      'Pinch and drag to frame your profile photo.',
+      'Pick your home state from a list, and we suggest a username from your name.',
+      'Zoomed out, nearby spots group into numbered bubbles instead of disappearing.',
+    ],
+  ),
+  ReleaseNote(
     version: '0.3.58',
     date: '7 Oct 2026',
     title: 'Live Activities and a friendlier TiTi',

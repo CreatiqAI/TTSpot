@@ -69,10 +69,9 @@ final userLocationProvider = FutureProvider<LatLng?>((ref) async {
   if (live != null) return live.latLng;
   try {
     if (!await Geolocator.isLocationServiceEnabled()) return null;
-    var permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-    }
+    // Only check: the permissions page (and the locate button) ask. Asking
+    // here popped the system prompt over the map before that page showed.
+    final permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
       return null;
     }

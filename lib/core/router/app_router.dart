@@ -69,6 +69,7 @@ import 'tab_slot.dart';
 import '../../features/settings/presentation/settings_screen.dart';
 import '../../features/settings/presentation/about_screen.dart';
 import '../../features/onboarding/presentation/intro_screen.dart';
+import '../../features/onboarding/presentation/permissions_screen.dart';
 import '../../features/social/presentation/suggest_spot_screen.dart';
 import '../../features/vendors/presentation/partner_screen.dart';
 import '../../features/auth/application/account_basics.dart';
@@ -135,6 +136,7 @@ abstract final class Routes {
   // Partners (vendors) + rewards
   static const partnerApply = '/partner/apply';
   static const clubApply = '/club/apply';
+  /// The permissions step (location, notifications, sharing while closed).
   static const locationGate = '/location';
   static const vendor = '/vendor';
   static const vendorEdit = '/vendor/edit';
@@ -280,7 +282,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   ref.listen(currentProfileProvider, (_, _) => refresh.poke());
   ref.listen(accountBasicsProvider, (_, _) => refresh.poke());
   ref.listen(locationGrantedProvider, (_, _) => refresh.poke());
-  ref.listen(locationGateSkippedProvider, (_, _) => refresh.poke());
+  ref.listen(permissionsStepDoneProvider, (_, _) => refresh.poke());
   ref.onDispose(refresh.dispose);
 
   router = GoRouter(
@@ -314,12 +316,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final openingBox = path.startsWith('/cards/box/');
       if (!onboarded || !basicsDone || needsCar) return path == Routes.onboarding || openingBox ? null : Routes.onboarding;
 
-      // Location first: the app is a map. Ask once per launch, with context.
+      // Location first: the app is a map. The permissions step shows once per
+      // launch while location is off. It stays up after location turns on
+      // (notifications and sharing-while-closed are on the same page) until
+      // the member taps Continue, which flips permissionsStepDoneProvider.
+      final done = ref.read(permissionsStepDoneProvider);
+      if (path == Routes.locationGate) return done ? Routes.map : null;
       final granted = ref.read(locationGrantedProvider);
-      final skipped = ref.read(locationGateSkippedProvider);
-      if (granted.hasValue && !granted.value! && !skipped && !openingBox) return path == Routes.locationGate ? null : Routes.locationGate;
+      if (granted.hasValue && !granted.value! && !done && !openingBox) return Routes.locationGate;
 
-      if (onAuthPage || path == Routes.onboarding || path == Routes.locationGate) return Routes.map;
+      if (onAuthPage || path == Routes.onboarding) return Routes.map;
       return null;
     },
     routes: [
@@ -436,7 +442,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: Routes.adminCommission, pageBuilder: (_, s) => page(s, const AdminCommissionScreen())),
       GoRoute(path: Routes.adminPoints, pageBuilder: (_, s) => page(s, AdminGivePointsScreen(userId: s.uri.queryParameters['user']))),
       GoRoute(path: Routes.clubApply, pageBuilder: (_, s) => page(s, const PartnerApplyScreen(kind: ApplicationKind.club))),
-      GoRoute(path: Routes.locationGate, pageBuilder: (_, s) => page(s, const LocationGateScreen())),
+      GoRoute(path: Routes.locationGate, pageBuilder: (_, s) => page(s, const PermissionsScreen())),
       GoRoute(path: Routes.vendor, pageBuilder: (_, s) => page(s, const VendorDashboardScreen())),
       GoRoute(path: Routes.vendorEdit, pageBuilder: (_, s) => page(s, const VendorEditScreen())),
       GoRoute(path: Routes.vendorReport, pageBuilder: (_, s) => page(s, const VendorReportScreen())),

@@ -11,6 +11,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../features/social/application/chat_providers.dart';
 import '../../features/social/application/notification_providers.dart';
 import '../../features/social/domain/chat.dart' show Conversation;
+import '../location/location_gate.dart' show locationGrantedProvider;
 import '../router/app_router.dart';
 import '../supabase/supabase_client.dart';
 import 'firebase_setup.dart';
@@ -28,16 +29,22 @@ class PushService {
   bool _starting = false;
   bool _listening = false;
   bool _asked = false;
+  bool _stepShown = false;
   final _subs = <StreamSubscription<dynamic>>[];
 
   /// One line for Settings → Notifications ("On", "Off in iPhone Settings"…).
   final status = ValueNotifier<String>('Checking…');
 
+  /// The permissions step (after onboarding, while location is off) opened
+  /// this launch. It has its own Enable for notifications, so the map must not
+  /// pop the phone's prompt on top of the app after it.
+  void permissionsStepShown() => _stepShown = true;
+
   /// Called once the member is inside the app (past onboarding) and again on
-  /// resume until it works. Asks for permission once per launch; the resume
-  /// calls only check, so a "Don't allow" isn't followed by a second prompt.
-  /// [ask] = the member tapped Turn on: show the phone's prompt again if it
-  /// still may.
+  /// resume until it works. Asks for permission at most once per launch (see
+  /// [_mayPromptOnOpen]); the resume calls only check, so a "Don't allow"
+  /// isn't followed by a second prompt. [ask] = the member tapped Turn on:
+  /// show the phone's prompt again if it still may.
   Future<void> start({bool ask = false}) async {
     if (_started || _starting) return;
     final me = _ref.read(currentUserIdProvider);
@@ -50,7 +57,8 @@ class PushService {
     final fm = FirebaseMessaging.instance;
     try {
       FirebaseCrashlytics.instance.setUserIdentifier(me);
-      final perm = ask || !_asked ? await fm.requestPermission() : await fm.getNotificationSettings();
+      final prompt = ask || (!_asked && await _mayPromptOnOpen());
+      final perm = prompt ? await fm.requestPermission() : await fm.getNotificationSettings();
       _asked = true;
       final allowed = perm.authorizationStatus == AuthorizationStatus.authorized || perm.authorizationStatus == AuthorizationStatus.provisional;
       if (!allowed) {
@@ -98,6 +106,42 @@ class PushService {
     } finally {
       _starting = false;
     }
+  }
+
+  /// Whether opening the app may show the phone's notification prompt by
+  /// itself. Not after the permissions step was on screen this launch (the
+  /// member saw the Notifications card and chose), and not while location is
+  /// off or still unknown: the router is about to show that step, and the
+  /// prompt would land on top of it. Members who never see the step (location
+  /// was already on, e.g. everyone from before it existed) keep the one prompt
+  /// per launch they always had; the phone itself stops showing it once they
+  /// have answered.
+  Future<bool> _mayPromptOnOpen() async {
+    if (_stepShown) return false;
+    try {
+      return await _ref.read(locationGrantedProvider.future).timeout(const Duration(seconds: 5));
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// The permissions step's Enable on the Notifications card: the phone's
+  /// prompt (when it may still show one), then [start] registers this phone
+  /// exactly as on any launch. `prompted` is false when the answer came back
+  /// at once: the phone showed nothing (blocked), so only its settings can
+  /// turn notifications on. Null when Firebase isn't running.
+  Future<({AuthorizationStatus status, bool prompted})?> askOnPermissionsStep() async {
+    if (!firebaseReady) return null;
+    final clock = Stopwatch()..start();
+    final AuthorizationStatus answer;
+    try {
+      answer = (await FirebaseMessaging.instance.requestPermission()).authorizationStatus;
+    } catch (_) {
+      return null;
+    }
+    _asked = true;
+    unawaited(start()); // registers the token when allowed; a no-op once push is on
+    return (status: answer, prompted: clock.elapsed >= kInstantAnswer);
   }
 
   /// What the phone allows right now (null = Firebase isn't running, can't tell).
@@ -177,6 +221,11 @@ class PushService {
 }
 
 final pushServiceProvider = Provider<PushService>((ref) => PushService(ref));
+
+/// A permission request that answers faster than this showed no prompt: no
+/// person reads a system dialog and taps in under 0.7 s. The phone refused
+/// on its own (denied for good), so the way on is the app's settings page.
+const kInstantAnswer = Duration(milliseconds: 700);
 
 /// Android has no URL for an app's notification settings (url_launcher only
 /// sends VIEW intents), so MainActivity opens them over this channel.

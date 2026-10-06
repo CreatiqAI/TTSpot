@@ -29,8 +29,8 @@ import 'widgets/club_requests.dart' show askClubJoinMessage;
 /// What the Clubs & Events tab lists.
 enum ClubsEventsFilter {
   all('All'),
-  official('Official clubs'),
-  underground('Underground clubs'),
+  official('Official'),
+  underground('Underground'),
   events('Events');
 
   const ClubsEventsFilter(this.label);
@@ -40,8 +40,9 @@ enum ClubsEventsFilter {
 /// All: this many clubs, then "See all".
 const kClubsPreview = 5;
 
-/// Home's second tab: car clubs and what's on, as one list. Chips pick All ·
-/// Official clubs · Underground clubs · Events; a search box narrows it.
+/// Home's second tab: car clubs and what's on, as one list. A one-row
+/// segmented control picks All · Official · Underground · Events; a search
+/// box narrows it.
 ///
 /// Clubs: official first (then the biggest), each with Join (public, one
 /// tap), Request (private) or Joined. Events: everything under way or still
@@ -188,13 +189,9 @@ class _ClubsEventsTabState extends ConsumerState<ClubsEventsTab> with AutomaticK
         slivers: [
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-              // Wrap, not Row: never an overflow with very large text.
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [for (final f in ClubsEventsFilter.values) _FilterChip(key: Key('clubs-filter-${f.name}'), label: f.label, selected: _filter == f, onTap: () => _pick(f))],
-              ),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+              // One row on every phone: it shrinks rather than wraps.
+              child: ClubsEventsFilterBar(selected: _filter, onChanged: _pick),
             ),
           ),
           SliverToBoxAdapter(
@@ -643,29 +640,116 @@ class OfficialBadge extends StatelessWidget {
 
 // ---------------------------------------------------------------- pieces ---
 
-class _FilterChip extends StatelessWidget {
-  const _FilterChip({super.key, required this.label, required this.selected, required this.onTap});
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
+/// All · Official · Underground · Events as one segmented control, the light
+/// cousin of the map's Now · Events · Spots switch: a grey track, the picked
+/// segment an ink pill that slides across.
+///
+/// Always one row. Each segment is its label plus padding, and whatever room
+/// is left is shared out evenly. On a narrow phone with large text the
+/// padding gives way first (down to [minPad] a side), then the whole control
+/// scales down: never a second row, never an overflow.
+class ClubsEventsFilterBar extends StatelessWidget {
+  const ClubsEventsFilterBar({super.key, required this.selected, required this.onChanged});
+  final ClubsEventsFilter selected;
+  final ValueChanged<ClubsEventsFilter> onChanged;
+
+  /// Space each side of a label, roomy and at its tightest.
+  static const maxPad = 12.0;
+  static const minPad = 6.0;
+
+  /// The track showing around the pill.
+  static const inset = 3.0;
+
+  static const _style = TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, height: 1.25);
+
+  /// Widths of the segments in [maxWidth] (track included) and the scale the
+  /// whole control is drawn at (1 = it fits as it is).
+  static ({List<double> widths, double scale}) layout(List<double> labelWidths, double maxWidth) {
+    final n = labelWidths.length;
+    final text = labelWidths.fold(0.0, (a, b) => a + b);
+    final room = maxWidth - 2 * inset;
+    if (text + 2 * maxPad * n <= room) {
+      final extra = (room - text - 2 * maxPad * n) / n;
+      return (widths: [for (final w in labelWidths) w + 2 * maxPad + extra], scale: 1.0);
+    }
+    if (text + 2 * minPad * n <= room) {
+      final pad = (room - text) / (2 * n);
+      return (widths: [for (final w in labelWidths) w + 2 * pad], scale: 1.0);
+    }
+    final widths = [for (final w in labelWidths) w + 2 * minPad];
+    return (widths: widths, scale: room / widths.fold(0.0, (a, b) => a + b));
+  }
 
   @override
-  Widget build(BuildContext context) => Semantics(
-    button: true,
-    selected: selected,
-    child: GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-        decoration: BoxDecoration(color: selected ? AppColors.textPrimary : AppColors.surfaceGray, borderRadius: BorderRadius.circular(999)),
-        child: Text(
-          label,
-          style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: selected ? AppColors.bg : AppColors.textPrimary),
-        ),
-      ),
-    ),
-  );
+  Widget build(BuildContext context) {
+    final scaler = MediaQuery.textScalerOf(context);
+    final labels = [for (final f in ClubsEventsFilter.values) f.label];
+    double measure(String label) {
+      final tp = TextPainter(text: TextSpan(text: label, style: _style), textScaler: scaler, maxLines: 1, textDirection: TextDirection.ltr)..layout();
+      final w = tp.width.ceilToDouble();
+      tp.dispose();
+      return w;
+    }
+
+    final measured = [for (final l in labels) measure(l)];
+    return LayoutBuilder(
+      builder: (context, c) {
+        final fit = layout(measured, c.maxWidth);
+        final widths = fit.widths;
+        final at = ClubsEventsFilter.values.indexOf(selected);
+        final left = widths.take(at).fold(0.0, (a, b) => a + b);
+        final full = widths.fold(0.0, (a, b) => a + b) + 2 * inset;
+        Widget bar = Container(
+          key: const Key('clubs-filter-bar'),
+          width: full,
+          padding: const EdgeInsets.all(inset),
+          decoration: BoxDecoration(color: AppColors.surfaceGray, borderRadius: BorderRadius.circular(999)),
+          child: Stack(
+            children: [
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOutCubic,
+                left: left,
+                width: widths[at],
+                top: 0,
+                bottom: 0,
+                child: DecoratedBox(decoration: BoxDecoration(color: AppColors.textPrimary, borderRadius: BorderRadius.circular(999))),
+              ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (var i = 0; i < labels.length; i++)
+                    Semantics(
+                      button: true,
+                      selected: i == at,
+                      child: GestureDetector(
+                        key: Key('clubs-filter-${ClubsEventsFilter.values[i].name}'),
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => onChanged(ClubsEventsFilter.values[i]),
+                        child: SizedBox(
+                          width: widths[i],
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 7),
+                            child: AnimatedDefaultTextStyle(
+                              duration: const Duration(milliseconds: 180),
+                              style: _style.copyWith(color: i == at ? AppColors.bg : AppColors.textSecondary),
+                              child: Text(labels[i], maxLines: 1, softWrap: false, textAlign: TextAlign.center),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        );
+        // Too big to fit even at the tightest padding: draw it smaller.
+        if (fit.scale < 1) bar = FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: bar);
+        return bar;
+      },
+    );
+  }
 }
 
 /// Narrows the list by club name, place or meet. Local: no extra queries.

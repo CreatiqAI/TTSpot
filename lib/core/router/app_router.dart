@@ -82,6 +82,7 @@ import '../../features/social/presentation/my_moments_screen.dart';
 import '../../features/social/presentation/chat_info_screen.dart';
 import '../../features/social/presentation/chat_screen.dart';
 import '../../features/social/presentation/new_group_screen.dart';
+import '../../features/social/presentation/club_members_screen.dart';
 import '../../features/social/presentation/club_screen.dart';
 import '../../features/social/presentation/create_club_screen.dart';
 import '../../features/social/presentation/create_post_screen.dart';
@@ -238,6 +239,8 @@ abstract final class Routes {
   /// Chats > compose > New group.
   static const newGroup = '/new-group';
   static String club(String id) => '/club/$id';
+  /// A club's full member list, with cars (the club page's View all).
+  static String clubMembers(String id) => '/club/$id/members';
   static String place(String id) => '/place/$id';
   /// [tab]: 'info' | 'products' | 'vouchers' | 'posts' | 'events'.
   static String partner(String id, {String? tab}) => tab == null ? '/partner/$id' : '/partner/$id?tab=$tab';
@@ -483,6 +486,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: Routes.saved, pageBuilder: (_, s) => page(s, const SavedPostsScreen())),
       GoRoute(path: Routes.createClub, pageBuilder: (_, s) => page(s, const CreateClubScreen())),
       GoRoute(path: '/club/:id', pageBuilder: (_, s) => page(s, ClubScreen(clubId: s.pathParameters['id']!))),
+      GoRoute(path: '/club/:id/members', pageBuilder: (_, s) => page(s, ClubMembersScreen(clubId: s.pathParameters['id']!))),
       GoRoute(path: '/place/:id', pageBuilder: (_, s) => page(s, PlaceScreen(placeId: s.pathParameters['id']!))),
 
       // Tabbed shell: Posts · Map · Chats · Me

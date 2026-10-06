@@ -25,8 +25,10 @@ import '../../friends/domain/friend.dart';
 import '../../map/presentation/widgets/visibility_sheet.dart';
 import '../../safety/data/safety_repository.dart';
 import '../../social/application/chat_providers.dart';
+import '../../social/application/club_tag_providers.dart';
 import '../../social/domain/chat.dart';
 import '../../social/presentation/widgets/chat_wallpaper.dart';
+import '../../social/presentation/widgets/club_tag_chooser.dart';
 import '../application/settings_providers.dart';
 import '../../../core/push/push_service.dart';
 import 'background_location_screen.dart';
@@ -44,6 +46,11 @@ class SettingsScreen extends ConsumerWidget {
     final email = ref.watch(supabaseProvider).auth.currentUser?.email ?? '';
     final act = ref.read(settingsActionsProvider);
     final basics = ref.watch(accountBasicsProvider).value ?? const AccountBasics();
+    // Club tag on my name: only for members of an official club (the only
+    // clubs with a tag).
+    final me = ref.watch(currentUserIdProvider);
+    final officialClubs = ref.watch(myOfficialClubsProvider).value ?? const [];
+    final myTag = me == null || officialClubs.isEmpty ? null : ref.watch(clubTagProvider(me));
 
     Future<void> set(Map<String, dynamic> patch) async {
       try {
@@ -89,6 +96,17 @@ class SettingsScreen extends ConsumerWidget {
               ),
             ),
           ),
+
+          if (officialClubs.isNotEmpty) ...[
+            const _Head('CLUBS'),
+            _Row(
+              key: const Key('settings-club-tag'),
+              icon: AppIcons.sealCheck,
+              title: 'Club tag on my name',
+              subtitle: myTag == null || (myTag.isLoading && !myTag.hasValue) ? 'Pick one of your official clubs, or none' : myTag.value?.name ?? 'None',
+              onTap: () => showClubTagChooser(context),
+            ),
+          ],
 
           const _Head('NOTIFICATIONS'),
           ValueListenableBuilder<String>(
@@ -766,7 +784,7 @@ class _Method extends StatelessWidget {
 }
 
 class _Row extends StatelessWidget {
-  const _Row({required this.icon, required this.title, this.subtitle, required this.onTap, this.danger = false});
+  const _Row({super.key, required this.icon, required this.title, this.subtitle, required this.onTap, this.danger = false});
   final IconData icon;
   final String title;
   final String? subtitle;

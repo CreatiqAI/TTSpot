@@ -145,7 +145,6 @@ class ProfileHeader extends StatelessWidget {
             ],
           ),
         ),
-        ProfileHonourRow(userId: p.id, isMe: isMe), // up to 3 badge medallions (nothing without badges)
         // -------------------------------------------------------- identity ---
         // My nickname for them (备注) big, "Real name · @handle" under it.
         // The official club tag sits beside the name (presidents, members who wear it).
@@ -156,6 +155,10 @@ class ProfileHeader extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
             child: Text(p.bio!.trim(), style: const TextStyle(fontSize: 13.5, height: 1.4)),
           ),
+        // ---------------------------------------------------------- badges ---
+        // Up to 3 small badge icons + View all (theirs: only with badges;
+        // mine with none: "Badges · View all").
+        ProfileHonourRow(userId: p.id, isMe: isMe),
         // --------------------------------------------------------- actions ---
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),

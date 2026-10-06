@@ -171,10 +171,10 @@ void main() {
 
       testWidgets('All: clubs (official first) then events, no overflow ($tag)', (t) async {
         await _pump(t, scale: scale, dark: dark);
-        expect(find.text('All'), findsOneWidget);
-        expect(find.text('Official clubs'), findsOneWidget);
-        expect(find.text('Underground clubs'), findsOneWidget);
-        expect(find.text('Events'), findsOneWidget);
+        final bar = find.byKey(const Key('clubs-filter-bar'));
+        for (final label in ['All', 'Official', 'Underground', 'Events']) {
+          expect(find.descendant(of: bar, matching: find.text(label)), findsOneWidget);
+        }
         expect(find.text('CLUBS · 4'), findsOneWidget);
         // Official above the bigger underground club.
         expect(_y(t, find.byKey(const Key('club-row-c-official'))), lessThan(_y(t, find.byKey(const Key('club-row-c-big')))));
@@ -237,6 +237,86 @@ void main() {
       });
     }
   }
+
+  // 0.3.56: the filters wrapped onto 2 rows (only "Events" on the second).
+  // Now one segmented row that fits, whatever the phone and text size.
+  group('filter bar: always one row', () {
+    // The whole tab at the sizes we design for; the bar alone (below) on
+    // smaller phones and huge text.
+    for (final (width, scale, alone) in const [(360.0, 1.0, false), (360.0, 1.3, false), (430.0, 1.0, false), (320.0, 1.3, true), (360.0, 2.0, true), (320.0, 2.0, true)]) {
+      testWidgets('${width.toInt()} dp at text x$scale${alone ? ' (bar alone)' : ''}', (t) async {
+        var picked = ClubsEventsFilter.all;
+        if (alone) {
+          t.view.physicalSize = Size(width * 3, 760 * 3);
+          t.view.devicePixelRatio = 3;
+          addTearDown(t.view.reset);
+          await t.pumpWidget(MaterialApp(
+            theme: AppTheme.current,
+            builder: (context, child) => MediaQuery(data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(scale)), child: child!),
+            home: Scaffold(
+              body: StatefulBuilder(
+                builder: (context, setState) => Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+                  child: Align(alignment: Alignment.topLeft, child: ClubsEventsFilterBar(selected: picked, onChanged: (f) => setState(() => picked = f))),
+                ),
+              ),
+            ),
+          ));
+          await t.pumpAndSettle();
+        } else {
+          await _pump(t, scale: scale);
+          t.view.physicalSize = Size(width * 3, 760 * 3);
+          await t.pumpAndSettle();
+        }
+        expect(t.takeException(), isNull);
+        final bar = t.getRect(find.byKey(const Key('clubs-filter-bar')));
+        final segments = [for (final f in ClubsEventsFilter.values) t.getRect(find.byKey(Key('clubs-filter-${f.name}')))];
+        // One row: every segment on the same line, left to right, inside the bar.
+        for (final r in segments) {
+          expect((r.center.dy - segments.first.center.dy).abs(), lessThan(0.5));
+          expect(r.left, greaterThanOrEqualTo(bar.left - 0.5));
+          expect(r.right, lessThanOrEqualTo(bar.right + 0.5));
+        }
+        for (var i = 1; i < segments.length; i++) {
+          expect(segments[i].left, greaterThanOrEqualTo(segments[i - 1].right - 0.5));
+        }
+        // Inside the 16 dp gutters; at normal sizes it fills the width.
+        expect(bar.left, greaterThanOrEqualTo(16 - 0.5));
+        expect(bar.right, lessThanOrEqualTo(width - 16 + 0.5));
+        if (scale <= 1.3 && width >= 360) expect(bar.width, closeTo(width - 32, 0.5));
+        // Labels are never cut or wrapped.
+        for (final label in ['All', 'Official', 'Underground', 'Events']) {
+          final text = t.widget<Text>(find.descendant(of: find.byKey(const Key('clubs-filter-bar')), matching: find.text(label)));
+          expect(text.maxLines, 1);
+          expect(text.overflow, isNot(TextOverflow.ellipsis));
+        }
+        // Still picks.
+        await _filter(t, ClubsEventsFilter.events);
+        if (alone) {
+          expect(picked, ClubsEventsFilter.events);
+        } else {
+          expect(find.byKey(const Key('club-row-c-official')), findsNothing);
+        }
+        expect(t.takeException(), isNull);
+      });
+    }
+
+    test('layout: room to spare is shared, tight phones lose padding, then scale', () {
+      // Roomy: every segment gets its label + 24 + an equal share.
+      final roomy = ClubsEventsFilterBar.layout([20, 60, 90, 50], 400);
+      expect(roomy.scale, 1);
+      expect(roomy.widths.fold(0.0, (a, b) => a + b), closeTo(400 - 2 * ClubsEventsFilterBar.inset, 1e-9));
+      expect(roomy.widths[1] - roomy.widths[0], closeTo(40, 1e-9));
+      // Tight: padding shrinks between 6 and 12 a side, still exactly fits.
+      final tight = ClubsEventsFilterBar.layout([30, 80, 120, 70], 360);
+      expect(tight.scale, 1);
+      expect(tight.widths.fold(0.0, (a, b) => a + b), closeTo(360 - 2 * ClubsEventsFilterBar.inset, 1e-9));
+      // Too big even at 6 a side: drawn smaller.
+      final huge = ClubsEventsFilterBar.layout([60, 150, 220, 120], 320);
+      expect(huge.scale, lessThan(1));
+      expect(huge.widths.fold(0.0, (a, b) => a + b) * huge.scale, closeTo(320 - 2 * ClubsEventsFilterBar.inset, 1e-9));
+    });
+  });
 
   testWidgets('All with clubs but no meets: one line, not an empty page', (t) async {
     await _pump(t, events: const []);

@@ -1202,13 +1202,15 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         final photo = f.carPhoto;
         final status = stranger ? null : presenceLabel(f.updatedAt);
         final statusColor = live ? kLiveGreen : kSeenGrey;
-        // Up close: their own toy car when it has one and it loads.
+        // Up close: their own toy car over an arrow in their colour that
+        // points where they are heading (a dot when unknown), when it has
+        // one and it loads.
         final toyPin = _close && f.carToy != null
             ? await _carFactory.toy(
                 key: f.user.id,
                 toyUrl: f.carToy!,
                 name: stranger ? (f.carTitle ?? name) : name,
-                ring: relation,
+                color: relation,
                 status: status,
                 statusColor: statusColor,
                 headingDeg: f.heading,
@@ -1282,9 +1284,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   /// Above every other pin, always.
   static const _meZ = 10;
 
-  /// My marker for the current tier: my toy car (else my car's portrait
-  /// badge, else the top-down car) up close, a red dot on a halo further
-  /// out. Both carry a heading cone once the phone knows which way I face.
+  /// My marker for the current tier: my toy car over a red arrow (else my
+  /// car's portrait badge, else the top-down car, with a heading cone) up
+  /// close, a red dot on a halo further out. The arrow / cone turns once
+  /// the phone knows which way I face.
   Future<MapPin> _mePin(String me) {
     final live = ref.read(livePositionProvider);
     final heading = live != null && live.age < const Duration(minutes: 2) ? live.heading : null;

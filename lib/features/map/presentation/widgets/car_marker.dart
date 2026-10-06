@@ -254,65 +254,82 @@ class CarMarkerFactory {
     return _cache[k] = pin;
   }
 
-  /// A person as their own toy car (`cars.toy_url`): the die-cast render
-  /// standing on a ring in the relationship colour, with the name chip
-  /// underneath. The render faces left; it is mirrored while they head east,
-  /// so the car drives the way they do. [me] adds my red halo and heading
-  /// cone. Null when the toy cannot be loaded (callers fall back to [badge]
-  /// or [car]). The anchor is the middle of the ring: where they are.
+  /// A person as their own toy car (`cars.toy_url`), Waze style: the
+  /// die-cast render standing just above a small navigation arrow in
+  /// [color] (their relationship colour; red for me) that points where they
+  /// are heading, or a dot in that colour while the heading is unknown
+  /// ([toyPose]). The render faces left; it is mirrored while they head
+  /// east, so the car drives the way they do. The name chip sits under the
+  /// arrow. [me] adds my soft red halo round the arrow. Null when the toy
+  /// cannot be loaded (callers fall back to [badge] or [car]). The anchor
+  /// is the arrow's middle: where they are. Cached per 10° of heading.
   Future<MapPin?> toy({
     required String key,
     required String toyUrl,
     required String name,
-    required Color ring,
+    required Color color,
     String? status,
     Color statusColor = kLiveGreen,
     double? headingDeg,
     bool dim = false,
     bool me = false,
   }) async {
-    final deg = headingDeg == null ? null : headingDeg % 360;
-    final east = deg != null && deg > 10 && deg < 170;
-    // Friends only flip; my cone turns, so my bitmap is cached per 10°.
-    final h = me && deg != null ? (deg / 10).round() * 10 : null;
-    final k = 'toy|$key|$toyUrl|$name|$status|${statusColor.toARGB32()}|$east|$h|$dim|$me|${ring.toARGB32()}';
+    final pose = toyPose(headingDeg);
+    final k = 'toy|$key|$toyUrl|$name|$status|${statusColor.toARGB32()}|${pose.arrowDeg}|$dim|$me|${color.toARGB32()}';
     final cached = _cache[k];
     if (cached != null) return cached;
 
     final image = await pins.image(toyUrl, targetWidth: 240);
     if (image == null || image.width == 0) return null;
-    const carW = 68.0, gap = 3.0;
+    return _cache[k] = await toyFromImage(image, name: name, color: color, status: status, statusColor: statusColor, headingDeg: headingDeg, dim: dim, me: me);
+  }
+
+  /// Draws [toy]'s pin from an already loaded render (no cache, no network).
+  @visibleForTesting
+  Future<MapPin> toyFromImage(
+    ui.Image image, {
+    required String name,
+    required Color color,
+    String? status,
+    Color statusColor = kLiveGreen,
+    double? headingDeg,
+    bool dim = false,
+    bool me = false,
+  }) {
+    final pose = toyPose(headingDeg);
+    const carW = kToyCarWidth;
     final carH = carW * image.height / image.width;
-    const ringW = carW * 0.86, ringH = ringW * 0.3;
     final label = pins.text(name.length > 14 ? '${name.substring(0, 13)}…' : name, 11, FontWeight.w800, me ? Colors.white : const Color(0xFF101010));
     final st = status == null ? null : pins.text(status, 10.5, FontWeight.w700, statusColor);
     final chipW = label.width + (st == null ? 0 : st.width + 5) + 16;
     final chipH = label.height + 7;
     // My halo needs room to fade out inside the bitmap; friends have none.
-    const haloR = carW / 2;
+    const haloR = kToyHaloRadius;
     final reach = me ? haloReach(haloR) + 1 : 0.0;
-    // The wheels stand on the ring: its middle sits just above the render's bottom edge.
-    final above = math.max(carH, reach);
-    final below = math.max(ringH / 2 + gap + chipH + 6, reach);
-    final totalW = [carW + 12, chipW + 4, reach * 2].reduce(math.max);
+    // The arrow (any way it turns, outline and shadow included) fits in
+    // [arrowReach] round the anchor; the wheels stand just above its middle.
+    final arrowReach = navArrowReach();
+    // The chip's top: past the arrow's wing tips and white edge, not its shadow.
+    const chipDrop = kToyArrowSize * 0.63 + 4;
+    final above = math.max(carH + kToyWheelLift, reach) + 2;
+    final below = math.max(chipDrop + chipH + 6, reach);
+    final totalW = [carW + 12, chipW + 4, reach * 2, arrowReach * 2].reduce(math.max);
     final totalH = above + below;
     final cx = totalW / 2;
     final centre = Offset(cx, above);
+    final wheels = centre.dy - kToyWheelLift;
 
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder)..scale(devicePixelRatio);
-    final ringColor = dim ? Color.lerp(ring, const Color(0xFFBFC3CA), 0.5)! : ring;
-    if (me) paintHalo(canvas, centre, haloR, night: night);
-    if (me && headingDeg != null) paintHeadingCone(canvas, centre, headingDeg, length: carW / 2 + 10, color: ringColor);
-    // The ring on the ground: a white edge so it reads on any map, the colour,
-    // a light fill, and the car's contact shadow in the middle.
-    final ringRect = Rect.fromCenter(center: centre, width: ringW, height: ringH);
-    canvas.drawOval(ringRect, Paint()..color = ringColor.withValues(alpha: 0.22));
-    canvas.drawOval(ringRect, Paint()..color = Colors.white.withValues(alpha: 0.9)..style = PaintingStyle.stroke..strokeWidth = 4.5);
-    canvas.drawOval(ringRect, Paint()..color = ringColor..style = PaintingStyle.stroke..strokeWidth = 2.5);
-    canvas.drawOval(Rect.fromCenter(center: centre.translate(0, -1), width: carW * 0.78, height: ringH * 0.62), Paint()..color = Colors.black.withValues(alpha: 0.38)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3));
+    final tint = dim ? Color.lerp(color, const Color(0xFFBFC3CA), 0.5)! : color;
+    if (me) paintHalo(canvas, centre, haloR, night: night, strength: night ? 0.6 : 0.8);
+    // A soft contact shadow under the wheels, so the toy stands on the map.
+    canvas.drawOval(
+      Rect.fromCenter(center: Offset(cx, wheels - 1), width: carW * 0.74, height: 7),
+      Paint()..color = Colors.black.withValues(alpha: dim ? 0.18 : 0.30)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.5),
+    );
     // The toy.
-    final dst = Rect.fromLTWH(cx - carW / 2, centre.dy + 4 - carH, carW, carH);
+    final dst = Rect.fromLTWH(cx - carW / 2, wheels - carH, carW, carH);
     final paint = Paint()..filterQuality = FilterQuality.medium;
     // Last seen / stranger: washed towards grey and a little see-through.
     if (dim) {
@@ -324,31 +341,37 @@ class CarMarkerFactory {
         ]);
     }
     canvas.save();
-    if (east) {
+    if (pose.east) {
       canvas.translate(cx, 0);
       canvas.scale(-1, 1);
       canvas.translate(-cx, 0);
     }
     canvas.drawImageRect(image, Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble()), dst, paint);
     canvas.restore();
-    // name chip
-    final rect = Rect.fromLTWH(cx - chipW / 2, centre.dy + ringH / 2 + gap, chipW, chipH);
+    // Where they are, on top of everything: the arrow, or a dot.
+    final arrowDeg = pose.arrowDeg;
+    if (arrowDeg != null) {
+      paintNavArrow(canvas, centre, arrowDeg.toDouble(), color: tint);
+    } else {
+      paintPositionDot(canvas, centre, color: tint);
+    }
+    // name chip, just clear of the arrow's white edge
+    final rect = Rect.fromLTWH(cx - chipW / 2, centre.dy + chipDrop, chipW, chipH);
     canvas.drawRRect(RRect.fromRectAndRadius(rect.shift(const Offset(0, 1.5)), const Radius.circular(8)), Paint()..color = Colors.black.withValues(alpha: 0.18));
     canvas.drawRRect(RRect.fromRectAndRadius(rect, const Radius.circular(8)), Paint()..color = me ? const Color(0xFF101010) : (dim ? const Color(0xFFF2F2F2) : Colors.white));
     label.paint(canvas, Offset(rect.left + 8, rect.top + 3.5));
     st?.paint(canvas, Offset(rect.left + 8 + label.width + 5, rect.top + 4));
 
-    final pin = await pins.finish(recorder, totalW, totalH, anchorY: centre.dy / totalH);
-    return _cache[k] = pin;
+    return pins.finish(recorder, totalW, totalH, anchorY: centre.dy / totalH);
   }
 
-  /// Me, up close: my toy car when it has one, else my car's portrait badge
-  /// when it has a photo, else the top-down car, all over a soft red halo and
-  /// (when known) a heading cone, so I am the one thing on the map that
-  /// cannot be mistaken for anyone else.
+  /// Me, up close: my toy car over its red arrow when it has one, else my
+  /// car's portrait badge when it has a photo, else the top-down car, all
+  /// over a soft red halo (the last two with a heading cone when known), so
+  /// I am the one thing on the map that cannot be mistaken for anyone else.
   Future<MapPin> me({String? toyUrl, required String? coverUrl, required String colorKey, double? headingDeg}) async {
     if (toyUrl != null) {
-      final pin = await toy(key: 'me', toyUrl: toyUrl, name: 'Me', ring: kRelationMe, status: 'now', headingDeg: headingDeg, me: true);
+      final pin = await toy(key: 'me', toyUrl: toyUrl, name: 'Me', color: kRelationMe, status: 'now', headingDeg: headingDeg, me: true);
       if (pin != null) return pin;
     }
     if (coverUrl != null) {
@@ -499,11 +522,12 @@ double haloReach(double r) => r * 1.6;
 /// on a road, brown on a park) and fades out fast, so on the map it read as
 /// a box between the nearest road and park edge instead of a circle. The
 /// wash is near-white by day and a deep rose at [night] (white would read
-/// as fog on the dark map).
-void paintHalo(Canvas canvas, Offset centre, double r, {Color color = kRelationMe, bool night = false}) {
+/// as fog on the dark map). [strength] scales both layers (the toy car's
+/// small halo under its arrow is lighter).
+void paintHalo(Canvas canvas, Offset centre, double r, {Color color = kRelationMe, bool night = false, double strength = 1}) {
   final reach = haloReach(r);
-  _softDisc(canvas, centre, reach, night ? const Color(0xFFFF787D) : const Color(0xFFFFF2F2), alpha: night ? 0.60 : 0.85, fadeFrom: night ? 0.42 : 0.45);
-  _softDisc(canvas, centre, reach, color, alpha: 0.40, fadeFrom: night ? 0.25 : 0.30, fadeTo: 0.95);
+  _softDisc(canvas, centre, reach, night ? const Color(0xFFFF787D) : const Color(0xFFFFF2F2), alpha: (night ? 0.60 : 0.85) * strength, fadeFrom: night ? 0.42 : 0.45);
+  _softDisc(canvas, centre, reach, color, alpha: 0.40 * strength, fadeFrom: night ? 0.25 : 0.30, fadeTo: 0.95);
 }
 
 /// A disc of [color] at [alpha] out to [fadeFrom] x [reach], then a
@@ -523,6 +547,85 @@ void _softDisc(Canvas canvas, Offset centre, double reach, Color color, {require
     colors.add(color.withValues(alpha: 0));
   }
   canvas.drawCircle(centre, reach, Paint()..shader = ui.Gradient.radial(centre, reach, colors, stops));
+}
+
+/// How wide a toy car stands on the map, in logical px.
+const kToyCarWidth = 68.0;
+
+/// The navigation arrow under a toy car, tip to tail (the white outline
+/// adds 2.5 px all round: about 20 x 22 px on screen).
+const kToyArrowSize = 17.0;
+
+/// How far above the arrow's middle (the anchor) the toy's wheels stand.
+const kToyWheelLift = 9.0;
+
+/// My halo round my toy's arrow: small, so it marks me without a big glow.
+const kToyHaloRadius = 18.0;
+
+/// What a toy-car pin shows for a heading (degrees, 0 = north, clockwise):
+/// [arrowDeg] is the arrow's angle in 10° steps (the cache step), or null
+/// when the heading is unknown (a dot instead); [east] mirrors the render
+/// (it faces left) while they head east, so the car drives their way.
+///
+/// Android reports a bearing of exactly 0 when it has none (standing
+/// still: the foreground app sends it as is), so exactly 0 counts as
+/// unknown too; a real bearing is almost never exactly 0.
+typedef ToyPose = ({int? arrowDeg, bool east});
+
+ToyPose toyPose(double? headingDeg) {
+  if (headingDeg == null || !headingDeg.isFinite || headingDeg == 0) return (arrowDeg: null, east: false);
+  final h = ((headingDeg % 360) / 10).round() * 10 % 360;
+  return (arrowDeg: h, east: h > 10 && h < 170);
+}
+
+/// A Waze-style navigation arrow centred on [centre], pointing [headingDeg]
+/// (0 = north): a rounded arrowhead with a notched tail, filled with
+/// [color] inside a white outline, on a soft shadow, [size] tip to tail.
+void paintNavArrow(Canvas canvas, Offset centre, double headingDeg, {required Color color, double size = kToyArrowSize}) {
+  final s = size;
+  // Pointing up, its middle on the origin.
+  final arrow = Path()
+    ..moveTo(0, -0.52 * s)
+    ..lineTo(0.44 * s, 0.44 * s)
+    ..lineTo(0, 0.2 * s)
+    ..lineTo(-0.44 * s, 0.44 * s)
+    ..close();
+  final turn = headingDeg * math.pi / 180;
+  Paint edge(Color c, double w) => Paint()
+    ..color = c
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = w
+    ..strokeJoin = StrokeJoin.round;
+  // The shadow falls straight down the screen (the map never rotates).
+  const blur = MaskFilter.blur(BlurStyle.normal, 1.6);
+  final shade = Colors.black.withValues(alpha: 0.32);
+  canvas.save();
+  canvas.translate(centre.dx, centre.dy + 1.2);
+  canvas.rotate(turn);
+  canvas.drawPath(arrow, Paint()..color = shade..maskFilter = blur);
+  canvas.drawPath(arrow, edge(shade, 5)..maskFilter = blur);
+  canvas.restore();
+  // The white edge (2.5 px outside), then the colour with softened corners.
+  canvas.save();
+  canvas.translate(centre.dx, centre.dy);
+  canvas.rotate(turn);
+  canvas.drawPath(arrow, Paint()..color = Colors.white);
+  canvas.drawPath(arrow, edge(Colors.white, 5));
+  canvas.drawPath(arrow, Paint()..color = color);
+  canvas.drawPath(arrow, edge(color, 1.4));
+  canvas.restore();
+}
+
+/// How far [paintNavArrow] reaches from its centre at any angle (the wing
+/// tips, the white edge and the shadow).
+double navArrowReach([double size = kToyArrowSize]) => size * 0.63 + 4.5;
+
+/// Where someone is while their heading is unknown: a dot in [color] in a
+/// white ring, on a soft shadow (about 15 px across).
+void paintPositionDot(Canvas canvas, Offset centre, {required Color color}) {
+  canvas.drawCircle(centre.translate(0, 1), 7.5, Paint()..color = Colors.black.withValues(alpha: 0.3)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.6));
+  canvas.drawCircle(centre, 7.5, Paint()..color = Colors.white);
+  canvas.drawCircle(centre, 5.5, Paint()..color = color);
 }
 
 /// Translucent beam from [centre] along [headingDeg] (0 = north), like the

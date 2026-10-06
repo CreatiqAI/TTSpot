@@ -19,8 +19,9 @@ Color officialGoldTint() => const Color(0xFFD4A017).withValues(alpha: 0.14);
 /// The official club tag beside a name: the club's crest and its name in a
 /// small gold pill. Tap it for the club ("President of …", View club).
 ///
-/// Only official clubs have one; the server decides who wears it (the
-/// president always, members who opt in), so a null [tag] draws nothing.
+/// Only official clubs have one; the server decides who wears it (each
+/// member of an official club picks one of their clubs or none; a president
+/// who never picked wears their own), so a null [tag] draws nothing.
 /// [compact] = the crest alone, for tight spots like the club members strip.
 ///
 /// Put it after a Flexible name in a Row: it keeps its own width (the club
@@ -143,7 +144,7 @@ Future<void> showClubTagSheet(BuildContext context, ClubTag tag) => showModalBot
           ),
           const SizedBox(height: 12),
           Text(
-            tag.isPresident ? 'Runs ${tag.name}, an official TT Spot club. Presidents of official clubs carry the club tag.' : 'A member of ${tag.name}, an official TT Spot club, wearing its tag.',
+            tag.isPresident ? 'Runs ${tag.name}, an official TT Spot club, and wears its tag.' : 'A member of ${tag.name}, an official TT Spot club, wearing its tag.',
             style: TextStyle(fontSize: 13.5, height: 1.4, color: AppColors.textSecondary),
           ),
           const SizedBox(height: 14),

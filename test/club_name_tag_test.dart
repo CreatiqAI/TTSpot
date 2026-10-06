@@ -23,11 +23,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-// The official club tag beside names (0.3.55, migration 0109). The server
-// decides who wears one (club_tag_of): the president of an official club
-// always; a member of an official club only after opting in; underground
-// clubs never. These tests feed the widgets what the server answers in each
-// case and check what shows, at text x1.0 and x1.3, light and dark.
+// The official club tag beside names (0.3.55, migration 0109; rules changed
+// in 0.3.56, migration 0111). The server decides who wears one
+// (club_tag_of): every member of an official club picks one of their clubs
+// or none; a president who never picked wears their own; underground clubs
+// never. These tests feed the widgets what the server answers in each case
+// and check what shows, at text x1.0 and x1.3, light and dark.
 
 SupabaseClient _offline() => SupabaseClient('http://localhost', 'test-key', authOptions: const AuthClientOptions(autoRefreshToken: false));
 
@@ -42,23 +43,24 @@ const _memberJson = {'club_id': _crewId, 'name': 'TT Spot Crew', 'handle': 'ttsp
 Profile _person(String id, String handle, {Map<String, dynamic>? tag, String? name}) =>
     Profile.fromMap({'id': id, 'username': handle, 'display_name': name, 'created_at': '2026-09-01T00:00:00Z', 'club_tag': ?tag});
 
-/// The server's club_tag_of: who wears which tag.
+/// The server's club_tag_of: who wears which tag. 'u-me' is me.
 class _FakeTags extends ClubTagRepository {
-  _FakeTags(this.tags, {this.wearingNow = false}) : super(_offline());
+  _FakeTags(Map<String, ClubTag?> tags) : tags = {...tags}, super(_offline());
   final Map<String, ClubTag?> tags;
-  bool wearingNow;
   final sets = <(String, bool)>[];
 
   @override
   Future<ClubTag?> tagOf(String userId) async => tags[userId];
 
   @override
-  Future<bool> wearing(String clubId, String me) async => wearingNow;
-
-  @override
   Future<void> setWearing(String clubId, bool show) async {
     sets.add((clubId, show));
-    wearingNow = show;
+    // Taking off the tag that shows leaves none (0111).
+    if (show) {
+      tags['u-me'] = ClubTag(clubId: clubId, name: 'TT Spot Crew', role: tags['u-me']?.role ?? 'member');
+    } else if (tags['u-me']?.clubId == clubId) {
+      tags['u-me'] = null;
+    }
   }
 }
 
@@ -230,7 +232,7 @@ void main() {
   }
 
   testWidgets('club page: a member who wears it can take it off', (t) async {
-    final tags = _FakeTags(const {}, wearingNow: true);
+    final tags = _FakeTags({'u-me': ClubTag.fromJson(_memberJson)});
     await _pump(t, ClubTagSwitch(club: _club(), isOwner: false), tags: tags);
     final tile = find.byKey(const Key('club-tag-switch'));
     expect(t.widget<SwitchListTile>(tile).value, isTrue);
@@ -240,16 +242,30 @@ void main() {
     expect(t.widget<SwitchListTile>(tile).value, isFalse);
   });
 
-  testWidgets('club page: the president always carries it (no switch)', (t) async {
-    await _pump(t, ClubTagSwitch(club: _club(), isOwner: true));
-    expect(find.byKey(const Key('club-tag-president')), findsOneWidget);
-    expect(find.byKey(const Key('club-tag-switch')), findsNothing);
+  testWidgets('club page: wearing another club\'s tag, this switch is off', (t) async {
+    final tags = _FakeTags({'u-me': const ClubTag(clubId: 'club-other', name: 'Other Official', role: 'member')});
+    await _pump(t, ClubTagSwitch(club: _club(), isOwner: false), tags: tags);
+    expect(t.widget<SwitchListTile>(find.byKey(const Key('club-tag-switch'))).value, isFalse);
+  });
+
+  // 0.3.56: the president is no longer forced to wear their club's tag.
+  testWidgets('club page: the president wears it by default and can switch it off', (t) async {
+    final tags = _FakeTags({'u-me': ClubTag.fromJson(_presidentJson)});
+    await _pump(t, ClubTagSwitch(club: _club(), isOwner: true), tags: tags);
+    final tile = find.byKey(const Key('club-tag-switch'));
+    expect(tile, findsOneWidget);
+    expect(find.byKey(const Key('club-tag-president')), findsNothing);
+    expect(t.widget<SwitchListTile>(tile).value, isTrue);
+    await t.tap(tile);
+    await t.pumpAndSettle();
+    expect(tags.sets, [(_crewId, false)]);
+    expect(t.widget<SwitchListTile>(tile).value, isFalse);
+    expect(find.text('Club tag off. No tag shows beside your name.'), findsOneWidget);
   });
 
   testWidgets('club page: underground clubs have no tag to wear', (t) async {
     await _pump(t, Column(children: [ClubTagSwitch(club: _club(official: false), isOwner: false), ClubTagSwitch(club: _club(official: false), isOwner: true)]));
     expect(find.byKey(const Key('club-tag-switch')), findsNothing);
-    expect(find.byKey(const Key('club-tag-president')), findsNothing);
     expect(find.text('Show club tag on my name'), findsNothing);
   });
 

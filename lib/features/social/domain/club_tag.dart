@@ -1,9 +1,12 @@
-/// The official club tag someone shows beside their name (migration 0109).
+/// The official club tag someone shows beside their name (migrations 0109,
+/// 0111).
 ///
-/// The president of an official club always has one; members of an official
-/// club wear it when they opt in (one club at a time). Underground clubs
-/// never get one. The server decides: `club_tag` on a profiles row (a
-/// computed field) or `club_tag_of(uuid)` returns it, or null.
+/// Every member of an official club, presidents included, picks which one of
+/// their official clubs' tags shows, or none (Settings > Club tag on my
+/// name, or the club page's switch). A president who never picked wears
+/// their own club's. Underground clubs never get one. The server decides:
+/// `club_tag` on a profiles row (a computed field) or `club_tag_of(uuid)`
+/// returns it, or null.
 class ClubTag {
   const ClubTag({required this.clubId, required this.name, this.handle, this.avatarUrl, this.role = 'member'});
 

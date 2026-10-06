@@ -20,6 +20,7 @@ import 'package:car_meet/features/points/presentation/points_screen.dart';
 import 'package:car_meet/features/profile/domain/car.dart';
 import 'package:car_meet/features/profile/presentation/badges_screen.dart';
 import 'package:car_meet/features/profile/presentation/widgets/profile_header.dart';
+import 'package:car_meet/features/social/application/club_tag_providers.dart';
 import 'package:car_meet/features/social/domain/post.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -279,7 +280,7 @@ void main() {
       await t.tap(find.text('Choose for profile'));
       await t.pumpAndSettle();
       expect(t.takeException(), isNull);
-      expect(find.text('Up to 3. They show under your numbers in the order you pick them.'), findsOneWidget);
+      expect(find.text('Up to 3. They show on your profile in the order you pick them.'), findsOneWidget);
       final sheet = find.byType(HonourPickerSheet);
       expect(find.descendant(of: sheet, matching: find.text('1')), findsOneWidget); // Posts first
       expect(find.descendant(of: sheet, matching: find.text('2')), findsOneWidget); // then Car meet joining
@@ -289,15 +290,17 @@ void main() {
   });
 
   // ----------------------------------------------------- honour row ---
+  // 0.3.56: small icons (no cards, no names) and "View all" in one row, under
+  // the name and bio. Theirs: only with badges. Mine with none: "Badges · View all".
   group('profile honour row', () {
-    Widget header() => SingleChildScrollView(
+    Widget header({required bool isMe}) => SingleChildScrollView(
           child: ProfileHeader(
-            profile: Profile(id: _me, username: 'testing', displayName: 'App Review', createdAt: DateTime(2026)),
-            isMe: false,
+            profile: Profile(id: _me, username: 'testing', displayName: 'App Review', bio: 'Weekend runs, Sunday breakfast.', createdAt: DateTime(2026)),
+            isMe: isMe,
             cars: const <Car>[],
             stats: const ProfileStats(cars: 1, organised: 0, attended: 1, went: 3),
             friendCount: 2,
-            points: null,
+            points: isMe ? 1240 : null,
             moments: const <Story>[],
             friendship: FriendshipStatus.none,
             onMeets: () {},
@@ -314,58 +317,114 @@ void main() {
         );
 
     for (final scale in [1.0, 1.3]) {
-      for (final n in [0, 1, 3]) {
-        testWidgets('$n badge${n == 1 ? '' : 's'} under the numbers (text $scale)', (t) async {
-          await _pump(
-            t,
-            Scaffold(body: header()),
-            scale: scale,
-            overrides: [honourBadgesProvider(_me).overrideWith((ref) async => _three.take(n).toList())],
-          );
-          expect(t.takeException(), isNull);
-          expect(find.byType(HonourMedallion), findsNWidgets(n));
-          if (n == 0) expect(find.byType(HonourRow), findsNothing);
-          if (n >= 1) {
-            expect(find.text('Car meet organizer'), findsOneWidget);
-            expect(find.text('Gold'), findsOneWidget);
-          }
-          if (n == 3) {
-            expect(find.text('Silver'), findsOneWidget);
-            expect(find.text('Bronze'), findsOneWidget);
-            // Same height side by side, long names on two lines, not cut.
-            final sizes = [for (final e in find.byType(HonourMedallion).evaluate()) (e.renderObject! as RenderBox).size.height];
-            expect(sizes.toSet().length, 1);
-            final name = t.widget<Text>(find.text('Car meet organizer'));
-            expect(name.maxLines, 2);
-          }
-          // The rest of the header is still there.
-          expect(find.text('Meets'), findsOneWidget);
-        });
+      for (final isMe in [false, true]) {
+        for (final n in [0, 1, 3]) {
+          final who = isMe ? 'my profile' : 'their profile';
+          testWidgets('$who, $n badge${n == 1 ? '' : 's'} (text $scale)', (t) async {
+            await _pump(
+              t,
+              Scaffold(body: header(isMe: isMe)),
+              scale: scale,
+              overrides: [
+                honourBadgesProvider(_me).overrideWith((ref) async => _three.take(n).toList()),
+                clubTagProvider(_me).overrideWith((ref) async => null),
+              ],
+            );
+            expect(t.takeException(), isNull);
+            expect(find.byType(HonourIcon), findsNWidgets(n));
+            // No names on the profile any more (they were the "too big" part).
+            expect(find.text('Car meet organizer'), findsNothing);
+            expect(find.text('Gold'), findsNothing);
+            if (n == 0 && !isMe) {
+              expect(find.byType(HonourRow), findsNothing);
+              expect(find.byKey(const Key('honour-view-all')), findsNothing);
+            } else {
+              expect(find.byType(HonourRow), findsOneWidget);
+              expect(find.byKey(const Key('honour-view-all')), findsOneWidget);
+              expect(find.text('View all'), findsOneWidget);
+              expect(find.text('Badges'), n == 0 ? findsOneWidget : findsNothing);
+            }
+            if (n > 0) {
+              // Small icons, one row, left to right in the member's order.
+              final icons = find.byType(HonourIcon);
+              for (final e in icons.evaluate()) {
+                expect((e.renderObject! as RenderBox).size, const Size(kHonourIconSize, kHonourIconSize));
+              }
+              final xs = [for (final e in icons.evaluate()) (e.renderObject! as RenderBox).localToGlobal(Offset.zero)];
+              expect(xs.map((o) => o.dy).toSet().length, 1);
+              expect(xs.first.dx, 16); // the profile's gutter
+              for (var i = 1; i < xs.length; i++) {
+                expect(xs[i].dx, greaterThan(xs[i - 1].dx));
+              }
+              // View all sits on the same row, after the last icon.
+              final link = t.getRect(find.byKey(const Key('honour-view-all')));
+              final last = t.getRect(icons.last);
+              expect(link.left, greaterThan(last.right));
+              expect((link.center.dy - last.center.dy).abs(), lessThan(1));
+              // Under the bio, above the buttons.
+              expect(last.top, greaterThan(t.getRect(find.text('Weekend runs, Sunday breakfast.')).bottom));
+              expect(last.bottom, lessThan(t.getRect(find.text(isMe ? 'Edit profile' : 'Message')).top));
+            }
+            // The rest of the header is still there.
+            expect(find.text('Meets'), findsOneWidget);
+          });
+        }
       }
     }
 
-    testWidgets('a load error shows no row and no error', (t) async {
-      await _pump(t, Scaffold(body: header()), overrides: [honourBadgesProvider(_me).overrideWith((ref) async => throw Exception('offline'))]);
-      expect(t.takeException(), isNull);
-      expect(find.byType(HonourMedallion), findsNothing);
+    testWidgets('a load error: no row on theirs, just the link on mine', (t) async {
+      for (final isMe in [false, true]) {
+        await _pump(
+          t,
+          Scaffold(body: header(isMe: isMe)),
+          overrides: [
+            honourBadgesProvider(_me).overrideWith((ref) async => throw Exception('offline')),
+            clubTagProvider(_me).overrideWith((ref) async => null),
+          ],
+        );
+        expect(t.takeException(), isNull);
+        expect(find.byType(HonourIcon), findsNothing);
+        expect(find.byKey(const Key('honour-view-all')), isMe ? findsOneWidget : findsNothing);
+      }
     });
 
-    testWidgets("on someone else's profile a tap opens their badges", (t) async {
+    for (final target in ['icon', 'View all']) {
+      testWidgets('a tap on the $target opens the badges page', (t) async {
+        final router = GoRouter(initialLocation: '/p', routes: [
+          GoRoute(path: '/p', builder: (_, _) => const Scaffold(body: ProfileHonourRow(userId: 'u-keith', isMe: false))),
+          GoRoute(path: '/profile/:id/badges', builder: (_, s) => Scaffold(body: Text('badges of ${s.pathParameters['id']}'))),
+        ]);
+        addTearDown(router.dispose);
+        await t.pumpWidget(ProviderScope(
+          retry: (_, _) => null,
+          overrides: [honourBadgesProvider('u-keith').overrideWith((ref) async => _three.take(2).toList())],
+          child: MaterialApp.router(theme: AppTheme.current, routerConfig: router),
+        ));
+        await t.pump();
+        await t.pump();
+        await t.tap(target == 'icon' ? find.byType(HonourIcon).first : find.byKey(const Key('honour-view-all')));
+        await t.pumpAndSettle();
+        expect(find.text('badges of u-keith'), findsOneWidget);
+      });
+    }
+
+    testWidgets('my page with no badges: "Badges · View all" opens my badges', (t) async {
       final router = GoRouter(initialLocation: '/p', routes: [
-        GoRoute(path: '/p', builder: (_, _) => const Scaffold(body: ProfileHonourRow(userId: 'u-keith', isMe: false))),
+        GoRoute(path: '/p', builder: (_, _) => const Scaffold(body: ProfileHonourRow(userId: _me, isMe: true))),
         GoRoute(path: '/profile/:id/badges', builder: (_, s) => Scaffold(body: Text('badges of ${s.pathParameters['id']}'))),
       ]);
       addTearDown(router.dispose);
       await t.pumpWidget(ProviderScope(
         retry: (_, _) => null,
-        overrides: [honourBadgesProvider('u-keith').overrideWith((ref) async => _three.take(1).toList())],
+        overrides: [honourBadgesProvider(_me).overrideWith((ref) async => const <HonourBadge>[])],
         child: MaterialApp.router(theme: AppTheme.current, routerConfig: router),
       ));
       await t.pump();
       await t.pump();
-      await t.tap(find.byType(HonourMedallion));
+      expect(find.text('Badges'), findsOneWidget);
+      await t.tap(find.text('View all'));
       await t.pumpAndSettle();
-      expect(find.text('badges of u-keith'), findsOneWidget);
+      expect(find.text('badges of $_me'), findsOneWidget);
     });
   });
 

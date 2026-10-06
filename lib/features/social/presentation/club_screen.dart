@@ -171,6 +171,8 @@ class ClubScreen extends ConsumerWidget {
                       clipBehavior: Clip.antiAlias,
                       child: SwitchListTile.adaptive(
                         value: sharing,
+                        // Off must read as a switch on the grey tile too.
+                        inactiveTrackColor: AppColors.textMuted.withValues(alpha: 0.45),
                         onChanged: (v) async {
                           try {
                             await ref.read(communityActionsProvider).setClubShare(clubId, v);
@@ -188,10 +190,11 @@ class ClubScreen extends ConsumerWidget {
                       ),
                     ),
                   ),
-                // Official clubs: wear the club's tag beside my name (presidents always do).
+                // Official clubs: wear the club's tag beside my name (a shortcut to Settings > Club tag on my name).
                 if (isMember || isManager) ClubTagSwitch(club: c, isOwner: isOwner),
                 if (members.isNotEmpty) ...[
-                  _Section('MEMBERS · ${members.length}'),
+                  // View all: the full list, with everyone's car.
+                  _Section('MEMBERS · ${members.length}', action: 'View all', onAction: () => context.push(Routes.clubMembers(clubId))),
                   SizedBox(
                     height: 96,
                     child: ListView(
@@ -679,11 +682,37 @@ class _InviteSheetState extends ConsumerState<_InviteSheet> {
 }
 
 class _Section extends StatelessWidget {
-  const _Section(this.text);
+  const _Section(this.text, {this.action, this.onAction});
   final String text;
+
+  /// A text link at the right end of the heading ("View all").
+  final String? action;
+  final VoidCallback? onAction;
+
   @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-        child: Text(text, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textSecondary)),
-      );
+  Widget build(BuildContext context) {
+    final heading = Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textSecondary));
+    if (action == null) return Padding(padding: const EdgeInsets.fromLTRB(16, 16, 16, 8), child: heading);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 6, 6, 0),
+      child: Row(
+        children: [
+          Expanded(child: heading),
+          TextButton(
+            key: const Key('club-members-view-all'),
+            onPressed: onAction,
+            style: TextButton.styleFrom(foregroundColor: AppColors.brand, padding: const EdgeInsets.symmetric(horizontal: 10), visualDensity: VisualDensity.compact),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(action!, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+                const SizedBox(width: 2),
+                const Icon(AppIcons.caretRight, size: 12),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

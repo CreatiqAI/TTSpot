@@ -92,7 +92,7 @@ class _HonourPickerSheetState extends ConsumerState<HonourPickerSheet> {
               const SheetHeader(title: 'Choose for profile'),
               const SizedBox(height: 4),
               Text(
-                'Up to 3. They show under your numbers in the order you pick them.',
+                'Up to 3. They show on your profile in the order you pick them.',
                 style: TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.35),
               ),
               const SizedBox(height: 10),

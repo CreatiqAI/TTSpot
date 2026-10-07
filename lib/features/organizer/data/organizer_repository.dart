@@ -91,6 +91,7 @@ class OrganizerRepository {
     required bool mustBePresent,
     required int claimMinutes,
     required List<DrawPrize> prizes,
+    int? presenceMinutes,
   }) async =>
       await _client.rpc('save_lucky_draw', params: {
         'p_event': eventId,
@@ -101,6 +102,7 @@ class OrganizerRepository {
         'p_must_be_present': mustBePresent,
         'p_claim_minutes': claimMinutes,
         'p_prizes': prizes.map((p) => p.toJson()).toList(),
+        'p_presence_minutes': presenceMinutes,
       }) as String;
 
   Future<void> cancelDraw(String drawId) => _client.rpc('cancel_draw', params: {'p_draw': drawId});
@@ -117,6 +119,15 @@ class OrganizerRepository {
 
   Future<DrawStage> stage(String drawId) async =>
       DrawStage.fromMap(((await _client.rpc('draw_stage', params: {'p_draw': drawId})) as Map).cast<String, dynamic>());
+
+  /// Roll call: "I'm here". Returns how far from the event pin I am (metres).
+  Future<int?> confirmPresence({required String drawId, required double lat, required double lng}) async {
+    final r = await _client.rpc('confirm_draw_presence', params: {'p_draw': drawId, 'p_lat': lat, 'p_lng': lng});
+    return ((r as Map?)?['distance_m'] as num?)?.toInt();
+  }
+
+  /// Crew: how many confirmed so far in a draw's roll call.
+  Future<int> presenceCount(String drawId) async => ((await _client.rpc('draw_presence_count', params: {'p_draw': drawId})) as num?)?.toInt() ?? 0;
 
   Future<PrizeClaimResult> claimPrize(String code) async =>
       PrizeClaimResult.fromMap(((await _client.rpc('claim_prize', params: {'p_claim_code': code})) as Map).cast<String, dynamic>());

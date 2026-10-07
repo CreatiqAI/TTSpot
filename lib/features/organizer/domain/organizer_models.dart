@@ -158,6 +158,8 @@ class LuckyDraw {
     this.entrantCount,
     this.seedHash,
     this.prizes = const [],
+    this.presenceMinutes,
+    this.presenceAskedAt,
   });
 
   final String id;
@@ -172,7 +174,16 @@ class LuckyDraw {
   final String? seedHash;
   final List<DrawPrize> prizes;
 
+  /// Roll call: ask everyone to confirm they're here this many minutes
+  /// before the draw; only confirmed members enter. Null = off.
+  final int? presenceMinutes;
+  final DateTime? presenceAskedAt;
+
   int get winnerCount => prizes.fold(0, (s, p) => s + p.quantity);
+
+  bool get hasRollCall => presenceMinutes != null;
+  DateTime? get rollCallOpensAt => rollCallOpens(drawAt, presenceMinutes);
+  bool rollCallOpenAt(DateTime now) => status == DrawStatus.scheduled && rollCallOpenNow(drawAt, cutoffAt, presenceMinutes, now);
 
   factory LuckyDraw.fromMap(Map<String, dynamic> m) {
     final prizes = _list(m['lucky_draw_prizes'])..sort((a, b) => _int(a['sort']).compareTo(_int(b['sort'])));
@@ -189,6 +200,8 @@ class LuckyDraw {
       entrantCount: (m['entrant_count'] as num?)?.toInt(),
       seedHash: m['seed_hash'] as String?,
       prizes: prizes.map(DrawPrize.fromMap).toList(),
+      presenceMinutes: (m['presence_minutes'] as num?)?.toInt(),
+      presenceAskedAt: _date(m['presence_asked_at']),
     );
   }
 }
@@ -254,6 +267,11 @@ class MyDraw {
     this.eligible = false,
     this.excluded,
     this.win,
+    this.entryNo,
+    this.presenceRequired = false,
+    this.presenceMinutes,
+    this.presenceOpen = false,
+    this.presenceConfirmed = false,
   });
 
   final String id;
@@ -271,8 +289,22 @@ class MyDraw {
   final String? excluded;
   final MyWin? win;
 
+  /// My entry number at this event (#0427), once checked in.
+  final int? entryNo;
+
+  /// Roll call is on: only members who tap "I'm here" in time are in.
+  final bool presenceRequired;
+  final int? presenceMinutes;
+
+  /// The server's view when this was fetched; [rollCallOpenAt] follows the clock.
+  final bool presenceOpen;
+  final bool presenceConfirmed;
+
   bool get cutoffPassed => cutoffAt.isBefore(DateTime.now());
   int get winnerCount => prizes.fold(0, (s, p) => s + p.quantity);
+
+  DateTime? get rollCallOpensAt => presenceRequired ? rollCallOpens(drawAt, presenceMinutes) : null;
+  bool rollCallOpenAt(DateTime now) => presenceRequired && status == DrawStatus.scheduled && rollCallOpenNow(drawAt, cutoffAt, presenceMinutes, now);
 
   factory MyDraw.fromMap(Map<String, dynamic> m) {
     final drawAt = _date(m['draw_at'])!;
@@ -290,13 +322,18 @@ class MyDraw {
       eligible: m['eligible'] as bool? ?? false,
       excluded: m['excluded'] as String?,
       win: m['win'] == null ? null : MyWin.fromMap((m['win'] as Map).cast<String, dynamic>()),
+      entryNo: (m['entry_no'] as num?)?.toInt(),
+      presenceRequired: m['presence_required'] as bool? ?? false,
+      presenceMinutes: (m['presence_minutes'] as num?)?.toInt(),
+      presenceOpen: m['presence_open'] as bool? ?? false,
+      presenceConfirmed: m['presence_confirmed'] as bool? ?? false,
     );
   }
 }
 
 /// A public winners-list row (`draw_results`).
 class DrawResult {
-  const DrawResult({required this.rank, required this.prize, required this.displayName, this.userId, this.username, this.avatarUrl, required this.status});
+  const DrawResult({required this.rank, required this.prize, required this.displayName, this.userId, this.username, this.avatarUrl, required this.status, this.entryNo});
   final int rank;
   final String prize;
   final String displayName;
@@ -305,6 +342,7 @@ class DrawResult {
   final String? username;
   final String? avatarUrl;
   final String status;
+  final int? entryNo;
 
   factory DrawResult.fromMap(Map<String, dynamic> m) => DrawResult(
         rank: _int(m['rank']),
@@ -314,6 +352,7 @@ class DrawResult {
         username: m['username'] as String?,
         avatarUrl: m['avatar_url'] as String?,
         status: m['status'] as String? ?? 'pending',
+        entryNo: (m['entry_no'] as num?)?.toInt(),
       );
 }
 
@@ -334,6 +373,7 @@ class StageWinner {
     this.expiresAt,
     this.claimedAt,
     this.promotedAt,
+    this.entryNo,
   });
 
   final String id;
@@ -352,6 +392,9 @@ class StageWinner {
   final DateTime? claimedAt;
   final DateTime? promotedAt;
 
+  /// Their entry number at the event (#0427): what the stage calls out.
+  final int? entryNo;
+
   bool get hasPrize => prizeId != null;
 
   factory StageWinner.fromMap(Map<String, dynamic> m) => StageWinner(
@@ -369,6 +412,7 @@ class StageWinner {
         expiresAt: _date(m['expires_at']),
         claimedAt: _date(m['claimed_at']),
         promotedAt: _date(m['promoted_at']),
+        entryNo: (m['entry_no'] as num?)?.toInt(),
       );
 }
 
@@ -392,6 +436,9 @@ class DrawStage {
     required this.names,
     required this.prizes,
     required this.winners,
+    this.presenceMinutes,
+    this.presenceConfirmed = 0,
+    this.entryNos = const [],
   });
 
   final String id;
@@ -411,6 +458,15 @@ class DrawStage {
   final List<String> names;
   final List<DrawPrize> prizes;
   final List<StageWinner> winners;
+
+  /// Roll call minutes before the draw (null = off) and how many confirmed.
+  final int? presenceMinutes;
+  final int presenceConfirmed;
+
+  /// A random sample of entrants' numbers to roll during the reveal.
+  final List<int> entryNos;
+
+  bool get hasRollCall => presenceMinutes != null;
 
   /// Winners holding a prize, in prize order then rank (the reveal order).
   List<StageWinner> get prizeWinners =>
@@ -437,6 +493,9 @@ class DrawStage {
       names: ((m['names'] as List?) ?? const []).map((e) => '$e').toList(),
       prizes: _list(m['prizes']).map(DrawPrize.fromMap).toList(),
       winners: _list(m['winners']).map(StageWinner.fromMap).toList(),
+      presenceMinutes: (m['presence_minutes'] as num?)?.toInt(),
+      presenceConfirmed: _int(m['presence_confirmed']),
+      entryNos: ((m['entry_nos'] as List?) ?? const []).whereType<num>().map((e) => e.toInt()).toList(),
     );
   }
 }
@@ -472,6 +531,34 @@ String? parseDrawClaimCode(String raw) {
   if (uri == null || uri.scheme != 'ttspot' || uri.host != 'drawclaim') return null;
   final segs = uri.pathSegments.where((s) => s.isNotEmpty).toList();
   return segs.isEmpty ? null : segs.first;
+}
+
+/// "#0427": a member's entry number at an event (= their lucky draw number).
+String formatEntryNo(int n) => '#${n.toString().padLeft(4, '0')}';
+
+/// When the roll call opens, or null when it's off.
+DateTime? rollCallOpens(DateTime drawAt, int? minutes) => minutes == null ? null : drawAt.subtract(Duration(minutes: minutes));
+
+/// The roll call is open from draw time minus [minutes] until entries close.
+bool rollCallOpenNow(DateTime drawAt, DateTime cutoffAt, int? minutes, DateTime now) {
+  final opens = rollCallOpens(drawAt, minutes);
+  return opens != null && !now.isBefore(opens) && !now.isAfter(cutoffAt);
+}
+
+/// Roll call choices on the draw form (minutes before the draw).
+const kRollCallMinutes = [10, 15, 30];
+
+/// A name for the big screen: "Ahmad Rizal" -> "Ah*** Ri***". The entry
+/// number is what identifies the winner on stage.
+String maskName(String name) {
+  final words = name.trim().replaceAll('@', '').split(RegExp(r'\s+')).where((w) => w.isNotEmpty);
+  return words.map((w) {
+    final chars = w.runes.toList();
+    if (chars.length <= 1) return w;
+    final keep = chars.length <= 3 ? 1 : 2;
+    final stars = (chars.length - keep).clamp(1, 4);
+    return String.fromCharCodes(chars.take(keep)) + '*' * stars;
+  }).join(' ');
 }
 
 /// Typical turnout options on the organizer application.

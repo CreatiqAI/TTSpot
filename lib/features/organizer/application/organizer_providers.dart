@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
 
 import '../../../core/supabase/supabase_client.dart';
+import '../../../core/utils/friendly_error.dart';
 import '../../vendors/application/vendors_providers.dart';
 import '../../vendors/domain/vendor.dart';
 import '../data/organizer_repository.dart';
@@ -58,6 +60,11 @@ final drawStageProvider = FutureProvider.autoDispose.family<DrawStage, String>((
   return ref.watch(organizerRepositoryProvider).stage(drawId);
 });
 
+/// Crew: how many confirmed in a draw's roll call.
+final drawPresenceCountProvider = FutureProvider.autoDispose.family<int, String>((ref, drawId) {
+  return ref.watch(organizerRepositoryProvider).presenceCount(drawId);
+});
+
 /// Mutations. Each call refreshes what it touched.
 class OrganizerActions {
   OrganizerActions(this._ref);
@@ -100,6 +107,7 @@ class OrganizerActions {
     required bool mustBePresent,
     required int claimMinutes,
     required List<DrawPrize> prizes,
+    int? presenceMinutes,
   }) async {
     final id = await _repo.saveDraw(
       eventId: eventId,
@@ -110,9 +118,36 @@ class OrganizerActions {
       mustBePresent: mustBePresent,
       claimMinutes: claimMinutes,
       prizes: prizes,
+      presenceMinutes: presenceMinutes,
     );
     _refreshDraw(eventId, id);
     return id;
+  }
+
+  /// Roll call: get a quick location fix and tell the server I'm here.
+  Future<void> confirmPresence(String eventId, String drawId) async {
+    final pos = await _quickFix();
+    if (pos == null) {
+      throw const AppException("Turn on location so we can confirm you're here, then tap again.");
+    }
+    await _repo.confirmPresence(drawId: drawId, lat: pos.latitude, lng: pos.longitude);
+    _ref.invalidate(myDrawStatusProvider(eventId));
+  }
+
+  /// Same as PointsActions: a recent last-known fix, else one fresh fix.
+  Future<Position?> _quickFix() async {
+    try {
+      var perm = await Geolocator.checkPermission();
+      if (perm == LocationPermission.denied) perm = await Geolocator.requestPermission();
+      if (perm == LocationPermission.denied || perm == LocationPermission.deniedForever) return null;
+      final last = await Geolocator.getLastKnownPosition();
+      if (last != null && DateTime.now().difference(last.timestamp) < const Duration(minutes: 2)) return last;
+      return await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high, timeLimit: Duration(seconds: 8)),
+      );
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<void> cancelDraw(String eventId, String drawId) async {
@@ -138,6 +173,7 @@ class OrganizerActions {
     _ref.invalidate(drawStageProvider(drawId));
     _ref.invalidate(myDrawStatusProvider(eventId));
     _ref.invalidate(drawResultsProvider(drawId));
+    _ref.invalidate(drawPresenceCountProvider(drawId));
   }
 }
 

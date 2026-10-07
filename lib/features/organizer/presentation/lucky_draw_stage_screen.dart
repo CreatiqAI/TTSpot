@@ -213,7 +213,14 @@ class _Waiting extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             Text(
-              '${stage.checkedIn} checked in · entries close ${formatTime(stage.cutoffAt)}',
+              [
+                '${stage.checkedIn} checked in',
+                if (stage.hasRollCall)
+                  DateTime.now().isBefore(stage.drawAt.subtract(Duration(minutes: stage.presenceMinutes!)))
+                      ? 'roll call ${formatTime(stage.drawAt.subtract(Duration(minutes: stage.presenceMinutes!)))}'
+                      : '${stage.presenceConfirmed} confirmed here',
+                'entries close ${formatTime(stage.cutoffAt)}',
+              ].join(' · '),
               textAlign: TextAlign.center,
               style: const TextStyle(color: Colors.white60, fontSize: 14),
             ),
@@ -336,7 +343,13 @@ class _Reveal extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final names = stage.names.isNotEmpty ? stage.names : stage.winners.map((w) => w.displayName).toList();
+    // Roll entry numbers when we have them (the stage calls out "#0427");
+    // names are masked on the big screen.
+    final byNumber = winner.entryNo != null;
+    final pool = byNumber
+        ? [for (final n in stage.entryNos.isNotEmpty ? stage.entryNos : [for (final w in stage.winners) ?w.entryNo]) formatEntryNo(n)]
+        : [for (final n in stage.names.isNotEmpty ? stage.names : stage.winners.map((w) => w.displayName)) maskName(n)];
+    final target = byNumber ? formatEntryNo(winner.entryNo!) : maskName(winner.displayName);
     final last = step == total - 1;
     return LayoutBuilder(
       builder: (context, c) {
@@ -367,10 +380,10 @@ class _Reveal extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: SizedBox(
-                      height: nameSize * 1.25,
+                      height: nameSize * (byNumber ? 1.6 : 1.25),
                       child: FittedBox(
                         fit: BoxFit.scaleDown,
-                        child: _RollingName(names: names, target: winner.displayName, size: nameSize, onDone: onStopped),
+                        child: _RollingName(names: pool, target: target, size: byNumber ? nameSize * 1.3 : nameSize, onDone: onStopped),
                       ),
                     ),
                   ),
@@ -379,10 +392,17 @@ class _Reveal extends StatelessWidget {
                     duration: const Duration(milliseconds: 400),
                     child: Column(
                       children: [
-                        Text(
-                          [if (winner.username != null) '@${winner.username}', '#${winner.rank} drawn'].join(' · '),
-                          style: const TextStyle(color: Colors.white70, fontSize: 17, fontWeight: FontWeight.w600),
-                        ),
+                        if (byNumber)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 24),
+                            child: Text(
+                              maskName(winner.displayName),
+                              textAlign: TextAlign.center,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(fontFamily: AppFonts.display, color: Colors.white, fontSize: (nameSize * 0.42).clamp(22.0, 52.0), fontWeight: FontWeight.w700),
+                            ),
+                          ),
                         const SizedBox(height: 6),
                         Text(
                           stage.mustBePresent ? 'Come to the stage within ${stage.claimMinutes} min with your claim QR' : 'Check your phone for your claim QR',
@@ -651,7 +671,7 @@ class _WinnerTile extends StatelessWidget {
               children: [
                 Text(w.displayName, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 16)),
                 Text(
-                  [if (w.prize != null) w.prize!, '#${w.rank}', if (w.promotedAt != null) 'from standby'].join(' · '),
+                  [if (w.entryNo != null) formatEntryNo(w.entryNo!), if (w.prize != null) w.prize!, if (w.promotedAt != null) 'from standby'].join(' · '),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(color: Colors.white60, fontSize: 13),

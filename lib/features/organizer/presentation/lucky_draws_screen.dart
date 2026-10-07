@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -113,10 +115,15 @@ class _DrawTile extends StatelessWidget {
                   [
                     d.prizes.map((p) => '${p.quantity}× ${p.name}').join(', '),
                     if (d.cutoffAt.isBefore(d.drawAt)) 'entries close ${formatTime(d.cutoffAt)}',
+                    if (d.hasRollCall) 'roll call ${d.presenceMinutes} min before',
                     d.mustBePresent ? 'claim within ${d.claimMinutes} min' : 'no need to be present',
                   ].where((s) => s.isNotEmpty).join(' · '),
                   style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary, height: 1.35),
                 ),
+                if (d.status == DrawStatus.scheduled && d.hasRollCall) ...[
+                  const SizedBox(height: 4),
+                  _RollCallCount(draw: d),
+                ],
               ],
             ),
           ),
@@ -142,6 +149,60 @@ class _DrawTile extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+}
+
+/// "38 confirmed" while the roll call is open; "Roll call opens 3:45 PM" before.
+class _RollCallCount extends ConsumerStatefulWidget {
+  const _RollCallCount({required this.draw});
+  final LuckyDraw draw;
+
+  @override
+  ConsumerState<_RollCallCount> createState() => _RollCallCountState();
+}
+
+class _RollCallCountState extends ConsumerState<_RollCallCount> {
+  Timer? _t;
+
+  @override
+  void initState() {
+    super.initState();
+    _t = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (!mounted) return;
+      if (widget.draw.rollCallOpenAt(DateTime.now())) ref.invalidate(drawPresenceCountProvider(widget.draw.id));
+      setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _t?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final d = widget.draw;
+    final now = DateTime.now();
+    final opens = d.rollCallOpensAt;
+    if (opens == null || now.isAfter(d.cutoffAt)) return const SizedBox.shrink();
+    final open = d.rollCallOpenAt(now);
+    final count = open ? ref.watch(drawPresenceCountProvider(d.id)).value : null;
+    final text = open ? (count == null ? 'Roll call open' : '$count confirmed') : 'Roll call opens ${formatTime(opens)}';
+    return Row(
+      children: [
+        Icon(AppIcons.handWaving, size: 15, color: open ? AppColors.success : AppColors.textSecondary),
+        const SizedBox(width: 5),
+        Expanded(
+          child: Text(
+            text,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: open ? AppColors.success : AppColors.textSecondary),
+          ),
+        ),
+      ],
     );
   }
 }

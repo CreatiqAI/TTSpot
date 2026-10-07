@@ -37,6 +37,7 @@ class _LuckyDrawEditScreenState extends ConsumerState<LuckyDrawEditScreen> {
   DateTime? _cutoffAt; // null = entries close at the draw
   bool _mustBePresent = true;
   int _claimMinutes = 15;
+  int? _rollCall; // minutes before the draw; null = off
   final List<_PrizeRow> _prizes = [_PrizeRow()];
   bool _loaded = false;
   bool _busy = false;
@@ -59,6 +60,7 @@ class _LuckyDrawEditScreenState extends ConsumerState<LuckyDrawEditScreen> {
         _cutoffAt = d.cutoffAt.isBefore(d.drawAt) ? d.cutoffAt : null;
         _mustBePresent = d.mustBePresent;
         _claimMinutes = d.claimMinutes;
+        _rollCall = d.presenceMinutes;
         for (final p in _prizes) {
           p.name.dispose();
         }
@@ -121,6 +123,11 @@ class _LuckyDrawEditScreenState extends ConsumerState<LuckyDrawEditScreen> {
       _snack('Add at least one prize.');
       return;
     }
+    final roll = _rollCall;
+    if (roll != null && _cutoffAt != null && !_cutoffAt!.isAfter(drawAt.subtract(Duration(minutes: roll)))) {
+      _snack('Entries close before the roll call opens. Move "Entries close" later or turn roll call off.');
+      return;
+    }
     setState(() => _busy = true);
     try {
       await ref.read(organizerActionsProvider).saveDraw(
@@ -132,6 +139,7 @@ class _LuckyDrawEditScreenState extends ConsumerState<LuckyDrawEditScreen> {
             mustBePresent: _mustBePresent,
             claimMinutes: _claimMinutes,
             prizes: prizes,
+            presenceMinutes: _rollCall,
           );
       if (mounted) context.pop();
     } catch (e) {
@@ -199,6 +207,32 @@ class _LuckyDrawEditScreenState extends ConsumerState<LuckyDrawEditScreen> {
           const SizedBox(height: 4),
           Text('Everyone who checks in by scanning the meet QR, or whom you or your crew confirm, before entries close is in. One entry each, free.',
               style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary, height: 1.35)),
+          const SizedBox(height: 20),
+          const _Label('ROLL CALL'),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            value: _rollCall != null,
+            onChanged: (v) => setState(() => _rollCall = v ? 15 : null),
+            title: const Text('Roll call', style: TextStyle(fontWeight: FontWeight.w700)),
+            subtitle: Text("Only people who tap 'I'm here' in time can win.", style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
+          ),
+          if (_rollCall != null) ...[
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final m in {...kRollCallMinutes, _rollCall!}.toList()..sort())
+                  ChoiceChip(label: Text('$m min before'), selected: _rollCall == m, showCheckmark: false, onSelected: (_) => setState(() => _rollCall = m)),
+              ],
+            ),
+            if (_drawAt != null) ...[
+              const SizedBox(height: 6),
+              Text(
+                'Everyone checked in gets a push at ${formatTime(_drawAt!.subtract(Duration(minutes: _rollCall!)))}. Tapping checks they are inside the event area.',
+                style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary, height: 1.35),
+              ),
+            ],
+          ],
           const SizedBox(height: 20),
           Row(
             children: [

@@ -351,7 +351,7 @@ class MapPinFactory {
       // The app's cached network image plumbing: the same disk cache as the
       // feed and the event pages, so a cover seen anywhere in the app is
       // usually already on the phone; decoded small for a pin.
-      img = await _resolve(ResizeImage(CachedNetworkImageProvider(url), width: (targetWidth * devicePixelRatio).round(), policy: ResizeImagePolicy.fit))
+      img = await _resolve(networkProvider(url, targetWidth: targetWidth, devicePixelRatio: devicePixelRatio))
           .timeout(const Duration(seconds: 15), onTimeout: () => null);
     } catch (_) {
       img = null;
@@ -359,6 +359,12 @@ class MapPinFactory {
     _images[url] = img;
     return img;
   }
+
+  /// The image [image] loads for a network [url]. [precacheImage] it ahead
+  /// (same width and pixel ratio) and the map's first draw finds it in the
+  /// image cache instead of waiting on the network.
+  static ImageProvider networkProvider(String url, {required int targetWidth, required double devicePixelRatio}) =>
+      ResizeImage(CachedNetworkImageProvider(url), width: (targetWidth * devicePixelRatio).round(), policy: ResizeImagePolicy.fit);
 
   /// The first frame of [provider] as a [ui.Image] this factory owns (a
   /// clone, so the image cache can drop its own copy), or null on error.

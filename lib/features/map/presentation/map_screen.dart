@@ -27,6 +27,7 @@ import '../../events/presentation/event_car_widgets.dart';
 import 'map_list_view.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../profile/application/profile_providers.dart';
+import '../../profile/domain/car.dart';
 import '../../friends/application/friends_providers.dart';
 import '../../friends/domain/friend.dart';
 import '../../friends/domain/presence.dart';
@@ -1286,18 +1287,43 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   /// Above every other pin, always.
   static const _meZ = 10;
 
-  /// My marker for the current tier: my toy car over a red arrow (else my
-  /// car's portrait badge, else the top-down car, with a heading cone) up
-  /// close, a red dot on a halo further out. The arrow / cone turns once
+  /// My marker for the current tier: my toy car over a red arrow up close
+  /// (my car's portrait badge, else the top-down car, only when my car has
+  /// no toy), the white-ringed red dot further out. Up close the dot also
+  /// stands in while my cars or my toy's image are still loading, so the
+  /// old stand-in never flashes before my toy. The arrow / beam turns once
   /// the phone knows which way I face.
   Future<MapPin> _mePin(String me) {
     final live = ref.read(livePositionProvider);
     final heading = live != null && live.age < const Duration(minutes: 2) ? live.heading : null;
-    if (!_close) return _carFactory.meDot(headingDeg: heading, scale: _glyphScale);
+    Future<MapPin> dot() => _carFactory.meDot(headingDeg: heading, scale: _glyphScale);
+    if (!_close) return dot();
+    final cars = ref.read(userCarsProvider(me));
+    final myCar = _defaultCar(cars.value);
+    final toy = myCar?.toyUrl;
+    if (toy != null) _warmMyToy(toy);
+    final look = mePinLook(
+      carsLoaded: cars.hasValue,
+      toyUrl: toy,
+      toyReady: toy == null || !_pinFactory.isLoaded(toy) ? null : _pinFactory.cachedImage(toy) != null,
+    );
+    if (look == MePinLook.dot) return dot();
     final showColor = ref.read(settingsProvider).showCarColor;
-    final myCars = ref.read(userCarsProvider(me)).value ?? const [];
-    final myCar = myCars.where((c) => c.isDefault).firstOrNull ?? myCars.firstOrNull;
-    return _carFactory.me(toyUrl: myCar?.toyUrl, coverUrl: myCar?.cover, colorKey: showColor ? (myCar?.color ?? 'red') : 'red', headingDeg: heading);
+    return _carFactory.me(toyUrl: toy, coverUrl: myCar?.cover, colorKey: showColor ? (myCar?.color ?? 'red') : 'red', headingDeg: heading);
+  }
+
+  static Car? _defaultCar(List<Car>? cars) => cars?.where((c) => c.isDefault).firstOrNull ?? cars?.firstOrNull;
+
+  /// My toy's image, fetched once into the pin cache (usually already in
+  /// the image cache: AppShell warms it at start); my pin swaps the dot for
+  /// the toy as soon as it is in.
+  String? _warmingToy;
+  void _warmMyToy(String url) {
+    if (_warmingToy == url || _pinFactory.isLoaded(url)) return;
+    _warmingToy = url;
+    _pinFactory.image(url, targetWidth: kToyImageWidth).then((_) {
+      if (mounted) _updateMe();
+    });
   }
 
   /// Only my own pin moved or turned: swap that one marker instead of
@@ -1411,14 +1437,15 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     });
     ref.listen(livePositionProvider, (_, _) => _paintCircles());
     ref.listen(myLocationProvider, (_, _) => _paintCircles());
-    // My cars load after the map's first draw (cold start): redraw my pin so
-    // my toy replaces the stand-in, and again whenever my default car or its
-    // toy changes.
+    // My cars load after the map's first draw (cold start): my pin is the
+    // dot until then; redraw it when they arrive (fetching my toy's image),
+    // and again whenever my default car or its toy changes.
     final myId = ref.watch(currentUserIdProvider);
     if (myId != null) {
       ref.listen(userCarsProvider(myId), (p, n) {
-        final before = p?.value?.where((c) => c.isDefault).firstOrNull;
-        final after = n.value?.where((c) => c.isDefault).firstOrNull ?? n.value?.firstOrNull;
+        final before = _defaultCar(p?.value);
+        final after = _defaultCar(n.value);
+        if (after?.toyUrl != null) _warmMyToy(after!.toyUrl!);
         if (before?.id != after?.id || before?.toyUrl != after?.toyUrl || p?.value == null) _updateMe();
       });
     }

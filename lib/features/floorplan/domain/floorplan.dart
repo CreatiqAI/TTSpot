@@ -48,18 +48,60 @@ String? parseZoneQr(String raw) {
 String eventInviteUrl(String code) => 'https://ttspot.my/e/$code';
 
 class FloorPin {
-  const FloorPin({required this.id, required this.levelId, required this.kind, required this.label, required this.x, required this.y, this.partnerVendorId});
+  const FloorPin({
+    required this.id,
+    required this.levelId,
+    required this.kind,
+    required this.label,
+    required this.x,
+    required this.y,
+    this.partnerVendorId,
+    this.exhibitorId,
+    this.w,
+    this.h,
+  });
   final String id;
   final String levelId;
   final PinKind kind;
   final String label;
+
+  /// Centre of the pin (or of the booth box), as fractions of the image.
   final double x;
   final double y;
   final String? partnerVendorId;
 
+  /// Expo mode: the exhibitor this booth belongs to (linked by booth code).
+  final String? exhibitorId;
+
+  /// Booth size as fractions of the image. Both set = drawn as a box.
+  final double? w;
+  final double? h;
+
   String get title => label.trim().isEmpty ? kind.label : label.trim();
 
-  FloorPin copyWith({PinKind? kind, String? label, double? x, double? y, String? partnerVendorId, bool clearPartner = false}) => FloorPin(
+  /// A booth with a real size on the plan: drawn as a box, not a pin.
+  bool get isBox => kind == PinKind.booth && (w ?? 0) > 0 && (h ?? 0) > 0;
+
+  /// The booth box in image fractions (a zero-size rect for plain pins).
+  Rect get rect => isBox ? Rect.fromCenter(center: Offset(x, y), width: w!, height: h!) : Rect.fromLTWH(x, y, 0, 0);
+
+  /// The booth code (label) normalised for matching: trimmed, upper-case.
+  String get code => label.trim().toUpperCase();
+
+  FloorPin copyWith({
+    PinKind? kind,
+    String? label,
+    double? x,
+    double? y,
+    String? partnerVendorId,
+    bool clearPartner = false,
+    String? exhibitorId,
+    bool clearExhibitor = false,
+    double? w,
+    double? h,
+    bool clearSize = false,
+  }) =>
+      FloorPin(
         id: id,
         levelId: levelId,
         kind: kind ?? this.kind,
@@ -67,6 +109,9 @@ class FloorPin {
         x: x ?? this.x,
         y: y ?? this.y,
         partnerVendorId: clearPartner ? null : (partnerVendorId ?? this.partnerVendorId),
+        exhibitorId: clearExhibitor ? null : (exhibitorId ?? this.exhibitorId),
+        w: clearSize ? null : (w ?? this.w),
+        h: clearSize ? null : (h ?? this.h),
       );
 
   factory FloorPin.fromMap(Map<String, dynamic> m) => FloorPin(
@@ -77,7 +122,62 @@ class FloorPin {
         x: (m['x'] as num).toDouble(),
         y: (m['y'] as num).toDouble(),
         partnerVendorId: m['partner_vendor_id'] as String?,
+        exhibitorId: m['exhibitor_id'] as String?,
+        w: (m['w'] as num?)?.toDouble(),
+        h: (m['h'] as num?)?.toDouble(),
       );
+}
+
+/// Booth sizes the editor offers, as a share of the image width. The height
+/// follows the image's aspect so the box comes out square on screen.
+enum BoothSize {
+  small('S', 0.018),
+  medium('M', 0.028),
+  large('L', 0.042);
+
+  const BoothSize(this.short, this.width);
+  final String short;
+  final double width;
+
+  /// (w, h) fractions for a level of this [aspect] (width / height).
+  (double, double) fractions(double aspect) => (width, (width * aspect).clamp(0.002, 1.0).toDouble());
+
+  /// The preset nearest to a box [w] wide, or null for none.
+  static BoothSize? nearest(double? w) {
+    if (w == null || w <= 0) return null;
+    BoothSize? best;
+    var d = double.infinity;
+    for (final s in values) {
+      final e = (s.width - w).abs();
+      if (e < d) {
+        d = e;
+        best = s;
+      }
+    }
+    return best;
+  }
+}
+
+/// The smallest rect that holds every rect, or null for none.
+Rect? boundsOf(Iterable<Rect> rects) {
+  Rect? out;
+  for (final r in rects) {
+    out = out == null ? r : out.expandToInclude(r);
+  }
+  return out;
+}
+
+/// Booth pins (on any of [levels]) that belong to an exhibitor: linked by id
+/// or whose code is in [boothCodes] (a shared booth links to only one).
+List<FloorPin> boothPinsFor(Iterable<FloorLevel> levels, {required String exhibitorId, required Iterable<String> boothCodes}) {
+  final codes = {for (final c in boothCodes) c.trim().toUpperCase()}..remove('');
+  final out = <FloorPin>[];
+  for (final l in levels) {
+    for (final p in l.pins) {
+      if (p.exhibitorId == exhibitorId || (p.kind == PinKind.booth && codes.contains(p.code))) out.add(p);
+    }
+  }
+  return out;
 }
 
 class FloorLevel {

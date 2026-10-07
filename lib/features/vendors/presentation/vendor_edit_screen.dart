@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/theme/app_icons.dart';
+import '../../../core/places/place_label.dart';
 import '../../../core/widgets/place_search_field.dart';
 import '../../map/application/map_providers.dart';
 import '../../../core/theme/app_theme.dart';
@@ -131,7 +132,7 @@ class _VendorEditScreenState extends ConsumerState<VendorEditScreen> {
                   icon: AppIcons.storefront,
                   near: here == null ? null : (here.latitude, here.longitude),
                   onPicked: (d) {
-                    _address.text = d.address.isEmpty ? d.name : '${d.name}, ${d.address}';
+                    _address.text = placeLabel(d.name, d.address);
                     _lat = d.lat;
                     _lng = d.lng;
                   },

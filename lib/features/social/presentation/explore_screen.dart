@@ -21,6 +21,7 @@ import 'widgets/seen_tracker.dart';
 import 'widgets/share_ride_card.dart';
 import '../../../core/widgets/brand_logo.dart';
 import 'clubs_events_tab.dart';
+import '../../guides/home_guides.dart';
 
 /// Home. "For you" is a RedNote-style ranked grid; "Following" is an
 /// Instagram-style card feed of friends, follows and clubs; "Clubs & Events"
@@ -32,28 +33,30 @@ class ExploreScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
-        appBar: AppBar(
-          centerTitle: false,
-          title: const BrandLogo(height: 56),
-          actions: [
-            IconButton(tooltip: 'Search', icon: const Icon(AppIcons.magnifyingGlass, size: 26), onPressed: () => context.push(Routes.search)),
-            const SizedBox(width: 4),
-          ],
-          bottom: TabBar(
-            labelColor: AppColors.textPrimary,
-            unselectedLabelColor: AppColors.textSecondary,
-            indicatorColor: AppColors.textPrimary,
-            indicatorSize: TabBarIndicatorSize.tab,
-            indicatorWeight: 1.5,
-            dividerColor: AppColors.border,
-            labelStyle: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-            tabs: [Tab(text: 'Feed'), Tab(text: 'Clubs & Events')],
+    return HomeGuideGate(
+      child: DefaultTabController(
+        length: 2,
+        child: Scaffold(
+          appBar: AppBar(
+            centerTitle: false,
+            title: const BrandLogo(height: 56),
+            actions: [
+              IconButton(key: HomeGuideKeys.search, tooltip: 'Search', icon: const Icon(AppIcons.magnifyingGlass, size: 26), onPressed: () => context.push(Routes.search)),
+              const SizedBox(width: 4),
+            ],
+            bottom: TabBar(
+              labelColor: AppColors.textPrimary,
+              unselectedLabelColor: AppColors.textSecondary,
+              indicatorColor: AppColors.textPrimary,
+              indicatorSize: TabBarIndicatorSize.tab,
+              indicatorWeight: 1.5,
+              dividerColor: AppColors.border,
+              labelStyle: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+              tabs: [const Tab(text: 'Feed'), Tab(key: HomeGuideKeys.clubsEvents, text: 'Clubs & Events')],
+            ),
           ),
+          body: const TabBarView(children: [_Feed(), ClubsEventsTab(tabIndex: 1)]),
         ),
-        body: const TabBarView(children: [_Feed(), ClubsEventsTab(tabIndex: 1)]),
       ),
     );
   }
@@ -132,6 +135,7 @@ class _FeedState extends ConsumerState<_Feed> with AutomaticKeepAliveClientMixin
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
                   // Wrap, not Row: never an overflow with very large text.
                   child: Wrap(
+                    key: HomeGuideKeys.feedSwitch,
                     spacing: 8,
                     runSpacing: 8,
                     children: [
@@ -172,7 +176,7 @@ class _FeedState extends ConsumerState<_Feed> with AutomaticKeepAliveClientMixin
         }
         return SliverMainAxisGroup(
           slivers: [
-            SliverToBoxAdapter(child: MasonryGrid(items: s.items, padding: const EdgeInsets.fromLTRB(8, 8, 8, 8), onLongPress: _notInterested)),
+            SliverToBoxAdapter(child: MasonryGrid(items: s.items, firstKey: HomeGuideKeys.firstPost, padding: const EdgeInsets.fromLTRB(8, 8, 8, 8), onLongPress: _notInterested)),
             SliverToBoxAdapter(
               child: s.done
                   ? const _FeedEnd(title: "You're all caught up", subtitle: 'Pull down for a fresh mix.')

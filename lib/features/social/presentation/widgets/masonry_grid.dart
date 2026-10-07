@@ -14,12 +14,15 @@ import 'video_badge.dart';
 /// RedNote-style two-column waterfall. Items go to whichever column is
 /// shorter, so appending a page never moves the tiles already placed.
 class MasonryGrid extends StatelessWidget {
-  const MasonryGrid({super.key, required this.items, this.padding = const EdgeInsets.fromLTRB(8, 8, 8, 24), this.onLongPress});
+  const MasonryGrid({super.key, required this.items, this.padding = const EdgeInsets.fromLTRB(8, 8, 8, 24), this.onLongPress, this.firstKey});
   final List<FeedPost> items;
   final EdgeInsets padding;
 
   /// Long-press on a tile ("Not interested" in the ranked feeds).
   final ValueChanged<FeedPost>? onLongPress;
+
+  /// Put on the first tile (TiTi's Home guide spotlights it).
+  final GlobalKey? firstKey;
 
   static const _gap = 8.0;
 
@@ -51,7 +54,12 @@ class MasonryGrid extends StatelessWidget {
     );
   }
 
-  Widget _tile(FeedPost f) => SeenMarker(key: ValueKey(f.post.id), postId: f.post.id, child: PostTile(feed: f, onLongPress: onLongPress));
+  Widget _tile(FeedPost f) {
+    final tile = _plainTile(f);
+    return firstKey != null && identical(f, items.first) ? KeyedSubtree(key: firstKey, child: tile) : tile;
+  }
+
+  Widget _plainTile(FeedPost f) => SeenMarker(key: ValueKey(f.post.id), postId: f.post.id, child: PostTile(feed: f, onLongPress: onLongPress));
 
   static double _estimatedHeight(Post p) {
     final aspect = p.photoUrls.isEmpty ? 1.2 : p.coverAspect.clamp(0.6, 1.6);

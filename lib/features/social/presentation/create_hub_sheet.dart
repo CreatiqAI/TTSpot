@@ -12,6 +12,7 @@ import '../../../core/widgets/swipe_sheet_body.dart';
 import '../../map/presentation/widgets/tt_now_sheet.dart';
 import '../../accounts/application/active_account.dart';
 import '../domain/post.dart';
+import '../../guides/home_guides.dart';
 
 /// The "+" sheet. Only the things people make every day sit on top; the
 /// rest waits behind "More" (it opens in place).
@@ -27,19 +28,23 @@ Future<void> showCreateHub(BuildContext context, WidgetRef ref) {
     isScrollControlled: true,
     useSafeArea: true, // keep the handle clear of the status bar, where a swipe down opens the system shade
     builder: (ctx) => SafeArea(
-      // Swipe down anywhere (content at the top) to close; the X stays for those who don't.
-      child: SwipeSheetBody(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        child: CreateHubContent(
-          account: account,
-          onRoute: (route) {
-            Navigator.of(ctx).pop();
-            context.push(route);
-          },
-          onTtNow: () {
-            Navigator.of(ctx).pop();
-            showTtNowSheet(context);
-          },
+      // The first time (personal): TiTi's create guide over the sheet once it has slid in.
+      child: CreateGuideTrigger(
+        enabled: account is PersonalAccount,
+        // Swipe down anywhere (content at the top) to close; the X stays for those who don't.
+        child: SwipeSheetBody(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: CreateHubContent(
+            account: account,
+            onRoute: (route) {
+              Navigator.of(ctx).pop();
+              context.push(route);
+            },
+            onTtNow: () {
+              Navigator.of(ctx).pop();
+              showTtNowSheet(context);
+            },
+          ),
         ),
       ),
     ),
@@ -145,17 +150,25 @@ class _CreateHubContentState extends State<CreateHubContent> {
         onTap: () => go(Routes.createMoment()),
       );
       top = [
-        _TtNowHero(key: const Key('create-tt-now'), onTap: widget.onTtNow),
+        KeyedSubtree(key: CreateGuideKeys.ttNow, child: _TtNowHero(key: const Key('create-tt-now'), onTap: widget.onTtNow)),
         const SizedBox(height: 10),
-        if (kSocialFeed) _BigPair(left: post, right: moment) else moment,
-        const SizedBox(height: 10),
-        _Wide(
-          key: const Key('create-plan'),
-          icon: AppIcons.calendarBlank,
-          title: 'Plan a TT session',
-          subtitle: 'Pick a place and a time for later',
-          titi: TitiPose.calendar,
-          onTap: () => go(Routes.createEventAs(session: true)),
+        // One block, so TiTi's guide can point at "everything else" at once.
+        Column(
+          key: CreateGuideKeys.make,
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (kSocialFeed) _BigPair(left: post, right: moment) else moment,
+            const SizedBox(height: 10),
+            _Wide(
+              key: const Key('create-plan'),
+              icon: AppIcons.calendarBlank,
+              title: 'Plan a TT session',
+              subtitle: 'Pick a place and a time for later',
+              titi: TitiPose.calendar,
+              onTap: () => go(Routes.createEventAs(session: true)),
+            ),
+          ],
         ),
       ];
       more = [

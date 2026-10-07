@@ -1,0 +1,14 @@
+{
+ "image": "floorplan.png",
+ "width": 3600,
+ "height": 2505,
+ "level_name": "Hall A · B · C",
+ "source": "MIAPEX/AICOVE/AIAS 2025 visitor guide, page 3",
+ "crop_pt": [
+  36.0,
+  186.0,
+  562.0,
+  552.0
+ ],
+ "zoom": 6.844106463878327
+}

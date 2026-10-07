@@ -1,0 +1,74 @@
+[
+ {
+  "label": "Registration counter",
+  "kind": "info",
+  "x": 0.43022,
+  "y": 0.71273
+ },
+ {
+  "label": "Main entry",
+  "kind": "entrance",
+  "x": 0.45299,
+  "y": 0.85084
+ },
+ {
+  "label": "Entrance arch",
+  "kind": "entrance",
+  "x": 0.23908,
+  "y": 0.74255
+ },
+ {
+  "label": "Stage",
+  "kind": "stage",
+  "x": 0.69083,
+  "y": 0.08663
+ },
+ {
+  "label": "Stage",
+  "kind": "stage",
+  "x": 0.17517,
+  "y": 0.65306
+ },
+ {
+  "label": "First aid",
+  "kind": "info",
+  "x": 0.70826,
+  "y": 0.68197
+ },
+ {
+  "label": "HWC Cafe",
+  "kind": "food",
+  "x": 0.36667,
+  "y": 0.75201
+ },
+ {
+  "label": "Japanese Styled Cafe",
+  "kind": "food",
+  "x": 0.55808,
+  "y": 0.23821
+ },
+ {
+  "label": "Toilets",
+  "kind": "toilet",
+  "x": 0.0686,
+  "y": 0.77308
+ },
+ {
+  "label": "Toilets",
+  "kind": "toilet",
+  "x": 0.43443,
+  "y": 0.10729
+ },
+ {
+  "label": "Toilets",
+  "kind": "toilet",
+  "x": 0.89476,
+  "y": 0.80866
+ },
+ {
+  "label": "Toilets",
+  "kind": "toilet",
+  "x": 0.97578,
+  "y": 0.32336
+ }
+]

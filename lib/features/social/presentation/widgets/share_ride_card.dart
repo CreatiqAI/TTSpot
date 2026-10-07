@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/consent/ai_consent.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_icons.dart';
 import '../../../../core/theme/app_images.dart';
@@ -56,6 +57,8 @@ class ShareRideNudge extends ConsumerWidget {
         busy: s.busy,
         error: s.error,
         onPost: () async {
+          // First post: the note on the automated safety check (OpenAI).
+          if (!await ensureAiConsent(context, ref, AiConsentKind.safety)) return;
           final id = await ctrl.post(car);
           if (id != null && context.mounted) _open(context, id);
         },

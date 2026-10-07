@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/consent/ai_consent.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/supabase/supabase_client.dart';
 import '../../../../core/utils/friendly_error.dart';
 import '../../../guides/me_guides.dart' show GarageGuideKeys;
+import '../../../settings/application/settings_providers.dart';
 import '../../../social/application/social_providers.dart';
 import '../../application/cutout_providers.dart';
 import '../../application/garage_providers.dart';
@@ -14,6 +16,7 @@ import '../../application/toy_providers.dart';
 import '../../domain/car.dart';
 import '../../domain/garage_look.dart';
 import '../widgets/car_actions_sheet.dart';
+import '../widgets/toy_car_image.dart' show ToyConsentScope;
 import 'garage_facts.dart';
 import 'garage_images.dart';
 import 'garage_studio.dart';
@@ -145,17 +148,29 @@ class _GarageBodyState extends ConsumerState<GarageBody> {
     }
   }
 
+  /// "Make my toy car": the Kie.ai sheet, then allow_toy_cars books the toys.
+  Future<void> _makeToy(Car car) async {
+    final messenger = ScaffoldMessenger.of(context);
+    if (await ensureAiConsent(context, ref, AiConsentKind.toy)) {
+      messenger.showSnackBar(const SnackBar(content: Text('Making your toy car. About 2 minutes; it swaps in on its own.')));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final me = ref.watch(currentUserIdProvider);
     final mine = me != null && me == widget.ownerId;
+    // My cars only expect a toy once I've allowed toy cars (Kie.ai).
+    final toyConsent = !mine || ref.watch(settingsProvider.select((s) => s.toyConsent));
     final carsAsync = ref.watch(userCarsProvider(widget.ownerId));
     // The owner's garage keeps the toy watcher alive: a toy that lands swaps
     // in on its own.
     if (mine) ref.watch(toyWatcherProvider);
     void add() => context.push(Routes.newCar);
 
-    GarageStudio studio({List<Car> cars = const [], GarageFacts facts = const GarageFacts(), bool loading = false, String? error}) => GarageStudio(
+    Widget studio({List<Car> cars = const [], GarageFacts facts = const GarageFacts(), bool loading = false, String? error}) => ToyConsentScope(
+        allowed: toyConsent,
+        child: GarageStudio(
           cars: cars,
           index: _index,
           onIndex: (i) => _setIndex(i, cars),
@@ -171,12 +186,13 @@ class _GarageBodyState extends ConsumerState<GarageBody> {
           onMakeToday: mine ? _makeToday : null,
           onEdit: mine ? (c) => context.push(Routes.editCar(c.id)) : null,
           onPapers: mine ? (c) => context.push(Routes.carDocuments(c.id)) : null,
+          onMakeToy: mine && !toyConsent ? _makeToy : null,
           onRefresh: _refresh,
           empty: widget.empty,
           loading: loading,
           error: error,
           guideKeys: widget.guideKeys,
-        );
+        ));
 
     return carsAsync.when(
       skipLoadingOnRefresh: true,

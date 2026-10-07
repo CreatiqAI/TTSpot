@@ -42,19 +42,21 @@ class ToyCarImage extends StatelessWidget {
   double get height => width / kToyAspect;
 
   /// What this car shows: 'toy', 'repainting', 'pending' or 'fallback'.
-  static String stateFor(Car car, {required bool mine}) {
+  /// [toyConsent] false (the owner hasn't allowed toy cars): a car never
+  /// asked for isn't on its way, so it shows its photo.
+  static String stateFor(Car car, {required bool mine, bool toyConsent = true}) {
     if (garageToyProvider(car) != null) {
       return mine && !toyDemoOn && car.toyPending ? 'repainting' : 'toy';
     }
     final status = toyDemoStatus(car) ?? car.toyStatus;
     // No photo: no toy is coming, so nothing says one is.
-    if (status == 'pending' || (status == null && mine && car.photoCover != null)) return 'pending';
+    if (status == 'pending' || (status == null && mine && toyConsent && car.photoCover != null)) return 'pending';
     return 'fallback';
   }
 
   @override
   Widget build(BuildContext context) {
-    final state = stateFor(car, mine: mine);
+    final state = stateFor(car, mine: mine, toyConsent: ToyConsentScope.of(context));
     final label = semanticLabel ?? '${car.make} ${car.model}';
     final Widget body;
     if (state == 'toy') {
@@ -96,6 +98,19 @@ class ToyCarImage extends StatelessWidget {
     }
     return SizedBox(width: width, height: height, child: body);
   }
+}
+
+/// Whether the owner has allowed toy cars (Kie.ai; settings.ai_consent.toy),
+/// for the [ToyCarImage]s below it. The owner's garage and car page set it;
+/// anywhere else it reads as allowed.
+class ToyConsentScope extends InheritedWidget {
+  const ToyConsentScope({super.key, required this.allowed, required super.child});
+  final bool allowed;
+
+  static bool of(BuildContext context) => context.dependOnInheritedWidgetOfExactType<ToyConsentScope>()?.allowed ?? true;
+
+  @override
+  bool updateShouldNotify(ToyConsentScope oldWidget) => oldWidget.allowed != allowed;
 }
 
 /// The toy itself, fading in as it decodes.

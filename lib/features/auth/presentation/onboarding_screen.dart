@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../core/consent/ai_consent.dart';
 import '../../../core/constants/malaysian_states.dart';
 import '../../../core/legal/legal_text.dart';
 import '../../../core/router/app_router.dart';
@@ -54,7 +55,9 @@ import 'widgets/username_field.dart';
 /// 2. you: avatar (cropped round), name, username (suggested from the
 ///    name), home state, phone, Terms.
 ///    Then "Building your garage" while the toy render of the car is awaited
-///    (new members only; see GarageSetupScreen).
+///    (new members only; see GarageSetupScreen). The toy needs the member's
+///    OK for Kie.ai, asked when the car is saved (showAiConsentSheet); "Not
+///    now" skips that step.
 /// 3. permissions: the same page as /location (PermissionsScreen), inside
 ///    the flow, so the router doesn't show it again this launch.
 /// 4. a gift: the first blind box, when one is waiting.
@@ -149,6 +152,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   bool _carSaved = false;
   bool _carValidate = false;
   bool _editingCar = false;
+  /// The toy car sheet (Kie.ai) was shown this session; it isn't asked twice.
+  bool _toyAsked = false;
 
   @override
   void initState() {
@@ -287,6 +292,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       return;
     }
     if (!mounted) return;
+    // Saving the car books its toy (the photo goes to Kie.ai): ask first.
+    // Agree → allow_toy_cars, then "Building your garage" after the profile;
+    // Not now → the car keeps its photo and that step is skipped.
+    if (!_toyAsked && !ref.read(settingsProvider).toyConsent) {
+      _toyAsked = true;
+      await ensureAiConsent(context, ref, AiConsentKind.toy);
+      if (!mounted) return;
+    }
     // Spec line / body style only while they still describe this make + model.
     final g = _guess;
     final keepGuess = g != null && g.matches(_make.text, _model.text);
@@ -496,7 +509,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     }
     if (!mounted) return;
     _giftLookup = _findGift();
-    if (car == null) return _toPermissions(await _giftLookup!);
+    // No toy coming (toy cars not allowed): straight on, the car keeps its photo.
+    if (car == null || !ref.read(settingsProvider).toyConsent) return _toPermissions(await _giftLookup!);
     setState(() => _building = car);
   }
 

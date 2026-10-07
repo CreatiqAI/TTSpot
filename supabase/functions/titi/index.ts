@@ -76,6 +76,10 @@ const BUCKET = "titi-uploads";
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 
+/** The member said OK to TiTi using OpenAI: `settings.ai_consent.titi` is a date (migration 0125). */
+// deno-lint-ignore no-explicit-any
+const hasTitiConsent = (settings: any) => typeof settings?.ai_consent?.titi === "string" && settings.ai_consent.titi.length > 0;
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** An id the model passed: a bare uuid or a ref like [[meet:<uuid>]]. */
 const idFrom = (v: unknown) => (typeof v === "string" ? /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.exec(v)?.[0]?.toLowerCase() ?? null : null);
@@ -1755,6 +1759,11 @@ Deno.serve(async (req) => {
 
   const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
   const profileP = asUser.from("profiles").select("display_name, username, settings").eq("id", user.id).maybeSingle();
+  // Apple 5.1.2(i): nothing goes to OpenAI until the member has said OK
+  // (profiles.settings.ai_consent.titi; the app asks on their first send).
+  if (!hasTitiConsent(((await profileP).data as any)?.settings)) {
+    return json({ error: "TiTi needs your OK to use OpenAI. Open TiTi in the app and tap Allow.", code: "ai_consent" }, 403);
+  }
 
   const history = histRows.reverse();
   // A Retry sends the same question again: don't store or send it twice.

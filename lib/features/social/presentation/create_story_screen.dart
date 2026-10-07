@@ -10,6 +10,7 @@ import 'package:flutter/rendering.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:video_player/video_player.dart';
 
+import '../../../core/consent/ai_consent.dart';
 import '../../../core/config/media.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/theme/app_art.dart';
@@ -135,6 +136,8 @@ class _CreateStoryScreenState extends ConsumerState<CreateStoryScreen> {
   Future<void> _share() async {
     final me = ref.read(currentUserIdProvider);
     if ((_photo == null && _video == null) || me == null) return;
+    // First moment: the note on the automated safety check (OpenAI).
+    if (!await ensureAiConsent(context, ref, AiConsentKind.safety) || !mounted) return;
     setState(() => _busy = true);
     try {
       final repo = ref.read(socialRepositoryProvider);

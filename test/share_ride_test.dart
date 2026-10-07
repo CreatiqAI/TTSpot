@@ -99,7 +99,12 @@ class _FakeSettings extends SettingsActions {
   Future<void> patch(Map<String, dynamic> patch) async => patches.add(patch);
 }
 
-List<Override> _overrides({required _FakeShareRepo repo, List<Car>? cars, Map<String, dynamic> settings = const {}, String? me = _me, _FakeSettings Function(Ref ref)? settingsActions}) => [
+/// The safety-check notice (OpenAI) was already seen, unless a test says otherwise.
+const _seenSafety = {
+  'ai_consent': {'safety': '2026-10-01T00:00:00Z'},
+};
+
+List<Override> _overrides({required _FakeShareRepo repo, List<Car>? cars, Map<String, dynamic> settings = _seenSafety, String? me = _me, _FakeSettings Function(Ref ref)? settingsActions}) => [
       currentUserIdProvider.overrideWith((ref) => me),
       currentProfileProvider.overrideWith((ref) async => me == null ? null : Profile(id: me, username: 'myvi_mike', createdAt: DateTime(2026, 9, 1), settings: settings)),
       userCarsProvider(_me).overrideWith((ref) async => cars ?? [_car()]),
@@ -232,6 +237,35 @@ void main() {
       await t.tap(find.text('Done'));
       await t.pump();
       expect(find.byKey(const Key('share-ride-card')), findsNothing);
+      await t.pump(const Duration(seconds: 9)); // the points refresh timer
+    });
+
+    testWidgets('first post: the safety-check notice first; Not now posts nothing, OK, post posts ($scale)', (t) async {
+      final repo = _FakeShareRepo();
+      _FakeSettings? settings;
+      await _pump(t, _overrides(repo: repo, settings: const {}, settingsActions: (ref) => settings = _FakeSettings(ref)), scale: scale);
+      await t.tap(find.byKey(const Key('share-ride-post')));
+      await t.pumpAndSettle();
+      expect(find.text('Before you post'), findsOneWidget);
+      expect(find.text('Posts are checked by an automated safety filter (OpenAI) to keep TT Spot safe.'), findsOneWidget);
+      expect(t.takeException(), isNull);
+      await t.ensureVisible(find.byKey(const ValueKey('ai-consent-decline')));
+      await t.tap(find.byKey(const ValueKey('ai-consent-decline')));
+      await t.pumpAndSettle();
+      expect(repo.shared, isEmpty);
+      expect(settings?.patches ?? const [], isEmpty);
+      expect(find.text('Post it'), findsOneWidget);
+
+      await t.tap(find.byKey(const Key('share-ride-post')));
+      await t.pumpAndSettle();
+      await t.ensureVisible(find.byKey(const ValueKey('ai-consent-agree')));
+      await t.tap(find.byKey(const ValueKey('ai-consent-agree')));
+      await t.pump(const Duration(milliseconds: 400));
+      await t.pump(const Duration(milliseconds: 100));
+      await t.pump(const Duration(milliseconds: 100));
+      expect(repo.shared.single.id, 'car-1');
+      expect(settings!.patches.single['ai_consent'], containsPair('safety', isA<String>()));
+      expect(t.takeException(), isNull);
       await t.pump(const Duration(seconds: 9)); // the points refresh timer
     });
 

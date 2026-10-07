@@ -251,6 +251,8 @@ class TitiHttpException implements Exception {
 String titiErrorText(Object e) => switch (e) {
       AppException() => e.message,
       TitiHttpException(status: 401) => 'Sign in again to chat with TiTi.',
+      // The titi function refuses without the member's OK for OpenAI.
+      TitiHttpException(status: 403) => 'TiTi needs your OK to use OpenAI.',
       TitiHttpException(status: 503) => 'TiTi is off duty right now. Try again later.',
       TitiHttpException() => 'My radio cut out. Try again?',
       SocketException() || HttpException() || TimeoutException() || HandshakeException() => 'Can\'t reach TiTi. Check your connection and retry.',

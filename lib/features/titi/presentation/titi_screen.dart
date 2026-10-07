@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../core/consent/ai_consent.dart';
 import '../../../core/guide/guide.dart';
 import '../../../core/guide/guide_on_first_view.dart';
 import '../../../core/theme/app_icons.dart';
@@ -15,6 +16,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/titi.dart';
 import '../../../core/utils/dates.dart';
 import '../../../core/widgets/photo_picker_sheet.dart';
+import '../../settings/application/settings_providers.dart';
 import '../../social/presentation/widgets/chat_media.dart' show ChatTimePill;
 import '../application/titi_controller.dart';
 import '../domain/titi_message.dart';
@@ -109,7 +111,36 @@ class _TitiScreenState extends ConsumerState<TitiScreen> {
         _previews.removeAt(i);
       });
 
-  void _send([String? pick]) {
+  /// "Not now" on the OpenAI sheet: the banner above the composer asks again.
+  bool _declined = false;
+  bool _asking = false;
+
+  /// The member's OK for OpenAI, asked the first time they send (members who
+  /// chatted before this asked too). False = keep the question here.
+  Future<bool> _consented() async {
+    if (ref.read(settingsProvider).titiConsent) return true;
+    if (_asking) return false;
+    _asking = true;
+    FocusScope.of(context).unfocus();
+    final ok = await ensureAiConsent(context, ref, AiConsentKind.titi);
+    _asking = false;
+    if (mounted) setState(() => _declined = !ok);
+    return ok;
+  }
+
+  Future<void> _allow() async {
+    await _consented();
+  }
+
+  Future<void> _retry() async {
+    if (await _consented()) ref.read(titiControllerProvider.notifier).retry();
+  }
+
+  Future<void> _send([String? pick]) async {
+    final anything = pick != null ? pick.trim().isNotEmpty : (_text.text.trim().isNotEmpty || _photos.isNotEmpty);
+    if (!anything || ref.read(titiControllerProvider).streaming) return;
+    // Nothing goes to OpenAI without the member's OK; the question stays put.
+    if (!await _consented() || !mounted) return;
     final t = (pick ?? _text.text).trim();
     final photos = pick == null ? List<XFile>.of(_photos) : const <XFile>[];
     if ((t.isEmpty && photos.isEmpty) || ref.read(titiControllerProvider).streaming) return;
@@ -186,6 +217,7 @@ class _TitiScreenState extends ConsumerState<TitiScreen> {
   Widget build(BuildContext context) {
     final s = ref.watch(titiControllerProvider);
     final c = ref.read(titiControllerProvider.notifier);
+    final consented = ref.watch(settingsProvider.select((s) => s.titiConsent));
     // New items (a question, an answer starting): glide down to them.
     ref.listen(titiControllerProvider.select((s) => s.messages.length), (a, b) {
       if ((b) > (a ?? 0)) _follow();
@@ -283,6 +315,7 @@ class _TitiScreenState extends ConsumerState<TitiScreen> {
                 ),
               ),
             ),
+            if (_declined && !consented) TitiConsentBanner(onAllow: _allow),
             _Composer(
               controller: _text,
               streaming: s.streaming,
@@ -310,7 +343,7 @@ class _TitiScreenState extends ConsumerState<TitiScreen> {
       final m = s.messages[i];
       final fresh = i >= base;
       if (m.mine) return fresh ? TitiAppear(key: ValueKey(m.key), child: _Mine(m)) : _Mine(m, key: ValueKey(m.key));
-      return TitiAnswer(m, key: ValueKey(m.key), latest: i == s.messages.length - 1, onChip: _send, onRetry: c.retry);
+      return TitiAnswer(m, key: ValueKey(m.key), latest: i == s.messages.length - 1, onChip: _send, onRetry: _retry);
     }
 
     // Oldest first, with a day pill wherever the date changes. An answer
@@ -333,7 +366,7 @@ class _TitiScreenState extends ConsumerState<TitiScreen> {
       final retry = Padding(
         key: const ValueKey('no-answer'),
         padding: const EdgeInsets.only(bottom: 8),
-        child: TitiErrorRow(text: 'TiTi didn\'t answer that one.', onRetry: c.retry),
+        child: TitiErrorRow(text: 'TiTi didn\'t answer that one.', onRetry: _retry),
       );
       (fresh.isEmpty ? loaded : fresh).add(retry);
     }
@@ -564,6 +597,38 @@ class _Empty extends StatelessWidget {
               ],
             ),
           ),
+        ),
+      );
+}
+
+// -------------------------------------------------------------- consent ---
+
+/// Above the composer after "Not now" on the OpenAI sheet: one line and Allow.
+class TitiConsentBanner extends StatelessWidget {
+  const TitiConsentBanner({super.key, required this.onAllow});
+  final VoidCallback onAllow;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        key: const ValueKey('titi-consent-banner'),
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(14, 8, 8, 8),
+        decoration: BoxDecoration(color: AppColors.surfaceGray, border: Border(top: BorderSide(color: AppColors.border, width: 0.5))),
+        child: Row(
+          children: [
+            Icon(AppIcons.shieldCheck, size: 18, color: AppColors.textSecondary),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'TiTi needs your OK to use OpenAI',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 13.5, height: 1.3, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+              ),
+            ),
+            const SizedBox(width: 8),
+            TextButton(onPressed: onAllow, child: const Text('Allow', maxLines: 1)),
+          ],
         ),
       );
 }

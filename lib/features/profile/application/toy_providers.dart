@@ -6,6 +6,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/utils/friendly_error.dart';
+import '../../auth/data/auth_repository.dart' show currentProfileProvider;
+import '../../settings/application/settings_providers.dart';
 import '../data/toy_repository.dart';
 import '../domain/car.dart';
 import '../domain/car_toy.dart';
@@ -101,6 +103,8 @@ final toyWatcherProvider = Provider.autoDispose<void>((ref) {
     } else {
       poll?.cancel();
     }
+    // No OK for Kie.ai yet: nothing to ask (the server would say no anyway).
+    if (!ref.read(settingsProvider).toyConsent) return;
     final plan = toyRequestPlan(cars, me: me, tried: tried);
     if (plan.isNotEmpty && !requesting) unawaited(requestNext(plan));
   }, fireImmediately: true);
@@ -140,6 +144,17 @@ class ToyActions {
     }
     _ref.invalidate(userCarsProvider(me));
     _ref.invalidate(carProvider(carId));
+  }
+
+  /// The member agreed to toy cars (Kie.ai): the server records it and books
+  /// toys for every car of theirs without one; this phone knows at once.
+  Future<void> allowToyCars() async {
+    final me = _ref.read(currentUserIdProvider);
+    if (me == null) throw const AppException('You\'re signed out. Sign in again.');
+    await _ref.read(toyRepositoryProvider).allowToyCars();
+    _ref.read(settingsActionsProvider).applyAiConsent('toy');
+    _ref.invalidate(currentProfileProvider);
+    _ref.invalidate(userCarsProvider(me));
   }
 }
 

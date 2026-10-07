@@ -72,7 +72,39 @@ class AppSettings {
 
   /// My garage's look: 'bay' (roller-door bay, the default) | 'cards'.
   String get garageView => (_m['garage_view'] as String?) ?? 'bay';
+
+  /// My OKs to send data to a third-party AI (Apple 5.1.2(i)), as
+  /// `ai_consent: {"titi": iso, "toy": iso, "safety": iso}`: the date each
+  /// was given. Only non-empty strings count; anything else reads as no.
+  Map<String, String> get aiConsent {
+    final raw = _m['ai_consent'];
+    if (raw is! Map) return const {};
+    return {
+      for (final e in raw.entries)
+        if (e.key is String && e.value is String && (e.value as String).isNotEmpty) e.key as String: e.value as String,
+    };
+  }
+
+  /// TiTi may send my messages, photos and app context to OpenAI.
+  bool get titiConsent => aiConsent.containsKey('titi');
+
+  /// My car photos may go to Kie.ai for the toy car.
+  bool get toyConsent => aiConsent.containsKey('toy');
+
+  /// I've seen that posts and moments are checked by OpenAI's safety filter.
+  bool get safetyConsent => aiConsent.containsKey('safety');
+
+  /// When [key] ('titi' | 'toy' | 'safety') was agreed to, or null.
+  DateTime? aiConsentAt(String key) {
+    final v = aiConsent[key];
+    return v == null ? null : DateTime.tryParse(v);
+  }
 }
+
+/// The whole `ai_consent` object to save: [current] plus [key] agreed [at]
+/// (UTC ISO). An earlier date for [key] is kept, so the first OK stands.
+Map<String, String> withAiConsent(Map<String, String> current, String key, DateTime at) =>
+    {...current, key: current[key] ?? at.toUtc().toIso8601String()};
 
 /// Profile settings plus anything saved this session, so a toggle flips at
 /// once instead of waiting for the profile to refetch.
@@ -102,6 +134,17 @@ class SettingsActions {
     await _ref.read(supabaseProvider).rpc('update_my_settings', params: {'p_patch': patch});
     _ref.invalidate(currentProfileProvider);
   }
+
+  /// Records my OK for [key] ('titi' | 'safety') with today's date. The
+  /// settings merge is shallow, so the whole `ai_consent` object goes up.
+  /// (Toy cars go through `allow_toy_cars`, which also books the toys.)
+  Future<void> recordAiConsent(String key) =>
+      patch({'ai_consent': withAiConsent(_ref.read(settingsProvider).aiConsent, key, DateTime.now())});
+
+  /// Marks [key] as agreed on this phone right away (after a server call such
+  /// as `allow_toy_cars` already stored it).
+  void applyAiConsent(String key) =>
+      _ref.read(settingsProvider.notifier).apply({'ai_consent': withAiConsent(_ref.read(settingsProvider).aiConsent, key, DateTime.now())});
 
   Future<void> deleteAccount() async {
     // The private originals of blurred car photos first: storage files don't

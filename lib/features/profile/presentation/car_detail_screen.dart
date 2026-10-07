@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/consent/ai_consent.dart';
 import '../../../core/guide/guide.dart';
 import '../../../core/guide/guide_controller.dart';
 import '../../../core/guide/guide_on_first_view.dart';
@@ -15,6 +16,7 @@ import '../../../core/widgets/photo_viewer.dart';
 import '../../../core/widgets/share_options_sheet.dart';
 import '../../guides/me_guides.dart';
 import '../../safety/data/safety_repository.dart' show ReportTarget;
+import '../../settings/application/settings_providers.dart';
 import '../../safety/presentation/report_sheet.dart';
 import '../../social/application/chat_providers.dart';
 import '../../social/application/social_providers.dart';
@@ -31,6 +33,7 @@ import '../domain/car_toy.dart';
 import 'car_page/car_page_model.dart';
 import 'car_page/car_page_view.dart';
 import 'widgets/portrait_style_sheet.dart';
+import 'widgets/toy_car_image.dart' show ToyConsentScope;
 
 /// A car's page (`/car/:id`, `ttspot://car/:id`): the toy car in its studio,
 /// who the car is, then its album, mods, papers, portraits and posts. The
@@ -154,7 +157,16 @@ class _CarDetailScreenState extends ConsumerState<CarDetailScreen> {
 
   /// A fresh toy from the cover photo, in the car's paint (free, capped a
   /// day per car; the server says when the cap is reached).
+  /// "Make my toy car": the Kie.ai sheet, then allow_toy_cars books it.
+  Future<void> _makeToy() async {
+    if (await ensureAiConsent(context, ref, AiConsentKind.toy)) {
+      _snack('Making your toy car. About 2 minutes; it swaps in on its own.');
+    }
+  }
+
   Future<void> _remakeToy(Car car) async {
+    // Toy cars not allowed yet: the OK books it (allow_toy_cars).
+    if (!ref.read(settingsProvider).toyConsent) return _makeToy();
     try {
       await ref.read(toyActionsProvider).remake(car.id);
       _snack(car.toyPaintStale ? 'Repainting your toy car. About 2 minutes; it swaps in on its own.' : 'Making your toy car again. About 2 minutes; it swaps in on its own.');
@@ -393,6 +405,7 @@ class _CarDetailScreenState extends ConsumerState<CarDetailScreen> {
           return _Shell(child: Text('This car is no longer in the garage.', textAlign: TextAlign.center, style: TextStyle(color: AppColors.textSecondary)));
         }
         final mine = me != null && car.ownerId == me;
+        final toyConsent = !mine || ref.watch(settingsProvider.select((s) => s.toyConsent));
         // My car: keep it fresh while its toy is made or repainted (realtime
         // plus a light poll), and catch up on a paint the cap held back.
         if (mine) ref.watch(toyWatcherProvider);
@@ -432,6 +445,8 @@ class _CarDetailScreenState extends ConsumerState<CarDetailScreen> {
           ready: mine && _guideReady,
           delay: const Duration(milliseconds: 250),
           build: () => MeGuides.carPage(_guideKeys),
+          child: ToyConsentScope(
+          allowed: toyConsent,
           child: CarPageView(
           data: data,
           guideKeys: mine ? _guideKeys : null,
@@ -443,6 +458,7 @@ class _CarDetailScreenState extends ConsumerState<CarDetailScreen> {
             editCar: () => context.push(Routes.editCar(car.id)),
             makeToday: () => _makeToday(car),
             retryToy: mine ? () => _remakeToy(car) : null,
+            makeToy: mine && !toyConsent ? _makeToy : null,
             openPhoto: (urls, i) => showPhotoViewer(context, urls, initial: i),
             addMod: () => context.push(Routes.newCarMod(car.id)),
             openMod: (m) {
@@ -466,6 +482,7 @@ class _CarDetailScreenState extends ConsumerState<CarDetailScreen> {
             openPost: (id) => context.push(Routes.post(id)),
             openEvent: (id) => context.push(Routes.event(id)),
           ),
+        ),
         ),
         );
       },

@@ -8,6 +8,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/guide/guide.dart';
+import '../../../core/guide/guide_controller.dart';
 import '../../../core/motion/motion.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_icons.dart';
@@ -16,6 +18,7 @@ import '../../../core/theme/titi.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../../core/widgets/glass.dart';
 import '../../auth/data/auth_repository.dart';
+import '../../guides/me_guides.dart';
 import '../../share/share_card_renderer.dart';
 import '../application/cards_providers.dart';
 import '../domain/cards.dart';
@@ -124,6 +127,12 @@ class _OpenBoxScreenState extends ConsumerState<OpenBoxScreen> with TickerProvid
   bool _collecting = false;
   bool _landed = false;
   bool _leaving = false;
+  /// "Add to my cards" pressed while the first-box guide is unseen: once the
+  /// card lands the screen stays, offering "What can cards do?".
+  bool _offerGuide = false;
+  /// ...and the card has landed: the button is showing.
+  bool _guideOffered = false;
+  bool _guiding = false;
   /// The card's box when the flight started (in [_stackKey]'s space) and
   /// the way to the button's centre.
   Rect? _flyFrom;
@@ -168,7 +177,12 @@ class _OpenBoxScreenState extends ConsumerState<OpenBoxScreen> with TickerProvid
       setState(() => _landed = true);
     });
     _collect.addStatusListener((s) {
-      if (s == AnimationStatus.completed && mounted) _leave();
+      if (s != AnimationStatus.completed || !mounted) return;
+      if (_offerGuide) {
+        setState(() => _guideOffered = true);
+      } else {
+        _leave();
+      }
     });
   }
 
@@ -329,6 +343,11 @@ class _OpenBoxScreenState extends ConsumerState<OpenBoxScreen> with TickerProvid
   /// roll, the card is already in the collection). After it the card flies
   /// into "My cards" first.
   void _close() {
+    if (_guiding) return; // TiTi is talking; the guide ends first
+    if (_guideOffered) {
+      _leave();
+      return;
+    }
     if (_collecting || _leaving) return;
     if (_stage == _Stage.revealed) {
       _startCollect(fast: true);
@@ -339,7 +358,26 @@ class _OpenBoxScreenState extends ConsumerState<OpenBoxScreen> with TickerProvid
 
   void _addToCards() {
     if (_collecting || _leaving || _stage != _Stage.revealed) return;
+    final guides = ref.read(guideControllerProvider);
+    _offerGuide = guides.enabled && !guides.seen(GuideIds.firstBox);
     _startCollect(fast: false);
+  }
+
+  /// "What can cards do?": TiTi's first step here, then on to Me, where the
+  /// journey carries on (Cards tab, collection, trade, points, box, prizes).
+  /// Skipped (or not shown): just leave.
+  Future<void> _whatCanCardsDo() async {
+    if (_guiding || _leaving) return;
+    _guiding = true;
+    final result = await ref.read(guideControllerProvider).showOnce(context, MeGuides.firstBoxIntro(), force: true);
+    if (!mounted) return;
+    _guiding = false;
+    if (result == GuideResult.finished) {
+      ref.read(guideJourneyProvider.notifier).go(FirstBoxStage.me);
+      _leave(to: Routes.garage);
+    } else {
+      _leave();
+    }
   }
 
   /// The card shrinks and flies down into the button, which then bumps and
@@ -370,7 +408,7 @@ class _OpenBoxScreenState extends ConsumerState<OpenBoxScreen> with TickerProvid
   // and the buttons never compete with it. Only from outside the card, and
   // only while the page is not scrolled.
   void _onPointerDown(PointerDownEvent e) {
-    if (_stage != _Stage.revealed || _collecting || _leaving || _pullPointer != null) return;
+    if (_stage != _Stage.revealed || (_collecting && !_guideOffered) || _guiding || _leaving || _pullPointer != null) return;
     if (_scroll.hasClients && _scroll.offset > 0) return;
     final card = _cardKey.currentContext?.findRenderObject();
     if (card is RenderBox && card.hasSize && (card.localToGlobal(Offset.zero) & card.size).contains(e.position)) return;
@@ -406,7 +444,8 @@ class _OpenBoxScreenState extends ConsumerState<OpenBoxScreen> with TickerProvid
   /// Close. When this is the end of onboarding the profile provider still
   /// says "not onboarded": refresh it and wait for the answer BEFORE moving,
   /// or the router bounces through /onboarding for a frame on the way out.
-  Future<void> _leave() async {
+  /// [to]: go there instead of back (the first-box journey: the Me tab).
+  Future<void> _leave({String? to}) async {
     if (_leaving) return;
     _leaving = true;
     final onboarded = ref.read(currentProfileProvider).value?.isOnboarded == true;
@@ -417,7 +456,9 @@ class _OpenBoxScreenState extends ConsumerState<OpenBoxScreen> with TickerProvid
       } catch (_) {/* the router copes either way */}
     }
     if (!mounted) return;
-    if (context.canPop()) {
+    if (to != null) {
+      context.go(to);
+    } else if (context.canPop()) {
       context.pop();
     } else {
       context.go(Routes.map);
@@ -546,7 +587,7 @@ class _OpenBoxScreenState extends ConsumerState<OpenBoxScreen> with TickerProvid
                 child: GestureDetector(
                   key: const ValueKey('open-box-backdrop'),
                   behavior: HitTestBehavior.opaque,
-                  onTap: revealed && !_collecting ? _close : null,
+                  onTap: revealed && (!_collecting || _guideOffered) ? _close : null,
                   child: AnimatedBuilder(
                     animation: _pull,
                     builder: (_, child) {
@@ -1077,6 +1118,31 @@ class _OpenBoxScreenState extends ConsumerState<OpenBoxScreen> with TickerProvid
                 ),
               ),
             ],
+          ),
+          // "What can cards do?" once the card has landed (first box only).
+          AnimatedSize(
+            duration: const Duration(milliseconds: 260),
+            curve: Curves.easeOutCubic,
+            child: _guideOffered
+                ? Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: TweenAnimationBuilder<double>(
+                      tween: Tween(begin: 0, end: 1),
+                      duration: const Duration(milliseconds: 320),
+                      builder: (_, t, child) => Opacity(opacity: t, child: child),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          key: const ValueKey('open-box-what-cards'),
+                          style: OutlinedButton.styleFrom(foregroundColor: Colors.white, side: const BorderSide(color: Colors.white38), minimumSize: const Size(0, 48)),
+                          onPressed: _whatCanCardsDo,
+                          icon: const Icon(AppIcons.question, size: 20),
+                          label: const Text('What can cards do?', maxLines: 1, overflow: TextOverflow.ellipsis),
+                        ),
+                      ),
+                    ),
+                  )
+                : const SizedBox(width: double.infinity),
           ),
           if (moreBoxes > 0) ...[
             const SizedBox(height: 10),

@@ -1,3 +1,5 @@
+import 'package:car_meet/core/guide/guide.dart';
+import 'package:car_meet/core/guide/guide_controller.dart';
 import 'package:car_meet/core/theme/app_theme.dart';
 import 'package:car_meet/features/auth/data/auth_repository.dart';
 import 'package:car_meet/features/cards/application/cards_providers.dart';
@@ -37,6 +39,18 @@ class _FakeActions extends CardsActions {
 
 _FakeActions? _actions;
 
+/// TiTi's first-box guide already seen: "Add to my cards" closes as before
+/// (me_guides_test covers the first box's "What can cards do?").
+class _SeenGuides extends GuideController {
+  _SeenGuides(super.ref);
+
+  @override
+  bool seen(String id) => true;
+
+  @override
+  Future<GuideResult> showOnce(BuildContext context, Guide guide, {bool force = false}) async => GuideResult.notShown;
+}
+
 Future<GoRouter> _pump(WidgetTester t, {double scale = 1, Size size = const Size(393, 851), int moreBoxes = 0, String boxId = 'b1'}) async {
   _actions = null;
   t.view.physicalSize = size * 3;
@@ -55,6 +69,7 @@ Future<GoRouter> _pump(WidgetTester t, {double scale = 1, Size size = const Size
   );
   await t.pumpWidget(ProviderScope(
     overrides: [
+      guideControllerProvider.overrideWith((ref) => _SeenGuides(ref)),
       cardsActionsProvider.overrideWith((ref) => _actions = _FakeActions(ref)),
       myBoxesProvider.overrideWith((ref) async => [
             for (var i = 0; i <= moreBoxes; i++) CardBox(id: 'b${i + 1}', source: 'signup', status: 'sealed', pointsSpent: 0, createdAt: DateTime(2026)),

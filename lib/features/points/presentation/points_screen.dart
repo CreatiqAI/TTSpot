@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/guide/guide.dart';
+import '../../../core/guide/guide_on_first_view.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/theme/app_art.dart';
@@ -11,6 +13,8 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/dates.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../../core/widgets/thumb_image.dart';
+import '../../cards/application/cards_providers.dart' show cardSettingsProvider;
+import '../../guides/me_guides.dart';
 import '../../map/application/map_filters.dart' show MapMode;
 import '../../map/application/map_providers.dart' show mapListViewProvider, mapModeProvider;
 import '../../social/domain/post.dart' show PostKind;
@@ -22,7 +26,7 @@ import 'widgets/referral_code_card.dart';
 
 /// Points & rewards: the balance (and the way to spend it), how to earn with
 /// each limit spelled out, and the ledger.
-class PointsScreen extends ConsumerWidget {
+class PointsScreen extends ConsumerStatefulWidget {
   const PointsScreen({super.key});
 
   static String art(String reason) => switch (reason) {
@@ -80,16 +84,29 @@ class PointsScreen extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<PointsScreen> createState() => _PointsScreenState();
+}
+
+class _PointsScreenState extends ConsumerState<PointsScreen> {
+  final _guideKeys = PointsGuideKeys();
+
+  @override
+  Widget build(BuildContext context) {
     final me = ref.watch(currentUserIdProvider);
     final balance = ref.watch(pointsBalanceProvider).value ?? 0;
-    final rules = ref.watch(pointRulesProvider).value ?? const <PointRule>[];
+    final rulesAsync = ref.watch(pointRulesProvider);
+    final rules = rulesAsync.value ?? const <PointRule>[];
     final week = ref.watch(pointsWeekProvider).value ?? PointsWeek.at(DateTime.now());
     final history = ref.watch(pointHistoryProvider);
     final verifications = (ref.watch(myVerificationsProvider).value ?? const <SpotVerification>[]).take(5).toList();
     final earn = rules.where((r) => r.earns).toList();
+    final k = _guideKeys;
 
-    return Scaffold(
+    return GuideOnFirstView(
+      id: GuideIds.points,
+      ready: rulesAsync.hasValue && earn.isNotEmpty,
+      build: () => MeGuides.points(k, boxCost: ref.read(cardSettingsProvider).value?.boxCost ?? MeGuides.defaultBoxCost),
+      child: Scaffold(
       appBar: AppBar(
         leading: IconButton(icon: const Icon(AppIcons.arrowLeft), onPressed: () => context.pop()),
         title: const Text('Points & rewards'),
@@ -104,7 +121,7 @@ class PointsScreen extends ConsumerWidget {
         child: ListView(
           padding: const EdgeInsets.only(bottom: 32),
           children: [
-            _Balance(points: balance),
+            guideTarget(k.balance, _Balance(points: balance)),
             // Spend points, show vouchers, find partners.
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
@@ -118,8 +135,20 @@ class PointsScreen extends ConsumerWidget {
                 ],
               ),
             ),
-            const _Section('HOW TO EARN'),
-            for (final r in earn) EarnRow(rule: r, limit: limitLine(r, week), onTap: earnTap(context, ref, r, me: me)),
+            guideTarget(
+              k.earn,
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const _Section('HOW TO EARN'),
+                  for (final r in earn)
+                    guideTarget(
+                      r.reason == 'weekly_post' ? k.weekly : null,
+                      EarnRow(rule: r, limit: PointsScreen.limitLine(r, week), onTap: PointsScreen.earnTap(context, ref, r, me: me)),
+                    ),
+                ],
+              ),
+            ),
             // The referral rows above pay out through this code.
             if (earn.any((r) => r.reason.startsWith('referral')))
               const Padding(
@@ -171,6 +200,7 @@ class PointsScreen extends ConsumerWidget {
           ],
         ),
       ),
+    ),
     );
   }
 }

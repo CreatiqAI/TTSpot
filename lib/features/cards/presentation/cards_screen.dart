@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/guide/guide.dart';
+import '../../../core/guide/guide_controller.dart';
+import '../../../core/guide/guide_on_first_view.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/theme/app_art.dart';
@@ -13,6 +16,7 @@ import '../../../core/utils/dates.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/user_avatar.dart';
+import '../../guides/me_guides.dart';
 import '../../points/application/points_providers.dart';
 import '../application/cards_providers.dart';
 import '../domain/cards.dart';
@@ -29,6 +33,7 @@ class CardsScreen extends ConsumerStatefulWidget {
 
 class _CardsScreenState extends ConsumerState<CardsScreen> with SingleTickerProviderStateMixin {
   late final TabController _tabs = TabController(length: 3, vsync: this, initialIndex: widget.initialTab.clamp(0, 2));
+  final _guideKeys = CardsScreenGuideKeys();
 
   @override
   void dispose() {
@@ -39,7 +44,18 @@ class _CardsScreenState extends ConsumerState<CardsScreen> with SingleTickerProv
   @override
   Widget build(BuildContext context) {
     final incoming = ref.watch(incomingTradeCountProvider);
-    return Scaffold(
+    final k = _guideKeys;
+    // TiTi's first visit, outside the first-box journey, and not while a
+    // sealed box waits with that journey still to come.
+    final guides = ref.read(guideControllerProvider);
+    final journey = ref.watch(guideJourneyProvider);
+    final boxWaits = ref.watch(sealedBoxesProvider).isNotEmpty;
+    final ready = ref.watch(myCollectionProvider).hasValue && journey == null && (guides.seen(GuideIds.firstBox) || !boxWaits);
+    return GuideOnFirstView(
+      id: GuideIds.cards,
+      ready: ready,
+      build: () => MeGuides.cards(collection: k.collection, trades: k.trades, prizes: k.prizes),
+      child: Scaffold(
       appBar: AppBar(
         leading: IconButton(icon: const Icon(AppIcons.arrowLeft), onPressed: () => context.pop()),
         title: const Text('Cards'),
@@ -54,13 +70,14 @@ class _CardsScreenState extends ConsumerState<CardsScreen> with SingleTickerProv
           dividerColor: AppColors.border,
           labelStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
           tabs: [
-            const Tab(text: 'Collection'),
-            Tab(text: incoming == 0 ? 'Trades' : 'Trades · $incoming'),
-            const Tab(text: 'Prizes'),
+            Tab(key: k.collection, text: 'Collection'),
+            Tab(key: k.trades, text: incoming == 0 ? 'Trades' : 'Trades · $incoming'),
+            Tab(key: k.prizes, text: 'Prizes'),
           ],
         ),
       ),
       body: TabBarView(controller: _tabs, children: const [_CollectionTab(), _TradesTab(), _PrizesTab()]),
+    ),
     );
   }
 

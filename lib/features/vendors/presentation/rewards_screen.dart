@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/guide/guide.dart';
+import '../../../core/guide/guide_on_first_view.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_art.dart';
 import '../../../core/theme/app_icons.dart';
@@ -14,6 +16,7 @@ import '../../../core/widgets/empty_state.dart';
 import '../../../core/geo/latlng.dart';
 
 import '../../../core/utils/geo.dart';
+import '../../guides/me_guides.dart';
 import '../../map/application/map_providers.dart';
 import '../../points/application/points_providers.dart';
 import 'widgets/hours_editor.dart';
@@ -31,6 +34,7 @@ class RewardsScreen extends ConsumerStatefulWidget {
 
 class _RewardsScreenState extends ConsumerState<RewardsScreen> with SingleTickerProviderStateMixin {
   late final TabController _tabs = TabController(length: 3, vsync: this, initialIndex: widget.initialTab.clamp(0, 2));
+  final _guideKeys = RewardsGuideKeys();
 
   @override
   void dispose() {
@@ -41,7 +45,11 @@ class _RewardsScreenState extends ConsumerState<RewardsScreen> with SingleTicker
   @override
   Widget build(BuildContext context) {
     final walletCount = (ref.watch(myWalletProvider).value ?? const <VoucherClaim>[]).where((c) => c.status == ClaimStatus.active).length;
-    return Scaffold(
+    final k = _guideKeys;
+    return GuideOnFirstView(
+      id: GuideIds.rewards,
+      build: () => MeGuides.rewards(k),
+      child: Scaffold(
       appBar: AppBar(
         leading: IconButton(icon: const Icon(AppIcons.arrowLeft), onPressed: () => context.pop()),
         title: const Text('Rewards'),
@@ -55,9 +63,9 @@ class _RewardsScreenState extends ConsumerState<RewardsScreen> with SingleTicker
           dividerColor: AppColors.border,
           labelStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
           tabs: [
-            const Tab(text: 'Partners'),
-            const Tab(text: 'Vouchers'),
-            Tab(text: walletCount == 0 ? 'My vouchers' : 'My vouchers · $walletCount'),
+            Tab(key: k.partners, text: 'Partners'),
+            Tab(key: k.vouchers, text: 'Vouchers'),
+            Tab(key: k.wallet, text: walletCount == 0 ? 'My vouchers' : 'My vouchers · $walletCount'),
           ],
         ),
       ),
@@ -65,6 +73,7 @@ class _RewardsScreenState extends ConsumerState<RewardsScreen> with SingleTicker
         controller: _tabs,
         children: const [_PartnersTab(), _ShopTab(), _WalletTab()],
       ),
+    ),
     );
   }
 }

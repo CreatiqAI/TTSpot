@@ -7,6 +7,7 @@ import '../../../../core/theme/app_art.dart';
 import '../../../../core/theme/app_icons.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/friendly_error.dart';
+import '../../../guides/me_guides.dart' show CardsTabGuideKeys, guideTarget;
 import '../../application/cards_providers.dart';
 import '../../domain/cards.dart';
 import 'card_face.dart';
@@ -17,11 +18,14 @@ import 'get_box_banner.dart';
 /// (or the boxes waiting to open) and small links to Trades and Prizes; a
 /// friend's offers a trade; a stranger's suggests adding them first.
 class ProfileCardsGrid extends ConsumerWidget {
-  const ProfileCardsGrid({super.key, required this.userId, required this.isMe, required this.isFriend, this.onAddFriend});
+  const ProfileCardsGrid({super.key, required this.userId, required this.isMe, required this.isFriend, this.onAddFriend, this.guideKeys});
   final String userId;
   final bool isMe;
   final bool isFriend;
   final VoidCallback? onAddFriend;
+
+  /// TiTi's spotlights on my own tab (grid, Trades, Prizes, the box banner).
+  final CardsTabGuideKeys? guideKeys;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -41,23 +45,27 @@ class ProfileCardsGrid extends ConsumerWidget {
         final have = counts.value ?? const <String, int>{};
         final owned = active.where((t) => (have[t.id] ?? 0) > 0).length;
         final total = have.values.fold(0, (a, b) => a + b);
+        final k = guideKeys;
         return Padding(
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (isMe) ...[
-                GetBoxBanner(
-                  waiting: sealed.length,
-                  cost: boxCost,
-                  onTap: () => context.push(sealed.isNotEmpty ? Routes.openBox(sealed.first.id) : Routes.cards),
+                guideTarget(
+                  k?.getBox,
+                  GetBoxBanner(
+                    waiting: sealed.length,
+                    cost: boxCost,
+                    onTap: () => context.push(sealed.isNotEmpty ? Routes.openBox(sealed.first.id) : Routes.cards),
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Wrap(
                   spacing: 4,
                   children: [
-                    _SmallLink(icon: AppIcons.handshake, label: incomingTrades > 0 ? 'Trades · $incomingTrades' : 'Trades', onTap: () => context.push(Routes.cardTrades)),
-                    _SmallLink(icon: AppIcons.trophy, label: 'Prizes', onTap: () => context.push(Routes.cardPrizes)),
+                    guideTarget(k?.trades, _SmallLink(icon: AppIcons.handshake, label: incomingTrades > 0 ? 'Trades · $incomingTrades' : 'Trades', onTap: () => context.push(Routes.cardTrades))),
+                    guideTarget(k?.prizes, _SmallLink(icon: AppIcons.trophy, label: 'Prizes', onTap: () => context.push(Routes.cardPrizes))),
                   ],
                 ),
                 const SizedBox(height: 6),
@@ -96,7 +104,7 @@ class ProfileCardsGrid extends ConsumerWidget {
                 ],
               ),
               const SizedBox(height: 14),
-              LayoutBuilder(
+              guideTarget(k?.grid, LayoutBuilder(
                 builder: (_, c) {
                   const gap = 10.0;
                   final w = (c.maxWidth - gap * 3) / 4;
@@ -112,7 +120,7 @@ class ProfileCardsGrid extends ConsumerWidget {
                     ],
                   );
                 },
-              ),
+              )),
               if (!isMe && !isFriend && total > 0) ...[
                 const SizedBox(height: 12),
                 Row(

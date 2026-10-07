@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/guide/guide.dart';
+import '../../../core/guide/guide_controller.dart';
+import '../../../core/guide/guide_on_first_view.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/theme/app_icons.dart';
@@ -10,6 +13,7 @@ import '../../../core/utils/friendly_error.dart';
 import '../../../core/utils/share_links.dart';
 import '../../../core/widgets/photo_viewer.dart';
 import '../../../core/widgets/share_options_sheet.dart';
+import '../../guides/me_guides.dart';
 import '../../safety/data/safety_repository.dart' show ReportTarget;
 import '../../safety/presentation/report_sheet.dart';
 import '../../social/application/chat_providers.dart';
@@ -43,6 +47,27 @@ class CarDetailScreen extends ConsumerStatefulWidget {
 
 class _CarDetailScreenState extends ConsumerState<CarDetailScreen> {
   bool _opening = false;
+
+  // TiTi's first visit to my own car: the sections sit below the studio, so
+  // the page glides down to Mods first, then the guide starts.
+  final _guideKeys = CarPageGuideKeys();
+  bool _guidePrepared = false;
+  bool _guideReady = false;
+
+  void _prepareGuide() {
+    if (_guidePrepared) return;
+    final guides = ref.read(guideControllerProvider);
+    if (!guides.enabled || guides.seen(GuideIds.carPage)) return;
+    _guidePrepared = true;
+    Future<void>.delayed(const Duration(milliseconds: 600), () async {
+      if (!mounted || guides.showing) return;
+      final mods = _guideKeys.mods.currentContext;
+      if (mods != null && mods.mounted) {
+        await Scrollable.ensureVisible(mods, alignment: 0.12, duration: const Duration(milliseconds: 450), curve: Curves.easeInOutCubic);
+      }
+      if (mounted) setState(() => _guideReady = true);
+    });
+  }
 
   void _back() {
     if (context.canPop()) {
@@ -381,6 +406,9 @@ class _CarDetailScreenState extends ConsumerState<CarDetailScreen> {
         // Hidden until the phone has said whether it was closed, so it never flashes.
         final dismissed = mine ? (ref.watch(carPromoDismissalsProvider).value?.contains(car.id) ?? true) : true;
 
+        // My car, with the sections loaded: get ready for TiTi's tour.
+        if (mine && mods.hasValue && posts.hasValue) _prepareGuide();
+
         final data = CarPageData(
           car: car,
           mine: mine,
@@ -399,8 +427,14 @@ class _CarDetailScreenState extends ConsumerState<CarDetailScreen> {
           toyQuota: quota,
         );
 
-        return CarPageView(
+        return GuideOnFirstView(
+          id: GuideIds.carPage,
+          ready: mine && _guideReady,
+          delay: const Duration(milliseconds: 250),
+          build: () => MeGuides.carPage(_guideKeys),
+          child: CarPageView(
           data: data,
+          guideKeys: mine ? _guideKeys : null,
           onRefresh: () => _refresh(car, mine),
           actions: CarPageActions(
             back: _back,
@@ -432,6 +466,7 @@ class _CarDetailScreenState extends ConsumerState<CarDetailScreen> {
             openPost: (id) => context.push(Routes.post(id)),
             openEvent: (id) => context.push(Routes.event(id)),
           ),
+        ),
         );
       },
     );

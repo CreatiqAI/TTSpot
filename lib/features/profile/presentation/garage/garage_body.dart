@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/supabase/supabase_client.dart';
 import '../../../../core/utils/friendly_error.dart';
+import '../../../guides/me_guides.dart' show GarageGuideKeys;
 import '../../../social/application/social_providers.dart';
 import '../../application/cutout_providers.dart';
 import '../../application/garage_providers.dart';
@@ -30,7 +31,7 @@ List<Car> garageOrder(List<Car> cars) => [...cars]..sort((a, b) => a.createdAt.c
 /// rail of the other cars, the numbers and buttons. Read-only for someone
 /// else's: no edit, today's car or add.
 class GarageBody extends ConsumerStatefulWidget {
-  const GarageBody({super.key, required this.ownerId, required this.title, this.onBack, this.bottomPadding = 0, this.empty});
+  const GarageBody({super.key, required this.ownerId, required this.title, this.onBack, this.bottomPadding = 0, this.empty, this.guideKeys});
 
   final String ownerId;
 
@@ -46,6 +47,9 @@ class GarageBody extends ConsumerStatefulWidget {
 
   /// Shown when the garage has no cars.
   final Widget? empty;
+
+  /// TiTi's spotlights (my garage).
+  final GarageGuideKeys? guideKeys;
 
   @override
   ConsumerState<GarageBody> createState() => _GarageBodyState();
@@ -171,6 +175,7 @@ class _GarageBodyState extends ConsumerState<GarageBody> {
           empty: widget.empty,
           loading: loading,
           error: error,
+          guideKeys: widget.guideKeys,
         );
 
     return carsAsync.when(

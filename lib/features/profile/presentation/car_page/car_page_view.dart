@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../../../core/theme/app_icons.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../guides/me_guides.dart' show CarPageGuideKeys, guideTarget;
 import '../../domain/car_mod.dart';
 import '../garage/garage_studio.dart' show StudioColors;
 import 'car_album.dart';
@@ -80,12 +81,15 @@ class CarPageActions {
 /// with the car's name takes over the top once the studio scrolls away.
 /// Draws [data] only; no providers, so tests can pump it with fakes.
 class CarPageView extends StatefulWidget {
-  const CarPageView({super.key, required this.data, required this.actions, this.imageFor = defaultCarImage, this.onRefresh});
+  const CarPageView({super.key, required this.data, required this.actions, this.imageFor = defaultCarImage, this.onRefresh, this.guideKeys});
 
   final CarPageData data;
   final CarPageActions actions;
   final CarImageResolver imageFor;
   final Future<void> Function()? onRefresh;
+
+  /// TiTi's spotlights on my own car (Mods, Papers, Posts).
+  final CarPageGuideKeys? guideKeys;
 
   @override
   State<CarPageView> createState() => _CarPageViewState();
@@ -122,6 +126,7 @@ class _CarPageViewState extends State<CarPageView> {
     final mods = d.mods;
     final posts = d.posts;
     final portraits = carPortraitsFor(d.car, portraits: d.portraits);
+    final k = d.mine ? widget.guideKeys : null;
 
     final sections = <Widget>[
       SliverToBoxAdapter(
@@ -151,7 +156,7 @@ class _CarPageViewState extends State<CarPageView> {
       // Mods (and, with three things to tell, the whole history).
       if (d.mine || (mods?.isNotEmpty ?? false)) ...[
         // The owner's "+ Add a mod" sits under the list.
-        SliverToBoxAdapter(child: CarSectionHeader(title: 'Mods', count: mods?.length)),
+        SliverToBoxAdapter(child: guideTarget(k?.mods, CarSectionHeader(title: 'Mods', count: mods?.length))),
         SliverToBoxAdapter(
           child: CarBuildTab(
             data: d,
@@ -168,7 +173,7 @@ class _CarPageViewState extends State<CarPageView> {
       ],
       // Papers: only ever the owner's.
       if (d.mine) ...[
-        SliverToBoxAdapter(child: CarSectionHeader(title: 'Papers', action: (d.documents?.isEmpty ?? true) ? null : 'Edit', onAction: a.openPapers)),
+        SliverToBoxAdapter(child: guideTarget(k?.papers, CarSectionHeader(title: 'Papers', action: (d.documents?.isEmpty ?? true) ? null : 'Edit', onAction: a.openPapers))),
         SliverToBoxAdapter(child: CarPapersTab(documents: d.documents, loading: d.documentsLoading, onEdit: a.openPapers)),
       ],
       if (d.showPortraits) ...[
@@ -185,7 +190,9 @@ class _CarPageViewState extends State<CarPageView> {
         ),
       ],
       if (d.mine || (posts?.isNotEmpty ?? false)) ...[
-        SliverToBoxAdapter(child: CarSectionHeader(title: 'Posts', count: posts?.length, action: d.mine && (posts?.isNotEmpty ?? false) ? 'Post' : null, onAction: a.postAboutIt)),
+        SliverToBoxAdapter(
+          child: guideTarget(k?.posts, CarSectionHeader(title: 'Posts', count: posts?.length, action: d.mine && (posts?.isNotEmpty ?? false) ? 'Post' : null, onAction: a.postAboutIt)),
+        ),
         SliverToBoxAdapter(child: CarPostsTab(posts: posts, mine: d.mine, onOpen: a.openPost, onPost: a.postAboutIt, imageFor: widget.imageFor)),
       ],
       SliverToBoxAdapter(child: SizedBox(height: 40 + bottomInset)),

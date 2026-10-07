@@ -79,6 +79,16 @@ class GuideOverlayState extends State<GuideOverlay> with TickerProviderStateMixi
   late final AnimationController _pulse = AnimationController(vsync: this, duration: const Duration(milliseconds: 1100));
   late final Ticker _measure = createTicker(_onTick);
 
+  // Frames cost a lot over native views (the Mapbox map composes with the
+  // platform thread every frame), so nothing here runs forever: the
+  // per-frame measuring stops [_activeFor] after a step starts (then a
+  // cheap timer keeps an eye on the target), and the ring pulses
+  // [_pulseCycles] times then rests.
+  static const _activeFor = Duration(milliseconds: 900);
+  static const _pulseCycles = 3;
+  Timer? _idleMeasure;
+  Timer? _settle;
+
   int _index = 0;
   _Hole? _from;
   _Hole? _to;
@@ -106,7 +116,7 @@ class GuideOverlayState extends State<GuideOverlay> with TickerProviderStateMixi
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     GestureBinding.instance.pointerRouter.addGlobalRoute(_onPointer);
-    _measure.start();
+    _wake();
     // Let the system send Back to the app while TiTi is up (Android
     // predictive back would otherwise close the app on a root page).
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -128,8 +138,8 @@ class GuideOverlayState extends State<GuideOverlay> with TickerProviderStateMixi
       if (reduce) {
         _pulse.stop();
         _pulse.value = 0.5;
-      } else if (!_pulse.isAnimating) {
-        _pulse.repeat(reverse: true);
+      } else {
+        _pulseAFew();
       }
     }
     if (!_started) {
@@ -137,18 +147,22 @@ class GuideOverlayState extends State<GuideOverlay> with TickerProviderStateMixi
       _to = _measureHole(_step);
       _from = _to;
       _enter.forward();
+      WidgetsBinding.instance.addPostFrameCallback((_) => _reveal(_step));
     }
   }
 
   @override
   void dispose() {
-    // Taken away without the exit (the overlay went): still tell the caller.
+    // Taken away without the exit (the overlay went, e.g. the app's root
+    // rebuilt during start-up): the member never really saw it.
     if (!_ending) {
       _ending = true;
-      widget.onEnd(GuideResult.skipped);
+      widget.onEnd(GuideResult.notShown);
     }
     WidgetsBinding.instance.removeObserver(this);
     GestureBinding.instance.pointerRouter.removeGlobalRoute(_onPointer);
+    _idleMeasure?.cancel();
+    _settle?.cancel();
     _measure.dispose();
     _enter.dispose();
     _exit.dispose();
@@ -161,8 +175,43 @@ class GuideOverlayState extends State<GuideOverlay> with TickerProviderStateMixi
 
   /// Every frame: the target may still be sliding in, scrolling, or pushed up
   /// by the keyboard.
+  /// Per-frame measuring for a moment (the target may still be moving in),
+  /// then a light check every 400 ms.
+  void _wake() {
+    _idleMeasure?.cancel();
+    _settle?.cancel();
+    if (!_measure.isActive) _measure.start();
+    _settle = Timer(_activeFor, () {
+      if (!mounted) return;
+      if (_measure.isActive) _measure.stop();
+      _idleMeasure = Timer.periodic(const Duration(milliseconds: 400), (_) => _onTick(Duration.zero));
+    });
+  }
+
+  /// A few slow breaths of the ring, then it rests half-way.
+  void _pulseAFew() {
+    if (_reduce) return;
+    var n = 0;
+    _pulse.stop();
+    _pulse.value = 0;
+    void run() {
+      if (!mounted) return;
+      _pulse.animateTo(n.isEven ? 1 : 0, curve: Curves.linear).whenComplete(() {
+        if (!mounted) return;
+        n++;
+        if (n < _pulseCycles * 2) {
+          run();
+        } else {
+          _pulse.animateTo(0.5);
+        }
+      });
+    }
+
+    run();
+  }
+
   void _onTick(Duration _) {
-    if (!mounted) return;
+    if (!mounted || _ending) return;
     final h = _measureHole(_step);
     if (h == null ? _to == null : h.near(_to)) return;
     setState(() => _to = h);
@@ -186,7 +235,12 @@ class GuideOverlayState extends State<GuideOverlay> with TickerProviderStateMixi
     final me = _laidOut ? context.findRenderObject() : null;
     if (me is RenderBox && me.hasSize && me.attached) r = r.shift(-me.localToGlobal(Offset.zero));
     final screen = Offset.zero & _screen;
-    if (!r.isFinite || r.isEmpty || !screen.contains(r.center)) return null;
+    if (!r.isFinite || r.isEmpty) return null;
+    // A tall target (a card grid) that runs on under the bottom tab bar or
+    // off screen: spotlight only the part you can see above the bar.
+    final floor = math.min(_tabBarTop() ?? _screen.height, _screen.height);
+    if (r.top < floor - 40 && r.bottom > floor) r = Rect.fromLTRB(r.left, r.top, r.right, floor - 10);
+    if (!screen.contains(r.center)) return null;
     final target = r;
     r = r.inflate(s.padding);
     if (s.circle) {
@@ -194,6 +248,19 @@ class GuideOverlayState extends State<GuideOverlay> with TickerProviderStateMixi
       return _Hole(Rect.fromCenter(center: r.center, width: side, height: side), side / 2, target);
     }
     return _Hole(r, math.min(s.radius, r.shortestSide / 2), target);
+  }
+
+  /// Top of the bottom tab bar on screen (from its guide keys), or null.
+  double? _tabBarTop() {
+    final ro = GuideTabKeys.home.currentContext?.findRenderObject();
+    if (ro is! RenderBox || !ro.attached || !ro.hasSize) return null;
+    try {
+      final top = ro.localToGlobal(Offset.zero).dy;
+      // The keyed boxes sit on the buttons; the bar's glass starts a little higher.
+      return top > _screen.height / 2 ? top - 14 : null;
+    } catch (_) {
+      return null;
+    }
   }
 
   // -------------------------------------------------------------- actions
@@ -206,6 +273,33 @@ class GuideOverlayState extends State<GuideOverlay> with TickerProviderStateMixi
       _tapPointer = null;
     });
     _move.forward(from: 0);
+    _wake();
+    _pulseAFew();
+    _reveal(_step);
+  }
+
+  /// The target is built but scrolled away (or under the tab bar): scroll it
+  /// into view, then the spotlight follows it there.
+  void _reveal(GuideStep s) {
+    final ctx = s.target?.currentContext;
+    if (!mounted || ctx == null || !ctx.mounted) return;
+    final ro = ctx.findRenderObject();
+    if (ro is! RenderBox || !ro.attached || !ro.hasSize) return;
+    Rect r;
+    try {
+      r = MatrixUtils.transformRect(ro.getTransformTo(null), Offset.zero & ro.size);
+    } catch (_) {
+      return;
+    }
+    // Bottom chrome (a tab bar, a comment box) covers the last part of most
+    // pages, so "in view" means clear of the bottom quarter.
+    final floor = math.min(_tabBarTop() ?? _screen.height, _screen.height * 0.78);
+    final tall = r.height > _screen.height * 0.45;
+    final visible = r.top >= 60 && (tall ? r.top < _screen.height * 0.5 : r.bottom <= floor);
+    if (visible || Scrollable.maybeOf(ctx) == null) return;
+    Scrollable.ensureVisible(ctx, alignment: 0.4, duration: const Duration(milliseconds: 380), curve: Curves.easeInOutCubic).whenComplete(() {
+      if (mounted && !_ending) _wake();
+    });
   }
 
   void _next() {

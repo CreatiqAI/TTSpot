@@ -620,6 +620,48 @@ class _OpenBoxScreenState extends ConsumerState<OpenBoxScreen> with TickerProvid
                 ),
               ),
             ),
+            // The card is in: TiTi fills the empty stage and points at the tour.
+            if (_guideOffered && !_guiding)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: SafeArea(
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 170),
+                      child: Center(
+                        child: TweenAnimationBuilder<double>(
+                          tween: Tween(begin: 0, end: 1),
+                          duration: const Duration(milliseconds: 520),
+                          curve: Curves.easeOutBack,
+                          builder: (_, t, child) => Opacity(
+                            opacity: t.clamp(0.0, 1.0),
+                            child: Transform.translate(offset: Offset(0, 40 * (1 - t)), child: child),
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Titi(TitiPose.celebrate, height: 170),
+                              const SizedBox(height: 14),
+                              const Text(
+                                'Your first card is in!',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                'Want a quick tour of what cards can do?',
+                                textAlign: TextAlign.center,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 15),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             // the card on its way into "My cards", above everything
             if (_flyFrom case final from? when _collecting && result != null)
               Positioned.fromRect(

@@ -35,8 +35,11 @@ Future<GuideResult> runFirstBoxCardsTabStep(BuildContext context, WidgetRef ref,
 /// points, the box, prizes. However it ends, the journey is over.
 Future<GuideResult> runFirstBoxTour(BuildContext context, WidgetRef ref, CardsTabGuideKeys cards, {required GlobalKey points, int boxCost = MeGuides.defaultBoxCost}) async {
   final journey = ref.read(guideJourneyProvider.notifier);
-  final result = await ref.read(guideControllerProvider).showOnce(context, MeGuides.firstBoxTour(cards, points: points, boxCost: boxCost), force: true);
+  final controller = ref.read(guideControllerProvider);
+  final result = await controller.showOnce(context, MeGuides.firstBoxTour(cards, points: points, boxCost: boxCost), force: true);
   journey.go(null);
+  // The journey already walked through cards: don't repeat it on the next visit.
+  if (result != GuideResult.notShown) await controller.markSeen(GuideIds.cards);
   return result;
 }
 
@@ -227,7 +230,7 @@ abstract final class MeGuides {
             target: k.toy,
             pose: TitiPose.camera,
             title: 'Your toy car',
-            body: "Your toy car, made from your photo. Today's car drives it on the map.",
+            body: "Made from your photo. Today's car drives it on the map.",
             radius: 28,
           ),
           GuideStep(
@@ -268,7 +271,7 @@ abstract final class MeGuides {
             target: k.posts,
             pose: TitiPose.camera,
             title: 'Posts',
-            body: 'Posts about this car gather here. Share one to show it off.',
+            body: 'Share a post about this car. They all gather here.',
           ),
         ],
       );

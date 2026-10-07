@@ -69,7 +69,7 @@ Guide mapGuide(MapGuideKeys k) => Guide(
         ),
         const GuideStep(
           title: 'Tap any pin',
-          body: 'Tap any pin: a TT, a meet, a spot or a partner shop.',
+          body: 'A TT, a meet, a spot or a partner shop. Each one opens its page.',
           pose: TitiPose.thumbsUp,
         ),
       ],
@@ -90,9 +90,8 @@ class EventGuideKeys {
 Guide eventGuide(EventGuideKeys k, {required bool attending, bool full = false, bool live = false, bool onMyWay = false, bool chat = false}) => Guide(
       id: GuideIds.event,
       steps: [
-        if (attending)
-          GuideStep(target: k.rsvp, title: "You're going", body: 'Plans change? Tap here to leave. No hard feelings.', pose: TitiPose.thumbsUp)
-        else if (!full)
+        // Already going: no "how to leave" tip; start with what to do there.
+        if (!attending && !full)
           GuideStep(target: k.rsvp, title: 'Count me in', body: "Tap Join to go. That opens the meet chat and \"I'm on my way\".", pose: TitiPose.calendar),
         if (live)
           GuideStep(target: k.checkIn, title: 'Check in here', body: "At the meet? Check in or scan the host's QR. That's +10 points.", pose: TitiPose.mapPin)

@@ -57,6 +57,8 @@ class GuideController {
         guide: guide,
         onEnd: (result) {
           if (identical(_active, active)) _active = null;
+          // Interrupted before the member could act: show it again next time.
+          if (result == GuideResult.notShown) unawaited(_unmark(guide.id));
           if (!done.isCompleted) done.complete(result);
         },
         // Called once, after the exit animation, while the entry is still in.
@@ -85,6 +87,15 @@ class GuideController {
     } catch (e) {
       // Remembered for this session anyway; the next guide's save carries it.
       debugPrint('guide: could not save seen $id: $e');
+    }
+  }
+
+  Future<void> _unmark(String id) async {
+    _seenNow.remove(id);
+    try {
+      await _store.saveSeen([for (final s in {..._store.seen, ..._seenNow}) if (s != id) s]);
+    } catch (e) {
+      debugPrint('guide: could not unmark $id: $e');
     }
   }
 

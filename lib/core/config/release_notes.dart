@@ -10,6 +10,17 @@ class ReleaseNote {
 
 const kReleaseNotes = <ReleaseNote>[
   ReleaseNote(
+    version: '0.3.62',
+    date: '8 Oct 2026',
+    title: 'TiTi shows you around',
+    points: [
+      'TiTi pops in the first time you open a page and points out what matters, one tip at a time.',
+      'After your first blind box, tap "What can cards do?" for a quick tour: cards, trading, points, boxes and prizes.',
+      'Tips for Home, Map, Chats, Me, your garage, points, meets, spots, clubs and partners.',
+      'Settings: turn page tips off, or replay them any time.',
+    ],
+  ),
+  ReleaseNote(
     version: '0.3.61',
     date: '8 Oct 2026',
     title: 'Expo mode for big car shows',

@@ -60,7 +60,7 @@ void main() {
     final g = mapGuide(k);
     expect(g.steps.map((s) => s.target), [k.modeSwitch, k.chips, k.buttons, k.nearbyBar, null]);
     expect(g.steps.first.body, contains('Spots'));
-    expect(g.steps.last.body, startsWith('Tap any pin'));
+    expect(g.steps.last.body, startsWith('A TT, a meet'));
   });
 
   test('event: only the steps whose widgets show', () {
@@ -70,9 +70,9 @@ void main() {
     expect(ahead.steps.map((s) => s.target), [k.rsvp, null]);
     expect(ahead.steps.last.body, contains('QR'));
     expect(ahead.steps.last.body, contains('+10'));
-    // Going, live, inside the on-my-way window: all four, spotlighted.
+    // Going, live, inside the on-my-way window: check in, on my way, chat (no 'leave' tip).
     final live = eventGuide(k, attending: true, live: true, onMyWay: true, chat: true);
-    expect(live.steps.map((s) => s.target), [k.rsvp, k.checkIn, k.onMyWay, k.chat]);
+    expect(live.steps.map((s) => s.target), [k.checkIn, k.onMyWay, k.chat]);
     // Full and not going: no Join step.
     expect(eventGuide(k, attending: false, full: true).steps.map((s) => s.target), isNot(contains(k.rsvp)));
     for (final g in _all().where((g) => g.id == GuideIds.event)) {

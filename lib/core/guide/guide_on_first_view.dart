@@ -51,6 +51,10 @@ class _GuideOnFirstViewState extends ConsumerState<GuideOnFirstView> {
   Duration? _showableFor;
 
   bool _tickerOn = true;
+
+  /// This page's guide is on screen (we started it).
+  bool _mine = false;
+  GuideController? _controller;
   ModalRoute<Object?>? _route;
   int? _viewId;
 
@@ -67,7 +71,12 @@ class _GuideOnFirstViewState extends ConsumerState<GuideOnFirstView> {
     _route = ModalRoute.of(context);
     _viewId = View.maybeOf(context)?.viewId;
     // A tab coming into view (TickerMode) or the route on top changing.
-    if (!_tickerOn || !(_route?.isCurrent ?? true)) _showableFor = null;
+    if (!_tickerOn || !(_route?.isCurrent ?? true)) {
+      _showableFor = null;
+      // Something else opened over the page (a push notification, a deep
+      // link) while its guide was up: the guide goes with the page.
+      if (_mine) _closeMine();
+    }
   }
 
   @override
@@ -81,7 +90,14 @@ class _GuideOnFirstViewState extends ConsumerState<GuideOnFirstView> {
   @override
   void dispose() {
     _timer?.cancel();
+    if (_mine) _closeMine();
     super.dispose();
+  }
+
+  void _closeMine() {
+    final c = _controller;
+    _mine = false;
+    if (c != null && c.showingId == widget.id) c.dismiss();
   }
 
   void _start() {
@@ -123,7 +139,12 @@ class _GuideOnFirstViewState extends ConsumerState<GuideOnFirstView> {
   }
 
   Future<void> _show() async {
-    final r = await ref.read(guideControllerProvider).showOnce(context, widget.build());
+    final c = ref.read(guideControllerProvider);
+    _controller = c;
+    final future = c.showOnce(context, widget.build());
+    _mine = c.showingId == widget.id;
+    final r = await future;
+    _mine = false;
     if (r != GuideResult.notShown) widget.onDone?.call(r);
   }
 

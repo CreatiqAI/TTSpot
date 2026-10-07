@@ -10,6 +10,10 @@ import '../../../core/theme/titi.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/photo_picker_sheet.dart';
+import '../../expo/exhibitors/application/exhibitors_providers.dart';
+import '../../expo/exhibitors/data/exhibitors_repository.dart';
+import '../../expo/exhibitors/domain/exhibitor.dart';
+import '../../expo/exhibitors/presentation/exhibitor_widgets.dart';
 import '../../vendors/application/vendors_providers.dart';
 import '../../vendors/domain/vendor.dart';
 import '../application/floorplan_providers.dart';
@@ -36,7 +40,41 @@ class _FloorplanEditorScreenState extends ConsumerState<FloorplanEditorScreen> {
   String? _busyText;
   String? _selectedPinId;
 
+  /// Size given to the next booth box (w, h fractions); follows the last
+  /// booth placed or edited so a hall of same-size booths is quick to pin.
+  (double, double)? _boothSize;
+
   FloorplanRepository get _repo => ref.read(floorplanRepositoryProvider);
+  ExhibitorsRepository get _exRepo => ref.read(exhibitorsRepositoryProvider);
+
+  /// Re-links booth pins to exhibitors by code. Quiet: a failure here must
+  /// not undo the edit that triggered it.
+  Future<int?> _relink() async {
+    try {
+      final n = await _exRepo.linkBoothPins(widget.eventId);
+      ref.invalidate(eventExhibitorsProvider(widget.eventId));
+      return n;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _linkAll() async {
+    int? n;
+    await _run(() async {
+      n = await _exRepo.linkBoothPins(widget.eventId);
+      ref.invalidate(eventExhibitorsProvider(widget.eventId));
+    }, text: 'Linking booths…');
+    if (n != null && mounted) _toast(n == 1 ? '1 booth linked to an exhibitor.' : '$n booths linked to exhibitors.');
+  }
+
+  (double, double) _nextBoothSize(FloorLevel l) {
+    final s = _boothSize;
+    if (s != null) return s;
+    final box = l.pins.where((p) => p.isBox).firstOrNull;
+    if (box != null) return (box.w!, box.h!);
+    return BoothSize.medium.fractions(l.aspect);
+  }
 
   @override
   void initState() {
@@ -269,18 +307,21 @@ class _FloorplanEditorScreenState extends ConsumerState<FloorplanEditorScreen> {
     if (kind == null || !mounted) return;
     final label = await _askLabel(kind);
     if (label == null) return;
+    final booth = kind == PinKind.booth;
+    final size = booth ? _nextBoothSize(l) : null;
     await _run(() async {
-      final pin = await _repo.addPin(levelId: l.id, kind: kind, label: label, x: f.dx, y: f.dy);
+      final pin = await _repo.addPin(levelId: l.id, kind: kind, label: label, x: f.dx, y: f.dy, w: size?.$1, h: size?.$2);
       _selectedPinId = pin.id;
+      if (booth && label.trim().isNotEmpty) await _relink();
     });
-    if (kind == PinKind.booth && mounted) _toast('Booth added. Tap it to link a partner.');
+    if (booth && mounted) _toast('Booth added. Tap it for size or exhibitor.');
   }
 
   Future<String?> _askLabel(PinKind kind, {String initial = ''}) {
     final c = TextEditingController(text: initial);
     final hint = switch (kind) {
       PinKind.zone => 'e.g. Zone A, JDM corner, B2-14',
-      PinKind.booth => 'e.g. Wrap shop booth',
+      PinKind.booth => 'e.g. A019',
       PinKind.parking => 'e.g. Bay P3, Visitor parking',
       PinKind.entrance => 'e.g. Main entrance',
       PinKind.lift => 'e.g. Lift to L3',
@@ -295,8 +336,12 @@ class _FloorplanEditorScreenState extends ConsumerState<FloorplanEditorScreen> {
           controller: c,
           autofocus: true,
           maxLength: 60,
-          textCapitalization: TextCapitalization.sentences,
-          decoration: InputDecoration(hintText: hint, helperText: 'Optional. Members see this on the plan.'),
+          textCapitalization: kind == PinKind.booth ? TextCapitalization.characters : TextCapitalization.sentences,
+          decoration: InputDecoration(
+            labelText: kind == PinKind.booth ? 'Booth code' : null,
+            hintText: hint,
+            helperText: kind == PinKind.booth ? 'Links the booth to its exhibitor.' : 'Optional. Members see this on the plan.',
+          ),
           onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
         ),
         actions: [
@@ -332,14 +377,23 @@ class _FloorplanEditorScreenState extends ConsumerState<FloorplanEditorScreen> {
       useRootNavigator: true,
       showDragHandle: true,
       isScrollControlled: true,
-      builder: (ctx) => _PinEditSheet(pin: p, levelName: l.name),
+      builder: (ctx) => _PinEditSheet(pin: p, levelName: l.name, eventId: widget.eventId, aspect: l.aspect),
     );
     if (result == null) return;
     if (result.delete) {
       await _run(() => _repo.deletePin(p.id));
       _selectedPinId = null;
     } else if (result.pin != null) {
-      await _run(() => _repo.updatePin(result.pin!));
+      final pin = result.pin!;
+      if (pin.isBox) _boothSize = (pin.w!, pin.h!);
+      await _run(() async {
+        await _repo.updatePin(pin);
+        // Picked an exhibitor by hand: add this booth code to it so the
+        // code link agrees (and survives "Link booths").
+        final picked = result.addCodeTo;
+        if (picked != null) await _exRepo.addBooth(picked, pin.label);
+        if (pin.kind == PinKind.booth || p.kind == PinKind.booth) await _relink();
+      });
     }
   }
 
@@ -361,6 +415,8 @@ class _FloorplanEditorScreenState extends ConsumerState<FloorplanEditorScreen> {
         title: const Text('Edit floorplan'),
         actions: [
           if (levels != null && levels.isNotEmpty) ...[
+            if (levels.any((l) => l.pins.any((p) => p.kind == PinKind.booth)))
+              IconButton(tooltip: 'Link booths to exhibitors', icon: const Icon(AppIcons.link), onPressed: _busy ? null : _linkAll),
             IconButton(tooltip: 'Print zone QRs', icon: const Icon(AppIcons.qrCode), onPressed: _printQrs),
             IconButton(tooltip: 'Reorder levels', icon: const Icon(AppIcons.stackSimple), onPressed: _busy ? null : _manageLevels),
           ],
@@ -599,15 +655,22 @@ class _KindGrid extends StatelessWidget {
 }
 
 class _PinEdit {
-  const _PinEdit({this.pin, this.delete = false});
+  const _PinEdit({this.pin, this.delete = false, this.addCodeTo});
   final FloorPin? pin;
   final bool delete;
+
+  /// Exhibitor picked by hand whose booth codes lack this pin's code.
+  final Exhibitor? addCodeTo;
 }
 
 class _PinEditSheet extends ConsumerStatefulWidget {
-  const _PinEditSheet({required this.pin, required this.levelName});
+  const _PinEditSheet({required this.pin, required this.levelName, required this.eventId, required this.aspect});
   final FloorPin pin;
   final String levelName;
+  final String eventId;
+
+  /// The level image's width / height (square booth presets).
+  final double aspect;
 
   @override
   ConsumerState<_PinEditSheet> createState() => _PinEditSheetState();
@@ -617,11 +680,114 @@ class _PinEditSheetState extends ConsumerState<_PinEditSheet> {
   late final _label = TextEditingController(text: widget.pin.label);
   late PinKind _kind = widget.pin.kind;
   late String? _partnerId = widget.pin.partnerVendorId;
+  late String? _exhibitorId = widget.pin.exhibitorId;
+  bool _exhibitorPicked = false;
+
+  /// Box size (fractions); null = a plain pin.
+  late double? _w = widget.pin.isBox ? widget.pin.w : null;
+  late double? _h = widget.pin.isBox ? widget.pin.h : null;
+
+  @override
+  void initState() {
+    super.initState();
+    _label.addListener(() => setState(() {}));
+  }
 
   @override
   void dispose() {
     _label.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickExhibitor() async {
+    final e = await showModalBottomSheet<Exhibitor>(
+      context: context,
+      useRootNavigator: true,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (_) => _ExhibitorPicker(eventId: widget.eventId),
+    );
+    if (e == null) return;
+    setState(() {
+      _exhibitorId = e.id;
+      _exhibitorPicked = true;
+      if (_label.text.trim().isEmpty && e.booths.isNotEmpty) _label.text = e.booths.first;
+    });
+  }
+
+  void _setPreset(BoothSize? s) => setState(() {
+        if (s == null) {
+          _w = null;
+          _h = null;
+        } else {
+          final (w, h) = s.fractions(widget.aspect);
+          _w = w;
+          _h = h;
+        }
+      });
+
+  Widget _boothSection(List<Exhibitor> exhibitors) {
+    final code = _label.text.trim().toUpperCase();
+    // What "Link booths" would pick for this code (partner first).
+    final byCode = code.isEmpty ? null : exhibitors.where((e) => e.booths.any((b) => b.trim().toUpperCase() == code)).firstOrNull;
+    final chosen = exhibitors.where((e) => e.id == _exhibitorId).firstOrNull;
+    final linked = chosen ?? byCode;
+    final preset = _w == null ? null : BoothSize.nearest(_w);
+    final exact = preset != null && (preset.width - _w!).abs() < 0.0005;
+    Widget sizeChip(String label, BoothSize? s) {
+      final on = s == null ? _w == null : (exact && preset == s);
+      return ChoiceChip(label: Text(label), selected: on, onSelected: (_) => _setPreset(s));
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: 14),
+        Text('Booth size', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textSecondary)),
+        const SizedBox(height: 6),
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: [
+            sizeChip('Pin', null),
+            sizeChip('Small', BoothSize.small),
+            sizeChip('Medium', BoothSize.medium),
+            sizeChip('Large', BoothSize.large),
+          ],
+        ),
+        if (_w != null && _h != null) ...[
+          _SizeSlider(label: 'Width', value: _w!, onChanged: (v) => setState(() => _w = v)),
+          _SizeSlider(label: 'Height', value: _h!, onChanged: (v) => setState(() => _h = v)),
+        ],
+        const SizedBox(height: 10),
+        Material(
+          color: AppColors.surfaceGray,
+          borderRadius: BorderRadius.circular(12),
+          child: ListTile(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            leading: linked == null ? const Icon(AppIcons.storefront) : ExhibitorLogo(exhibitor: linked, size: 36),
+            title: Text(linked?.name ?? 'Exhibitor (optional)', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700)),
+            subtitle: Text(
+              linked == null
+                  ? (exhibitors.isEmpty ? 'Add exhibitors under Organizer tools.' : 'Linked by booth code, or pick one.')
+                  : (chosen == null ? 'Matches booth code $code' : 'Tap to change'),
+              style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
+            ),
+            trailing: chosen == null
+                ? const Icon(AppIcons.caretRight)
+                : IconButton(
+                    tooltip: 'Unlink',
+                    icon: const Icon(AppIcons.x),
+                    onPressed: () => setState(() {
+                      _exhibitorId = null;
+                      _exhibitorPicked = false;
+                    }),
+                  ),
+            onTap: exhibitors.isEmpty ? null : _pickExhibitor,
+          ),
+        ),
+      ],
+    );
   }
 
   Future<void> _pickPartner() async {
@@ -630,7 +796,7 @@ class _PinEditSheetState extends ConsumerState<_PinEditSheet> {
       useRootNavigator: true,
       showDragHandle: true,
       isScrollControlled: true,
-      builder: (_) => const _PartnerPicker(),
+      builder: (_) => const PartnerPickerSheet(),
     );
     if (v != null) setState(() => _partnerId = v.id);
   }
@@ -639,6 +805,8 @@ class _PinEditSheetState extends ConsumerState<_PinEditSheet> {
   Widget build(BuildContext context) {
     final partners = ref.watch(partnersDirectoryProvider).value ?? const <PublicVendor>[];
     final partner = partners.where((p) => p.id == _partnerId).firstOrNull;
+    final booth = _kind == PinKind.booth;
+    final exhibitors = booth ? (ref.watch(eventExhibitorsProvider(widget.eventId)).value ?? const <Exhibitor>[]) : const <Exhibitor>[];
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
       child: SafeArea(
@@ -653,13 +821,14 @@ class _PinEditSheetState extends ConsumerState<_PinEditSheet> {
               TextField(
                 controller: _label,
                 maxLength: 60,
-                textCapitalization: TextCapitalization.sentences,
-                decoration: const InputDecoration(labelText: 'Label'),
+                textCapitalization: booth ? TextCapitalization.characters : TextCapitalization.sentences,
+                decoration: InputDecoration(labelText: booth ? 'Booth code' : 'Label', hintText: booth ? 'e.g. A019' : null),
               ),
               const SizedBox(height: 4),
               _KindGrid(selected: _kind, onPick: (k) => setState(() => _kind = k)),
-              if (_kind == PinKind.booth) ...[
-                const SizedBox(height: 14),
+              if (booth) ...[
+                _boothSection(exhibitors),
+                const SizedBox(height: 10),
                 Material(
                   color: AppColors.surfaceGray,
                   borderRadius: BorderRadius.circular(12),
@@ -683,17 +852,28 @@ class _PinEditSheetState extends ConsumerState<_PinEditSheet> {
               ],
               const SizedBox(height: 18),
               FilledButton(
-                onPressed: () => Navigator.pop(
-                  context,
-                  _PinEdit(
-                    pin: widget.pin.copyWith(
-                      kind: _kind,
-                      label: _label.text.trim(),
-                      partnerVendorId: _kind == PinKind.booth ? _partnerId : null,
-                      clearPartner: _kind != PinKind.booth || _partnerId == null,
+                onPressed: () {
+                  final code = _label.text.trim();
+                  final chosen = booth ? exhibitors.where((e) => e.id == _exhibitorId).firstOrNull : null;
+                  final needsCode = chosen != null && _exhibitorPicked && code.isNotEmpty && !chosen.booths.any((b) => b.trim().toUpperCase() == code.toUpperCase());
+                  Navigator.pop(
+                    context,
+                    _PinEdit(
+                      pin: widget.pin.copyWith(
+                        kind: _kind,
+                        label: code,
+                        partnerVendorId: booth ? _partnerId : null,
+                        clearPartner: !booth || _partnerId == null,
+                        exhibitorId: booth ? _exhibitorId : null,
+                        clearExhibitor: !booth || _exhibitorId == null,
+                        w: booth ? _w : null,
+                        h: booth ? _h : null,
+                        clearSize: !booth || _w == null || _h == null,
+                      ),
+                      addCodeTo: needsCode ? chosen : null,
                     ),
-                  ),
-                ),
+                  );
+                },
                 child: const Text('Save'),
               ),
               const SizedBox(height: 8),
@@ -711,14 +891,14 @@ class _PinEditSheetState extends ConsumerState<_PinEditSheet> {
 }
 
 /// Searchable list of TT Spot partners, for linking a booth.
-class _PartnerPicker extends ConsumerStatefulWidget {
-  const _PartnerPicker();
+class PartnerPickerSheet extends ConsumerStatefulWidget {
+  const PartnerPickerSheet({super.key});
 
   @override
-  ConsumerState<_PartnerPicker> createState() => _PartnerPickerState();
+  ConsumerState<PartnerPickerSheet> createState() => _PartnerPickerSheetState();
 }
 
-class _PartnerPickerState extends ConsumerState<_PartnerPicker> {
+class _PartnerPickerSheetState extends ConsumerState<PartnerPickerSheet> {
   String _q = '';
 
   @override
@@ -759,6 +939,78 @@ class _PartnerPickerState extends ConsumerState<_PartnerPicker> {
                   );
                 },
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Fine-tunes a booth side (fraction of the image, 0.4% to 15%).
+class _SizeSlider extends StatelessWidget {
+  const _SizeSlider({required this.label, required this.value, required this.onChanged});
+  final String label;
+  final double value;
+  final ValueChanged<double> onChanged;
+
+  static const min = 0.004;
+  static const max = 0.15;
+
+  @override
+  Widget build(BuildContext context) => Row(
+        children: [
+          SizedBox(width: 56, child: Text(label, style: TextStyle(fontSize: 13, color: AppColors.textSecondary))),
+          Expanded(child: Slider(value: value.clamp(min, max).toDouble(), min: min, max: max, onChanged: onChanged)),
+        ],
+      );
+}
+
+/// Searchable list of the event's exhibitors, for linking a booth by hand.
+class _ExhibitorPicker extends ConsumerStatefulWidget {
+  const _ExhibitorPicker({required this.eventId});
+  final String eventId;
+
+  @override
+  ConsumerState<_ExhibitorPicker> createState() => _ExhibitorPickerState();
+}
+
+class _ExhibitorPickerState extends ConsumerState<_ExhibitorPicker> {
+  String _q = '';
+
+  @override
+  Widget build(BuildContext context) {
+    final all = ref.watch(eventExhibitorsProvider(widget.eventId)).value ?? const <Exhibitor>[];
+    final list = all.where((e) => e.matches(_q)).toList();
+    return SizedBox(
+      height: MediaQuery.sizeOf(context).height * 0.75,
+      child: Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: TextField(
+                autofocus: true,
+                decoration: const InputDecoration(prefixIcon: Icon(AppIcons.magnifyingGlass), hintText: 'Search exhibitors'),
+                onChanged: (v) => setState(() => _q = v),
+              ),
+            ),
+            Expanded(
+              child: list.isEmpty
+                  ? Center(child: Text('No exhibitors match.', style: TextStyle(color: AppColors.textSecondary)))
+                  : ListView.builder(
+                      itemCount: list.length,
+                      itemBuilder: (_, i) {
+                        final e = list[i];
+                        return ListTile(
+                          leading: ExhibitorLogo(exhibitor: e, size: 40),
+                          title: Text(e.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600)),
+                          subtitle: e.booths.isEmpty ? null : Text(e.boothsLabel, maxLines: 1, overflow: TextOverflow.ellipsis),
+                          onTap: () => Navigator.pop(context, e),
+                        );
+                      },
+                    ),
             ),
           ],
         ),

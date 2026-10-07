@@ -65,22 +65,49 @@ class FloorplanRepository {
 
   // --------------------------------------------------------------- pins ---
 
-  Future<FloorPin> addPin({required String levelId, required PinKind kind, required String label, required double x, required double y, String? partnerVendorId}) async {
+  Future<FloorPin> addPin({
+    required String levelId,
+    required PinKind kind,
+    required String label,
+    required double x,
+    required double y,
+    String? partnerVendorId,
+    String? exhibitorId,
+    double? w,
+    double? h,
+  }) async {
+    final box = kind == PinKind.booth && w != null && h != null;
     final row = await _client
         .from('event_floor_pins')
-        .insert({'level_id': levelId, 'kind': kind.db, 'label': label.trim(), 'x': x, 'y': y, 'partner_vendor_id': partnerVendorId})
+        .insert({
+          'level_id': levelId,
+          'kind': kind.db,
+          'label': label.trim(),
+          'x': x,
+          'y': y,
+          'partner_vendor_id': partnerVendorId,
+          'exhibitor_id': kind == PinKind.booth ? exhibitorId : null,
+          'w': box ? w.clamp(0.001, 1.0) : null,
+          'h': box ? h.clamp(0.001, 1.0) : null,
+        })
         .select()
         .single();
     return FloorPin.fromMap(row);
   }
 
-  Future<void> updatePin(FloorPin pin) => _client.from('event_floor_pins').update({
-        'kind': pin.kind.db,
-        'label': pin.label.trim(),
-        'x': pin.x.clamp(0.0, 1.0),
-        'y': pin.y.clamp(0.0, 1.0),
-        'partner_vendor_id': pin.partnerVendorId,
-      }).eq('id', pin.id);
+  Future<void> updatePin(FloorPin pin) {
+    final booth = pin.kind == PinKind.booth;
+    return _client.from('event_floor_pins').update({
+      'kind': pin.kind.db,
+      'label': pin.label.trim(),
+      'x': pin.x.clamp(0.0, 1.0),
+      'y': pin.y.clamp(0.0, 1.0),
+      'partner_vendor_id': pin.partnerVendorId,
+      'exhibitor_id': booth ? pin.exhibitorId : null,
+      'w': booth && pin.isBox ? pin.w!.clamp(0.001, 1.0) : null,
+      'h': booth && pin.isBox ? pin.h!.clamp(0.001, 1.0) : null,
+    }).eq('id', pin.id);
+  }
 
   Future<void> deletePin(String pinId) => _client.from('event_floor_pins').delete().eq('id', pinId);
 

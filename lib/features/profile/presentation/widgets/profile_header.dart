@@ -8,6 +8,7 @@ import '../../../auth/domain/profile.dart';
 import '../../../badges/presentation/honour_row.dart';
 import '../../../friends/domain/friend.dart';
 import '../../../friends/presentation/nickname_sheet.dart' show ProfileNameLines;
+import '../../../guides/me_guides.dart' show ProfileGuideKeys, guideTarget;
 import '../../../social/domain/post.dart';
 import '../../../social/presentation/widgets/club_name_tag.dart' show ClubNameTagFor;
 import '../../domain/car.dart';
@@ -42,6 +43,7 @@ class ProfileHeader extends StatelessWidget {
     this.onCall,
     this.following,
     this.onFollow,
+    this.guideKeys,
   });
 
   final Profile profile;
@@ -75,9 +77,13 @@ class ProfileHeader extends StatelessWidget {
   /// hides it too: my own page, someone I blocked.
   final VoidCallback? onFollow;
 
+  /// TiTi's spotlights on my own Me tab (garage, points, badges, QR).
+  final ProfileGuideKeys? guideKeys;
+
   @override
   Widget build(BuildContext context) {
     final p = profile;
+    final k = guideKeys;
     final name = p.displayName ?? '@${p.username}';
     final live = moments.any((m) => m.isLive);
     final showGarage = isMe || cars.isNotEmpty;
@@ -132,9 +138,9 @@ class ProfileHeader extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             // A matched pair, equal widths, 8 px apart.
-                            if (showGarage) Expanded(child: _GaragePill(label: isMe ? 'My garage' : garageTitle(p), fit: isMe, onTap: onGarage)),
+                            if (showGarage) Expanded(child: guideTarget(k?.garage, _GaragePill(label: isMe ? 'My garage' : garageTitle(p), fit: isMe, onTap: onGarage))),
                             if (showGarage && points != null) const SizedBox(width: 8),
-                            if (points != null) Expanded(child: _PointsCard(points: points!, onTap: onPoints)),
+                            if (points != null) Expanded(child: guideTarget(k?.points, _PointsCard(points: points!, onTap: onPoints))),
                           ],
                         ),
                       ),
@@ -158,7 +164,7 @@ class ProfileHeader extends StatelessWidget {
         // ---------------------------------------------------------- badges ---
         // Up to 3 small badge icons + View all (theirs: only with badges;
         // mine with none: "Badges · View all").
-        ProfileHonourRow(userId: p.id, isMe: isMe),
+        guideTarget(k?.badges, ProfileHonourRow(userId: p.id, isMe: isMe)),
         // --------------------------------------------------------- actions ---
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
@@ -169,7 +175,7 @@ class ProfileHeader extends StatelessWidget {
                     const SizedBox(width: 8),
                     Expanded(child: _Action(label: 'Rewards', icon: AppIcons.gift, onTap: onRewards)),
                     const SizedBox(width: 8),
-                    _Action(icon: AppIcons.qrCode, onTap: onQr, tooltip: 'My QR'),
+                    guideTarget(k?.qr, _Action(icon: AppIcons.qrCode, onTap: onQr, tooltip: 'My QR')),
                   ],
                 )
               : Row(
@@ -371,10 +377,13 @@ class _Action extends StatelessWidget {
 /// selected tab. The selected tab is bold and full strength, the others
 /// dimmed, so it reads in light and dark.
 class ProfileTabBar extends SliverPersistentHeaderDelegate {
-  const ProfileTabBar({required this.tabs, required this.selected, required this.onSelect});
+  const ProfileTabBar({required this.tabs, required this.selected, required this.onSelect, this.tabKeys});
   final List<(IconData, String)> tabs;
   final int selected;
   final ValueChanged<int> onSelect;
+
+  /// TiTi's spotlight on a tab (the first-box journey's "Tap Cards"), by index.
+  final List<GlobalKey?>? tabKeys;
 
   static const height = 48.0;
   static const indicatorHeight = 3.0;
@@ -403,7 +412,9 @@ class ProfileTabBar extends SliverPersistentHeaderDelegate {
                 children: [
                   for (var i = 0; i < tabs.length; i++)
                     Expanded(
-                      child: Semantics(
+                      child: guideTarget(
+                        i < (tabKeys?.length ?? 0) ? tabKeys![i] : null,
+                        Semantics(
                         selected: i == selected,
                         button: true,
                         child: InkWell(
@@ -430,6 +441,7 @@ class ProfileTabBar extends SliverPersistentHeaderDelegate {
                             ),
                           ),
                         ),
+                      ),
                       ),
                     ),
                 ],

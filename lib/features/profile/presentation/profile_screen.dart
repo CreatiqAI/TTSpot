@@ -6,6 +6,9 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../core/widgets/glass_tab_bar.dart';
 import '../../../core/config/features.dart';
+import '../../../core/guide/guide.dart';
+import '../../../core/guide/guide_controller.dart';
+import '../../../core/guide/guide_on_first_view.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/theme/app_art.dart';
@@ -29,6 +32,7 @@ import '../../friends/domain/friend.dart';
 import '../../friends/presentation/call_sheet.dart';
 import '../../friends/presentation/friend_colour_sheet.dart';
 import '../../friends/presentation/nickname_sheet.dart';
+import '../../guides/me_guides.dart';
 import '../../points/application/points_providers.dart';
 import '../../safety/data/safety_repository.dart';
 import '../../safety/presentation/report_sheet.dart';
@@ -69,7 +73,75 @@ class ProfileScreen extends ConsumerStatefulWidget {
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   _Tab _tab = _Tab.posts;
 
+  // TiTi guides, on my own Me tab only.
+  static const _guideBeat = Duration(milliseconds: 700);
+  final _guideKeys = ProfileGuideKeys();
+  /// New ones each time the Cards tab opens: the outgoing tab can still be
+  /// fading out of the switcher while the new one builds.
+  CardsTabGuideKeys _cardsKeys = CardsTabGuideKeys();
+  /// A first-box journey step is waiting or showing.
+  bool _journeyBusy = false;
+  /// The first-box journey ran here: the profile guide waits for another visit.
+  bool _journeyRan = false;
+  bool _cardsGuideAsked = false;
+
   void _snack(String msg) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+
+  void _selectTab(_Tab tab, {required bool myTab}) {
+    if (tab == _tab) return;
+    setState(() {
+      _tab = tab;
+      if (tab == _Tab.cards) _cardsKeys = CardsTabGuideKeys();
+    });
+    if (tab == _Tab.cards && myTab) _maybeCardsGuide();
+  }
+
+  /// The first-box journey on my Me tab: at [FirstBoxStage.me] TiTi points at
+  /// the Cards tab and the member taps it; at [FirstBoxStage.cards] (with the
+  /// tab open and its cards loaded) he walks through it. Journeys skip the
+  /// seen check.
+  void _journeyTick(String? stage, {required bool loaded, required bool cardsLoaded}) {
+    if (_journeyBusy || !loaded) return;
+    if (stage == FirstBoxStage.me) {
+      _runJourney(() async {
+        await runFirstBoxCardsTabStep(context, ref, _guideKeys.cardsTab);
+        // The tap went through to the tab; open it anyway if it didn't.
+        if (mounted && ref.read(guideJourneyProvider) == FirstBoxStage.cards) _selectTab(_Tab.cards, myTab: true);
+      });
+    } else if (stage == FirstBoxStage.cards && _tab == _Tab.cards && cardsLoaded) {
+      _runJourney(() async {
+        final cost = ref.read(cardSettingsProvider).value?.boxCost ?? MeGuides.defaultBoxCost;
+        await runFirstBoxTour(context, ref, _cardsKeys, points: _guideKeys.points, boxCost: cost);
+      });
+    }
+  }
+
+  void _runJourney(Future<void> Function() step) {
+    _journeyBusy = true;
+    _journeyRan = true;
+    Future<void>.delayed(_guideBeat, () async {
+      try {
+        if (mounted) await step();
+      } finally {
+        _journeyBusy = false;
+      }
+    });
+  }
+
+  /// My Cards tab, first time outside the journey: collection, trade, prizes.
+  /// Not while a sealed box waits and the first-box walk is still to come.
+  void _maybeCardsGuide() {
+    if (_cardsGuideAsked || ref.read(guideJourneyProvider) != null) return;
+    final guides = ref.read(guideControllerProvider);
+    if (guides.seen(GuideIds.cards)) return;
+    if (!guides.seen(GuideIds.firstBox) && ref.read(sealedBoxesProvider).isNotEmpty) return;
+    _cardsGuideAsked = true;
+    Future<void>.delayed(_guideBeat, () {
+      if (!mounted || _tab != _Tab.cards || ref.read(guideJourneyProvider) != null) return;
+      final k = _cardsKeys;
+      guides.showOnce(context, MeGuides.cards(collection: k.grid, trades: k.trades, prizes: k.prizes));
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -99,6 +171,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       (AppIcons.squaresFour, 'Posts'),
       (AppIcons.cards, 'Cards'),
     ];
+    // TiTi: the first-box journey and the first-visit guide, on my Me tab.
+    final myTab = isMe && widget.userId == null;
+    final journey = myTab ? ref.watch(guideJourneyProvider) : null;
+    if (myTab && journey != null) {
+      _journeyTick(journey, loaded: profile.value != null, cardsLoaded: journey == FirstBoxStage.cards && ref.watch(cardTypesProvider).hasValue);
+    }
 
     Future<void> refresh() async {
       ref.invalidate(profileProvider(id));
@@ -125,7 +203,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
     final handle = profile.value?.username == null ? '' : '@${profile.value!.username}';
 
-    return Scaffold(
+    return GuideOnFirstView(
+      id: GuideIds.profile,
+      ready: myTab && profile.value != null && points != null && journey == null && !_journeyRan,
+      build: () => MeGuides.profile(_guideKeys, showCards: !ref.read(guideControllerProvider).seen(GuideIds.firstBox)),
+      child: Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
         centerTitle: widget.userId != null,
@@ -175,6 +257,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         : null,
                     following: following,
                     onFollow: canFollow ? () => tapFollow(context, ref, follow, name: '@${p.username}') : null,
+                    guideKeys: myTab ? _guideKeys : null,
                   ),
                 ),
                 if (isMe && ref.watch(sealedBoxesProvider).isNotEmpty)
@@ -184,7 +267,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   delegate: ProfileTabBar(
                     tabs: tabs,
                     selected: _tab.index.clamp(0, tabs.length - 1),
-                    onSelect: (i) => setState(() => _tab = _Tab.values[i]),
+                    onSelect: (i) => _selectTab(_Tab.values[i], myTab: myTab),
+                    tabKeys: myTab ? [null, _guideKeys.cardsTab] : null,
                   ),
                 ),
                 SliverToBoxAdapter(
@@ -213,6 +297,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                   isMe: isMe,
                                   isFriend: friendship == FriendshipStatus.friends,
                                   onAddFriend: friendship == FriendshipStatus.none ? () => _friendAction(id, friendship, p.displayName ?? '@${p.username}') : null,
+                                  guideKeys: myTab ? _cardsKeys : null,
                                 ),
                             },
                     ),
@@ -225,6 +310,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           );
         },
       ),
+    ),
     );
   }
 

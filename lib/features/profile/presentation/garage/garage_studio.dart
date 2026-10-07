@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../../../../core/theme/app_icons.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/titi.dart';
+import '../../../guides/me_guides.dart' show GarageGuideKeys, guideTarget;
 import '../../domain/car.dart';
 import '../../domain/car_documents.dart';
 import '../widgets/toy_car_image.dart';
@@ -64,6 +65,7 @@ class GarageStudio extends StatefulWidget {
     this.empty,
     this.loading = false,
     this.error,
+    this.guideKeys,
   });
 
   final List<Car> cars;
@@ -95,6 +97,9 @@ class GarageStudio extends StatefulWidget {
   final Widget? empty;
   final bool loading;
   final String? error;
+
+  /// TiTi's spotlights in my garage (the toy, +, Open car).
+  final GarageGuideKeys? guideKeys;
 
   @override
   State<GarageStudio> createState() => _GarageStudioState();
@@ -141,12 +146,13 @@ class _GarageStudioState extends State<GarageStudio> {
     final index = widget.index.clamp(0, cars.isEmpty ? 0 : cars.length - 1);
     final car = cars.isEmpty ? null : cars[index];
     final padTop = MediaQuery.paddingOf(context).top;
+    final k = widget.guideKeys;
 
     final children = <Widget>[
       SizedBox(height: padTop + 16),
       Padding(
         padding: const EdgeInsets.symmetric(horizontal: _kPad),
-        child: GarageHeader(title: widget.title, onBack: widget.onBack, onAdd: widget.onAdd),
+        child: GarageHeader(title: widget.title, onBack: widget.onBack, onAdd: widget.onAdd, addKey: k?.add),
       ),
       const SizedBox(height: 22),
       if (widget.loading)
@@ -162,7 +168,7 @@ class _GarageStudioState extends State<GarageStudio> {
         LayoutBuilder(
           builder: (context, c) {
             final cardW = c.maxWidth - _kPad * 2;
-            return SizedBox(
+            return guideTarget(k?.toy, SizedBox(
               height: GarageHeroCard.heightFor(context, cardW),
               child: PageView.builder(
                 controller: _pager,
@@ -184,7 +190,7 @@ class _GarageStudioState extends State<GarageStudio> {
                   );
                 },
               ),
-            );
+            ));
           },
         ),
         if (cars.length > 1) ...[
@@ -205,7 +211,7 @@ class _GarageStudioState extends State<GarageStudio> {
           child: widget.mine
               ? Row(
                   children: [
-                    Expanded(child: StudioButton(label: 'Open car', onTap: () => widget.onOpen(car))),
+                    Expanded(child: guideTarget(k?.open, StudioButton(label: 'Open car', onTap: () => widget.onOpen(car)))),
                     const SizedBox(width: 12),
                     Expanded(
                       child: car.id == widget.todayId
@@ -256,10 +262,13 @@ class _GarageStudioState extends State<GarageStudio> {
 /// Back (on the full-screen routes), the title in capitals and the owner's
 /// round + button.
 class GarageHeader extends StatelessWidget {
-  const GarageHeader({super.key, required this.title, this.onBack, this.onAdd});
+  const GarageHeader({super.key, required this.title, this.onBack, this.onAdd, this.addKey});
   final String title;
   final VoidCallback? onBack;
   final VoidCallback? onAdd;
+
+  /// TiTi's spotlight on the + button.
+  final GlobalKey? addKey;
 
   @override
   Widget build(BuildContext context) => Row(
@@ -279,7 +288,7 @@ class GarageHeader extends StatelessWidget {
           ),
           if (onAdd != null) ...[
             const SizedBox(width: 12),
-            StudioRoundButton(icon: AppIcons.plus, tooltip: 'Add a car', onTap: onAdd!),
+            guideTarget(addKey, StudioRoundButton(icon: AppIcons.plus, tooltip: 'Add a car', onTap: onAdd!)),
           ],
         ],
       );

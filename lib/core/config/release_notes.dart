@@ -10,6 +10,18 @@ class ReleaseNote {
 
 const kReleaseNotes = <ReleaseNote>[
   ReleaseNote(
+    version: '0.3.63',
+    date: '9 Oct 2026',
+    title: 'Clearer event pages, and you choose what AI sees',
+    points: [
+      'Big events get tabs: Overview, Floor plan, Exhibitors, Schedule and Activities.',
+      'Hosts and booth staff can switch between Attendee, Organizer and Booth views.',
+      'Events show a proper title and dates, and the back button always works.',
+      'TiTi, car photo scans, toy cars and the post safety check now ask for your OK first.',
+      'Updated Terms of Use and Privacy Policy.',
+    ],
+  ),
+  ReleaseNote(
     version: '0.3.62',
     date: '8 Oct 2026',
     title: 'TiTi shows you around',

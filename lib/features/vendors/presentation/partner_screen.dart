@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/guide/guide.dart';
+import '../../../core/guide/guide_controller.dart';
+import '../../../core/guide/guide_on_first_view.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/utils/friendly_error.dart';
@@ -9,6 +12,7 @@ import '../../social/application/chat_providers.dart';
 import '../../social/application/social_providers.dart';
 import '../../social/domain/follow.dart';
 import '../../social/presentation/widgets/follow_button.dart';
+import '../../guides/map_guides.dart';
 import '../application/vendors_providers.dart';
 import '../domain/vendor.dart';
 import 'widgets/partner_tabs.dart';
@@ -56,6 +60,9 @@ class _PartnerLive extends ConsumerStatefulWidget {
 }
 
 class _PartnerLiveState extends ConsumerState<_PartnerLive> {
+  /// What TiTi's first-partner tour spotlights.
+  final _guide = PartnerGuideKeys();
+
   Future<void> _message() async {
     try {
       final id = await ref.read(chatActionsProvider).openVendorDm(widget.v.id);
@@ -105,7 +112,13 @@ class _PartnerLiveState extends ConsumerState<_PartnerLive> {
     // Everyone but the shop's own owner can follow it.
     final mine = v.ownerIsMe(me);
     final FollowTarget follow = (kind: FollowKind.partner, id: v.id);
-    return PartnerPageView(
+    return GuideOnFirstView(
+      id: GuideIds.partner,
+      // Anyone but the shop's owner, once Follow knows where it stands.
+      ready: !mine && ref.watch(followProvider(follow)).hasValue && ref.watch(guideJourneyProvider) == null,
+      build: () => partnerGuide(_guide, hasLocation: widget.v.lat != null && widget.v.lng != null, hasSpot: widget.v.placeId != null),
+      child: PartnerPageView(
+      guideKeys: _guide,
       vendor: v,
       initialTab: widget.initialTab,
       products: _list(ref.watch(partnerProductsProvider(v.id))),
@@ -117,6 +130,7 @@ class _PartnerLiveState extends ConsumerState<_PartnerLive> {
       following: mine ? null : ref.watch(followProvider(follow)).value,
       followers: ref.watch(followerCountProvider(follow)).value,
       onFollow: mine ? null : () => tapFollow(context, ref, follow, name: v.name),
+      ),
     );
   }
 }

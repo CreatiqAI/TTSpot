@@ -29,6 +29,10 @@ import 'story_viewer_screen.dart';
 import 'widgets/masonry_grid.dart';
 import '../../../core/widgets/share_options_sheet.dart';
 import '../../../core/widgets/thumb_image.dart';
+import '../../../core/guide/guide.dart';
+import '../../../core/guide/guide_controller.dart';
+import '../../../core/guide/guide_on_first_view.dart';
+import '../../guides/map_guides.dart';
 
 /// A spot: cover, what it is, check in (打卡), who has been, the album, meets
 /// held here and posts about it.
@@ -42,6 +46,8 @@ class PlaceScreen extends ConsumerStatefulWidget {
 
 class _PlaceScreenState extends ConsumerState<PlaceScreen> {
   static const _days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  /// What TiTi's first-spot tour spotlights.
+  final _guide = SpotGuideKeys();
   bool _busy = false;
   bool _saving = false;
 
@@ -95,7 +101,11 @@ class _PlaceScreenState extends ConsumerState<PlaceScreen> {
     final past = events.where((e) => e.isPast && !e.isCancelled).toList();
     final days = (busyDays.entries.toList()..sort((a, b) => b.value.compareTo(a.value))).take(2).where((e) => e.value > 0).map((e) => _days[e.key]).toList();
 
-    return Scaffold(
+    return GuideOnFirstView(
+      id: GuideIds.spot,
+      ready: place.value != null && ref.watch(guideJourneyProvider) == null,
+      build: () => spotGuide(_guide),
+      child: Scaffold(
       body: place.when(
         loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
         error: (e, _) => Center(child: Text(friendlyError(e))),
@@ -240,7 +250,9 @@ class _PlaceScreenState extends ConsumerState<PlaceScreen> {
                               ),
                               const SizedBox(width: 8),
                               Expanded(
-                                child: checkedToday
+                                child: KeyedSubtree(
+                                  key: _guide.checkIn,
+                                  child: checkedToday
                                     ? ElevatedButton.icon(
                                         onPressed: null,
                                         icon: const Icon(AppIcons.checkCircleFill, size: 18, color: AppColors.success),
@@ -249,6 +261,7 @@ class _PlaceScreenState extends ConsumerState<PlaceScreen> {
                                     : _busy
                                         ? const ElevatedButton(onPressed: null, child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2.2)))
                                         : SecondaryButton(label: 'Check in', icon: AppIcons.checkCircle, onPressed: _checkIn),
+                                ),
                               ),
                             ],
                           ),
@@ -257,7 +270,7 @@ class _PlaceScreenState extends ConsumerState<PlaceScreen> {
                           const SizedBox(height: 10),
                           Row(
                             children: [
-                              Expanded(child: SecondaryButton(label: 'Moment', icon: AppIcons.camera, onPressed: () => context.push(Routes.createMoment(placeId: id)))),
+                              Expanded(child: SecondaryButton(key: _guide.moment, label: 'Moment', icon: AppIcons.camera, onPressed: () => context.push(Routes.createMoment(placeId: id)))),
                               const SizedBox(width: 8),
                               // Saved spots stay on the map on every layer, wherever the camera is.
                               Expanded(
@@ -369,6 +382,7 @@ class _PlaceScreenState extends ConsumerState<PlaceScreen> {
             ),
           );
         },
+      ),
       ),
     );
   }

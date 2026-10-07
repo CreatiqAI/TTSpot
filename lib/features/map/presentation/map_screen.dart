@@ -9,6 +9,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:geolocator/geolocator.dart' show Geolocator, LocationAccuracyStatus, LocationPermission;
 import '../../../core/geo/latlng.dart';
+import '../../../core/guide/guide.dart';
+import '../../../core/guide/guide_controller.dart';
+import '../../../core/guide/guide_on_first_view.dart';
 import '../../../core/map/app_map.dart';
 
 import '../../../core/router/app_router.dart';
@@ -50,6 +53,7 @@ import 'widgets/event_pins.dart';
 import 'widgets/map_chips.dart';
 import '../../friends/presentation/friend_colour_sheet.dart';
 import '../../settings/application/settings_providers.dart';
+import '../../guides/map_guides.dart';
 
 /// Home. One map, three tabs, each with quick-filter chips under the switch:
 /// Now is the whole map (friends, clubmates, nearby drivers, moments, live
@@ -81,6 +85,8 @@ class MapScreen extends ConsumerStatefulWidget {
 
 class _MapScreenState extends ConsumerState<MapScreen> {
   final _map = AppMapController();
+  /// What TiTi's first-visit tour of the map spotlights.
+  final _guide = MapGuideKeys();
   GlyphMarkerFactory? _glyphs;
   MapPinFactory? _pins;
   CarMarkerFactory? _cars;
@@ -1497,10 +1503,17 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     // The sheet or the card covers the bottom: the toolbar and the pills above it step aside.
     final bottomBusy = _sheetOpen || _cardOpen;
     final backToMe = hasLocation && _awayFromMe && !bottomBusy;
+    // TiTi's tour: once the map itself is built (not while it waits for the
+    // first camera, nor under the list view or the first-box journey).
+    final guideReady = _initialCamera != null && !listView && ref.watch(guideJourneyProvider) == null;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: _isNight ? _mapOverlay : SystemUiOverlayStyle.dark,
-      child: Scaffold(
+      child: GuideOnFirstView(
+        id: GuideIds.map,
+        ready: guideReady,
+        build: () => mapGuide(_guide),
+        child: Scaffold(
         backgroundColor: AppColors.mapBg,
         body: Stack(
           children: [
@@ -1547,7 +1560,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            _ModeSwitch(mode: mode, loading: loading, onChanged: (m) => ref.read(mapModeProvider.notifier).set(m)),
+                            KeyedSubtree(key: _guide.modeSwitch, child: _ModeSwitch(mode: mode, loading: loading, onChanged: (m) => ref.read(mapModeProvider.notifier).set(m))),
                             if (reduced) ...[
                               const SizedBox(height: 10),
                               _PreciseBanner(onTurnOn: _turnOnPrecise),
@@ -1570,7 +1583,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     // the right (14 margin + 46 button + 4).
                     Padding(
                       padding: const EdgeInsets.only(top: 10, right: 64),
-                      child: MapChipBar(mode: mode, light: !_isNight),
+                      child: KeyedSubtree(key: _guide.chips, child: MapChipBar(mode: mode, light: !_isNight)),
                     ),
                     // The key: what the pins on the map right now mean. Its
                     // list scrolls in whatever room is left; none left, it hides.
@@ -1592,6 +1605,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 child: Padding(
                   padding: const EdgeInsets.only(top: 12, right: 14),
                   child: Column(
+                    key: _guide.buttons,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       _RoundButton(
                         icon: switch (shareMode) { 'nearby' => AppIcons.broadcast, 'public' => AppIcons.globe, 'ghost' => AppIcons.eyeSlash, _ => AppIcons.eye },
@@ -1665,7 +1680,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                       onVerticalDragEnd: (d) {
                         if ((d.primaryVelocity ?? 0) < -200) _openSheet();
                       },
-                      child: MapToolbar(mode: mode, light: !_isNight, onOpen: _openSheet, moreUpClose: _moreUpClose),
+                      child: KeyedSubtree(key: _guide.nearbyBar, child: MapToolbar(mode: mode, light: !_isNight, onOpen: _openSheet, moreUpClose: _moreUpClose)),
                     ),
                   ),
                 ),
@@ -1715,6 +1730,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             // List view (the toolbar's list button) covers the map, which stays live underneath.
             if (listView) const Positioned.fill(child: MapListView()),
           ],
+        ),
         ),
       ),
     );

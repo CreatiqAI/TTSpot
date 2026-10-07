@@ -37,6 +37,10 @@ import 'widgets/masonry_grid.dart';
 import '../../safety/data/safety_repository.dart';
 import '../../safety/presentation/report_sheet.dart';
 import '../../../core/utils/share_links.dart';
+import '../../../core/guide/guide.dart';
+import '../../../core/guide/guide_controller.dart';
+import '../../../core/guide/guide_on_first_view.dart';
+import '../../guides/map_guides.dart';
 
 /// A car club's page. Owners invite members and admins; members see each
 /// other on the map and can switch that off per club. `embedded` = shown as
@@ -63,8 +67,29 @@ class ClubScreen extends ConsumerWidget {
     // Outsiders can follow the club: its posts land in their Following.
     final FollowTarget follow = (kind: FollowKind.club, id: clubId);
     final followers = ref.watch(followerCountProvider(follow)).value;
+    // TiTi's first-club tour: members and outsiders, not the club's officers
+    // (nor the club account's own tab), once the page and my membership load.
+    final guideReady = !embedded &&
+        club.value != null &&
+        !isManager &&
+        ref.watch(isClubMemberProvider(clubId)).hasValue &&
+        ref.watch(guideJourneyProvider) == null;
 
-    return Scaffold(
+    return GuideKeyScope<ClubGuideKeys>(
+      create: ClubGuideKeys.new,
+      builder: (context, keys) => GuideOnFirstView(
+      id: GuideIds.club,
+      ready: guideReady,
+      build: () {
+        final member = ref.read(isClubMemberProvider(clubId)).value ?? false;
+        return clubGuide(
+          keys,
+          member: member,
+          official: ref.read(clubProvider(clubId)).value?.isOfficial ?? false,
+          invited: !member && ref.read(myClubInviteProvider(clubId)).value != null,
+        );
+      },
+      child: Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
         centerTitle: !embedded,
@@ -109,23 +134,26 @@ class ClubScreen extends ConsumerWidget {
               // As the club account's first tab, the end scrolls clear of the floating tab bar.
               padding: EdgeInsets.only(bottom: embedded ? GlassTabBar.clearance(context) : MediaQuery.paddingOf(context).bottom + 32),
               children: [
-                _Header(club: c, meets: events.length, posts: posts.length, followers: followers, onLogoTap: isManager ? () => changeClubLogo(context, ref, clubId) : null),
+                _Header(officialKey: keys.officialChip, club: c, meets: events.length, posts: posts.length, followers: followers, onLogoTap: isManager ? () => changeClubLogo(context, ref, clubId) : null),
                 // Officers of a club with no logo yet: add one (it shows on the map and the club's events).
                 if (isManager && (c.avatarUrl ?? '').trim().isEmpty) ClubLogoBanner(club: c),
-                if (invite != null && (!isMember || inviteRole == 'vp' || inviteRole == 'secretary')) _InviteBanner(clubId: clubId, clubName: c.name, role: inviteRole ?? 'member'),
+                if (invite != null && (!isMember || inviteRole == 'vp' || inviteRole == 'secretary')) _InviteBanner(key: keys.invite, clubId: clubId, clubName: c.name, role: inviteRole ?? 'member'),
                 ClubTierCard(club: c, isOwner: isOwner),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
                   child: Row(
                     children: [
                       Expanded(
-                        child: isManager
+                        child: KeyedSubtree(
+                          key: keys.join,
+                          child: isManager
                             ? PrimaryButton(label: 'Invite members', onPressed: () => _invite(context, ref, c))
                             : isMember
                                 ? SecondaryButton(label: 'Member', icon: AppIcons.checkCircle, onPressed: () => _leave(context, ref, c))
                                 : invite != null
                                     ? SecondaryButton(label: 'Message club', icon: AppIcons.chatCircle, onPressed: () => _messageClub(context, ref))
                                     : ClubJoinButton(club: c),
+                        ),
                       ),
                       const SizedBox(width: 8),
                       Expanded(
@@ -150,7 +178,7 @@ class ClubScreen extends ConsumerWidget {
                 if (isMember || isManager)
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                    child: SecondaryButton(key: const Key('club-chat'), label: 'Club chat', icon: AppIcons.chats, onPressed: () => _openClubChat(context, ref)),
+                    child: KeyedSubtree(key: keys.chat, child: SecondaryButton(key: const Key('club-chat'), label: 'Club chat', icon: AppIcons.chats, onPressed: () => _openClubChat(context, ref))),
                   ),
                 if (!isMember && !isManager && invite == null)
                   Padding(
@@ -191,7 +219,7 @@ class ClubScreen extends ConsumerWidget {
                     ),
                   ),
                 // Official clubs: wear the club's tag beside my name (a shortcut to Settings > Club tag on my name).
-                if (isMember || isManager) ClubTagSwitch(club: c, isOwner: isOwner),
+                if (isMember || isManager) KeyedSubtree(key: keys.tagSwitch, child: ClubTagSwitch(club: c, isOwner: isOwner)),
                 if (members.isNotEmpty) ...[
                   // View all: the full list, with everyone's car.
                   _Section('MEMBERS · ${members.length}', action: 'View all', onAction: () => context.push(Routes.clubMembers(clubId))),
@@ -233,6 +261,8 @@ class ClubScreen extends ConsumerWidget {
             ),
           );
         },
+      ),
+      ),
       ),
     );
   }
@@ -410,8 +440,10 @@ class _MemberTile extends StatelessWidget {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.club, required this.meets, required this.posts, this.followers, this.onLogoTap});
+  const _Header({required this.club, required this.meets, required this.posts, this.followers, this.onLogoTap, this.officialKey});
   final Club club;
+  /// TiTi's tour spotlights the "Official club" chip by this.
+  final Key? officialKey;
   final int meets;
   final int posts;
   /// Null while it loads.
@@ -476,7 +508,7 @@ class _Header extends StatelessWidget {
                       spacing: 6,
                       runSpacing: 4,
                       children: [
-                        _Chip(icon: club.isOfficial ? AppIcons.sealCheck : AppIcons.usersThree, text: club.isOfficial ? 'Official club' : 'Underground', color: club.isOfficial ? const Color(0xFFE6B422) : Colors.white70),
+                        _Chip(key: officialKey, icon: club.isOfficial ? AppIcons.sealCheck : AppIcons.usersThree, text: club.isOfficial ? 'Official club' : 'Underground', color: club.isOfficial ? const Color(0xFFE6B422) : Colors.white70),
                         _Chip(key: const Key('club-join-label'), icon: club.isPublic ? AppIcons.globe : AppIcons.lock, text: club.isPublic ? 'Public club' : 'Private club'),
                         if ((club.homeState ?? '').isNotEmpty) _Chip(icon: AppIcons.mapPin, text: club.homeState!),
                       ],
@@ -548,7 +580,7 @@ class _Stat extends StatelessWidget {
 }
 
 class _InviteBanner extends ConsumerStatefulWidget {
-  const _InviteBanner({required this.clubId, required this.clubName, this.role = 'member'});
+  const _InviteBanner({super.key, required this.clubId, required this.clubName, this.role = 'member'});
   final String clubId;
   final String clubName;
   final String role;

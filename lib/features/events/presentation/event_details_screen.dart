@@ -7,6 +7,9 @@ import '../../map/presentation/widgets/static_pin_map.dart';
 
 import '../../../core/config/features.dart';
 import '../../../core/directions/directions.dart';
+import '../../../core/guide/guide.dart';
+import '../../../core/guide/guide_controller.dart';
+import '../../../core/guide/guide_on_first_view.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/theme/app_art.dart';
@@ -18,6 +21,7 @@ import '../../../core/utils/geo.dart';
 import '../../../core/widgets/primary_button.dart';
 import '../../../core/widgets/user_avatar.dart';
 import '../../auth/data/auth_repository.dart';
+import '../../guides/map_guides.dart';
 import '../../auth/domain/profile.dart';
 import '../../map/application/map_providers.dart';
 import '../../safety/data/safety_repository.dart';
@@ -55,6 +59,8 @@ class EventDetailsScreen extends ConsumerStatefulWidget {
 }
 
 class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
+  /// What TiTi's first-meet tour spotlights.
+  final _guide = EventGuideKeys();
   bool _rsvpBusy = false;
   bool _bookmarkBusy = false;
   bool _postBusy = false;
@@ -233,11 +239,39 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
     }
   }
 
+  /// TiTi's tour of a meet, built from what the page shows right now.
+  Guide _buildGuide() {
+    final d = ref.read(eventDetailProvider(widget.eventId)).value;
+    if (d == null) return eventGuide(_guide, attending: false);
+    final host = d.event.organizerId == ref.read(currentUserIdProvider);
+    return eventGuide(
+      _guide,
+      attending: d.isAttending,
+      full: d.event.isFull,
+      live: d.event.isLive,
+      // Same rules as the page: "I'm on my way" from 3 h before the start,
+      // the meet chat for those going.
+      onMyWay: (d.isAttending || host) && !d.event.isCancelled && onMyWayWindowOpen(startsAt: d.event.startsAt, closesAt: d.event.closesAt, now: DateTime.now()),
+      chat: d.isAttending || host,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final detail = ref.watch(eventDetailProvider(widget.eventId));
+    final loaded = detail.value;
+    // First meet page of someone who isn't its host, while it's still on.
+    final guideReady = loaded != null &&
+        loaded.event.organizerId != ref.watch(currentUserIdProvider) &&
+        !loaded.event.isCancelled &&
+        !loaded.event.isPast &&
+        ref.watch(guideJourneyProvider) == null;
 
-    return Scaffold(
+    return GuideOnFirstView(
+      id: GuideIds.event,
+      ready: guideReady,
+      build: _buildGuide,
+      child: Scaffold(
       appBar: AppBar(
         leading: IconButton(icon: const Icon(AppIcons.arrowLeft), onPressed: () => context.pop()),
         title: Text(detail.value?.event.type.label ?? ''),
@@ -295,6 +329,7 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                             const SizedBox(height: 10),
                             _QuickActions(
                               event: d.event,
+                              onMyWayKey: _guide.onMyWay,
                               onMyWay: (d.isAttending || d.event.organizerId == ref.watch(currentUserIdProvider)) &&
                                   !d.event.isCancelled &&
                                   onMyWayWindowOpen(startsAt: d.event.startsAt, closesAt: d.event.closesAt, now: DateTime.now()),
@@ -316,14 +351,14 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                             _Attendees(detail: d),
                             const SizedBox(height: 16),
                             if (d.event.isLive) ...[
-                              _CheckInCard(detail: d, busy: _checkInBusy, onCheckIn: () => _checkIn(d)),
+                              _CheckInCard(key: _guide.checkIn, detail: d, busy: _checkInBusy, onCheckIn: () => _checkIn(d)),
                               const SizedBox(height: 8),
                             ],
                             EventHubCard(eventId: d.event.id),
                             LuckyDrawCard(eventId: d.event.id),
                             Row(
                               children: [
-                                Expanded(child: _RsvpButton(detail: d, busy: _rsvpBusy, onPressed: () => _toggleRsvp(d))),
+                                Expanded(child: _RsvpButton(key: _guide.rsvp, detail: d, busy: _rsvpBusy, onPressed: () => _toggleRsvp(d))),
                                 if (!d.event.isPast && !d.event.isCancelled) ...[
                                   const SizedBox(width: 8),
                                   Tooltip(
@@ -346,7 +381,7 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                               const SizedBox(height: 8),
                               Row(
                                 children: [
-                                  Expanded(child: SecondaryButton(label: 'Meet chat', icon: AppIcons.chatCircle, onPressed: () => _openChat(d))),
+                                  Expanded(child: SecondaryButton(key: _guide.chat, label: 'Meet chat', icon: AppIcons.chatCircle, onPressed: () => _openChat(d))),
                                   if (d.event.isLive && d.event.type == EventType.convoy) ...[
                                     const SizedBox(width: 8),
                                     Expanded(child: SecondaryButton(label: 'Convoy live', icon: AppIcons.broadcast, onPressed: () => context.push(Routes.convoy(d.event.id)))),
@@ -422,6 +457,7 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
             ],
           );
         },
+      ),
       ),
     );
   }
@@ -709,7 +745,7 @@ class _Attendees extends StatelessWidget {
 }
 
 class _RsvpButton extends StatelessWidget {
-  const _RsvpButton({required this.detail, required this.busy, required this.onPressed});
+  const _RsvpButton({super.key, required this.detail, required this.busy, required this.onPressed});
   final EventDetail detail;
   final bool busy;
   final VoidCallback onPressed;
@@ -987,7 +1023,7 @@ class _ErrorView extends StatelessWidget {
 
 /// Shown while the meet is live: who's here, check in, add a moment.
 class _CheckInCard extends ConsumerWidget {
-  const _CheckInCard({required this.detail, required this.busy, required this.onCheckIn});
+  const _CheckInCard({super.key, required this.detail, required this.busy, required this.onCheckIn});
   final EventDetail detail;
   final bool busy;
   final VoidCallback onCheckIn;
@@ -1204,9 +1240,12 @@ class _RecapCard extends ConsumerWidget {
 /// start until the end, "I'm on my way" takes Share's place (Share stays in
 /// the app bar).
 class _QuickActions extends StatelessWidget {
-  const _QuickActions({required this.event, this.onMyWay = false});
+  const _QuickActions({required this.event, this.onMyWay = false, this.onMyWayKey});
   final Event event;
   final bool onMyWay;
+
+  /// TiTi's tour spotlights "I'm on my way" by this.
+  final Key? onMyWayKey;
 
   @override
   Widget build(BuildContext context) => Row(
@@ -1222,7 +1261,7 @@ class _QuickActions extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: onMyWay
-                ? OnMyWayButton(event: event)
+                ? OnMyWayButton(key: onMyWayKey, event: event)
                 : SecondaryButton(label: 'Share', icon: AppIcons.shareFat, onPressed: () => showEventShareOptions(context, event)),
           ),
         ],

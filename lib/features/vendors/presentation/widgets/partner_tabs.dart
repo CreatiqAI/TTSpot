@@ -24,6 +24,7 @@ import '../../../social/presentation/widgets/video_badge.dart';
 import '../../../social/domain/follow.dart';
 import '../../../social/domain/post.dart';
 import '../../domain/vendor.dart';
+import '../../../guides/map_guides.dart';
 import 'hours_editor.dart';
 import 'product_sheet.dart';
 
@@ -64,6 +65,7 @@ class PartnerPageView extends StatefulWidget {
     this.following,
     this.followers,
     this.onFollow,
+    this.guideKeys,
   });
 
   final PublicVendor vendor;
@@ -92,6 +94,9 @@ class PartnerPageView extends StatefulWidget {
   /// Follow / Following beside Message. Null hides it (the partner's own
   /// page).
   final VoidCallback? onFollow;
+
+  /// What TiTi's first-visit tour spotlights (Follow, the tabs, Directions).
+  final PartnerGuideKeys? guideKeys;
 
   @override
   State<PartnerPageView> createState() => _PartnerPageViewState();
@@ -161,12 +166,13 @@ class _PartnerPageViewState extends State<PartnerPageView> with TickerProviderSt
                 ],
                 flexibleSpace: FlexibleSpaceBar(collapseMode: CollapseMode.parallax, background: _Cover(v: v)),
               ),
-              SliverToBoxAdapter(child: _Identity(v: v, onMessage: widget.onMessage, following: widget.following, followers: widget.followers, onFollow: widget.onFollow)),
+              SliverToBoxAdapter(child: _Identity(v: v, onMessage: widget.onMessage, following: widget.following, followers: widget.followers, onFollow: widget.onFollow, guideKeys: widget.guideKeys)),
               SliverPersistentHeader(
                 pinned: true,
                 delegate: _TabBarDelegate(
                   extent: barExtent,
                   bar: TabBar(
+                    key: widget.guideKeys?.tabs,
                     controller: _tabs,
                     isScrollable: true,
                     tabAlignment: TabAlignment.start,
@@ -564,7 +570,8 @@ class _Cover extends StatelessWidget {
 /// Logo, name, chips and the main actions. Grows with the text; nothing in
 /// here has a fixed text height.
 class _Identity extends StatelessWidget {
-  const _Identity({required this.v, required this.onMessage, this.following, this.followers, this.onFollow});
+  const _Identity({required this.v, required this.onMessage, this.following, this.followers, this.onFollow, this.guideKeys});
+  final PartnerGuideKeys? guideKeys;
   final PublicVendor v;
   final VoidCallback? onMessage;
   final bool? following;
@@ -627,9 +634,12 @@ class _Identity extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: following == true
-                      ? SecondaryButton(label: 'Following', icon: AppIcons.check, onPressed: onFollow)
-                      : PrimaryButton(label: 'Follow', icon: AppIcons.plus, onPressed: following == null ? null : onFollow),
+                  child: KeyedSubtree(
+                    key: guideKeys?.follow,
+                    child: following == true
+                        ? SecondaryButton(label: 'Following', icon: AppIcons.check, onPressed: onFollow)
+                        : PrimaryButton(label: 'Follow', icon: AppIcons.plus, onPressed: following == null ? null : onFollow),
+                  ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(child: SecondaryButton(label: 'Message', icon: AppIcons.chatCircle, onPressed: onMessage)),
@@ -644,6 +654,7 @@ class _Identity extends StatelessWidget {
                 if (hasLocation)
                   Expanded(
                     child: SecondaryButton(
+                      key: guideKeys?.directions,
                       label: 'Directions',
                       icon: AppIcons.navigationArrow,
                       onPressed: () => openDirections(context, lat: v.lat!, lng: v.lng!, label: v.name),

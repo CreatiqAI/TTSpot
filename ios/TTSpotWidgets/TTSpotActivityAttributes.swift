@@ -18,6 +18,9 @@ struct TTSpotActivityAttributes: ActivityAttributes {
     var endsAt: Date
     /// `events.event_type` ('meet', 'tt', 'convoy', 'trackday', 'charity', 'official').
     var type: String
+    /// Optional pill next to the title, e.g. my entry number "#0427" once
+    /// checked in (Expo mode). Optional so older payloads still decode.
+    var badge: String? = nil
   }
 
   /// `events.id`: finds the activity again to update or end it.

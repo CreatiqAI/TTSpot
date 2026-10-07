@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/supabase/supabase_client.dart';
 import '../../settings/application/settings_providers.dart';
 import '../domain/event.dart';
 import 'my_events_provider.dart';
@@ -86,7 +87,8 @@ class LiveActivityChannel {
 
   Future<Set<String>> active() async => {...?(await _ch.invokeListMethod<String>('active'))};
 
-  Future<bool> start(Event e) async =>
+  /// [badge]: a small pill next to the title, e.g. my entry number "#0427".
+  Future<bool> start(Event e, {String? badge}) async =>
       await _ch.invokeMethod<bool>('start', {
         'eventId': e.id,
         'title': e.title,
@@ -94,6 +96,7 @@ class LiveActivityChannel {
         'startsAt': e.startsAt.millisecondsSinceEpoch,
         'endsAt': liveActivityEndsAt(e).millisecondsSinceEpoch,
         'type': liveActivityType(e),
+        'badge': ?badge,
       }) ??
       false;
 
@@ -108,6 +111,7 @@ class LiveActivityService {
   LiveActivityService({
     required this.enabled,
     required this.loadMine,
+    this.loadEntryNo,
     this.channel = const LiveActivityChannel(),
     bool? platformSupported,
     DateTime Function()? clock,
@@ -119,6 +123,9 @@ class LiveActivityService {
 
   /// Meets I host or joined. [fresh]: refetch instead of the cached list.
   final Future<List<Event>> Function({bool fresh}) loadMine;
+
+  /// My entry number at an event (Expo mode), null when not checked in.
+  final Future<int?> Function(String eventId)? loadEntryNo;
   final LiveActivityChannel channel;
   final bool _platform;
   final DateTime Function() _now;
@@ -148,7 +155,7 @@ class LiveActivityService {
           await channel.end(id);
         }
         for (final e in plan.start) {
-          await channel.start(e);
+          await channel.start(e, badge: await _badge(e));
         }
       });
 
@@ -184,9 +191,25 @@ class LiveActivityService {
     for (final id in await channel.active()) {
       if (id != e.id) await channel.end(id);
     }
-    await channel.start(e);
+    await channel.start(e, badge: await _badge(e));
+  }
+
+  /// "#0427" once I'm checked in. Only asked from the check-in window on
+  /// (an hour before the start), and never fails the start.
+  Future<String?> _badge(Event e) async {
+    final load = loadEntryNo;
+    if (load == null || _now().isBefore(e.startsAt.subtract(const Duration(hours: 1)))) return null;
+    try {
+      final n = await load(e.id);
+      return n == null ? null : liveActivityEntryBadge(n);
+    } catch (_) {
+      return null;
+    }
   }
 }
+
+/// The entry number pill: "#0427".
+String liveActivityEntryBadge(int n) => '#${n.toString().padLeft(4, '0')}';
 
 /// My meets, refetched at most every 15 min on resume (joins refetch at once).
 const _kMineMaxAge = Duration(minutes: 15);
@@ -203,6 +226,12 @@ final liveActivityServiceProvider = Provider<LiveActivityService>((ref) {
       }
       final m = await ref.read(myEventsProvider.future);
       return [...m.upcoming, ...m.past];
+    },
+    loadEntryNo: (eventId) async {
+      final me = ref.read(currentUserIdProvider);
+      if (me == null) return null;
+      final row = await ref.read(supabaseProvider).from('checkins').select('entry_no').eq('event_id', eventId).eq('user_id', me).maybeSingle();
+      return (row?['entry_no'] as num?)?.toInt();
     },
   );
 });

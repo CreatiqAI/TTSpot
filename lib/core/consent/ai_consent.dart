@@ -57,23 +57,23 @@ const kAiConsentCopy = <AiConsentKind, AiConsentCopy>{
   ),
   AiConsentKind.toy: AiConsentCopy(
     pose: TitiPose.wrench,
-    title: 'Make a toy model of your car?',
+    title: 'Use AI on your car photos?',
     lines: [
-      (AppIcons.car, "Your car's photo, make and model go to Kie.ai, which builds a die-cast toy of it."),
-      (AppIcons.garage, 'The toy shows in your garage and on the map. Nothing else is sent.'),
+      (AppIcons.magnifyingGlass, 'OpenAI reads your car photo to fill in the make and model and find the plate.'),
+      (AppIcons.car, 'Kie.ai turns it into your toy car, and a portrait if you order one.'),
       _noTraining,
     ],
     agree: 'Agree',
   ),
   AiConsentKind.safety: AiConsentCopy(
     pose: TitiPose.magnifier,
-    title: 'Before you post',
+    title: 'Automatic safety check',
     lines: [
       (AppIcons.shield, 'Posts are checked by an automated safety filter (OpenAI) to keep TT Spot safe.'),
-      (AppIcons.image, 'The photos and text of each post and moment go through the check.'),
+      (AppIcons.image, 'Photos and text you post, and spot check-in photos, go through the check.'),
       _noTraining,
     ],
-    agree: 'OK, post',
+    agree: 'OK',
   ),
 };
 

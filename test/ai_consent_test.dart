@@ -129,9 +129,9 @@ void main() {
 
     testWidgets('the exact copy', (t) async {
       expect(kAiConsentCopy[AiConsentKind.titi]!.title, 'Chat with TiTi?');
-      expect(kAiConsentCopy[AiConsentKind.toy]!.title, 'Make a toy model of your car?');
+      expect(kAiConsentCopy[AiConsentKind.toy]!.title, 'Use AI on your car photos?');
       expect(kAiConsentCopy[AiConsentKind.safety]!.lines.first.$2, 'Posts are checked by an automated safety filter (OpenAI) to keep TT Spot safe.');
-      expect(kAiConsentCopy[AiConsentKind.safety]!.agree, 'OK, post');
+      expect(kAiConsentCopy[AiConsentKind.safety]!.agree, 'OK');
       expect(kAiConsentCopy[AiConsentKind.titi]!.agree, 'Agree');
       expect(kAiConsentCopy[AiConsentKind.toy]!.decline, 'Not now');
     });

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/consent/ai_consent.dart';
 import '../../../../core/theme/app_icons.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/glass.dart';
@@ -130,6 +131,7 @@ class _PortraitSamplePreviewState extends ConsumerState<PortraitSamplePreview> {
     final messenger = ScaffoldMessenger.of(context);
     final go = await confirmPortrait(context, car: widget.car, style: style, cost: widget.cost);
     if (!go || !mounted) return;
+    if (!await ensureAiConsent(context, ref, AiConsentKind.toy) || !mounted) return;
     setState(() => _busy = true);
     final started = await requestPortrait(ref, messenger, widget.car, style);
     if (!mounted) return;

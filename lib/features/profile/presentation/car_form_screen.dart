@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../core/consent/ai_consent.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
@@ -60,6 +61,8 @@ enum _Step {
 }
 
 class _CarFormScreenState extends ConsumerState<CarFormScreen> {
+  /// Asked once per visit before a scan sends the photo to OpenAI.
+  bool _aiAsked = false;
   final _make = TextEditingController();
   final _model = TextEditingController();
   final _year = TextEditingController();
@@ -234,6 +237,11 @@ class _CarFormScreenState extends ConsumerState<CarFormScreen> {
     // Nothing typed yet (or only our earlier guess, and no photo left) → let
     // the photo fill the form in. Never overwrite what the member typed.
     final blank = _make.text.trim().isEmpty && _model.text.trim().isEmpty;
+    if (!_aiAsked && !ref.read(settingsProvider).toyConsent && !_isEdit) {
+      _aiAsked = true;
+      await ensureAiConsent(context, ref, AiConsentKind.toy);
+      if (!mounted) return;
+    }
     final untouchedGuess = _guessed && _guess!.matches(_make.text, _model.text) && _photos.isEmpty;
     if (_isEdit || !(blank || untouchedGuess)) {
       setState(() => _photos.add(CarFormPhoto.picked(bytes)));

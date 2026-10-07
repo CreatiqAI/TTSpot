@@ -184,6 +184,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     final files = await pickPhotos(context, max: 1, multi: false, source: source);
     if (files.isEmpty || !mounted) return;
     final file = files.first;
+    // The scan sends the photo to OpenAI and the toy to Kie.ai: ask once, first.
+    if (!_toyAsked && !ref.read(settingsProvider).toyConsent) {
+      _toyAsked = true;
+      await ensureAiConsent(context, ref, AiConsentKind.toy);
+      if (!mounted) return;
+    }
     final started = DateTime.now();
     setState(() {
       _pickedFile = file;

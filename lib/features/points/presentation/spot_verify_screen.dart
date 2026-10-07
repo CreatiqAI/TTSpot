@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../core/consent/ai_consent.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_art.dart';
 import '../../../core/theme/app_images.dart';
@@ -51,6 +52,8 @@ class _SpotVerifyScreenState extends ConsumerState<SpotVerifyScreen> {
   Future<void> _submit() async {
     final photo = _photo;
     if (photo == null) return;
+    // The photo is checked by OpenAI: the safety-check OK covers it.
+    if (!await ensureAiConsent(context, ref, AiConsentKind.safety) || !mounted) return;
     setState(() => _busy = true);
     try {
       final result = await ref.read(pointsActionsProvider).verifySpot(

@@ -10,6 +10,7 @@ import '../../../core/utils/http_bytes.dart';
 import '../../../core/utils/plate_blur.dart';
 import '../../../core/utils/thumbnails.dart';
 import '../../events/domain/event.dart';
+import '../../settings/application/settings_providers.dart';
 import '../domain/car.dart';
 import '../domain/car_photo_storage.dart';
 import '../domain/car_recognition.dart';
@@ -18,7 +19,10 @@ import '../domain/profile_meets.dart';
 
 /// `cars` reads/writes, car photo uploads, and profile stats.
 class ProfileRepository {
-  ProfileRepository(this._client);
+  ProfileRepository(this._client, {this.aiAllowed});
+
+  /// Car photos may go to OpenAI (make, model, plate). Null = allowed (tests).
+  final bool Function()? aiAllowed;
   final SupabaseClient _client;
 
   Future<List<Car>> fetchCars(String ownerId) async {
@@ -250,6 +254,8 @@ class ProfileRepository {
   /// [photoUrl] is for a photo that is already in the car-photos bucket.
   Future<CarRecognition> recognizeCar({Uint8List? bytes, String? photoUrl}) async {
     assert(bytes != null || photoUrl != null);
+    // The photo goes to OpenAI: only with the member's OK (AI on car photos).
+    if (aiAllowed != null && !aiAllowed!()) throw StateError('AI on car photos is off');
     final body = bytes != null
         ? {'image': 'data:${imageContentType(bytes)};base64,${base64Encode(bytes)}'}
         : {'photoUrl': photoUrl};
@@ -266,5 +272,5 @@ class ProfileRepository {
 }
 
 final profileRepositoryProvider = Provider<ProfileRepository>(
-  (ref) => ProfileRepository(ref.watch(supabaseProvider)),
+  (ref) => ProfileRepository(ref.watch(supabaseProvider), aiAllowed: () => ref.read(settingsProvider).toyConsent),
 );

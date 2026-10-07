@@ -246,7 +246,7 @@ void main() {
       await _pump(t, _overrides(repo: repo, settings: const {}, settingsActions: (ref) => settings = _FakeSettings(ref)), scale: scale);
       await t.tap(find.byKey(const Key('share-ride-post')));
       await t.pumpAndSettle();
-      expect(find.text('Before you post'), findsOneWidget);
+      expect(find.text('Automatic safety check'), findsOneWidget);
       expect(find.text('Posts are checked by an automated safety filter (OpenAI) to keep TT Spot safe.'), findsOneWidget);
       expect(t.takeException(), isNull);
       await t.ensureVisible(find.byKey(const ValueKey('ai-consent-decline')));

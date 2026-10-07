@@ -159,6 +159,22 @@ enum BoothSize {
 }
 
 /// The smallest rect that holds every rect, or null for none.
+/// The rects around the median centre, dropping far-off strays (a booth code
+/// printed twice on a plan, or an exhibitor in two halls), so a zoom lands on
+/// the main group. Keeps everything when nothing is within [reach].
+List<Rect> mainCluster(List<Rect> rects, {double reach = 0.12}) {
+  if (rects.length < 3) return rects;
+  final xs = [for (final r in rects) r.center.dx]..sort();
+  final ys = [for (final r in rects) r.center.dy]..sort();
+  final mx = xs[xs.length ~/ 2];
+  final my = ys[ys.length ~/ 2];
+  final near = [
+    for (final r in rects)
+      if ((r.center.dx - mx).abs() <= reach && (r.center.dy - my).abs() <= reach) r,
+  ];
+  return near.isEmpty ? rects : near;
+}
+
 Rect? boundsOf(Iterable<Rect> rects) {
   Rect? out;
   for (final r in rects) {

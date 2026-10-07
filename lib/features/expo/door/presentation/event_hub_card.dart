@@ -79,10 +79,26 @@ class HubTileGrid extends StatelessWidget {
         const gap = 8.0;
         final cols = c.maxWidth >= 340 ? 4 : 3;
         final w = ((c.maxWidth - gap * (cols - 1)) / cols).floorToDouble();
-        return Wrap(
-          spacing: gap,
-          runSpacing: gap,
-          children: [for (final t in tiles) SizedBox(width: w, child: _HubTile(t))],
+        // Row by row, every tile in a row as tall as the tallest (a badge
+        // makes a tile taller).
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (var i = 0; i < tiles.length; i += cols) ...[
+              if (i > 0) const SizedBox(height: gap),
+              IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (var j = i; j < i + cols && j < tiles.length; j++) ...[
+                      if (j > i) const SizedBox(width: gap),
+                      SizedBox(width: w, child: _HubTile(tiles[j])),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ],
         );
       },
     );
@@ -105,6 +121,7 @@ class _HubTile extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(6, 10, 6, 10),
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(t.icon, size: 22, color: AppColors.textPrimary),
               const SizedBox(height: 4),

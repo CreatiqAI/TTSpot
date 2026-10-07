@@ -185,7 +185,7 @@ class StampResult {
 
   String get subtitle {
     final parts = <String>[exhibitorName];
-    if (freebieWaiting) parts.add('Free $freebie waiting for you');
+    if (freebieWaiting) parts.add('${freeLabel(freebie ?? '')} waiting for you');
     if (isNew && rallyDone && goal != null && stamps == goal) {
       parts.add(reward == null || reward!.isEmpty ? 'Stamp rally done!' : 'Stamp rally done! Collect your $reward');
     }
@@ -470,4 +470,10 @@ String leadsCsv(List<Lead> leads) {
     for (final l in leads) csvRow([l.name, l.username, l.state, l.car, l.phone, l.email, l.note, csvTime(l.createdAt)]),
   ];
   return '﻿${rows.join('\r\n')}\r\n';
+}
+
+/// "Free car wax sample", without doubling "Free" when the organizer already wrote it.
+String freeLabel(String item) {
+  final t = item.trim();
+  return t.toLowerCase().startsWith('free') ? t : 'Free $t';
 }

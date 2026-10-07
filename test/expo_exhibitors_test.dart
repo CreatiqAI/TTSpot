@@ -276,7 +276,7 @@ void main() {
       expect(find.byWidgetPredicate((w) => w is CustomPaint && w.painter is BoothBoxPainter), findsOneWidget);
 
       // Reset zoom, then tap the middle of booth b30 (row 1, col 5).
-      await tester.pumpWidget(app(SizedBox(width: 360, height: 600, child: FloorplanCanvas(level: level, onPinTap: (p) => tapped = p))));
+      await tester.pumpWidget(app(SizedBox(width: 360, height: 600, child: FloorplanCanvas(key: const ValueKey('fresh'), level: level, onPinTap: (p) => tapped = p))));
       await tester.pump(const Duration(milliseconds: 600));
       final box = tester.getRect(find.byWidgetPredicate((w) => w is CustomPaint && w.painter is BoothBoxPainter));
       final target = pins.firstWhere((p) => p.id == 'b30');

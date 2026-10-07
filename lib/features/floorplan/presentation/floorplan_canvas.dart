@@ -158,14 +158,26 @@ class _FloorplanCanvasState extends State<FloorplanCanvas> with TickerProviderSt
 
   /// The top booth box under [frac], with a finger-sized minimum hit area.
   FloorPin? _boxAt(List<FloorPin> boxes, Offset frac, double w, double h, double s) {
-    final minW = 28 / (s * w);
-    final minH = 28 / (s * h);
+    // A box actually under the finger wins; otherwise the nearest centre
+    // within a finger-sized area (small booths overlap at low zoom).
     for (var i = boxes.length - 1; i >= 0; i--) {
       final b = boxes[i];
-      final r = Rect.fromCenter(center: Offset(b.x, b.y), width: math.max(b.w!, minW), height: math.max(b.h!, minH));
-      if (r.contains(frac)) return b;
+      if (Rect.fromCenter(center: Offset(b.x, b.y), width: b.w!, height: b.h!).contains(frac)) return b;
     }
-    return null;
+    final minW = 28 / (s * w);
+    final minH = 28 / (s * h);
+    FloorPin? best;
+    var bestD = double.infinity;
+    for (final b in boxes) {
+      final r = Rect.fromCenter(center: Offset(b.x, b.y), width: math.max(b.w!, minW), height: math.max(b.h!, minH));
+      if (!r.contains(frac)) continue;
+      final d = (Offset(b.x * w, b.y * h) - Offset(frac.dx * w, frac.dy * h)).distanceSquared;
+      if (d < bestD) {
+        bestD = d;
+        best = b;
+      }
+    }
+    return best;
   }
 
   @override
@@ -342,7 +354,11 @@ class _FloorplanCanvasState extends State<FloorplanCanvas> with TickerProviderSt
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: widget.onPinTap == null ? null : () => widget.onPinTap!(p),
-          child: PartnerLogoMarker(url: widget.partnerLogos[p.id], selected: widget.selectedPinId == p.id),
+          // While booths are highlighted, other partners fade so they don't cover them.
+          child: Opacity(
+            opacity: widget.highlightPinIds.isEmpty || widget.highlightPinIds.contains(p.id) ? 1 : 0.3,
+            child: PartnerLogoMarker(url: widget.partnerLogos[p.id], selected: widget.selectedPinId == p.id),
+          ),
         ),
       ),
     );
@@ -395,14 +411,14 @@ class _FloorplanCanvasState extends State<FloorplanCanvas> with TickerProviderSt
 }
 
 /// The InteractiveViewer matrix that centres [rect] (image fractions) in the
-/// padded viewport, zoomed so it fills about 40% of it (1x to 5x).
+/// padded viewport, zoomed so it fills about 60% of it (1x to 6x).
 Matrix4 focusMatrix({required Rect rect, required Size viewport, required EdgeInsets padding, required Offset planOrigin, required Size planSize}) {
   final r = Rect.fromLTWH(planOrigin.dx + rect.left * planSize.width, planOrigin.dy + rect.top * planSize.height, rect.width * planSize.width, rect.height * planSize.height);
-  final rw = math.max(r.width, 56.0);
-  final rh = math.max(r.height, 56.0);
+  final rw = math.max(r.width, 40.0);
+  final rh = math.max(r.height, 40.0);
   final availW = math.max(1.0, viewport.width - padding.horizontal);
   final availH = math.max(1.0, viewport.height - padding.vertical);
-  final s = math.min(availW / (rw * 2.4), availH / (rh * 2.4)).clamp(1.0, 5.0).toDouble();
+  final s = math.min(availW / (rw * 1.7), availH / (rh * 1.7)).clamp(1.0, 6.0).toDouble();
   final centre = Offset(padding.left + availW / 2, padding.top + availH / 2);
   final t = centre - r.center * s;
   return Matrix4.translationValues(t.dx, t.dy, 0)..multiply(Matrix4.diagonal3Values(s, s, 1));

@@ -347,7 +347,11 @@ class _BoothCardState extends ConsumerState<_BoothCard> {
                 alignment: Alignment.centerRight,
                 child: Padding(
                   padding: const EdgeInsets.only(top: 6, right: 8),
-                  child: FilledButton(onPressed: _saving ? null : () => _save(), child: const Text('Save')),
+                  child: FilledButton(
+                    style: FilledButton.styleFrom(minimumSize: const Size(0, 40), padding: const EdgeInsets.symmetric(horizontal: 18)),
+                    onPressed: _saving ? null : () => _save(),
+                    child: const Text('Save'),
+                  ),
                 ),
               ),
           ],

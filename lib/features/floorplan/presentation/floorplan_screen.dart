@@ -93,7 +93,7 @@ class _FloorplanScreenState extends ConsumerState<FloorplanScreen> {
       perLevel[p.levelId] = (perLevel[p.levelId] ?? 0) + 1;
     }
     final levelId = (perLevel.entries.toList()..sort((a, b) => b.value.compareTo(a.value))).first.key;
-    final here = pins.where((p) => p.levelId == levelId).map((p) => p.rect);
+    final here = mainCluster([for (final p in pins) if (p.levelId == levelId) p.rect]);
     setState(() {
       _levelId = levelId;
       _filter.clear();

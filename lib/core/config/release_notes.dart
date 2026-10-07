@@ -10,6 +10,19 @@ class ReleaseNote {
 
 const kReleaseNotes = <ReleaseNote>[
   ReleaseNote(
+    version: '0.3.61',
+    date: '8 Oct 2026',
+    title: 'Expo mode for big car shows',
+    points: [
+      "Scan the event's QR at the door: you're checked in, get your number and the floor plan opens.",
+      'Your event pass: your number, a QR for booths, and your lucky draw status.',
+      'Find any exhibitor and see their booth on the floor plan. Partner booths stand out.',
+      'Collect booth stamps and freebies, follow the stage schedule and vote for the best show car.',
+      "Lucky draw roll call: tap 'I'm here' before the draw to be in.",
+      'Organizers: registration form, live dashboard, exports and booth QR codes.',
+    ],
+  ),
+  ReleaseNote(
     version: '0.3.60',
     date: '8 Oct 2026',
     title: 'Fixes from your testing',

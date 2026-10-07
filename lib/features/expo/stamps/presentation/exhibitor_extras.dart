@@ -50,10 +50,10 @@ class ExhibitorExtrasView extends StatelessWidget {
           icon: AppIcons.gift,
           color: info.freebieState == FreebieState.available ? AppColors.brand : null,
           text: switch (info.freebieState) {
-            FreebieState.available => 'Free ${info.freebie} · ready, tap to collect',
-            FreebieState.redeemed => 'Free ${info.freebie} · collected',
-            FreebieState.out => 'Free ${info.freebie} · all gone',
-            _ => 'Free ${info.freebie} · stamp to unlock',
+            FreebieState.available => '${freeLabel(info.freebie!)} · ready, tap to collect',
+            FreebieState.redeemed => '${freeLabel(info.freebie!)} · collected',
+            FreebieState.out => '${freeLabel(info.freebie!)} · all gone',
+            _ => '${freeLabel(info.freebie!)} · stamp to unlock',
           },
           onTap: info.freebieState == FreebieState.available ? onFreebie : null,
         ),
@@ -61,6 +61,7 @@ class ExhibitorExtrasView extends StatelessWidget {
     ];
     if (rows.isEmpty) return const SizedBox.shrink();
     return Container(
+      margin: const EdgeInsets.only(top: 10),
       padding: const EdgeInsets.symmetric(vertical: 4),
       decoration: BoxDecoration(color: AppColors.surfaceGray, borderRadius: BorderRadius.circular(AppRadius.lg)),
       child: Column(mainAxisSize: MainAxisSize.min, children: rows),

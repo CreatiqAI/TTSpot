@@ -16,6 +16,13 @@ import '../../../share/share_card_renderer.dart';
 import '../../application/organizer_providers.dart';
 import '../../domain/organizer_models.dart';
 
+/// "at 4:00 PM" today, else "Sat 8:00 PM" / "11 Oct 8:00 PM", so a draw days
+/// away doesn't read as today.
+String drawWhen(DateTime t, {DateTime? now}) {
+  final w = formatWhenInline(t, now: now);
+  return w.startsWith('today ') ? 'at ${w.substring(6)}' : w;
+}
+
 /// The member's lucky-draw card on a meet page: "you're in", "check in to
 /// enter", "you won, show this QR", "not this time". Draws nothing when the
 /// meet has no draw.
@@ -87,19 +94,19 @@ class _DrawCard extends StatelessWidget {
     final (TitiPose pose, String headline, String? line) = switch (d.status) {
       DrawStatus.cancelled => (TitiPose.sad, 'Lucky draw cancelled', null),
       DrawStatus.scheduled when d.excluded != null =>
-        (TitiPose.thumbsUp, 'Lucky draw at ${formatTime(d.drawAt)}', 'You\'re ${d.excluded == 'host' ? 'hosting' : 'on the crew'}, so you can\'t enter. Run it from Organizer tools.'),
-      DrawStatus.scheduled when d.eligible => (TitiPose.gift, 'Lucky draw at ${formatTime(d.drawAt)} · you\'re in', 'Free entry, one per member. Stay nearby for the draw.'),
+        (TitiPose.thumbsUp, 'Lucky draw ${drawWhen(d.drawAt)}', 'You\'re ${d.excluded == 'host' ? 'hosting' : 'on the crew'}, so you can\'t enter. Run it from Organizer tools.'),
+      DrawStatus.scheduled when d.eligible => (TitiPose.gift, 'Lucky draw ${drawWhen(d.drawAt)} · you\'re in', 'Free entry, one per member. Stay nearby for the draw.'),
       DrawStatus.scheduled when rollCall && !d.presenceConfirmed => (
           TitiPose.bell,
-          'Lucky draw at ${formatTime(d.drawAt)}',
+          'Lucky draw ${drawWhen(d.drawAt)}',
           rollOpen
               ? "Roll call is open. Tap 'I'm here' to enter."
-              : "Roll call opens at ${opensAt == null ? '' : formatTime(opensAt)}. Be here and tap 'I'm here' to enter."
+              : "Roll call opens ${opensAt == null ? '' : drawWhen(opensAt)}. Be here and tap 'I'm here' to enter."
         ),
-      DrawStatus.scheduled when d.cutoffPassed => (TitiPose.sad, 'Lucky draw at ${formatTime(d.drawAt)}', 'Entries closed at ${formatTime(d.cutoffAt)}.'),
+      DrawStatus.scheduled when d.cutoffPassed => (TitiPose.sad, 'Lucky draw ${drawWhen(d.drawAt)}', 'Entries closed at ${formatTime(d.cutoffAt)}.'),
       DrawStatus.scheduled when d.checkedIn =>
-        (TitiPose.magnifier, 'Lucky draw at ${formatTime(d.drawAt)}', 'Almost in: scan the meet QR at the door, or ask the host or crew to confirm you. Entries close ${formatTime(d.cutoffAt)}.'),
-      DrawStatus.scheduled => (TitiPose.mapPin, 'Lucky draw at ${formatTime(d.drawAt)}', 'Check in to enter. Scan the meet QR at the door before ${formatTime(d.cutoffAt)}. Free.'),
+        (TitiPose.magnifier, 'Lucky draw ${drawWhen(d.drawAt)}', 'Almost in: scan the meet QR at the door, or ask the host or crew to confirm you. Entries close ${formatTime(d.cutoffAt)}.'),
+      DrawStatus.scheduled => (TitiPose.mapPin, 'Lucky draw ${drawWhen(d.drawAt)}', 'Check in to enter. Scan the meet QR at the door before ${formatTime(d.cutoffAt)}. Free.'),
       DrawStatus.drawn when w != null && w.hasPrize && w.status == 'claimed' => (TitiPose.celebrate, 'You won ${w.prize ?? 'a prize'}', 'Collected. Enjoy!'),
       DrawStatus.drawn when w != null && w.hasPrize && w.isClosed => (TitiPose.sad, 'You won ${w.prize ?? 'a prize'}', 'The claim window closed, so it passed to the next in line.'),
       DrawStatus.drawn when w != null && w.hasPrize => (
@@ -155,7 +162,7 @@ class _DrawCard extends StatelessWidget {
               children: [
                 Icon(AppIcons.alarm, size: 16, color: fg2),
                 const SizedBox(width: 6),
-                Expanded(child: Text('Roll call opens at ${formatTime(opensAt)}', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: fg))),
+                Expanded(child: Text('Roll call opens ${drawWhen(opensAt)}', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: fg))),
               ],
             ),
           ],

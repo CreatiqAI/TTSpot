@@ -213,7 +213,7 @@ class _BoothQrCardState extends ConsumerState<_BoothQrCard> {
                 ),
                 if (r.freebie != null) ...[
                   const SizedBox(height: 2),
-                  Text('Free ${r.freebie} for stamp collectors', textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF101010))),
+                  Text('${freeLabel(r.freebie!)} for stamp collectors', textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF101010))),
                 ],
                 if (widget.eventTitle.isNotEmpty) ...[
                   const SizedBox(height: 2),

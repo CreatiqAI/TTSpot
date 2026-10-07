@@ -408,7 +408,11 @@ class _FreebieRow extends StatelessWidget {
               ),
               if (available) ...[
                 const SizedBox(width: 8),
-                FilledButton(onPressed: onOpen, child: const Text('Open')),
+                FilledButton(
+                  style: FilledButton.styleFrom(minimumSize: const Size(0, 40), padding: const EdgeInsets.symmetric(horizontal: 16)),
+                  onPressed: onOpen,
+                  child: const Text('Open'),
+                ),
               ],
             ],
           ),

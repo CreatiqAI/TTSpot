@@ -6,7 +6,9 @@ enum NotificationType {
   friendPost, friendTt, clubMember,
   mention, commentReply, commentLike, clubPost, clubMeet,
   // TiTi's own daily line (titi-nudge); the body is the whole message.
-  titiNudge, unknown;
+  titiNudge,
+  // Something waiting for an admin's review (see AdminAlert); admins only.
+  admin, unknown;
 
   static NotificationType fromDb(String v) => switch (v) {
         'follow' => follow,
@@ -49,6 +51,7 @@ enum NotificationType {
         'club_post' => clubPost,
         'club_meet' => clubMeet,
         'titi_nudge' => titiNudge,
+        'admin' => admin,
         _ => unknown,
       };
 }

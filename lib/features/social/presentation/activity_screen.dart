@@ -20,6 +20,7 @@ import '../../friends/application/friends_providers.dart';
 import '../../friends/presentation/friend_request_buttons.dart';
 import '../application/chat_providers.dart';
 import '../application/notification_providers.dart';
+import '../domain/admin_alert.dart';
 import '../domain/application_notice.dart';
 import '../domain/notification.dart';
 
@@ -157,6 +158,13 @@ class _ActivityListState extends ConsumerState<ActivityList> {
   return a == null ? (n.body ?? 'Partner update.', null) : (a.sentence, a.route);
 }
 
+/// Admin alerts: a report, a spot suggestion, a check-in photo or a flagged
+/// post / moment waiting for review; a tap opens that queue.
+(String, String?) _adminText(AppNotification n) {
+  final a = AdminAlert.parse(n.body);
+  return a == null ? (n.body ?? 'Something needs your review.', '/admin/queues') : (a.sentence(who: n.actor?.username), a.route);
+}
+
 /// Card notifications carry `trade:<id>` (an offer, with an actor),
 /// `accepted:<id>` / `declined:<id>` (their answer) or `redeemed:<title>` (no actor).
 (String, String?) _cardsText(AppNotification n) {
@@ -266,6 +274,7 @@ bool isClubVoice(AppNotification n) => n.type == NotificationType.clubPost || n.
       NotificationType.carDoc => (n.body ?? 'A car document runs out soon.', Routes.myGarage),
       // TiTi wrote first; the row opens his chat.
       NotificationType.titiNudge => ('TiTi: ${n.body ?? ''}', Routes.titi),
+      NotificationType.admin => _adminText(n),
       NotificationType.unknown => ('did something.', null),
     };
 }
@@ -301,7 +310,8 @@ class ActivityRow extends ConsumerWidget {
         (n.type == NotificationType.cards && n.actor == null) ||
         n.type == NotificationType.portrait ||
         n.type == NotificationType.carDoc ||
-        n.type == NotificationType.titiNudge;
+        n.type == NotificationType.titiNudge ||
+        n.type == NotificationType.admin;
 
     return InkWell(
       onTap: route == null ? null : () => context.push(route),
@@ -335,6 +345,12 @@ class ActivityRow extends ConsumerWidget {
                     NotificationType.luckyDraw => '🎉',
                     NotificationType.announcement => '📣',
                     NotificationType.carDoc => '📅',
+                    NotificationType.admin => switch (AdminAlert.parse(n.body)?.kind) {
+                        AdminAlertKind.spot => '📍',
+                        AdminAlertKind.verify => '📸',
+                        AdminAlertKind.flagged => '🛡',
+                        _ => '🚨',
+                      },
                     _ => '⏰',
                   },
                   size: 26,

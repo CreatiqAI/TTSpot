@@ -100,6 +100,7 @@ class InAppNotice {
         'cards' => AppIcons.cards,
         'portrait' => AppIcons.sparkle,
         'spotted_claim' => AppIcons.car,
+        'admin' => AppIcons.shieldCheck,
         _ => AppIcons.bellFill,
       };
 }

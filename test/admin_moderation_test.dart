@@ -1,4 +1,5 @@
 import 'package:car_meet/core/supabase/supabase_client.dart';
+import 'package:car_meet/core/theme/app_icons.dart';
 import 'package:car_meet/core/theme/app_theme.dart';
 import 'package:car_meet/features/admin/application/admin_moderation.dart';
 import 'package:car_meet/features/admin/application/admin_providers.dart';
@@ -158,6 +159,22 @@ void main() {
       expect(find.text('Flagged posts and moments'), findsOneWidget);
       final row = find.ancestor(of: find.text('Flagged posts and moments'), matching: find.byType(ListTile));
       expect(find.descendant(of: row, matching: find.text('2')), findsOneWidget);
+      expect(t.takeException(), isNull);
+    });
+
+    // An admin alert opens /admin/queues as a page: a back button, and the
+    // spot suggestions sheet straight away for a 'spot' alert.
+    testWidgets('Queues as a page from an admin alert opens the suggestions ($scale)', (t) async {
+      await _pump(t, const AdminQueuesScreen(standalone: true, openSuggestions: true), scale: scale, overrides: [
+        adminFlaggedProvider.overrideWith((ref) async => const []),
+        adminStatsProvider.overrideWith((ref) async => const AdminStats({})),
+        adminReportsProvider.overrideWith((ref) async => const []),
+        adminSuggestionsProvider.overrideWith((ref) async => const []),
+      ]);
+      await t.pump(const Duration(milliseconds: 400));
+      expect(find.byIcon(AppIcons.arrowLeft), findsOneWidget);
+      expect(find.text('Spot suggestions'), findsWidgets);
+      expect(find.text('Nothing waiting.'), findsOneWidget);
       expect(t.takeException(), isNull);
     });
   }

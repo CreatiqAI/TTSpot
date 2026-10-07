@@ -15,8 +15,14 @@ import 'admin_dashboard_screen.dart' show showSuggestionsSheet;
 
 /// Admin · Queues: everything waiting for a decision, then reports with a
 /// filter and a resolve-with-note action.
+///
+/// [standalone]: pushed as a page (/admin/queues, from an admin alert) with a
+/// back button, instead of the admin account's tab. [openSuggestions] opens
+/// the spot suggestions sheet on arrival.
 class AdminQueuesScreen extends ConsumerStatefulWidget {
-  const AdminQueuesScreen({super.key});
+  const AdminQueuesScreen({super.key, this.standalone = false, this.openSuggestions = false});
+  final bool standalone;
+  final bool openSuggestions;
 
   @override
   ConsumerState<AdminQueuesScreen> createState() => _AdminQueuesScreenState();
@@ -26,6 +32,22 @@ class _AdminQueuesScreenState extends ConsumerState<AdminQueuesScreen> {
   String _filter = 'open';
 
   @override
+  void initState() {
+    super.initState();
+    if (widget.standalone) {
+      // Fresh numbers: the alert says something new is waiting.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ref.invalidate(adminStatsProvider);
+        ref.invalidate(adminReportsProvider);
+        ref.invalidate(adminSuggestionsProvider);
+        ref.invalidate(adminFlaggedProvider);
+        if (widget.openSuggestions) showSuggestionsSheet(context);
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final stats = ref.watch(adminStatsProvider).value;
     final reports = ref.watch(adminReportsProvider);
@@ -33,6 +55,7 @@ class _AdminQueuesScreenState extends ConsumerState<AdminQueuesScreen> {
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
+        leading: widget.standalone ? IconButton(icon: const Icon(AppIcons.arrowLeft), onPressed: () => context.pop()) : null,
         title: const Text('Queues'),
         actions: [
           IconButton(
@@ -48,7 +71,7 @@ class _AdminQueuesScreenState extends ConsumerState<AdminQueuesScreen> {
         ],
       ),
       body: ListView(
-        padding: EdgeInsets.only(bottom: GlassTabBar.clearance(context)),
+        padding: EdgeInsets.only(bottom: widget.standalone ? MediaQuery.paddingOf(context).bottom + 16 : GlassTabBar.clearance(context)),
         children: [
           const _Head('WAITING FOR YOU'),
           _Queue(icon: AppIcons.shieldCheck, title: 'Flagged posts and moments', subtitle: 'Hidden by the photo check until you approve or remove them', count: flagged?.length, onTap: () => context.push(Routes.adminModeration)),

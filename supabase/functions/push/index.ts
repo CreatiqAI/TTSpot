@@ -232,6 +232,43 @@ function applicationNotice(b: string | null): { step: string; text: string; rout
   return { step, text: `Your ${what} application wasn't approved.${text ? ` Note: ${text}` : ""}`, route };
 }
 
+/** admin alerts (20261008000117_admin_alerts.sql): body "<kind>:<detail>",
+ * only ever to admins, one push per kind per 30 minutes while unread (later
+ * ones are silent rows). Same copy as the app's
+ * lib/features/social/domain/admin_alert.dart. */
+const REPORT_TARGET: Record<string, string> = {
+  post: "a post", post_comment: "a comment", comment: "a meet comment", profile: "a member",
+  event: "a meet", message: "a message", story: "a moment", club: "a club",
+};
+function adminAlert(b: string | null, who: string): { title: string; body: string; route: string } | null {
+  const s = b ?? "";
+  const i = s.indexOf(":");
+  if (i < 0) return null;
+  const kind = s.slice(0, i);
+  const rest = s.slice(i + 1).trim();
+  const j = rest.indexOf(":");
+  const subject = (j < 0 ? rest : rest.slice(0, j)).trim();
+  const detail = j < 0 ? "" : rest.slice(j + 1).trim();
+  const by = who ? `${who} ` : "Someone ";
+  switch (kind) {
+    case "report":
+      return { title: "Report", body: `New report on ${REPORT_TARGET[subject] ?? "something"}${detail ? `: ${detail}` : ""}`, route: "/admin/queues" };
+    case "spot":
+      return { title: "Spot suggested", body: `${by}suggested ${rest || "a new place"}. Tap to review.`, route: "/admin/queues?open=suggestions" };
+    case "verify":
+      return { title: "Photo to check", body: `${by}checked in${rest ? ` at ${rest}` : ""}. The AI wasn't sure; have a look.`, route: "/admin/review" };
+    case "flagged": {
+      const what = subject === "moment" ? "moment" : "post";
+      return {
+        title: what === "moment" ? "Flagged moment" : "Flagged post",
+        body: `The photo check hid ${who ? `${who}'s` : "a"} ${what}${detail ? ` (${detail})` : ""}. Approve or remove it.`,
+        route: "/admin/moderation",
+      };
+    }
+    default: return null;
+  }
+}
+
 const WEEKDAYS =["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -334,7 +371,13 @@ async function fromNotification(id: string): Promise<Push | null> {
       }
       case "lucky_draw": return [ev, b ?? "Lucky draw update.", ev_];
       // TiTi speaks (titi-nudge): his line is the body; it opens his chat.
-      case "titi_nudge": return ["TiTi", b ?? "", "/titi"];      default: return ["TT Spot", b ?? "Something new for you.", null];
+      case "titi_nudge": return ["TiTi", b ?? "", "/titi"];
+      // Admins only: something waiting for review; it opens that queue.
+      case "admin": {
+        const a = adminAlert(b, who);
+        return a ? [a.title, a.body, a.route] : ["TT Spot", b ?? "Something needs your review.", "/admin/queues"];
+      }
+      default: return ["TT Spot", b ?? "Something new for you.", null];
     }
   })();
   // The face on the banner: the person when the title is them, else the club, else the person.

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/router/pop_or_home.dart';
 import '../../../../core/theme/app_icons.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/titi.dart';
@@ -15,18 +16,60 @@ import 'exhibitor_sheet.dart';
 import 'exhibitor_widgets.dart';
 
 /// Members: search exhibitors, open one, show it on the floor plan.
-class ExhibitorsScreen extends ConsumerStatefulWidget {
+class ExhibitorsScreen extends ConsumerWidget {
   const ExhibitorsScreen({super.key, required this.eventId});
   final String eventId;
 
   @override
-  ConsumerState<ExhibitorsScreen> createState() => _ExhibitorsScreenState();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final title = ref.watch(eventDetailProvider(eventId)).value?.event.title;
+    final count = ref.watch(eventExhibitorsProvider(eventId)).value?.length;
+    return HomeOnBack(
+      child: Scaffold(
+        appBar: AppBar(
+          leading: const AppBackButton(),
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(count == null || count == 0 ? 'Exhibitors' : 'Exhibitors · $count'),
+              if (title != null) Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: AppColors.textSecondary, fontWeight: FontWeight.w500)),
+            ],
+          ),
+          actions: [
+            IconButton(
+              tooltip: 'Floor plan',
+              icon: const Icon(AppIcons.mapTrifold),
+              onPressed: () => context.push(FloorplanRoutes.view(eventId)),
+            ),
+          ],
+        ),
+        body: RefreshIndicator(
+          onRefresh: () => ref.refresh(eventExhibitorsProvider(eventId).future),
+          child: CustomScrollView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            slivers: [ExhibitorsBody(eventId: eventId)],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// The "Partners" chip (categories are plain strings).
 const _partnersChip = '\u0000partners';
 
-class _ExhibitorsScreenState extends ConsumerState<ExhibitorsScreen> {
+/// The exhibitors list: search, category chips, rows. Slivers, for a
+/// CustomScrollView: the Exhibitors screen and the event page's Exhibitors
+/// tab.
+class ExhibitorsBody extends ConsumerStatefulWidget {
+  const ExhibitorsBody({super.key, required this.eventId});
+  final String eventId;
+
+  @override
+  ConsumerState<ExhibitorsBody> createState() => _ExhibitorsBodyState();
+}
+
+class _ExhibitorsBodyState extends ConsumerState<ExhibitorsBody> {
   final _q = TextEditingController();
   String _query = '';
   String? _chip;
@@ -49,47 +92,38 @@ class _ExhibitorsScreenState extends ConsumerState<ExhibitorsScreen> {
   @override
   Widget build(BuildContext context) {
     final async = ref.watch(eventExhibitorsProvider(widget.eventId));
-    final title = ref.watch(eventDetailProvider(widget.eventId)).value?.event.title;
-    final count = async.value?.length;
-
-    return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(icon: const Icon(AppIcons.arrowLeft), onPressed: () => context.pop()),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(count == null || count == 0 ? 'Exhibitors' : 'Exhibitors · $count'),
-            if (title != null) Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: AppColors.textSecondary, fontWeight: FontWeight.w500)),
-          ],
-        ),
-        actions: [
-          IconButton(
-            tooltip: 'Floor plan',
-            icon: const Icon(AppIcons.mapTrifold),
-            onPressed: () => context.push(FloorplanRoutes.view(widget.eventId)),
-          ),
-        ],
+    return async.when(
+      skipLoadingOnRefresh: true,
+      skipLoadingOnReload: true,
+      loading: () => const SliverToBoxAdapter(
+        child: Padding(padding: EdgeInsets.symmetric(vertical: 48), child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
       ),
-      body: async.when(
-        loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
-        error: (e, _) => EmptyState(
+      error: (e, _) => SliverToBoxAdapter(
+        child: EmptyState(
           icon: AppIcons.wifiSlash,
           title: "Couldn't load exhibitors",
           subtitle: friendlyError(e),
           actionLabel: 'Try again',
           onAction: () => ref.invalidate(eventExhibitorsProvider(widget.eventId)),
         ),
-        data: (all) {
-          if (all.isEmpty) {
-            return const EmptyState(titi: TitiPose.binoculars, icon: AppIcons.storefront, title: 'No exhibitors yet', subtitle: 'Check back closer to the show.');
-          }
-          final categories = exhibitorCategories(all);
-          final hasPartners = all.any((e) => e.isPartner);
-          final list = _filtered(all);
-          return Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      ),
+      data: (all) {
+        if (all.isEmpty) {
+          return const SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.only(top: 24),
+              child: EmptyState(titi: TitiPose.binoculars, icon: AppIcons.storefront, title: 'No exhibitors yet', subtitle: 'Check back closer to the show.'),
+            ),
+          );
+        }
+        final categories = exhibitorCategories(all);
+        final hasPartners = all.any((e) => e.isPartner);
+        final list = _filtered(all);
+        return SliverMainAxisGroup(
+          slivers: [
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
                 child: TextField(
                   controller: _q,
                   textInputAction: TextInputAction.search,
@@ -111,40 +145,45 @@ class _ExhibitorsScreenState extends ConsumerState<ExhibitorsScreen> {
                   ),
                 ),
               ),
-              if (hasPartners || categories.length > 1)
-                SizedBox(
-                  height: 48,
-                  child: ListView(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
+            ),
+            if (hasPartners || categories.length > 1)
+              SliverToBoxAdapter(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.fromLTRB(16, 6, 10, 6),
+                  child: Row(
                     children: [
                       _Chip(label: 'All', on: _chip == null, onTap: () => setState(() => _chip = null)),
-                      if (hasPartners) _Chip(label: 'Partners', icon: AppIcons.sealCheck, gold: true, on: _chip == _partnersChip, onTap: () => setState(() => _chip = _chip == _partnersChip ? null : _partnersChip)),
+                      if (hasPartners)
+                        _Chip(
+                          label: 'Partners',
+                          icon: AppIcons.sealCheck,
+                          gold: true,
+                          on: _chip == _partnersChip,
+                          onTap: () => setState(() => _chip = _chip == _partnersChip ? null : _partnersChip),
+                        ),
                       for (final c in categories) _Chip(label: c, on: _chip == c, onTap: () => setState(() => _chip = _chip == c ? null : c)),
                     ],
                   ),
                 ),
-              Expanded(
-                child: list.isEmpty
-                    ? const EmptyState(titi: TitiPose.binoculars, title: 'No match', subtitle: 'Try a booth code like A019.')
-                    : RefreshIndicator(
-                        onRefresh: () => ref.refresh(eventExhibitorsProvider(widget.eventId).future),
-                        child: ListView.builder(
-                          padding: const EdgeInsets.only(bottom: 24),
-                          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-                          itemCount: list.length,
-                          itemBuilder: (_, i) => ExhibitorRow(
-                            key: ValueKey(list[i].id),
-                            exhibitor: list[i],
-                            onTap: () => showExhibitorSheet(context, widget.eventId, list[i].id),
-                          ),
-                        ),
-                      ),
               ),
-            ],
-          );
-        },
-      ),
+            if (list.isEmpty)
+              const SliverToBoxAdapter(child: EmptyState(titi: TitiPose.binoculars, title: 'No match', subtitle: 'Try a booth code like A019.'))
+            else
+              SliverPadding(
+                padding: const EdgeInsets.only(bottom: 24),
+                sliver: SliverList.builder(
+                  itemCount: list.length,
+                  itemBuilder: (_, i) => ExhibitorRow(
+                    key: ValueKey(list[i].id),
+                    exhibitor: list[i],
+                    onTap: () => showExhibitorSheet(context, widget.eventId, list[i].id),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }

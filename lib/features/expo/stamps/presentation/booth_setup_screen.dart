@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/router/pop_or_home.dart';
 import '../../../../core/theme/app_icons.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/titi.dart';
@@ -26,7 +27,7 @@ class BoothSetupScreen extends ConsumerWidget {
     final rows = async.value ?? const <BoothSetupRow>[];
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(icon: const Icon(AppIcons.arrowLeft), onPressed: () => context.pop()),
+        leading: const AppBackButton(),
         title: const Text('Stamps & booths'),
         actions: [
           if (rows.any((r) => r.stampStop))

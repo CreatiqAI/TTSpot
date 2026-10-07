@@ -10,6 +10,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/router/app_router.dart';
+import '../../../../core/router/pop_or_home.dart';
 import '../../../../core/theme/app_icons.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/titi.dart';
@@ -36,7 +37,6 @@ class LeadsScreen extends ConsumerStatefulWidget {
 
 class _LeadsScreenState extends ConsumerState<LeadsScreen> {
   bool _handledPass = false;
-  bool _exporting = false;
 
   @override
   void didChangeDependencies() {
@@ -108,7 +108,61 @@ class _LeadsScreenState extends ConsumerState<LeadsScreen> {
     }
   }
 
-  Future<void> _export(List<Lead> leads, String boothName) async {
+  @override
+  Widget build(BuildContext context) {
+    final booths = ref.watch(myStaffBoothsProvider(widget.eventId)).value ?? const <StaffBooth>[];
+    String name = 'Leads';
+    for (final b in booths) {
+      if (b.id == widget.exhibitorId) name = b.name;
+    }
+    return HomeOnBack(
+      child: Scaffold(
+        appBar: AppBar(
+          leading: const AppBackButton(),
+          title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
+        ),
+        bottomNavigationBar: SafeArea(
+          minimum: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+          child: PrimaryButton(label: 'Scan a pass', icon: AppIcons.scan, onPressed: () => context.push(Routes.scan)),
+        ),
+        body: RefreshIndicator(
+          onRefresh: () => ref.refresh(exhibitorLeadsProvider(widget.exhibitorId).future),
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [LeadsBody(eventId: widget.eventId, exhibitorId: widget.exhibitorId, boothName: name)],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A booth's leads: the count, Export CSV, the list (notes, contact). Slivers,
+/// for a CustomScrollView: the Leads screen and the event page's Booth view.
+class LeadsBody extends ConsumerStatefulWidget {
+  const LeadsBody({super.key, required this.eventId, required this.exhibitorId, required this.boothName});
+  final String eventId;
+  final String exhibitorId;
+
+  /// For the CSV's file name.
+  final String boothName;
+
+  @override
+  ConsumerState<LeadsBody> createState() => _LeadsBodyState();
+}
+
+class _LeadsBodyState extends ConsumerState<LeadsBody> {
+  bool _exporting = false;
+
+  void _toast(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  Future<void> _export(List<Lead> leads) async {
+    final boothName = widget.boothName;
     setState(() => _exporting = true);
     try {
       final dir = await getTemporaryDirectory();
@@ -185,65 +239,66 @@ class _LeadsScreenState extends ConsumerState<LeadsScreen> {
   @override
   Widget build(BuildContext context) {
     final async = ref.watch(exhibitorLeadsProvider(widget.exhibitorId));
-    final booths = ref.watch(myStaffBoothsProvider(widget.eventId)).value ?? const <StaffBooth>[];
-    String name = 'Leads';
-    for (final b in booths) {
-      if (b.id == widget.exhibitorId) name = b.name;
-    }
-    final leads = async.value ?? const <Lead>[];
-    return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(icon: const Icon(AppIcons.arrowLeft), onPressed: () => context.pop()),
-        title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
-        actions: [
-          if (leads.isNotEmpty)
-            _exporting
-                ? const Padding(padding: EdgeInsets.all(16), child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)))
-                : IconButton(tooltip: 'Export CSV', icon: const Icon(AppIcons.fileCsv), onPressed: () => _export(leads, name)),
-        ],
+    return async.when(
+      skipLoadingOnRefresh: true,
+      skipLoadingOnReload: true,
+      loading: () => const SliverToBoxAdapter(
+        child: Padding(padding: EdgeInsets.symmetric(vertical: 48), child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
       ),
-      bottomNavigationBar: SafeArea(
-        minimum: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-        child: PrimaryButton(label: 'Scan a pass', icon: AppIcons.scan, onPressed: () => context.push(Routes.scan)),
-      ),
-      body: async.when(
-        loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
-        error: (e, _) => Center(child: Padding(padding: const EdgeInsets.all(32), child: Text(friendlyError(e), textAlign: TextAlign.center))),
-        data: (leads) => RefreshIndicator(
-          onRefresh: () => ref.refresh(exhibitorLeadsProvider(widget.exhibitorId).future),
-          child: leads.isEmpty
-              ? ListView(
-                  children: const [
-                    SizedBox(height: 40),
-                    EmptyState(
-                      titi: TitiPose.clipboard,
-                      title: 'No leads yet',
-                      subtitle: "Scan a visitor's event pass to save their name and car. Phone and email come along when they share them.",
-                    ),
-                  ],
-                )
-              : ListView(
-                  padding: const EdgeInsets.only(bottom: 24),
+      error: (e, _) => SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.all(32), child: Text(friendlyError(e), textAlign: TextAlign.center))),
+      data: (leads) {
+        if (leads.isEmpty) {
+          return const SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.only(top: 24),
+              child: EmptyState(
+                titi: TitiPose.clipboard,
+                title: 'No leads yet',
+                subtitle: "Scan a visitor's event pass to save their name and car. Phone and email come along when they share them.",
+              ),
+            ),
+          );
+        }
+        final shared = leads.where((l) => l.hasContact).length;
+        return SliverMainAxisGroup(
+          slivers: [
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+                child: Row(
                   children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-                      child: Text(
-                        leads.length == 1 ? '1 lead' : '${leads.length} leads',
-                        style: const TextStyle(fontFamily: AppFonts.display, fontSize: 28, fontWeight: FontWeight.w800),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            leads.length == 1 ? '1 lead' : '${leads.length} leads',
+                            style: const TextStyle(fontFamily: AppFonts.display, fontSize: 28, fontWeight: FontWeight.w800),
+                          ),
+                          Text('$shared shared phone and email', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+                        ],
                       ),
                     ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                      child: Text(
-                        '${leads.where((l) => l.hasContact).length} shared phone and email',
-                        style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
-                      ),
-                    ),
-                    for (final l in leads) LeadTile(lead: l, onNote: () => _editNote(l), onContact: l.hasContact ? () => _showContact(l) : null),
+                    _exporting
+                        ? const Padding(padding: EdgeInsets.all(14), child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)))
+                        : IconButton(tooltip: 'Export CSV', icon: const Icon(AppIcons.fileCsv), onPressed: () => _export(leads)),
                   ],
                 ),
-        ),
-      ),
+              ),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.only(bottom: 24),
+              sliver: SliverList.builder(
+                itemCount: leads.length,
+                itemBuilder: (_, i) {
+                  final l = leads[i];
+                  return LeadTile(lead: l, onNote: () => _editNote(l), onContact: l.hasContact ? () => _showContact(l) : null);
+                },
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

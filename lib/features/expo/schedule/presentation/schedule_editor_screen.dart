@@ -1,8 +1,8 @@
 import 'package:flutter/cupertino.dart' show CupertinoDatePickerMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
+import '../../../../core/router/pop_or_home.dart';
 import '../../../../core/theme/app_icons.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/titi.dart';
@@ -48,7 +48,7 @@ class ScheduleEditorScreen extends ConsumerWidget {
     final items = agenda.value ?? const <AgendaItem>[];
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(icon: const Icon(AppIcons.arrowLeft), onPressed: () => context.pop()),
+        leading: const AppBackButton(),
         title: const Text('Schedule'),
       ),
       floatingActionButton: items.isEmpty

@@ -34,6 +34,26 @@ String formatEventDateFriendly(DateTime t, {DateTime? now}) {
   return formatEventDate(l);
 }
 
+/// When an event runs: a range for one over several days ("7–31 Oct · from
+/// 2:25 PM", "28 Oct – 2 Nov · from 10:00 AM", with years when they differ),
+/// else [formatEventDateFriendly]. A night out that ends after midnight
+/// (under 12 h) still reads as one day.
+String formatEventSpan(DateTime start, DateTime? end, {DateTime? now}) {
+  final s = start.toLocal();
+  final e = end?.toLocal();
+  if (e == null || !e.isAfter(s) || isSameDay(s, e) || e.difference(s) < const Duration(hours: 12)) {
+    return formatEventDateFriendly(s, now: now);
+  }
+  final n = (now ?? DateTime.now()).toLocal();
+  final from = 'from ${formatTime(s)}';
+  if (s.year != e.year) {
+    return '${s.day} ${_months[s.month - 1]} ${s.year} – ${e.day} ${_months[e.month - 1]} ${e.year} · $from';
+  }
+  final year = s.year == n.year ? '' : ' ${s.year}';
+  if (s.month == e.month) return '${s.day}–${e.day} ${_months[s.month - 1]}$year · $from';
+  return '${s.day} ${_months[s.month - 1]} – ${e.day} ${_months[e.month - 1]}$year · $from';
+}
+
 /// For a sentence ("planned a TT at Mamak, Sat 9:30 PM"): "today 8:00 PM",
 /// "tomorrow 9:30 AM", the weekday within the week ("Sat 9:30 PM"), else
 /// "11 Oct 9:30 PM". The push function words it the same way.

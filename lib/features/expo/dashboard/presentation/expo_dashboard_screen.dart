@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../../core/router/app_router.dart';
+import '../../../../core/router/pop_or_home.dart';
 import '../../../../core/theme/app_icons.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/dates.dart';
@@ -21,15 +22,42 @@ import '../domain/dashboard.dart';
 import 'arrivals_chart.dart';
 
 /// Host: live numbers and CSV exports. Refreshes every 30 s while on screen.
-class ExpoDashboardScreen extends ConsumerStatefulWidget {
+class ExpoDashboardScreen extends ConsumerWidget {
   const ExpoDashboardScreen({super.key, required this.eventId});
   final String eventId;
 
   @override
-  ConsumerState<ExpoDashboardScreen> createState() => _ExpoDashboardScreenState();
+  Widget build(BuildContext context, WidgetRef ref) {
+    return HomeOnBack(
+      child: Scaffold(
+        appBar: AppBar(
+          leading: const AppBackButton(),
+          title: const Text('Live dashboard'),
+        ),
+        body: RefreshIndicator(
+          onRefresh: () => ref.refresh(expoDashboardProvider(eventId).future),
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [ExpoDashboardBody(eventId: eventId)],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
-class _ExpoDashboardScreenState extends ConsumerState<ExpoDashboardScreen> with WidgetsBindingObserver {
+/// The live dashboard with its 30 s refresh and the CSV exports. Slivers, for
+/// a CustomScrollView: the dashboard screen and the organizer view's
+/// Dashboard tab.
+class ExpoDashboardBody extends ConsumerStatefulWidget {
+  const ExpoDashboardBody({super.key, required this.eventId});
+  final String eventId;
+
+  @override
+  ConsumerState<ExpoDashboardBody> createState() => _ExpoDashboardBodyState();
+}
+
+class _ExpoDashboardBodyState extends ConsumerState<ExpoDashboardBody> with WidgetsBindingObserver {
   Timer? _timer;
   bool _foreground = true;
   String? _exporting;
@@ -101,58 +129,45 @@ class _ExpoDashboardScreenState extends ConsumerState<ExpoDashboardScreen> with 
   @override
   Widget build(BuildContext context) {
     final async = ref.watch(expoDashboardProvider(widget.eventId));
-    return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(icon: const Icon(AppIcons.arrowLeft), onPressed: () => context.pop()),
-        title: const Text('Live dashboard'),
+    return async.when(
+      skipLoadingOnRefresh: true,
+      skipLoadingOnReload: true,
+      loading: () => const SliverToBoxAdapter(
+        child: Padding(padding: EdgeInsets.symmetric(vertical: 48), child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
       ),
-      body: async.when(
-        skipLoadingOnRefresh: true,
-        skipLoadingOnReload: true,
-        loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
-        error: (e, _) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(32),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(friendlyError(e), textAlign: TextAlign.center),
-                const SizedBox(height: 12),
-                TextButton(onPressed: () => ref.invalidate(expoDashboardProvider(widget.eventId)), child: const Text('Try again')),
-              ],
-            ),
-          ),
-        ),
-        data: (d) => RefreshIndicator(
-          onRefresh: () => ref.refresh(expoDashboardProvider(widget.eventId).future),
-          child: DashboardBody(
-            eventId: widget.eventId,
-            data: d,
-            exporting: _exporting,
-            onExport: _export,
+      error: (e, _) => SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(friendlyError(e), textAlign: TextAlign.center),
+              const SizedBox(height: 12),
+              TextButton(onPressed: () => ref.invalidate(expoDashboardProvider(widget.eventId)), child: const Text('Try again')),
+            ],
           ),
         ),
       ),
+      data: (d) => DashboardBody(eventId: widget.eventId, data: d, exporting: _exporting, onExport: _export, sliver: true),
     );
   }
 }
 
-/// The scrolling content. Public so tests can pump it with fixed data.
+/// The numbers, from fixed data. Public so tests can pump it. A ListView,
+/// or slivers with [sliver] (for a CustomScrollView).
 class DashboardBody extends StatelessWidget {
-  const DashboardBody({super.key, required this.eventId, required this.data, this.exporting, required this.onExport});
+  const DashboardBody({super.key, required this.eventId, required this.data, this.exporting, required this.onExport, this.sliver = false});
   final String eventId;
   final ExpoDashboard data;
   final String? exporting;
   final ValueChanged<String> onExport;
+  final bool sliver;
 
   @override
   Widget build(BuildContext context) {
     final t = data.totals;
     final d = data;
-    return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 40),
-      children: [
+    final children = <Widget>[
         Row(
           children: [
             Container(width: 8, height: 8, decoration: const BoxDecoration(color: AppColors.success, shape: BoxShape.circle)),
@@ -288,8 +303,10 @@ class DashboardBody extends StatelessWidget {
           trailing: Icon(AppIcons.caretRight, size: 16, color: AppColors.textMuted),
           onTap: () => context.push(Routes.eventReport(eventId)),
         ),
-      ],
-    );
+    ];
+    const padding = EdgeInsets.fromLTRB(16, 4, 16, 40);
+    if (sliver) return SliverPadding(padding: padding, sliver: SliverList.list(children: children));
+    return ListView(physics: const AlwaysScrollableScrollPhysics(), padding: padding, children: children);
   }
 }
 

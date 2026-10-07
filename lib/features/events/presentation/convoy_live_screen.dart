@@ -7,6 +7,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/geo/latlng.dart';
 import '../../../core/map/app_map.dart';
+import '../../../core/router/pop_or_home.dart';
 import '../../map/presentation/widgets/map_glyphs.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -175,7 +176,7 @@ class _ConvoyLiveScreenState extends ConsumerState<ConvoyLiveScreen> {
                 padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
                 child: Row(
                   children: [
-                    _Round(icon: AppIcons.arrowLeft, onTap: () => context.pop()),
+                    _Round(icon: AppIcons.arrowLeft, onTap: () => popOrHome(context)),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Container(

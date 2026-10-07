@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/router/app_router.dart';
+import '../../../../core/router/pop_or_home.dart';
 import '../../../../core/theme/app_icons.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/titi.dart';
@@ -18,15 +19,52 @@ import 'widgets/hand_over_card.dart';
 
 /// Members: my booth stamps, the rally goal and reward, freebies to collect.
 /// `?freebie=<exhibitorId>` (from a booth scan) opens that hand-over card.
-class StampsScreen extends ConsumerStatefulWidget {
+class StampsScreen extends ConsumerWidget {
   const StampsScreen({super.key, required this.eventId});
   final String eventId;
 
   @override
-  ConsumerState<StampsScreen> createState() => _StampsScreenState();
+  Widget build(BuildContext context, WidgetRef ref) {
+    return HomeOnBack(
+      child: Scaffold(
+        appBar: AppBar(
+          leading: const AppBackButton(),
+          title: const Text('Stamps'),
+        ),
+        bottomNavigationBar: SafeArea(
+          minimum: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+          child: PrimaryButton(label: 'Scan a booth', icon: AppIcons.scan, onPressed: () => context.push(Routes.scan)),
+        ),
+        body: RefreshIndicator(
+          onRefresh: () => ref.refresh(myStampsProvider(eventId).future),
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [StampsBody(eventId: eventId, openFreebieFromRoute: true)],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
-class _StampsScreenState extends ConsumerState<StampsScreen> {
+/// My stamp card: progress and reward, the stamp stops, freebies. Slivers,
+/// for a CustomScrollView: the Stamps screen and the event page's
+/// Activities tab.
+class StampsBody extends ConsumerStatefulWidget {
+  const StampsBody({super.key, required this.eventId, this.openFreebieFromRoute = false, this.scanButton = false});
+  final String eventId;
+
+  /// The Stamps screen: open the `?freebie=` hand-over card once.
+  final bool openFreebieFromRoute;
+
+  /// A "Scan a booth" button under the progress (the screen has its own).
+  final bool scanButton;
+
+  @override
+  ConsumerState<StampsBody> createState() => _StampsBodyState();
+}
+
+class _StampsBodyState extends ConsumerState<StampsBody> {
   bool _handledFreebieParam = false;
 
   String? _freebieParam() {
@@ -38,7 +76,7 @@ class _StampsScreenState extends ConsumerState<StampsScreen> {
   }
 
   void _maybeOpenFromScan(StampCard card) {
-    if (_handledFreebieParam) return;
+    if (_handledFreebieParam || !widget.openFreebieFromRoute) return;
     _handledFreebieParam = true;
     final id = _freebieParam();
     if (id == null) return;
@@ -75,56 +113,55 @@ class _StampsScreenState extends ConsumerState<StampsScreen> {
   @override
   Widget build(BuildContext context) {
     final async = ref.watch(myStampsProvider(widget.eventId));
-    return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(icon: const Icon(AppIcons.arrowLeft), onPressed: () => context.pop()),
-        title: const Text('Stamps'),
+    return async.when(
+      skipLoadingOnRefresh: true,
+      skipLoadingOnReload: true,
+      loading: () => const SliverToBoxAdapter(
+        child: Padding(padding: EdgeInsets.symmetric(vertical: 48), child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
       ),
-      bottomNavigationBar: SafeArea(
-        minimum: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-        child: PrimaryButton(label: 'Scan a booth', icon: AppIcons.scan, onPressed: () => context.push(Routes.scan)),
-      ),
-      body: async.when(
-        loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
-        error: (e, _) => Center(child: Padding(padding: const EdgeInsets.all(32), child: Text(friendlyError(e), textAlign: TextAlign.center))),
-        data: (card) {
-          _maybeOpenFromScan(card);
-          if (card.stops.isEmpty) {
-            return const EmptyState(
+      error: (e, _) => SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.all(32), child: Text(friendlyError(e), textAlign: TextAlign.center))),
+      data: (card) {
+        _maybeOpenFromScan(card);
+        if (card.stops.isEmpty) {
+          return const SliverToBoxAdapter(
+            child: EmptyState(
               titi: TitiPose.clipboard,
               title: 'No stamp stops yet',
               subtitle: "The organizer hasn't set up booth stamps for this event.",
-            );
-          }
-          return RefreshIndicator(
-            onRefresh: () => ref.refresh(myStampsProvider(widget.eventId).future),
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-              children: [
-                if (!card.checkedIn) ...[
-                  _Note(icon: AppIcons.mapPin, text: 'Check in at the door to start collecting stamps.'),
-                  const SizedBox(height: 12),
-                ],
-                _ProgressHeader(card: card, onCollect: () => _openRally(card)),
-                const SizedBox(height: 20),
-                const _SectionTitle('Stamp stops'),
-                const SizedBox(height: 10),
-                _StampGrid(eventId: widget.eventId, stops: card.stops),
-                if (card.freebies.isNotEmpty) ...[
-                  const SizedBox(height: 22),
-                  const _SectionTitle('Freebies'),
-                  const SizedBox(height: 10),
-                  for (final s in card.freebies)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: _FreebieRow(stop: s, onOpen: () => _openFreebie(s), onFind: () => context.push(ExpoRoutes.floorplanAt(widget.eventId, s.id))),
-                    ),
-                ],
-              ],
             ),
           );
-        },
-      ),
+        }
+        return SliverPadding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+          sliver: SliverList.list(
+            children: [
+              if (!card.checkedIn) ...[
+                _Note(icon: AppIcons.mapPin, text: 'Check in at the door to start collecting stamps.'),
+                const SizedBox(height: 12),
+              ],
+              _ProgressHeader(card: card, onCollect: () => _openRally(card)),
+              if (widget.scanButton) ...[
+                const SizedBox(height: 10),
+                SecondaryButton(label: 'Scan a booth', icon: AppIcons.scan, onPressed: () => context.push(Routes.scan)),
+              ],
+              const SizedBox(height: 20),
+              const _SectionTitle('Stamp stops'),
+              const SizedBox(height: 10),
+              _StampGrid(eventId: widget.eventId, stops: card.stops),
+              if (card.freebies.isNotEmpty) ...[
+                const SizedBox(height: 22),
+                const _SectionTitle('Freebies'),
+                const SizedBox(height: 10),
+                for (final s in card.freebies)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: _FreebieRow(stop: s, onOpen: () => _openFreebie(s), onFind: () => context.push(ExpoRoutes.floorplanAt(widget.eventId, s.id))),
+                  ),
+              ],
+            ],
+          ),
+        );
+      },
     );
   }
 }

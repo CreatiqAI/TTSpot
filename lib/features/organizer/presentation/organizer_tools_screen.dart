@@ -3,17 +3,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/router/app_router.dart';
+import '../../../core/router/pop_or_home.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/titi.dart';
 import '../../../core/utils/dates.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../../core/widgets/primary_button.dart';
-import '../../expo/expo_routes.dart';
 import '../../events/application/event_providers.dart';
-import '../../events/presentation/whos_here_sheet.dart';
 import '../application/organizer_providers.dart';
 import '../domain/organizer_models.dart';
+import 'organizer_groups.dart';
 
 /// One place for everything a verified organizer (and their crew) runs at a
 /// meet. What shows depends on the role: crew get the door tools, the host
@@ -29,9 +29,10 @@ class OrganizerToolsScreen extends ConsumerWidget {
     final draws = ref.watch(eventDrawsProvider(eventId)).value ?? const <LuckyDraw>[];
     final event = detail.value?.event;
 
-    return Scaffold(
+    return HomeOnBack(
+      child: Scaffold(
       appBar: AppBar(
-        leading: IconButton(icon: const Icon(AppIcons.arrowLeft), onPressed: () => context.pop()),
+        leading: const AppBackButton(),
         title: const Text('Organizer tools'),
       ),
       body: role.when(
@@ -51,7 +52,6 @@ class OrganizerToolsScreen extends ConsumerWidget {
               ],
             );
           }
-          final next = draws.where((d) => d.status == DrawStatus.scheduled).firstOrNull;
           return RefreshIndicator(
             onRefresh: () async {
               ref.invalidate(myEventRoleProvider(eventId));
@@ -95,115 +95,14 @@ class OrganizerToolsScreen extends ConsumerWidget {
                     ),
                   ),
                 ),
-                const _Head('AT THE DOOR'),
-                _Row(
-                  icon: AppIcons.qrCode,
-                  title: 'Check-in QR',
-                  subtitle: 'Members scan it to check in. It changes every 30 seconds.',
-                  onTap: () => context.push(Routes.eventQr(eventId)),
-                ),
-                _Row(
-                  icon: AppIcons.listChecks,
-                  title: 'Door list',
-                  subtitle: event == null ? 'Loading…' : '${event.checkinCount} checked in. Confirm who is really here.',
-                  onTap: event == null ? null : () => showWhosHereSheet(context, event),
-                ),
-                _Row(
-                  icon: AppIcons.scan,
-                  title: 'Scan prize claim',
-                  subtitle: 'Winners show a claim QR at the stage. Scan it, hand over the prize.',
-                  onTap: () => context.push(Routes.prizeScan),
-                ),
-                if (r.isHostCircle) ...[
-                  const _Head('RUN THE MEET'),
-                  _Row(
-                    icon: AppIcons.gift,
-                    title: 'Lucky draw',
-                    subtitle: next == null
-                        ? (draws.any((d) => d.status == DrawStatus.drawn) ? 'Drawn. Open the stage screen for results.' : 'Free entry for checked-in members. Set prizes and a time.')
-                        : '${next.title} at ${formatTime(next.drawAt)} · ${next.winnerCount} winner${next.winnerCount == 1 ? '' : 's'}',
-                    onTap: () => context.push(Routes.eventDraws(eventId)),
-                  ),
-                  _Row(
-                    icon: AppIcons.megaphone,
-                    title: 'Announcements',
-                    subtitle: 'Message everyone linked to the meet, now or at a set time.',
-                    onTap: () => context.push(Routes.eventAnnouncements(eventId)),
-                  ),
-                  _Row(
-                    icon: AppIcons.usersThree,
-                    title: 'Crew',
-                    subtitle: 'Co-hosts and check-in crew. Add from friends or by @handle.',
-                    onTap: () => context.push(Routes.eventCrew(eventId)),
-                  ),
-                  _Row(
-                    icon: AppIcons.link,
-                    title: 'Invite QR',
-                    subtitle: 'A code new people scan to join TT Spot through your meet.',
-                    onTap: () => context.push('/event/$eventId/invite'),
-                  ),
-                  _Row(
-                    icon: AppIcons.mapTrifold,
-                    title: 'Floorplan',
-                    subtitle: 'Levels, zones and pins for car parks and halls.',
-                    onTap: () => context.push('/event/$eventId/floorplan/edit'),
-                  ),
-                  _Row(
-                    icon: AppIcons.chartBar,
-                    title: 'Turnout report',
-                    subtitle: 'Verified check-ins, cars by make, arrivals. Share it with sponsors.',
-                    onTap: () => context.push(Routes.eventReport(eventId)),
-                  ),
-                  const _Head('EXPO'),
-                  _Row(
-                    icon: AppIcons.presentationChart,
-                    title: 'Live dashboard',
-                    subtitle: 'Check-ins, registrations, booth visits, leads and votes. Export CSV.',
-                    onTap: () => context.push(ExpoRoutes.dashboard(eventId)),
-                  ),
-                  _Row(
-                    icon: AppIcons.mapPinArea,
-                    title: 'Check-in area',
-                    subtitle: 'How far from the pin people can check in. Big halls need more.',
-                    onTap: () => context.push(ExpoRoutes.checkinArea(eventId)),
-                  ),
-                  _Row(
-                    icon: AppIcons.clipboardText,
-                    title: 'Registration form',
-                    subtitle: 'Questions people answer after checking in.',
-                    onTap: () => context.push(ExpoRoutes.registrationForm(eventId)),
-                  ),
-                  _Row(
-                    icon: AppIcons.storefront,
-                    title: 'Exhibitors',
-                    subtitle: 'Add or paste a list. Link them to booths on the floorplan.',
-                    onTap: () => context.push(ExpoRoutes.exhibitorsEditor(eventId)),
-                  ),
-                  _Row(
-                    icon: AppIcons.stamp,
-                    title: 'Stamps & booths',
-                    subtitle: 'Stamp stops, freebies, booth staff and booth QR codes.',
-                    onTap: () => context.push(ExpoRoutes.boothSetup(eventId)),
-                  ),
-                  _Row(
-                    icon: AppIcons.calendarBlank,
-                    title: 'Schedule',
-                    subtitle: 'Stage times. People get a reminder 10 minutes before.',
-                    onTap: () => context.push(ExpoRoutes.scheduleEditor(eventId)),
-                  ),
-                  _Row(
-                    icon: AppIcons.trophy,
-                    title: 'Show car vote',
-                    subtitle: "People's Choice. One vote per checked-in member.",
-                    onTap: () => context.push(ExpoRoutes.contestEditor(eventId)),
-                  ),
+                for (final g in organizerGroupsFor(r)) ...[
+                  OrganizerGroupHead(g.label),
+                  for (final t in organizerTools(g, eventId: eventId, role: r, event: event, draws: draws)) OrganizerToolTile(tool: t),
                 ],
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
                   child: Text(
-                    r.isCrewOnly
-                        ? 'You\'re on the crew: check people in, confirm arrivals and hand over prizes. You can\'t enter this meet\'s lucky draw.'
-                        : 'Lucky draws are free to enter, one entry per checked-in member. Prizes are yours to provide; TT Spot provides the platform.',
+                    organizerFootnote(r),
                     style: TextStyle(fontSize: 12, color: AppColors.textMuted, height: 1.4),
                   ),
                 ),
@@ -212,40 +111,9 @@ class OrganizerToolsScreen extends ConsumerWidget {
           );
         },
       ),
+      ),
     );
   }
-}
-
-class _Head extends StatelessWidget {
-  const _Head(this.text);
-  final String text;
-  @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.fromLTRB(20, 18, 20, 4),
-        child: Text(text, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, letterSpacing: 1, color: AppColors.textSecondary)),
-      );
-}
-
-class _Row extends StatelessWidget {
-  const _Row({required this.icon, required this.title, required this.subtitle, required this.onTap});
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) => ListTile(
-        leading: Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(color: AppColors.surfaceGray, borderRadius: BorderRadius.circular(AppRadius.md)),
-          child: Icon(icon, size: 21, color: AppColors.textPrimary),
-        ),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-        subtitle: Text(subtitle, style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary, height: 1.3)),
-        trailing: Icon(AppIcons.caretRight, size: 18, color: AppColors.textMuted),
-        onTap: onTap,
-      );
 }
 
 class _Message extends StatelessWidget {

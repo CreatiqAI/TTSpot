@@ -86,19 +86,38 @@ class EventGuideKeys {
 
 /// A meet page, for a member who isn't the host. Steps follow what the page
 /// shows: [live] has the check-in card (else a line about the host's QR),
-/// [onMyWay] and [chat] only when those buttons are there.
-Guide eventGuide(EventGuideKeys k, {required bool attending, bool full = false, bool live = false, bool onMyWay = false, bool chat = false}) => Guide(
+/// [onMyWay] and [chat] only when those buttons are there. [big]: a big,
+/// official event (its Overview tab), worded as an event, not a meet.
+Guide eventGuide(EventGuideKeys k, {required bool attending, bool full = false, bool live = false, bool onMyWay = false, bool chat = false, bool big = false}) => Guide(
       id: GuideIds.event,
       steps: [
         // Already going: no "how to leave" tip; start with what to do there.
         if (!attending && !full)
-          GuideStep(target: k.rsvp, title: 'Count me in', body: "Tap Join to go. That opens the meet chat and \"I'm on my way\".", pose: TitiPose.calendar),
+          GuideStep(
+            target: k.rsvp,
+            title: 'Count me in',
+            body: big ? 'Tap Join to go. That opens the event chat.' : "Tap Join to go. That opens the meet chat and \"I'm on my way\".",
+            pose: TitiPose.calendar,
+          ),
         if (live)
-          GuideStep(target: k.checkIn, title: 'Check in here', body: "At the meet? Check in or scan the host's QR. That's +10 points.", pose: TitiPose.mapPin)
+          GuideStep(
+            target: k.checkIn,
+            title: 'Check in here',
+            body: big ? "Here? Scan the QR at the entrance. You get your pass and a lucky draw number." : "At the meet? Check in or scan the host's QR. That's +10 points.",
+            pose: TitiPose.mapPin,
+          )
+        else if (big)
+          const GuideStep(title: 'Check in at the door', body: 'On the day, scan the QR at the entrance. You get your pass and a lucky draw number.', pose: TitiPose.mapPin)
         else
           const GuideStep(title: 'Check in at the meet', body: "On the day, scan the host's QR to check in. That's +10 points.", pose: TitiPose.mapPin),
         if (onMyWay) GuideStep(target: k.onMyWay, title: 'On your way?', body: 'Posts your ETA in the meet chat, then opens directions.', pose: TitiPose.rolling),
-        if (chat) GuideStep(target: k.chat, title: 'Meet chat', body: 'Plan the drive, share updates, find each other on the day.', pose: TitiPose.chat),
+        if (chat)
+          GuideStep(
+            target: k.chat,
+            title: big ? 'Event chat' : 'Meet chat',
+            body: big ? 'Updates and questions, with everyone going.' : 'Plan the drive, share updates, find each other on the day.',
+            pose: TitiPose.chat,
+          ),
       ],
     );
 

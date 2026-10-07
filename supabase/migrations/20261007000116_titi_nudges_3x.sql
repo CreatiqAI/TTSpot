@@ -224,7 +224,7 @@ begin
                 'checkins', (select count(*) from public.checkins c where c.user_id = p.id and c.checked_in_at >= v_week_start)
                           + (select count(*) from public.place_checkins pc where pc.user_id = p.id and pc.checked_in_at >= v_week_start),
                 'points', (select coalesce(sum(l.delta), 0) from public.point_ledger l
-                            where l.user_id = p.id and l.delta > 0 and l.created_at >= v_week_start)),
+                            where l.user_id = p.id and l.delta > 0 and l.created_at >= v_week_start and l.reason not in ('freepoints', 'portrait_refund'))),
 
       'sent_today', (select coalesce(jsonb_agg(jsonb_build_object('slot', n.slot, 'trigger', n.trigger, 'sent_at', n.sent_at) order by n.sent_at), '[]'::jsonb)
                        from public.titi_nudges n where n.user_id = p.id and n.day = v_today),

@@ -10,6 +10,18 @@ class ReleaseNote {
 
 const kReleaseNotes = <ReleaseNote>[
   ReleaseNote(
+    version: '0.3.60',
+    date: '8 Oct 2026',
+    title: 'Fixes from your testing',
+    points: [
+      'The map opens on your own car, no more old car flashing first.',
+      'Profile photo: zoom out to fit the whole picture; empty space takes its background colour.',
+      'Addresses no longer repeat the first part when you pick a suggestion.',
+      'Clear notices when an application is approved or not, and they open the right page.',
+      'TiTi drops by up to 3 times a day at random times, with weather, what is on near you and fun facts.',
+    ],
+  ),
+  ReleaseNote(
     version: '0.3.59',
     date: '7 Oct 2026',
     title: 'Smoother sign-up',

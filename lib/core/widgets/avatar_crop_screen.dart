@@ -12,10 +12,13 @@ import '../theme/app_theme.dart';
 typedef AvatarEncoder = Future<Uint8List> Function(ui.Image square);
 
 /// Profile photo crop: the picked photo under a round mask; pinch to zoom,
-/// drag to move, double-tap to start over. "Use photo" returns a square
-/// JPEG ([AvatarCrop.outputSide] px) of exactly the circle's bounding
-/// square, ready for the avatar upload. Null when cancelled.
-/// [dark] is the onboarding look; otherwise it follows the app theme.
+/// drag to move, double-tap to start over. It zooms out until the whole
+/// picture fits inside the circle; any space around it is filled with the
+/// picture's own background colour (its edge colour), on screen and in the
+/// saved file. "Use photo" returns a square JPEG ([AvatarCrop.outputSide] px)
+/// of exactly the circle's bounding square, ready for the avatar upload.
+/// Null when cancelled. [dark] is the onboarding look; otherwise it follows
+/// the app theme.
 Future<Uint8List?> cropAvatar(BuildContext context, Uint8List bytes, {bool dark = false}) {
   return Navigator.of(context, rootNavigator: true).push<Uint8List>(
     MaterialPageRoute(
@@ -34,31 +37,118 @@ abstract final class AvatarCrop {
   /// How far past "just covers the circle" a pinch may zoom in.
   static const maxZoom = 5.0;
 
-  /// Screen pixels per photo pixel at the smallest zoom: the photo just
-  /// covers the circle's square, so the saved square never has empty corners.
-  static double minScale(Size image, double d) => math.max(d / image.width, d / image.height);
+  /// Wider or taller than this (and on a plain background) opens fitted
+  /// inside the circle instead of covering it: a logo, not a photo.
+  static const fitAspect = 1.2;
+
+  /// Screen pixels per photo pixel when the photo just covers the circle's
+  /// square (the short side fills it). Zoom 1.
+  static double coverScale(Size image, double d) => math.max(d / image.width, d / image.height);
+
+  /// The smallest zoom: the whole picture inside the circle (its diagonal
+  /// is the circle's diameter), so not even a corner is cut.
+  static double minScale(Size image, double d) => d / math.sqrt(image.width * image.width + image.height * image.height);
+
+  /// Where the crop opens. Cover for photos and anything close to square;
+  /// fitted inside the circle for a wide or tall picture on a plain
+  /// background (a logo, a banner), so nothing of it is cut.
+  static double initialScale(Size image, double d, {required bool plainEdges}) {
+    final aspect = image.width / image.height;
+    final nearSquare = aspect <= fitAspect && aspect >= 1 / fitAspect;
+    return plainEdges && !nearSquare ? minScale(image, d) : coverScale(image, d);
+  }
 
   /// The photo centred on the circle at [scale].
   static Offset centred(Size image, double scale, double d) => Offset((d - image.width * scale) / 2, (d - image.height * scale) / 2);
 
-  /// Keeps the circle's square covered: no edge of the photo inside it.
-  static Offset clamp(Offset offset, Size image, double scale, double d) =>
-      Offset(offset.dx.clamp(math.min(0.0, d - image.width * scale), 0.0), offset.dy.clamp(math.min(0.0, d - image.height * scale), 0.0));
-
-  /// The part of the photo (in photo pixels) under the circle's square.
-  static Rect sourceRect(Offset offset, double scale, double d, Size image) {
-    final side = math.min(d / scale, math.min(image.width, image.height));
-    final left = (-offset.dx / scale).clamp(0.0, image.width - side);
-    final top = (-offset.dy / scale).clamp(0.0, image.height - side);
-    return Rect.fromLTWH(left, top, side, side);
+  /// Bigger than the circle's square on an axis: no edge of the photo inside
+  /// it. Smaller: the photo stays inside it.
+  static Offset clamp(Offset offset, Size image, double scale, double d) {
+    final gx = d - image.width * scale, gy = d - image.height * scale;
+    return Offset(offset.dx.clamp(math.min(0.0, gx), math.max(0.0, gx)), offset.dy.clamp(math.min(0.0, gy), math.max(0.0, gy)));
   }
 
-  /// Draws [src] of [image] into a [side] x [side] square (dart:ui only).
-  static Future<ui.Image> render(ui.Image image, Rect src, {int side = outputSide}) {
+  /// The part of the photo (in photo pixels) under the circle's square.
+  static Rect sourceRect(Offset offset, double scale, double d, Size image) => Rect.fromLTRB(
+        math.max(0.0, -offset.dx / scale),
+        math.max(0.0, -offset.dy / scale),
+        math.min(image.width, (d - offset.dx) / scale),
+        math.min(image.height, (d - offset.dy) / scale),
+      );
+
+  /// The circle's square as a [side] x [side] picture (dart:ui only):
+  /// [fill] first, then the photo where it sits on screen.
+  static Future<ui.Image> render(ui.Image image, {required Offset offset, required double scale, required double d, required Color fill, int side = outputSide}) {
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
-    canvas.drawImageRect(image, src, Rect.fromLTWH(0, 0, side.toDouble(), side.toDouble()), Paint()..filterQuality = FilterQuality.high);
+    final k = side / d;
+    canvas.drawRect(Rect.fromLTWH(0, 0, side.toDouble(), side.toDouble()), Paint()..color = fill);
+    canvas.drawImageRect(
+      image,
+      Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble()),
+      Rect.fromLTWH(offset.dx * k, offset.dy * k, image.width * scale * k, image.height * scale * k),
+      Paint()..filterQuality = FilterQuality.high,
+    );
     return recorder.endRecording().toImage(side, side);
+  }
+
+  /// The picture's background colour from its outer [ring] px (RGBA bytes,
+  /// [w] x [h]): the most common edge colour, averaged within its bucket.
+  /// See-through pixels count as on white. [plain] when most of the edge
+  /// is that one colour (a logo or graphic rather than a photo).
+  static ({Color fill, bool plain}) edgeColour(Uint8List rgba, int w, int h, {int ring = 2}) {
+    final buckets = <int, List<int>>{}; // key -> [count, r, g, b]
+    final px = <int>[];
+    void add(int x, int y) {
+      final i = (y * w + x) * 4;
+      final a = rgba[i + 3] / 255;
+      final r = (rgba[i] * a + 255 * (1 - a)).round();
+      final g = (rgba[i + 1] * a + 255 * (1 - a)).round();
+      final b = (rgba[i + 2] * a + 255 * (1 - a)).round();
+      px.add((r << 16) | (g << 8) | b);
+      final s = buckets.putIfAbsent(((r >> 4) << 8) | ((g >> 4) << 4) | (b >> 4), () => [0, 0, 0, 0]);
+      s[0]++;
+      s[1] += r;
+      s[2] += g;
+      s[3] += b;
+    }
+
+    final t = math.min(ring, math.min(w, h));
+    for (var y = 0; y < h; y++) {
+      if (y < t || y >= h - t) {
+        for (var x = 0; x < w; x++) {
+          add(x, y);
+        }
+      } else {
+        for (var x = 0; x < t; x++) {
+          add(x, y);
+          if (w - 1 - x >= t) add(w - 1 - x, y);
+        }
+      }
+    }
+    if (px.isEmpty) return (fill: Colors.white, plain: false);
+    final top = buckets.values.reduce((a, b) => b[0] > a[0] ? b : a);
+    final r = (top[1] / top[0]).round(), g = (top[2] / top[0]).round(), b = (top[3] / top[0]).round();
+    // Plain: nearly all the edge within a small step of that colour (JPEG noise, anti-aliasing).
+    var near = 0;
+    for (final c in px) {
+      if (((c >> 16) - r).abs() <= 24 && (((c >> 8) & 0xFF) - g).abs() <= 24 && ((c & 0xFF) - b).abs() <= 24) near++;
+    }
+    return (fill: Color.fromARGB(255, r, g, b), plain: near >= px.length * 0.85);
+  }
+
+  /// [edgeColour] of a small decode of [bytes] (fast for any photo size).
+  static Future<({Color fill, bool plain})> sampleEdges(Uint8List bytes) async {
+    final codec = await ui.instantiateImageCodec(bytes, targetWidth: 160);
+    final img = (await codec.getNextFrame()).image;
+    codec.dispose();
+    try {
+      final data = await img.toByteData(format: ui.ImageByteFormat.rawRgba);
+      if (data == null) return (fill: Colors.white, plain: false);
+      return edgeColour(data.buffer.asUint8List(), img.width, img.height);
+    } finally {
+      img.dispose();
+    }
   }
 
   /// JPEG through flutter_image_compress; PNG if that isn't available.
@@ -97,16 +187,24 @@ class AvatarCropScreenState extends State<AvatarCropScreen> {
   Offset _focal0 = Offset.zero;
   Offset _offset0 = Offset.zero;
   bool _busy = false;
+  // The picture's own background colour, behind it in the circle and the file.
+  Color _fill = Colors.white;
+  bool _plainEdges = false;
 
   Size get _imageSize => Size(_image!.width.toDouble(), _image!.height.toDouble());
   double get _minScale => AvatarCrop.minScale(_imageSize, _d);
+  double get _maxScale => AvatarCrop.coverScale(_imageSize, _d) * AvatarCrop.maxZoom;
 
   /// The photo pixels the circle covers now (tests read it).
   @visibleForTesting
   Rect? get sourceRect => _image == null || _d == 0 ? null : AvatarCrop.sourceRect(_offset, _scale, _d, _imageSize);
 
+  /// 1 = the photo just covers the circle; below 1 the fill shows around it.
   @visibleForTesting
-  double get zoom => _image == null || _d == 0 ? 1 : _scale / _minScale;
+  double get zoom => _image == null || _d == 0 ? 1 : _scale / AvatarCrop.coverScale(_imageSize, _d);
+
+  @visibleForTesting
+  Color get fill => _fill;
 
   @override
   void initState() {
@@ -125,11 +223,21 @@ class AvatarCropScreenState extends State<AvatarCropScreen> {
       final codec = await ui.instantiateImageCodec(widget.bytes);
       final frame = await codec.getNextFrame();
       codec.dispose();
+      ({Color fill, bool plain})? edges;
+      try {
+        edges = await AvatarCrop.sampleEdges(widget.bytes);
+      } catch (_) {} // white, and opens covering the circle
       if (!mounted) {
         frame.image.dispose();
         return;
       }
-      setState(() => _image = frame.image);
+      setState(() {
+        _image = frame.image;
+        if (edges != null) {
+          _fill = edges.fill;
+          _plainEdges = edges.plain;
+        }
+      });
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(const SnackBar(content: Text('Couldn\'t open that photo. Try another.')));
@@ -138,12 +246,12 @@ class AvatarCropScreenState extends State<AvatarCropScreen> {
   }
 
   void _reset() {
-    _scale = _minScale;
+    _scale = AvatarCrop.initialScale(_imageSize, _d, plainEdges: _plainEdges);
     _offset = AvatarCrop.centred(_imageSize, _scale, _d);
   }
 
   /// The circle's size for this area; the first time (or after a resize)
-  /// the photo starts centred and just covering it.
+  /// the photo starts centred, covering it (or fitted inside, for a logo).
   void _layout(double d) {
     if (_image == null || d <= 0 || d == _d) return;
     _d = d;
@@ -152,11 +260,10 @@ class AvatarCropScreenState extends State<AvatarCropScreen> {
 
   Future<void> _use() async {
     final img = _image;
-    final src = sourceRect;
-    if (img == null || src == null || _busy) return;
+    if (img == null || _d == 0 || _busy) return;
     setState(() => _busy = true);
     try {
-      final square = await AvatarCrop.render(img, src);
+      final square = await AvatarCrop.render(img, offset: _offset, scale: _scale, d: _d, fill: _fill);
       final Uint8List bytes;
       try {
         bytes = await (widget.encoder ?? AvatarCrop.encodeJpeg)(square);
@@ -217,8 +324,7 @@ class AvatarCropScreenState extends State<AvatarCropScreen> {
                             onScaleUpdate: _busy
                                 ? null
                                 : (g) => setState(() {
-                                    final min = _minScale;
-                                    _scale = (_scale0 * g.scale).clamp(min, min * AvatarCrop.maxZoom);
+                                    _scale = (_scale0 * g.scale).clamp(_minScale, _maxScale);
                                     // Keep the photo point under the fingers where it was.
                                     final p = (_focal0 - _offset0) / _scale0;
                                     _offset = AvatarCrop.clamp(g.localFocalPoint - origin - p * _scale, _imageSize, _scale, _d);
@@ -226,6 +332,14 @@ class AvatarCropScreenState extends State<AvatarCropScreen> {
                             child: ClipRect(
                               child: Stack(
                                 children: [
+                                  // The picture's background colour, round like the avatar.
+                                  Positioned.fromRect(
+                                    rect: circle,
+                                    child: DecoratedBox(
+                                      key: const ValueKey('avatar-crop-fill'),
+                                      decoration: BoxDecoration(color: _fill, shape: BoxShape.circle),
+                                    ),
+                                  ),
                                   Positioned(
                                     left: origin.dx + _offset.dx,
                                     top: origin.dy + _offset.dy,

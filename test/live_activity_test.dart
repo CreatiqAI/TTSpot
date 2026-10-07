@@ -44,8 +44,8 @@ class _FakeChannel extends LiveActivityChannel {
   @override
   Future<Set<String>> active() async => {...running};
   @override
-  Future<bool> start(Event e) async {
-    calls.add('start ${e.id}');
+  Future<bool> start(Event e, {String? badge}) async {
+    calls.add(badge == null ? 'start ${e.id}' : 'start ${e.id} $badge');
     running.add(e.id);
     return true;
   }

@@ -59,10 +59,15 @@ struct TTSpotLiveActivity: Widget {
             .padding(.trailing, 4)
         }
         DynamicIslandExpandedRegion(.center) {
-          Text(s.title)
-            .font(.system(size: 15, weight: .bold))
-            .foregroundColor(.white)
-            .lineLimit(1)
+          HStack(spacing: 6) {
+            Text(s.title)
+              .font(.system(size: 15, weight: .bold))
+              .foregroundColor(.white)
+              .lineLimit(1)
+            if let badge = s.badge {
+              EntryPill(text: badge)
+            }
+          }
         }
         DynamicIslandExpandedRegion(.bottom) {
           HStack(alignment: .firstTextBaseline) {
@@ -120,10 +125,15 @@ private struct LockScreenView: View {
           Image(systemName: kind.symbol).font(.system(size: 11, weight: .bold)).foregroundColor(kind.color)
           Text(kind.label).font(.system(size: 12, weight: .semibold)).foregroundColor(kind.color)
         }
-        Text(state.title)
-          .font(.system(size: 17, weight: .bold))
-          .foregroundColor(.white)
-          .lineLimit(1)
+        HStack(spacing: 6) {
+          Text(state.title)
+            .font(.system(size: 17, weight: .bold))
+            .foregroundColor(.white)
+            .lineLimit(1)
+          if let badge = state.badge {
+            EntryPill(text: badge)
+          }
+        }
         Venue(name: state.venue)
       }
       Spacer(minLength: 8)
@@ -147,6 +157,22 @@ private struct Mark: View {
       .aspectRatio(contentMode: .fit)
       .frame(height: height)
       .accessibilityLabel("TT Spot")
+  }
+}
+
+/// A small pill next to the title: my entry number once checked in.
+private struct EntryPill: View {
+  let text: String
+  var body: some View {
+    Text(text)
+      .font(.system(size: 12, weight: .heavy, design: .rounded))
+      .monospacedDigit()
+      .foregroundColor(.white)
+      .lineLimit(1)
+      .fixedSize()
+      .padding(.horizontal, 7)
+      .padding(.vertical, 2)
+      .background(Capsule().fill(brandRed))
   }
 }
 

@@ -8,8 +8,9 @@ import Foundation
 //
 //   supported -> Bool         iOS 16.1+ and Live Activities allowed for TT Spot
 //   active    -> [String]     event ids with a running activity
-//   start {eventId, title, venue, startsAt, endsAt (ms since epoch), type}
-//             -> Bool         starts it, or refreshes the running one
+//   start {eventId, title, venue, startsAt, endsAt (ms since epoch), type,
+//          badge?}       -> Bool  starts it, or refreshes the running one
+//                                 (badge: e.g. the entry number "#0427")
 //   end {eventId} / endAll    -> Int, how many ended
 //
 // The app's minimum is iOS 15, so everything is behind iOS 16.1 checks and
@@ -78,7 +79,8 @@ private enum LiveActivities {
       venue: (args["venue"] as? String) ?? "",
       startsAt: startsAt,
       endsAt: endsAt,
-      type: (args["type"] as? String) ?? "meet"
+      type: (args["type"] as? String) ?? "meet",
+      badge: (args["badge"] as? String).flatMap { $0.isEmpty ? nil : $0 }
     )
     // iOS redraws the activity at the stale date: at the start it flips to
     // Live, at the end to Ended. No pushes, no updates in between.

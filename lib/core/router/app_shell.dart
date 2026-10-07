@@ -8,6 +8,7 @@ import '../../features/profile/presentation/profile_menu.dart';
 import '../../features/social/presentation/create_hub_sheet.dart';
 import '../../features/social/application/chat_providers.dart';
 import '../../features/social/application/notification_providers.dart';
+import '../guide/guide.dart';
 import '../theme/app_icons.dart';
 import '../../features/accounts/application/active_account.dart';
 import 'tab_reselect.dart';
@@ -140,10 +141,7 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
     final unread =(ref.watch(unreadMessagesProvider).value ?? 0) + (account is PersonalAccount ? (ref.watch(unreadNotificationsProvider).value ?? 0) : 0);
     var selected = tabs.indexWhere((t) => t.branch == shell.currentIndex);
     if (selected < 0) selected = 0;
-    return Scaffold(
-      body: shell,
-      extendBody: true,
-      bottomNavigationBar: GlassTabBar(
+    final bar = GlassTabBar(
         tabs: [
           for (final t in tabs) GlassTab(icon: t.icon, selectedIcon: t.selectedIcon, label: t.label, badge: t.branch == 2 ? unread : 0, action: t.branch == _create),
         ],
@@ -165,7 +163,42 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
           }
           shell.goBranch(t.branch, initialLocation: t.branch == shell.currentIndex);
         },
-      ),
+      );
+    return Scaffold(
+      body: shell,
+      extendBody: true,
+      bottomNavigationBar: account is PersonalAccount ? _withGuideKeys(bar, tabs) : bar,
     );
   }
+
+  /// TiTi guides spotlight the tab buttons (GuideTabKeys). Invisible boxes
+  /// laid over the bar exactly where each button's capsule sits; they
+  /// ignore touches, so the bar looks and works as before.
+  Widget _withGuideKeys(Widget bar, List<TabSpec> tabs) => Stack(
+        children: [
+          bar,
+          Positioned.fill(
+            child: IgnorePointer(
+              child: ExcludeSemantics(
+                child: Padding(
+                  padding: GlassTabBar.margin.add(EdgeInsets.only(bottom: MediaQuery.paddingOf(context).bottom)),
+                  child: Row(
+                    children: [
+                      for (final t in tabs)
+                        Expanded(
+                          child: Center(
+                            child: KeyedSubtree(
+                              key: t.branch == _create ? GuideTabKeys.create : GuideTabKeys.forBranch(t.branch),
+                              child: const SizedBox(width: 52, height: 44),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
 }

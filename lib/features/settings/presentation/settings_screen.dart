@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/config/app_version.dart';
 import '../../../core/directions/directions.dart';
+import '../../../core/guide/guide_controller.dart';
 import '../../../core/legal/legal_text.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/supabase/supabase_client.dart';
@@ -131,6 +132,22 @@ class SettingsScreen extends ConsumerWidget {
             },
           ),
           const TitiTipsSwitch(),
+          // Tips from TiTi: the first-visit page guides (lib/core/guide).
+          _Toggle(
+            key: const Key('settings-page-tips'),
+            icon: AppIcons.handPointing,
+            title: 'Page tips',
+            subtitle: 'TiTi shows you around new pages',
+            value: s.tipsOn,
+            onChanged: (v) => set({'tips': v}),
+          ),
+          _Row(
+            key: const Key('settings-replay-tips'),
+            icon: AppIcons.arrowCounterClockwise,
+            title: 'Replay tips',
+            subtitle: 'See the page tips again',
+            onTap: () => _replayTips(context, ref),
+          ),
           if (_isIOS)
             _Toggle(
               icon: AppIcons.timer,
@@ -453,6 +470,17 @@ class BlockedScreen extends ConsumerWidget {
   }
 }
 
+/// Settings → Replay tips: forget every seen guide (and turn tips back on).
+Future<void> _replayTips(BuildContext context, WidgetRef ref) async {
+  try {
+    await ref.read(guideControllerProvider).resetAll();
+    if (!ref.read(settingsProvider).tipsOn) await ref.read(settingsActionsProvider).patch({'tips': true});
+    if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Done. Tips show again as you explore.')));
+  } catch (e) {
+    if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
+  }
+}
+
 final blockedProfileProvider = FutureProvider.family((ref, String id) => ref.watch(authRepositoryProvider).fetchProfile(id));
 
 // ---------------------------------------------------------------- push ---
@@ -755,7 +783,7 @@ class _Note extends StatelessWidget {
 }
 
 class _Toggle extends StatelessWidget {
-  const _Toggle({required this.icon, required this.title, this.subtitle, required this.value, required this.onChanged});
+  const _Toggle({super.key, required this.icon, required this.title, this.subtitle, required this.value, required this.onChanged});
   final IconData icon;
   final String title;
   final String? subtitle;

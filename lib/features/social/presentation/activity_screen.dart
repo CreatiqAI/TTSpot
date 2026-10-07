@@ -20,6 +20,7 @@ import '../../friends/application/friends_providers.dart';
 import '../../friends/presentation/friend_request_buttons.dart';
 import '../application/chat_providers.dart';
 import '../application/notification_providers.dart';
+import '../domain/application_notice.dart';
 import '../domain/notification.dart';
 
 /// Full-screen activity (deep links); the Chats tab embeds [ActivityList].
@@ -149,20 +150,11 @@ class _ActivityListState extends ConsumerState<ActivityList> {
   }
 }
 
-/// Partner notifications carry `applied:<name>` (to admins, with an actor),
-/// `approved:<name>` or `rejected:<reason>` (to the applicant, no actor).
+/// Partner / car club / organizer applications and the admin's decision
+/// (see [ApplicationNotice] for the body format).
 (String, String?) _partnerText(AppNotification n) {
-  final body = n.body ?? '';
-  if (body.startsWith('applied-organizer:')) return ('applied to be a verified organizer: ${body.substring(18)}', Routes.adminPartners);
-  if (body.startsWith('approved-organizer:')) return ('You\'re a verified organizer. Open any meet you host and tap Organizer tools.', Routes.meets);
-  if (body.startsWith('rejected-organizer:')) return ('Your organizer application was not approved: ${body.substring(19)}', Routes.organizerApply);
-  if (body.startsWith('applied-club:')) return ('applied to run a car club: ${body.substring(13)}', Routes.adminPartners);
-  if (body.startsWith('approved-club:')) return ('You can now run ${body.substring(14)} on TT Spot. Create the club and start inviting members.', Routes.createClub);
-  if (body.startsWith('rejected-club:')) return ('Your car club application was not approved: ${body.substring(14)}', Routes.clubApply);
-  if (body.startsWith('applied:')) return ('applied to be a partner: ${body.substring(8)}', Routes.adminPartners);
-  if (body.startsWith('approved:')) return ('${body.substring(9)} is now a TT Spot partner. Open your dashboard to publish vouchers.', Routes.vendor);
-  if (body.startsWith('rejected:')) return ('Your partner application was not approved: ${body.substring(9)}', Routes.partnerApply);
-  return (body, null);
+  final a = ApplicationNotice.parse(n.body);
+  return a == null ? (n.body ?? 'Partner update.', null) : (a.sentence, a.route);
 }
 
 /// Card notifications carry `trade:<id>` (an offer, with an actor),
@@ -334,7 +326,7 @@ class ActivityRow extends ConsumerWidget {
                   switch (n.type) {
                     NotificationType.badge => badge?.emoji ?? '🏅',
                     NotificationType.carOfWeek => '🏆',
-                    NotificationType.partner => '🤝',
+                    NotificationType.partner => ApplicationNotice.parse(n.body)?.step == ApplicationStep.approved ? '🎉' : '🤝',
                     NotificationType.voucher => '☕',
                     NotificationType.points => '⭐',
                     NotificationType.cards => '🎁',

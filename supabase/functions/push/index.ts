@@ -207,7 +207,32 @@ function friendPostText(b: string | null): string {
   }
 }
 
-const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+/** partner / car club / organizer applications (admin_review_partner,
+ * apply_partner, apply_organizer): body "<applied|approved|rejected>[-club|-organizer]:<name or note>".
+ * Same copy as the app's lib/features/social/domain/application_notice.dart. */
+function applicationNotice(b: string | null): { step: string; text: string; route: string } | null {
+  const s = b ?? "";
+  const i = s.indexOf(":");
+  if (i < 0) return null;
+  const [step, role = "partner", extra] = s.slice(0, i).split("-");
+  if (extra !== undefined || !["applied", "approved", "rejected"].includes(step) || !["partner", "club", "organizer"].includes(role)) return null;
+  let text = s.slice(i + 1).trim();
+  if (step === "rejected" && text.toLowerCase() === "no reason given") text = "";
+  const what = role === "club" ? "car club" : role;
+  if (step === "applied") {
+    const as = role === "club" ? "run a car club" : role === "organizer" ? "be a verified organizer" : "be a partner";
+    return { step, text: `applied to ${as}: ${text}`, route: "/admin/partners" };
+  }
+  if (step === "approved") {
+    const ready = role === "club" ? "Create your club and invite members." : `Your ${role} tools are ready.`;
+    const route = role === "club" ? "/create/club" : role === "organizer" ? "/organizer/apply" : "/vendor";
+    return { step, text: `${text || `Your ${what} application`} is approved 🎉 ${ready}`, route };
+  }
+  const route = role === "club" ? "/club/apply" : role === "organizer" ? "/organizer/apply" : "/partner/apply";
+  return { step, text: `Your ${what} application wasn't approved.${text ? ` Note: ${text}` : ""}`, route };
+}
+
+const WEEKDAYS =["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 /** When a session starts, in Malaysian time (UTC+8, no daylight saving), as
@@ -291,7 +316,10 @@ async function fromNotification(id: string): Promise<Push | null> {
       case "badge": return ["TT Spot", "You earned a new badge.", null];
       case "voucher": return ["TT Spot", (b ?? "").startsWith("redeemed:") ? `Voucher used: ${after(b, "redeemed:")}` : b ?? "Voucher update.", "/rewards?tab=vouchers"];
       case "spotted_claim": return [who, "claimed the car you spotted.", post_];
-      case "partner": return ["TT Spot", b ?? "Partner update.", null];
+      case "partner": {
+        const a = applicationNotice(b);
+        return a ? [a.step === "applied" ? who || "TT Spot" : "TT Spot", a.text, a.route] : ["TT Spot", b ?? "Partner update.", null];
+      }
       case "cards":
         return (b ?? "").startsWith("trade:") ? [who, "sent you a card trade offer.", "/cards?tab=trades"]
           : (b ?? "").startsWith("accepted:") ? [who, "accepted your trade. The cards are in your collection.", "/cards"]

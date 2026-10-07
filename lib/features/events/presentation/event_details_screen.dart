@@ -797,7 +797,7 @@ class _MapPreview extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8)),
-                child: Text(event.venueName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                child: Text(event.venueName, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF101010))),
               ),
             ),
           ],

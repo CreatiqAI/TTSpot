@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/router/app_router.dart';
+import '../../../core/router/pop_or_home.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/titi.dart';
@@ -127,7 +128,7 @@ class _LuckyDrawStageScreenState extends ConsumerState<LuckyDrawStageScreen> {
           backgroundColor: _bg,
           foregroundColor: Colors.white,
           surfaceTintColor: Colors.transparent,
-          leading: IconButton(icon: const Icon(AppIcons.x), onPressed: () => context.pop()),
+          leading: const AppBackButton(icon: AppIcons.x),
           title: Text(stage.value?.title ?? 'Lucky draw', style: const TextStyle(color: Colors.white)),
           actions: [
             if (stage.value?.status == DrawStatus.drawn && _phase != _Phase.reveal)

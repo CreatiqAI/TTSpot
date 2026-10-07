@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../../core/router/pop_or_home.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/friendly_error.dart';
@@ -30,7 +30,7 @@ class EventInviteScreen extends ConsumerWidget {
     final title = ref.watch(eventDetailProvider(eventId)).value?.event.title;
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(icon: const Icon(AppIcons.arrowLeft), onPressed: () => context.pop()),
+        leading: const AppBackButton(),
         title: const Text('Invite QR'),
       ),
       body: host.when(

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/router/app_router.dart';
+import '../../../core/router/pop_or_home.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
@@ -335,7 +336,7 @@ class _FloorplanScreenState extends ConsumerState<FloorplanScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(icon: const Icon(AppIcons.arrowLeft), onPressed: () => context.pop()),
+        leading: const AppBackButton(),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

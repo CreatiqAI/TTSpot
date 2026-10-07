@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/router/pop_or_home.dart';
 import '../../../../core/theme/app_icons.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/titi.dart';
@@ -16,15 +17,46 @@ import '../application/agenda_providers.dart';
 import '../domain/agenda.dart';
 
 /// Members: the stage schedule with "Remind me".
-class ScheduleScreen extends ConsumerStatefulWidget {
+class ScheduleScreen extends ConsumerWidget {
   const ScheduleScreen({super.key, required this.eventId});
   final String eventId;
 
   @override
-  ConsumerState<ScheduleScreen> createState() => _ScheduleScreenState();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final host = ref.watch(isMeetHostProvider(eventId)).value ?? false;
+    return HomeOnBack(
+      child: Scaffold(
+        appBar: AppBar(
+          leading: const AppBackButton(),
+          title: const Text('Schedule'),
+          actions: [
+            if (host)
+              IconButton(tooltip: 'Edit schedule', icon: const Icon(AppIcons.pencilSimple), onPressed: () => context.push(ExpoRoutes.scheduleEditor(eventId))),
+          ],
+        ),
+        body: RefreshIndicator(
+          onRefresh: () => ref.refresh(eventAgendaProvider(eventId).future),
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [ScheduleBody(eventId: eventId)],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
-class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
+/// The schedule by day, with NOW / NEXT and the reminder bells. Slivers, for
+/// a CustomScrollView: the Schedule screen and the event page's Schedule tab.
+class ScheduleBody extends ConsumerStatefulWidget {
+  const ScheduleBody({super.key, required this.eventId});
+  final String eventId;
+
+  @override
+  ConsumerState<ScheduleBody> createState() => _ScheduleBodyState();
+}
+
+class _ScheduleBodyState extends ConsumerState<ScheduleBody> {
   Timer? _tick;
 
   /// Bell taps shown straight away, before the list refetches.
@@ -75,71 +107,57 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
   Widget build(BuildContext context) {
     final agenda = ref.watch(eventAgendaProvider(widget.eventId));
     final host = ref.watch(isMeetHostProvider(widget.eventId)).value ?? false;
-    return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(icon: const Icon(AppIcons.arrowLeft), onPressed: () => context.pop()),
-        title: const Text('Schedule'),
-        actions: [
-          if (host)
-            IconButton(tooltip: 'Edit schedule', icon: const Icon(AppIcons.pencilSimple), onPressed: () => context.push(ExpoRoutes.scheduleEditor(widget.eventId))),
-        ],
+    return agenda.when(
+      skipLoadingOnRefresh: true,
+      skipLoadingOnReload: true,
+      loading: () => const SliverToBoxAdapter(
+        child: Padding(padding: EdgeInsets.symmetric(vertical: 48), child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
       ),
-      body: agenda.when(
-        skipLoadingOnRefresh: true,
-        skipLoadingOnReload: true,
-        loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
-        error: (e, _) => Center(child: Padding(padding: const EdgeInsets.all(32), child: Text(friendlyError(e), textAlign: TextAlign.center))),
-        data: (items) {
-          if (items.isEmpty) {
-            return RefreshIndicator(
-              onRefresh: () => ref.refresh(eventAgendaProvider(widget.eventId).future),
-              child: ListView(
-                children: [
-                  const SizedBox(height: 60),
-                  EmptyState(
-                    titi: TitiPose.calendar,
-                    title: 'No schedule yet',
-                    subtitle: "The organizer hasn't posted one. Check back closer to the day.",
-                    actionLabel: host ? 'Add the first item' : null,
-                    onAction: host ? () => context.push(ExpoRoutes.scheduleEditor(widget.eventId)) : null,
-                  ),
-                ],
+      error: (e, _) => SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.all(32), child: Text(friendlyError(e), textAlign: TextAlign.center))),
+      data: (items) {
+        if (items.isEmpty) {
+          return SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.only(top: 36),
+              child: EmptyState(
+                titi: TitiPose.calendar,
+                title: 'No schedule yet',
+                subtitle: "The organizer hasn't posted one. Check back closer to the day.",
+                actionLabel: host ? 'Add the first item' : null,
+                onAction: host ? () => context.push(ExpoRoutes.scheduleEditor(widget.eventId)) : null,
               ),
-            );
-          }
-          final now = DateTime.now();
-          final phases = agendaPhases(items, now);
-          final days = groupAgendaByDay(items);
-          return RefreshIndicator(
-            onRefresh: () => ref.refresh(eventAgendaProvider(widget.eventId).future),
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 40),
-              children: [
-                for (final d in days) ...[
-                  Padding(
-                    padding: const EdgeInsets.only(top: 12, bottom: 8),
-                    child: Text(
-                      (isSameDay(d.day, now) ? 'Today · ${formatDate(d.day)}' : formatDate(d.day)).toUpperCase(),
-                      style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, letterSpacing: 1, color: AppColors.textSecondary),
-                    ),
-                  ),
-                  for (final i in d.items)
-                    AgendaTile(
-                      item: i,
-                      phase: phases[i.id] ?? AgendaPhase.later,
-                      reminderOn: _pending[i.id] ?? i.reminderOn,
-                      busy: _busy.contains(i.id),
-                      onToggle: () => _toggle(i),
-                      onPlace: i.pinLevelId == null
-                          ? null
-                          : () => context.push('/event/${widget.eventId}/floorplan?level=${i.pinLevelId}'),
-                    ),
-                ],
-              ],
             ),
           );
-        },
-      ),
+        }
+        final now = DateTime.now();
+        final phases = agendaPhases(items, now);
+        final days = groupAgendaByDay(items);
+        return SliverPadding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 40),
+          sliver: SliverList.list(
+            children: [
+              for (final d in days) ...[
+                Padding(
+                  padding: const EdgeInsets.only(top: 12, bottom: 8),
+                  child: Text(
+                    (isSameDay(d.day, now) ? 'Today · ${formatDate(d.day)}' : formatDate(d.day)).toUpperCase(),
+                    style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, letterSpacing: 1, color: AppColors.textSecondary),
+                  ),
+                ),
+                for (final i in d.items)
+                  AgendaTile(
+                    item: i,
+                    phase: phases[i.id] ?? AgendaPhase.later,
+                    reminderOn: _pending[i.id] ?? i.reminderOn,
+                    busy: _busy.contains(i.id),
+                    onToggle: () => _toggle(i),
+                    onPlace: i.pinLevelId == null ? null : () => context.push('/event/${widget.eventId}/floorplan?level=${i.pinLevelId}'),
+                  ),
+              ],
+            ],
+          ),
+        );
+      },
     );
   }
 }

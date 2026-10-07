@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/router/pop_or_home.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_images.dart';
 import '../../../core/theme/app_theme.dart';
@@ -157,14 +158,14 @@ class _LuckyDrawEditScreenState extends ConsumerState<LuckyDrawEditScreen> {
   Widget build(BuildContext context) {
     if (_editing && !_loaded) {
       return Scaffold(
-        appBar: AppBar(leading: IconButton(icon: const Icon(AppIcons.arrowLeft), onPressed: () => context.pop()), title: const Text('Edit lucky draw')),
+        appBar: AppBar(leading: const AppBackButton(), title: const Text('Edit lucky draw')),
         body: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
       );
     }
     final winners = _prizes.where((p) => p.name.text.trim().isNotEmpty).fold(0, (s, p) => s + p.quantity);
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(icon: const Icon(AppIcons.arrowLeft), onPressed: () => context.pop()),
+        leading: const AppBackButton(),
         title: Text(_editing ? 'Edit lucky draw' : 'New lucky draw'),
       ),
       body: ListView(

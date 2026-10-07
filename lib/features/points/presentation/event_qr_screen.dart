@@ -3,9 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
+import '../../../core/router/pop_or_home.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/friendly_error.dart';
@@ -71,7 +71,7 @@ class _EventQrScreenState extends ConsumerState<EventQrScreen> {
         appBar: AppBar(
           backgroundColor: AppColors.mapBg,
           foregroundColor: Colors.white,
-          leading: IconButton(icon: const Icon(AppIcons.x), onPressed: () => context.pop()),
+          leading: const AppBackButton(icon: AppIcons.x),
           title: const Text('Check-in code', style: TextStyle(color: Colors.white)),
         ),
         body: Center(

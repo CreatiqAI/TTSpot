@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../../core/router/pop_or_home.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
@@ -75,7 +75,7 @@ class TurnoutReportScreen extends ConsumerWidget {
     final report = ref.watch(turnoutReportProvider(eventId));
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(icon: const Icon(AppIcons.arrowLeft), onPressed: () => context.pop()),
+        leading: const AppBackButton(),
         title: const Text('Turnout report'),
         actions: [
           if (report.value != null)

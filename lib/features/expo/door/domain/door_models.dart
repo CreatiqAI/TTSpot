@@ -110,6 +110,10 @@ class EventHub {
   /// Stamps needed to finish the rally: the host's goal, else every stop.
   int get stampTarget => stampGoal ?? stampStops;
 
+  /// A big, official event: it has an Expo module (floor plan, exhibitors,
+  /// schedule, stamp stops or an open vote). Its page shows module tabs.
+  bool get isBig => levels > 0 || exhibitors > 0 || agenda > 0 || stampStops > 0 || contestId != null;
+
   /// Anything worth a hub card on the event page.
   bool get hasAnything =>
       checkedIn || levels > 0 || exhibitors > 0 || agenda > 0 || stampStops > 0 || contestId != null || myBooths.isNotEmpty;

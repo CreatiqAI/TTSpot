@@ -45,10 +45,35 @@ import '../../floorplan/presentation/floorplan_entry.dart';
 import '../../organizer/presentation/widgets/lucky_draw_card.dart';
 import '../../organizer/presentation/widgets/organizer_badge.dart';
 import '../../organizer/presentation/widgets/organizer_tools_entry.dart';
+import '../../../core/router/pop_or_home.dart';
+import '../../../core/theme/titi.dart';
 import '../../../core/utils/share_links.dart';
 import '../../../core/widgets/share_options_sheet.dart';
 import '../../../core/widgets/thumb_image.dart';
+import '../../expo/contest/application/contest_providers.dart';
+import '../../expo/dashboard/application/dashboard_providers.dart';
+import '../../expo/dashboard/presentation/expo_dashboard_screen.dart' show ExpoDashboardBody;
+import '../../expo/door/application/door_providers.dart';
+import '../../expo/door/domain/door_models.dart';
+import '../../expo/exhibitors/application/exhibitors_providers.dart';
+import '../../expo/exhibitors/presentation/exhibitors_screen.dart' show ExhibitorsBody;
+import '../../expo/expo_routes.dart';
+import '../../expo/schedule/application/agenda_providers.dart';
+import '../../expo/schedule/presentation/schedule_screen.dart' show ScheduleBody;
+import '../../expo/stamps/application/stamps_providers.dart';
+import '../../expo/stamps/presentation/leads_screen.dart' show LeadsBody;
+import '../../expo/stamps/presentation/stamps_screen.dart' show StampsBody;
+import '../../floorplan/application/floorplan_providers.dart';
+import '../../floorplan/presentation/floorplan_preview.dart';
+import '../../organizer/application/organizer_providers.dart';
+import '../../organizer/domain/organizer_models.dart';
+import '../../organizer/presentation/organizer_groups.dart';
 import '../../share/share_card_renderer.dart';
+import '../application/event_view.dart';
+import '../domain/event_kind.dart';
+import 'event_role_switch.dart';
+
+part 'event_page_big.dart';
 
 class EventDetailsScreen extends ConsumerStatefulWidget {
   const EventDetailsScreen({super.key, required this.eventId});
@@ -171,6 +196,8 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
   Future<void> _menu(EventDetail d) async {
     final me = ref.read(currentUserIdProvider);
     final isOrganizer = me == d.event.organizerId;
+    // An official, big event is an "event", not a "meet".
+    final noun = (ref.read(eventHubProvider(d.event.id)).value?.isBig ?? false) ? 'event' : 'meet';
     final action = await showModalBottomSheet<String>(
       useRootNavigator: true, // above the shell tab bar
       context: context,
@@ -182,13 +209,13 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
             if (isOrganizer && !d.event.isCancelled)
               ListTile(
                 leading: const Icon(AppIcons.xCircle, color: AppColors.danger),
-                title: const Text('Cancel this meet', style: TextStyle(color: AppColors.danger)),
+                title: Text('Cancel this $noun', style: const TextStyle(color: AppColors.danger)),
                 onTap: () => Navigator.pop(ctx, 'cancel'),
               ),
             if (!isOrganizer) ...[
               ListTile(
                 leading: const Icon(AppIcons.flag),
-                title: const Text('Report meet'),
+                title: Text('Report $noun'),
                 onTap: () => Navigator.pop(ctx, 'report'),
               ),
               ListTile(
@@ -208,13 +235,13 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
         final ok = await showDialog<bool>(
           context: context,
           builder: (ctx) => AlertDialog(
-            title: const Text('Cancel this meet?'),
+            title: Text('Cancel this $noun?'),
             content: const Text('Everyone who joined will see it as cancelled. This can\'t be undone.'),
             actions: [
               TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Keep it')),
               TextButton(
                 onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('Cancel meet', style: TextStyle(color: AppColors.danger)),
+                child: Text('Cancel $noun', style: const TextStyle(color: AppColors.danger)),
               ),
             ],
           ),
@@ -235,7 +262,7 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
           userId: d.event.organizerId,
           displayName: d.organizer?.displayName ?? 'this organizer',
         );
-        if (blocked && mounted) context.pop();
+        if (blocked && mounted) popOrHome(context);
     }
   }
 
@@ -244,6 +271,19 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
     final d = ref.read(eventDetailProvider(widget.eventId)).value;
     if (d == null) return eventGuide(_guide, attending: false);
     final host = d.event.organizerId == ref.read(currentUserIdProvider);
+    final hub = ref.read(eventHubProvider(widget.eventId)).value;
+    if (hub != null && hub.isBig) {
+      // A big event opens on its Overview tab: the check-in card (until I'm
+      // checked in), Join and the event chat. No "I'm on my way" there.
+      return eventGuide(
+        _guide,
+        attending: d.isAttending,
+        full: d.event.isFull,
+        live: d.event.isLive && !hub.checkedIn,
+        chat: d.isAttending || host,
+        big: true,
+      );
+    }
     return eventGuide(
       _guide,
       attending: d.isAttending,
@@ -260,21 +300,29 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
   Widget build(BuildContext context) {
     final detail = ref.watch(eventDetailProvider(widget.eventId));
     final loaded = detail.value;
+    // The hub says whether this is a big event (any Expo module). Wait for
+    // it on the first load, so a big event doesn't flash the meet layout.
+    final hubAsync = ref.watch(eventHubProvider(widget.eventId));
+    final hub = hubAsync.value;
+    final hubPending = hubAsync.isLoading && !hubAsync.hasValue && !hubAsync.hasError;
+    final big = hub?.isBig ?? false;
     // First meet page of someone who isn't its host, while it's still on.
     final guideReady = loaded != null &&
+        !hubPending &&
         loaded.event.organizerId != ref.watch(currentUserIdProvider) &&
         !loaded.event.isCancelled &&
         !loaded.event.isPast &&
         ref.watch(guideJourneyProvider) == null;
 
-    return GuideOnFirstView(
+    return HomeOnBack(
+      child: GuideOnFirstView(
       id: GuideIds.event,
       ready: guideReady,
       build: _buildGuide,
       child: Scaffold(
       appBar: AppBar(
-        leading: IconButton(icon: const Icon(AppIcons.arrowLeft), onPressed: () => context.pop()),
-        title: Text(detail.value?.event.type.label ?? ''),
+        leading: const AppBackButton(),
+        title: Text(loaded == null || hubPending ? '' : eventPageTitle(loaded.event, big: big)),
         actions: [
           if (detail.value != null) ...[
             IconButton(tooltip: 'Share', icon: const Icon(AppIcons.shareFat), onPressed: () => showEventShareOptions(context, detail.value!.event)),
@@ -288,6 +336,23 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
         data: (d) {
           if (d == null) {
             return const _ErrorView(message: 'This meet no longer exists.');
+          }
+          if (hubPending) return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+          if (hub != null && big) {
+            return _BigEventBody(
+              detail: d,
+              hub: hub,
+              guide: _guide,
+              actions: _PageActions(
+                rsvp: () => _toggleRsvp(d),
+                bookmark: () => _toggleBookmark(d),
+                checkIn: () => _checkIn(d),
+                chat: () => _openChat(d),
+                rsvpBusy: _rsvpBusy,
+                bookmarkBusy: _bookmarkBusy,
+                checkInBusy: _checkInBusy,
+              ),
+            );
           }
           return Column(
             children: [
@@ -311,7 +376,7 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                             const SizedBox(height: 10),
                             Text(d.event.title, style: AppText.sectionTitle.copyWith(fontSize: 24, height: 1.15)),
                             const SizedBox(height: 14),
-                            _InfoRow(icon: AppIcons.calendarBlank, text: formatEventDateFriendly(d.event.startsAt)),
+                            _InfoRow(icon: AppIcons.calendarBlank, text: formatEventSpan(d.event.startsAt, d.event.endsAt)),
                             const SizedBox(height: 8),
                             InkWell(
                               onTap: d.event.placeId == null ? null : () => context.push(Routes.place(d.event.placeId!)),
@@ -361,18 +426,7 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                                 Expanded(child: _RsvpButton(key: _guide.rsvp, detail: d, busy: _rsvpBusy, onPressed: () => _toggleRsvp(d))),
                                 if (!d.event.isPast && !d.event.isCancelled) ...[
                                   const SizedBox(width: 8),
-                                  Tooltip(
-                                    message: d.isBookmarked ? 'Saved · reminder on' : 'Save · remind me before it starts',
-                                    child: Material(
-                                      color: d.isBookmarked ? AppColors.textPrimary : AppColors.surfaceGray,
-                                      borderRadius: BorderRadius.circular(AppRadius.md),
-                                      child: InkWell(
-                                        borderRadius: BorderRadius.circular(AppRadius.md),
-                                        onTap: _bookmarkBusy ? null : () => _toggleBookmark(d),
-                                        child: SizedBox(width: 50, height: 46, child: Icon(d.isBookmarked ? AppIcons.bookmarkSimpleFill : AppIcons.bookmarkSimple, size: 22, color: d.isBookmarked ? AppColors.onInk : AppColors.textPrimary)),
-                                      ),
-                                    ),
-                                  ),
+                                  _BookmarkButton(on: d.isBookmarked, onTap: _bookmarkBusy ? null : () => _toggleBookmark(d)),
                                 ],
                               ],
                             ),
@@ -459,6 +513,7 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
         },
       ),
       ),
+      ),
     );
   }
 }
@@ -466,13 +521,14 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
 // ---------------------------------------------------------------- pieces ---
 
 class _Cover extends StatelessWidget {
-  const _Cover({required this.event});
+  const _Cover({required this.event, this.aspectRatio = 4 / 3});
   final Event event;
+  final double aspectRatio;
 
   @override
   Widget build(BuildContext context) {
     return AspectRatio(
-      aspectRatio: 4 / 3,
+      aspectRatio: aspectRatio,
       // A preset (or no cover) shows the bundled file; an uploaded photo loads.
       child: event.bundledCover != null
           ? Image.asset(event.bundledCover!,
@@ -492,20 +548,30 @@ class _Cover extends StatelessWidget {
   }
 }
 
-class _Badges extends StatelessWidget {
-  const _Badges({required this.event});
+/// The kind pill ("Expo", "Official event", "Meet"…; a blue seal when an
+/// official club or a verified organizer hosts it) and the state pills.
+class _Badges extends ConsumerWidget {
+  const _Badges({required this.event, this.big = false});
   final Event event;
+  final bool big;
 
   @override
-  Widget build(BuildContext context) {
-    Widget pill(String text, {Color? bg, Color? fg, String? art}) => Container(
+  Widget build(BuildContext context, WidgetRef ref) {
+    final kind = eventKindOf(event, big: big);
+    final verified = event.isOfficialClubEvent || event.hostIsOrganizer || (ref.watch(isOrganizerProvider(event.organizerId)).value ?? false);
+    Widget pill(String text, {Color? bg, Color? fg, String? art, bool seal = false, Key? key}) => Container(
+          key: key,
           padding: EdgeInsets.fromLTRB(art == null ? 10 : 6, 4, 10, 4),
           decoration: BoxDecoration(color: bg ?? AppColors.surfaceGray, borderRadius: BorderRadius.circular(999)),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               if (art != null) ...[ArtIcon(art, size: 18), const SizedBox(width: 5)],
-              Text(text, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: fg ?? AppColors.textPrimary)),
+              Flexible(child: Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: fg ?? AppColors.textPrimary))),
+              if (seal) ...[
+                const SizedBox(width: 4),
+                const Icon(AppIcons.sealCheck, size: 15, color: OrganizerBadge.color, semanticLabel: 'Verified'),
+              ],
             ],
           ),
         );
@@ -513,7 +579,7 @@ class _Badges extends StatelessWidget {
       spacing: 8,
       runSpacing: 6,
       children: [
-        pill(event.type.label, art: event.type.art),
+        pill(kind.badge, art: big ? null : (kind == EventKind.official ? EventType.official.art : event.type.art), seal: verified, key: const ValueKey('event-kind')),
         if (event.isCancelled) pill('Cancelled', bg: const Color(0xFFFDE8EA), fg: AppColors.danger),
         if (!event.isCancelled && event.isLive) pill('LIVE', fg: AppColors.danger),
         if (!event.isCancelled && event.isInstant) pill('TT now', fg: AppColors.warnColor),
@@ -778,12 +844,39 @@ class _RsvpButton extends StatelessWidget {
   }
 }
 
+/// Save the meet: a reminder before it starts.
+class _BookmarkButton extends StatelessWidget {
+  const _BookmarkButton({required this.on, required this.onTap});
+  final bool on;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) => Tooltip(
+        message: on ? 'Saved · reminder on' : 'Save · remind me before it starts',
+        child: Material(
+          color: on ? AppColors.textPrimary : AppColors.surfaceGray,
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(AppRadius.md),
+            onTap: onTap,
+            child: SizedBox(width: 50, height: 46, child: Icon(on ? AppIcons.bookmarkSimpleFill : AppIcons.bookmarkSimple, size: 22, color: on ? AppColors.onInk : AppColors.textPrimary)),
+          ),
+        ),
+      );
+}
+
+/// The map on the event page is a platform view, which widget tests can't
+/// build. Tests switch it off; it stays on in the app.
+@visibleForTesting
+bool debugEventPageMaps = true;
+
 class _MapPreview extends StatelessWidget {
   const _MapPreview({required this.event});
   final Event event;
 
   @override
   Widget build(BuildContext context) {
+    if (!debugEventPageMaps) return SizedBox(height: 160, child: ColoredBox(color: AppColors.surfaceGray));
     return ClipRRect(
       borderRadius: BorderRadius.circular(AppRadius.md),
       child: SizedBox(
@@ -1023,10 +1116,13 @@ class _ErrorView extends StatelessWidget {
 
 /// Shown while the meet is live: who's here, check in, add a moment.
 class _CheckInCard extends ConsumerWidget {
-  const _CheckInCard({super.key, required this.detail, required this.busy, required this.onCheckIn});
+  const _CheckInCard({super.key, required this.detail, required this.busy, required this.onCheckIn, this.big = false});
   final EventDetail detail;
   final bool busy;
   final VoidCallback onCheckIn;
+
+  /// A big event: you check in with the door QR.
+  final bool big;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1049,8 +1145,9 @@ class _CheckInCard extends ConsumerWidget {
             children: [
               const ArtIcon(AppArt.redDot, size: 14),
               const SizedBox(width: 6),
-              Text('Live now · ${e.checkinCount} here', style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700)),
-              const Spacer(),
+              Expanded(
+                child: Text('Live now · ${e.checkinCount} here', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700)),
+              ),
               if (here.isNotEmpty) AvatarStack(urls: here.map((p) => p.avatarUrl).toList(), names: here.map((p) => p.displayName ?? p.username).toList(), seeds: here.map((p) => p.id).toList(), size: 26, max: 4),
             ],
           ),
@@ -1091,7 +1188,10 @@ class _CheckInCard extends ConsumerWidget {
           if (!checkedIn)
             Padding(
               padding: EdgeInsets.only(top: 8),
-              child: Text('Be at the meet with location on, then scan the organiser\'s QR (works within 300 m). Earns points.', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
+              child: Text(
+                big ? 'Scan the QR at the entrance with TT Spot. You get your pass and a lucky draw number.' : 'Be at the meet with location on, then scan the organiser\'s QR (works within 300 m). Earns points.',
+                style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+              ),
             ),
         ],
       ),

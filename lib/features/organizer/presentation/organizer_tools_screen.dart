@@ -9,6 +9,7 @@ import '../../../core/theme/titi.dart';
 import '../../../core/utils/dates.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../../core/widgets/primary_button.dart';
+import '../../expo/expo_routes.dart';
 import '../../events/application/event_providers.dart';
 import '../../events/presentation/whos_here_sheet.dart';
 import '../application/organizer_providers.dart';
@@ -152,6 +153,49 @@ class OrganizerToolsScreen extends ConsumerWidget {
                     title: 'Turnout report',
                     subtitle: 'Verified check-ins, cars by make, arrivals. Share it with sponsors.',
                     onTap: () => context.push(Routes.eventReport(eventId)),
+                  ),
+                  const _Head('EXPO'),
+                  _Row(
+                    icon: AppIcons.presentationChart,
+                    title: 'Live dashboard',
+                    subtitle: 'Check-ins, registrations, booth visits, leads and votes. Export CSV.',
+                    onTap: () => context.push(ExpoRoutes.dashboard(eventId)),
+                  ),
+                  _Row(
+                    icon: AppIcons.mapPinArea,
+                    title: 'Check-in area',
+                    subtitle: 'How far from the pin people can check in. Big halls need more.',
+                    onTap: () => context.push(ExpoRoutes.checkinArea(eventId)),
+                  ),
+                  _Row(
+                    icon: AppIcons.clipboardText,
+                    title: 'Registration form',
+                    subtitle: 'Questions people answer after checking in.',
+                    onTap: () => context.push(ExpoRoutes.registrationForm(eventId)),
+                  ),
+                  _Row(
+                    icon: AppIcons.storefront,
+                    title: 'Exhibitors',
+                    subtitle: 'Add or paste a list. Link them to booths on the floorplan.',
+                    onTap: () => context.push(ExpoRoutes.exhibitorsEditor(eventId)),
+                  ),
+                  _Row(
+                    icon: AppIcons.stamp,
+                    title: 'Stamps & booths',
+                    subtitle: 'Stamp stops, freebies, booth staff and booth QR codes.',
+                    onTap: () => context.push(ExpoRoutes.boothSetup(eventId)),
+                  ),
+                  _Row(
+                    icon: AppIcons.calendarBlank,
+                    title: 'Schedule',
+                    subtitle: 'Stage times. People get a reminder 10 minutes before.',
+                    onTap: () => context.push(ExpoRoutes.scheduleEditor(eventId)),
+                  ),
+                  _Row(
+                    icon: AppIcons.trophy,
+                    title: 'Show car vote',
+                    subtitle: "People's Choice. One vote per checked-in member.",
+                    onTap: () => context.push(ExpoRoutes.contestEditor(eventId)),
                   ),
                 ],
                 Padding(

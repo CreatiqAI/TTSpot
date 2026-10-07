@@ -26,6 +26,7 @@ speaker-high speaker-slash arrow-counter-clockwise
 fork-knife gas-pump tire traffic-cone police-car siren list-checks caret-up arrow-up arrow-down minus hash tag scan
 chart-bar ticket receipt gift percent coins hand-coins wallet shopping-bag crown map-pin-line share-fat arrows-out corners-out push-pin push-pin-slash microphone pause play arrow-bend-up-left google-logo bell-slash paper-plane-right stop whatsapp-logo phone-call video-camera moon device-mobile vibrate
 camera-rotate camera-slash lightning-slash lightning-a microphone-slash cards scissors
+presentation-chart clipboard-text stamp identification-card identification-badge address-book user-focus hand-tap swap textbox list-numbers file-csv upload-simple calendar-plus alarm bell-simple-ringing ranking check-square square radio-button circle clipboard magnifying-glass-plus magnifying-glass-minus tag-simple globe-simple map-pin-simple hand-pointing package grid-four medal-military arrow-square-out caret-double-right note hand-grabbing
 """.split()
 
 FILL = """

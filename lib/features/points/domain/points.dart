@@ -75,6 +75,9 @@ sealed class ScannedCode {
       if (uri.host == 'voucher' && segs.length >= 2) return VoucherCode(claimId: segs[0], code: segs[1]);
       if (uri.host == 'cardreward' && segs.length >= 2) return CardRewardCode(claimId: segs[0], code: segs[1]);
       if (uri.host == 'u' && segs.isNotEmpty) return FriendCode(username: segs[0], token: uri.queryParameters['t'] ?? '');
+      if (uri.host == 'booth' && segs.length >= 2) return BoothCode(exhibitorId: segs[0], code: segs[1]);
+      if (uri.host == 'pass' && segs.length >= 2) return PassCode(eventId: segs[0], passCode: segs[1]);
+      if (uri.host == 'vote' && segs.isNotEmpty) return VoteCode(entryId: segs[0]);
       return null;
     }
     if ((uri.host == 'ttspot.my' || uri.host == 'www.ttspot.my') && uri.pathSegments.length >= 2 && uri.pathSegments[0] == 'u') {
@@ -131,4 +134,25 @@ class VoucherCode extends ScannedCode {
   const VoucherCode({required this.claimId, required this.code});
   final String claimId;
   final String code;
+}
+
+/// A booth's stamp QR at an event (`ttspot://booth/<exhibitorId>/<code>`).
+class BoothCode extends ScannedCode {
+  const BoothCode({required this.exhibitorId, required this.code});
+  final String exhibitorId;
+  final String code;
+}
+
+/// A member's event pass (`ttspot://pass/<eventId>/<passCode>`). Booth staff
+/// scan it to save a lead.
+class PassCode extends ScannedCode {
+  const PassCode({required this.eventId, required this.passCode});
+  final String eventId;
+  final String passCode;
+}
+
+/// A show car's vote QR (`ttspot://vote/<entryId>`).
+class VoteCode extends ScannedCode {
+  const VoteCode({required this.entryId});
+  final String entryId;
 }

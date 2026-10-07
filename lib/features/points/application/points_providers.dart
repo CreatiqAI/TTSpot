@@ -6,6 +6,9 @@ import '../../../core/supabase/supabase_client.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../events/application/event_providers.dart';
+import '../../expo/contest/application/contest_scan.dart';
+import '../../expo/door/application/door_scan.dart';
+import '../../expo/stamps/application/stamps_scan.dart';
 import '../../floorplan/application/floorplan_providers.dart';
 import '../../floorplan/data/floorplan_repository.dart';
 import '../../friends/application/friends_providers.dart';
@@ -165,9 +168,13 @@ class PointsActions {
           route: '/event/${r.eventId}/floorplan?level=${r.levelId}',
         );
       case EventInviteCode(:final code):
-        final eventId = await _ref.read(floorplanRepositoryProvider).eventForInviteCode(code);
-        if (eventId == null) throw const AppException("That invite code isn't linked to a meet any more.");
-        return ScanOutcome(title: 'Meet', route: '/event/$eventId', silent: true);
+        return handleEventInviteScan(_ref, code);
+      case BoothCode(:final exhibitorId, :final code):
+        return handleBoothScan(_ref, exhibitorId: exhibitorId, code: code);
+      case PassCode(:final eventId, :final passCode):
+        return handlePassScan(_ref, eventId: eventId, passCode: passCode);
+      case VoteCode(:final entryId):
+        return handleVoteScan(_ref, entryId: entryId);
       case CardRewardCode(:final claimId, :final code):
         final isAdmin = _ref.read(currentProfileProvider).value?.isAdmin ?? false;
         final vendor = isAdmin ? null : await _ref.read(myVendorProvider.future);

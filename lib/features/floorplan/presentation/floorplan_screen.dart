@@ -29,9 +29,15 @@ abstract final class FloorplanRoutes {
 /// Member view of an event's floorplan: pick a level, find booths, toilets,
 /// the stage, and say where you are (tap the plan or scan a zone QR).
 class FloorplanScreen extends ConsumerStatefulWidget {
-  const FloorplanScreen({super.key, required this.eventId, this.initialLevelId});
+  const FloorplanScreen({super.key, required this.eventId, this.initialLevelId, this.highlightExhibitorId, this.welcome = false});
   final String eventId;
   final String? initialLevelId;
+
+  /// Zoom to and highlight this exhibitor's booths (Expo mode).
+  final String? highlightExhibitorId;
+
+  /// Just checked in at the door: show DoorWelcomeBanner on top.
+  final bool welcome;
 
   @override
   ConsumerState<FloorplanScreen> createState() => _FloorplanScreenState();

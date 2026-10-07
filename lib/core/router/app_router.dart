@@ -18,6 +18,19 @@ import '../../features/events/presentation/convoy_live_screen.dart';
 import '../../features/events/presentation/create_event_screen.dart';
 import '../../features/events/presentation/event_details_screen.dart';
 import '../../features/events/presentation/turnout_report_screen.dart';
+import '../../features/expo/contest/presentation/contest_editor_screen.dart';
+import '../../features/expo/contest/presentation/contest_screen.dart';
+import '../../features/expo/dashboard/presentation/expo_dashboard_screen.dart';
+import '../../features/expo/door/presentation/checkin_area_screen.dart';
+import '../../features/expo/door/presentation/event_pass_screen.dart';
+import '../../features/expo/door/presentation/registration_form_editor_screen.dart';
+import '../../features/expo/exhibitors/presentation/exhibitors_editor_screen.dart';
+import '../../features/expo/exhibitors/presentation/exhibitors_screen.dart';
+import '../../features/expo/schedule/presentation/schedule_editor_screen.dart';
+import '../../features/expo/schedule/presentation/schedule_screen.dart';
+import '../../features/expo/stamps/presentation/booth_setup_screen.dart';
+import '../../features/expo/stamps/presentation/leads_screen.dart';
+import '../../features/expo/stamps/presentation/stamps_screen.dart';
 import '../../features/floorplan/presentation/event_invite_screen.dart';
 import '../../features/floorplan/presentation/floorplan_editor_screen.dart';
 import '../../features/floorplan/presentation/floorplan_screen.dart';
@@ -366,9 +379,27 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(path: 'live', pageBuilder: (_, s) => page(s, ConvoyLiveScreen(eventId: s.pathParameters['id']!))),
           GoRoute(path: 'qr', pageBuilder: (_, s) => page(s, EventQrScreen(eventId: s.pathParameters['id']!))),
           GoRoute(path: 'report', pageBuilder: (_, s) => page(s, TurnoutReportScreen(eventId: s.pathParameters['id']!))),
-          GoRoute(path: 'floorplan', pageBuilder: (_, s) => page(s, FloorplanScreen(eventId: s.pathParameters['id']!, initialLevelId: s.uri.queryParameters['level']))),
+          GoRoute(
+            path: 'floorplan',
+            pageBuilder: (_, s) => page(
+              s,
+              FloorplanScreen(
+                eventId: s.pathParameters['id']!,
+                initialLevelId: s.uri.queryParameters['level'],
+                highlightExhibitorId: s.uri.queryParameters['exhibitor'],
+                welcome: s.uri.queryParameters['welcome'] == '1',
+              ),
+            ),
+          ),
           GoRoute(path: 'floorplan/edit', pageBuilder: (_, s) => page(s, FloorplanEditorScreen(eventId: s.pathParameters['id']!))),
           GoRoute(path: 'invite', pageBuilder: (_, s) => page(s, EventInviteScreen(eventId: s.pathParameters['id']!))),
+          // Expo mode (docs/expo-mode-plan.md)
+          GoRoute(path: 'pass', pageBuilder: (_, s) => page(s, EventPassScreen(eventId: s.pathParameters['id']!))),
+          GoRoute(path: 'exhibitors', pageBuilder: (_, s) => page(s, ExhibitorsScreen(eventId: s.pathParameters['id']!))),
+          GoRoute(path: 'schedule', pageBuilder: (_, s) => page(s, ScheduleScreen(eventId: s.pathParameters['id']!))),
+          GoRoute(path: 'stamps', pageBuilder: (_, s) => page(s, StampsScreen(eventId: s.pathParameters['id']!))),
+          GoRoute(path: 'vote', pageBuilder: (_, s) => page(s, ContestScreen(eventId: s.pathParameters['id']!, contestId: s.uri.queryParameters['contest']))),
+          GoRoute(path: 'booth/:exhibitor/leads', pageBuilder: (_, s) => page(s, LeadsScreen(eventId: s.pathParameters['id']!, exhibitorId: s.pathParameters['exhibitor']!))),
         ],
       ),
       GoRoute(
@@ -429,6 +460,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         routes: [
           GoRoute(path: 'crew', pageBuilder: (_, s) => page(s, CrewScreen(eventId: s.pathParameters['id']!))),
           GoRoute(path: 'announcements', pageBuilder: (_, s) => page(s, AnnouncementsScreen(eventId: s.pathParameters['id']!))),
+          GoRoute(path: 'area', pageBuilder: (_, s) => page(s, CheckinAreaScreen(eventId: s.pathParameters['id']!))),
+          GoRoute(path: 'form', pageBuilder: (_, s) => page(s, RegistrationFormEditorScreen(eventId: s.pathParameters['id']!))),
+          GoRoute(path: 'exhibitors', pageBuilder: (_, s) => page(s, ExhibitorsEditorScreen(eventId: s.pathParameters['id']!))),
+          GoRoute(path: 'booths', pageBuilder: (_, s) => page(s, BoothSetupScreen(eventId: s.pathParameters['id']!))),
+          GoRoute(path: 'schedule', pageBuilder: (_, s) => page(s, ScheduleEditorScreen(eventId: s.pathParameters['id']!))),
+          GoRoute(path: 'vote', pageBuilder: (_, s) => page(s, ContestEditorScreen(eventId: s.pathParameters['id']!))),
+          GoRoute(path: 'dashboard', pageBuilder: (_, s) => page(s, ExpoDashboardScreen(eventId: s.pathParameters['id']!))),
           GoRoute(
             path: 'draws',
             pageBuilder: (_, s) => page(s, LuckyDrawsScreen(eventId: s.pathParameters['id']!)),

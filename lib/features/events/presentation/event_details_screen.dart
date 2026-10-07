@@ -36,6 +36,7 @@ import '../../profile/presentation/widgets/car_picker_sheet.dart';
 import 'event_car_widgets.dart';
 import 'on_my_way_button.dart';
 import 'whos_here_sheet.dart';
+import '../../expo/door/presentation/event_hub_card.dart';
 import '../../floorplan/presentation/floorplan_entry.dart';
 import '../../organizer/presentation/widgets/lucky_draw_card.dart';
 import '../../organizer/presentation/widgets/organizer_badge.dart';
@@ -318,6 +319,7 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                               _CheckInCard(detail: d, busy: _checkInBusy, onCheckIn: () => _checkIn(d)),
                               const SizedBox(height: 8),
                             ],
+                            EventHubCard(eventId: d.event.id),
                             LuckyDrawCard(eventId: d.event.id),
                             Row(
                               children: [

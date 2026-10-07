@@ -11,8 +11,10 @@
 --   evening   19:00-23:00   meets live now near them, Sunday's weekly recap,
 --                           a busy spot near them, else a joke / quote
 -- Nothing 23:00-08:00. Never the same trigger twice in a day. No car make,
--- model or colour in the line. Each member's time in a window comes from a
--- hash of (user id, day, window) in the function (titi-nudge/rules.ts plan()).
+-- model or colour in the line. Each member's time in a window is random to
+-- the minute and different every day (a salted hash of user id + day + window
+-- in the function, titi-nudge/rules.ts plan()); about 15% of windows are
+-- skipped on a given day (never all three), so it never feels fixed.
 --
 --   titi_nudges.slot          1 morning, 2 afternoon, 3 evening; unique
 --                             (user_id, day, slot) = one per window.
@@ -20,7 +22,8 @@
 --   titi_nudge_context()      adds nearby / live meets, friends out, the
 --                             busiest spot near them, this week's check-ins
 --                             and points, and today's messages.
---   cron                      every 30 min 08:00-22:30 MYT (00:00-14:30 UTC).
+--   cron                      every minute 08:00-22:59 MYT (00:00-14:59 UTC):
+--                             a run sends only to members whose time has come.
 --   titi_nudges_daily_budget  300 → 900 (only if still the old default).
 -- titi_nudges_enabled is left as it is. Safe to re-run.
 -- =============================================================================
@@ -269,14 +272,15 @@ end;
 $$;
 revoke execute on function public.titi_nudge_post() from public, anon, authenticated;
 
--- Every 30 minutes from 08:00 to 22:30 Malaysia time (00:00-14:30 UTC).
+-- Every minute from 08:00 to 22:59 Malaysia time (00:00-14:59 UTC), so a
+-- member's random minute is kept (not rounded to :00 / :30).
 do $outer$
 begin
   if exists (select 1 from pg_extension where extname = 'pg_cron') then
     perform cron.unschedule(jobid) from cron.job where jobname = 'ttspot-titi-nudges';
-    perform cron.schedule('ttspot-titi-nudges', '0,30 0-14 * * *', 'select public.titi_nudge_post()');
+    perform cron.schedule('ttspot-titi-nudges', '* 0-14 * * *', 'select public.titi_nudge_post()');
   else
-    raise notice 'pg_cron not available: run titi_nudge_post() every 30 minutes some other way';
+    raise notice 'pg_cron not available: run titi_nudge_post() every minute some other way';
   end if;
 end;
 $outer$;

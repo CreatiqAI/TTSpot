@@ -30,10 +30,12 @@ export const hm = (h: number) => {
 
 // ================================================================ windows ===
 
-// Three messages a member a day at most, one in each window (Malaysia time),
-// nothing 23:00-08:00. The cron runs every 30 minutes 08:00-22:30, so each
-// member's random time in a window is at least 30 minutes before its end:
-// the run at or after that time sends it, still inside the window.
+// Up to three messages a member a day, at most one in each window (Malaysia
+// time), nothing 23:00-08:00. Each member's time in each window is random to
+// the minute and different every day (a salted hash of member + day + window),
+// at least 3 h after the one before; about 1 window in 7 is skipped on a given
+// day (never all three), so it never feels like a fixed 3-a-day schedule. The
+// cron runs every minute 08:00-22:59 and sends to whoever's time has come.
 export type Slot = 1 | 2 | 3;
 export type Window = { slot: Slot; name: "morning" | "afternoon" | "evening"; start: number; end: number };
 export const WINDOWS: readonly Window[] = [
@@ -41,49 +43,64 @@ export const WINDOWS: readonly Window[] = [
   { slot: 2, name: "afternoon", start: 13, end: 18 },
   { slot: 3, name: "evening", start: 19, end: 23 },
 ];
-export const CRON_STEP_H = 0.5;
 /** Hours between two TiTi messages to the same member. */
 export const GAP_H = 3;
-/** A run a few minutes early (or a slow previous run) still counts as 3 h. */
-export const GAP_SLACK_H = 10 / 60;
+/** A run a little early (or a slow previous run) still counts as 3 h. */
+export const GAP_SLACK_H = 2 / 60;
+/** Chance (in %) that a window is skipped on a given day. */
+export const SKIP_PCT = 15;
 
 export const windowAt = (hour: number): Window | null => WINDOWS.find((w) => hour >= w.start && hour < w.end) ?? null;
 
-/** FNV-1a, 32 bit: the same member, day and window always give the same number. */
+/** FNV-1a, 32 bit, finished with a murmur-style mix so nearby inputs spread. */
 export function hash32(s: string): number {
   let h = 0x811c9dc5;
   for (let i = 0; i < s.length; i++) {
     h ^= s.charCodeAt(i);
     h = Math.imul(h, 0x01000193) >>> 0;
   }
+  h ^= h >>> 16;
+  h = Math.imul(h, 0x85ebca6b) >>> 0;
+  h ^= h >>> 13;
+  h = Math.imul(h, 0xc2b2ae35) >>> 0;
+  h ^= h >>> 16;
   return h >>> 0;
 }
 
-/** This member's three target times today (fractional MYT hours), random
- * inside each window but at least 3 h apart: morning 08:00-11:29, afternoon
- * 13:00-17:29, evening 19:00-22:29. */
-export function plan(userId: string, day: string): [number, number, number] {
-  const t = WINDOWS.map((w) => {
-    const minutes = Math.round((w.end - w.start - CRON_STEP_H) * 60); // 210 / 270 / 210
-    return w.start + (hash32(`${userId}|${day}|${w.slot}`) % minutes) / 60;
-  });
-  // Push later times back so they're 3 h apart (always fits: the latest
-  // morning time 11:29 → afternoon ≥ 14:29; afternoon 17:29 → evening ≥ 20:29).
-  t[1] = Math.max(t[1], t[0] + GAP_H);
-  t[2] = Math.max(t[2], t[1] + GAP_H);
-  return [t[0], t[1], t[2]];
+export type DayPlan = { times: [number, number, number]; skip: [boolean, boolean, boolean] };
+
+/** This member's plan for a day: a target time per window (fractional MYT
+ * hours, whole minutes, anywhere in the window and ≥3 h after the previous
+ * window's time) and which windows TiTi sits out. `salt` (the function's
+ * secret) keeps the times unguessable; same member + day + salt = same plan. */
+export function plan(userId: string, day: string, salt = ""): DayPlan {
+  const r = (k: string) => hash32(`${salt}|${userId}|${day}|${k}`);
+  const mins: number[] = [];
+  let prev = -Infinity;
+  for (const w of WINDOWS) {
+    const lo = Math.max(w.start * 60, prev + GAP_H * 60);
+    const span = w.end * 60 - lo; // morning 240, afternoon / evening ≥ 121 minutes
+    const m = lo + (r(`t${w.slot}`) % span);
+    mins.push(m);
+    prev = m;
+  }
+  const skip = WINDOWS.map((w) => r(`s${w.slot}`) % 100 < SKIP_PCT) as [boolean, boolean, boolean];
+  if (skip.every(Boolean)) skip[r("keep") % 3] = false; // at least one a day
+  return { times: mins.map((m) => m / 60) as [number, number, number], skip };
 }
 
 export type Due = { slot: Slot; window: Window["name"]; target: number } | { slot: null; reason: string };
 
 /** Is this member's message for the current window due now? `sentToday`:
  * the slots already sent today; `lastSentMs`: their latest TiTi message. */
-export function due(userId: string, now: Clock, sentToday: number[], lastSentMs: number | null): Due {
+export function due(userId: string, now: Clock, sentToday: number[], lastSentMs: number | null, salt = ""): Due {
   const w = windowAt(now.hour);
   if (!w) return { slot: null, reason: "outside the windows (08-12, 13-18, 19-23 MYT)" };
   if (sentToday.includes(w.slot)) return { slot: null, reason: `already sent this ${w.name}` };
-  const target = plan(userId, now.today)[w.slot - 1];
-  if (now.hour < target) return { slot: null, reason: `${w.name} time is ${hm(target)}` };
+  const p = plan(userId, now.today, salt);
+  if (p.skip[w.slot - 1]) return { slot: null, reason: `TiTi sits this ${w.name} out today` };
+  const target = p.times[w.slot - 1];
+  if (now.hour < target - 1e-9) return { slot: null, reason: `${w.name} time is ${hm(target)}` };
   if (lastSentMs !== null && now.ms - lastSentMs < (GAP_H - GAP_SLACK_H) * 3600e3) return { slot: null, reason: "less than 3 h since the last one" };
   return { slot: w.slot, window: w.name, target };
 }

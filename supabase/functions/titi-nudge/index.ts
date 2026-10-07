@@ -6,9 +6,11 @@
 //
 //   morning   08:00-12:00     afternoon 13:00-18:00     evening 19:00-23:00
 //
-// Each member gets a random time in each window (a hash of user id + day +
-// window, rules.ts plan()), at least 3 h apart; nothing 23:00-08:00.
-// Called by pg_cron (titi_nudge_post(), every 30 min 08:00-22:30 MYT) with the
+// Each member gets a random time in each window, to the minute and different
+// every day (a hash of the secret + user id + day + window, rules.ts plan()),
+// at least 3 h after the previous one; about 15% of windows are skipped on a
+// given day (never all three). Nothing 23:00-08:00.
+// Called by pg_cron (titi_nudge_post(), every minute 08:00-22:59 MYT) with the
 // header x-titi-secret; each run sends to the members whose time has come.
 // Deploy with --no-verify-jwt (config.toml).
 //
@@ -57,7 +59,7 @@ const SECRET = Deno.env.get("TITI_NUDGE_SECRET") ?? "";
 const OPENAI_KEY = Deno.env.get("OPENAI_API_KEY");
 const MODEL = Deno.env.get("TITI_MODEL") ?? "gpt-5.4-mini";
 
-// Members a run (the rest wait for the next run, 30 min later), and model
+// Members a run (the rest wait for the next run, a minute later), and model
 // calls at once. ~1-2 s a call: 120 members ≈ 30 s.
 const BATCH = 120;
 const PARALLEL = 8;
@@ -326,7 +328,7 @@ Deno.serve(async (req) => {
     if (error) return json({ error: error.message }, 500);
     // Keep the members whose random time in this window has come (earliest first).
     const ready = ((data ?? []) as { user_id: string; last_sent_at: string | null }[])
-      .map((r) => ({ id: r.user_id, d: due(r.user_id, now, [], r.last_sent_at ? Date.parse(r.last_sent_at) : null) }))
+      .map((r) => ({ id: r.user_id, d: due(r.user_id, now, [], r.last_sent_at ? Date.parse(r.last_sent_at) : null, SECRET) }))
       .filter((r) => r.d.slot === slot)
       .sort((a, b) => (a.d as { target: number }).target - (b.d as { target: number }).target);
     ids = ready.slice(0, Math.min(BATCH, left)).map((r) => r.id);
@@ -349,15 +351,15 @@ Deno.serve(async (req) => {
     // a test send ignores the timing and the push token).
     const sentSlots = (c.sent_today ?? []).map((s) => s.slot);
     const lastMs = c.nudges?.length ? Math.max(...c.nudges.map((n) => Date.parse(n.sent_at))) : null;
-    const d = due(id, now, sentSlots, lastMs);
+    const d = due(id, now, sentSlots, lastMs, SECRET);
     const timing = forcedSlot ? null : d.slot === null ? d.reason : null;
-    const blockers = [
+    const blockers = [...new Set([
       !c.titi_tips && "TiTi tips is off",
       !testUser && !c.has_token && "no push token",
       sentSlots.includes(slot) && `already sent this ${win.name}`,
       c.pushes_24h >= 8 && "8 pushes in the last 24 h",
       !testUser && timing,
-    ].filter(Boolean) as string[];
+    ].filter(Boolean) as string[])];
     if (blockers.length && !dry) return { user: id, skipped: blockers.join(", ") };
 
     const history = dry && Array.isArray(body.history) ? body.history.map(String) : (c.recent ?? []).map(String);
@@ -377,7 +379,8 @@ Deno.serve(async (req) => {
 
     const w = await write(c, pick, lang, history, slot, now);
     const cost = costOf(w.usage);
-    const times = plan(id, now.today).map(hm);
+    const pl = plan(id, now.today, SECRET);
+    const times = pl.times.map((t, i) => (pl.skip[i] ? `skip (${hm(t)})` : hm(t)));
     if (dry) {
       return {
         user: id, window: win.name, would_send: blockers.length === 0, blockers, todays_times: times, trigger: pick.trigger, ref: pick.ref, lang,

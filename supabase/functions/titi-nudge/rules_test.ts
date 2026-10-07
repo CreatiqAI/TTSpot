@@ -29,47 +29,70 @@ Deno.test("windows: 08-12, 13-18, 19-23; nothing else", () => {
   }
 });
 
-Deno.test("plan: inside each window, 30 min before its end, at least 3 h apart, stable", () => {
-  const days = ["2026-10-07", "2026-10-08", "2026-10-09", "2026-10-10", "2026-10-11"];
-  const seen = new Set<string>();
-  for (let i = 0; i < 2000; i++) {
+const DAYS = Array.from({ length: 60 }, (_, i) => new Date(Date.UTC(2026, 9, 1 + i)).toISOString().slice(0, 10));
+
+Deno.test("plan: whole minutes inside each window, at least 3 h apart, stable for the day", () => {
+  for (let i = 0; i < 5000; i++) {
     const id = crypto.randomUUID();
-    const day = days[i % days.length];
-    const [a, b, c] = plan(id, day);
-    assert(a >= 8 && a < 11.5, `morning ${a}`);
-    assert(b >= 13 && b < 17.5, `afternoon ${b}`);
-    assert(c >= 19 && c < 22.5, `evening ${c}`);
+    const day = DAYS[i % DAYS.length];
+    const p = plan(id, day, "salt");
+    const [a, b, c] = p.times;
+    assert(a >= 8 && a < 12, `morning ${a}`);
+    assert(b >= 13 && b < 18, `afternoon ${b}`);
+    assert(c >= 19 && c < 23, `evening ${c}`);
+    for (const t of p.times) assert(Math.abs(t * 60 - Math.round(t * 60)) < 1e-9, "whole minutes");
     assert(b - a >= GAP_H - 1e-9 && c - b >= GAP_H - 1e-9, `gap ${a} ${b} ${c}`);
-    assertEquals(plan(id, day), [a, b, c], "same member + day = same times");
-    seen.add(`${Math.floor(a)}`);
+    assert(!p.skip.every(Boolean), "at least one a day");
+    assertEquals(plan(id, day, "salt"), p, "same member + day + salt = same plan");
   }
-  assert(seen.size >= 3, "morning times spread over the window");
-  assert(plan(base.id, "2026-10-07")[0] !== plan(base.id, "2026-10-08")[0] || plan(base.id, "2026-10-07")[2] !== plan(base.id, "2026-10-08")[2], "changes day to day");
 });
 
-Deno.test("plan: the next 30-min cron run after each time is still inside the window, and runs keep 3 h", () => {
-  for (let i = 0; i < 2000; i++) {
-    const t = plan(crypto.randomUUID(), "2026-10-07");
-    const run = t.map((x) => Math.ceil(x * 2 - 1e-9) / 2); // first run at or after the target
-    assert(run[0] < 12 && run[1] < 18 && run[2] < 23, `runs ${run}`);
-    assert(run[1] - run[0] >= GAP_H && run[2] - run[1] >= GAP_H, `run gap ${run}`);
+Deno.test("plan: random across the whole window, to the minute, every day different; ~15% skips", () => {
+  const id = base.id;
+  const minutes = new Set<number>(), quarter = new Set<number>(), hours = new Set<number>();
+  let skips = 0, n = 0, sameAsYesterday = 0;
+  for (let u = 0; u < 200; u++) {
+    const who = u === 0 ? id : crypto.randomUUID();
+    let prev: number | null = null;
+    for (const day of DAYS) {
+      const p = plan(who, day, "salt");
+      minutes.add(Math.round(p.times[0] * 60) % 60);
+      quarter.add(Math.round(p.times[0] * 60) % 30);
+      hours.add(Math.floor(p.times[0]));
+      skips += p.skip.filter(Boolean).length;
+      n += 3;
+      if (prev !== null && prev === p.times[0]) sameAsYesterday++;
+      prev = p.times[0];
+    }
   }
+  assertEquals(minutes.size, 60, "every minute of the hour turns up (not snapped to :00 / :30)");
+  assertEquals(hours.size, 4, "08, 09, 10 and 11 all used");
+  assert(sameAsYesterday < 200 * DAYS.length * 0.02, `the same time two days running is rare (${sameAsYesterday})`);
+  const pct = (skips / n) * 100;
+  assert(pct > 11 && pct < 19, `skip rate ${pct.toFixed(1)}%`);
+  assert(plan(id, "2026-10-07", "a").times[0] !== plan(id, "2026-10-07", "b").times[0] || plan(id, "2026-10-07", "a").times[2] !== plan(id, "2026-10-07", "b").times[2], "the salt changes the times");
 });
 
 Deno.test("due: only once the member's time has come, once per window, 3 h after the last", () => {
   const id = base.id;
-  const day = "2026-10-07";
-  const [m, a, e] = plan(id, day);
+  // A day with no skipped window for this member.
+  const day = DAYS.find((d) => !plan(id, d, "salt").skip.some(Boolean))!;
+  const [m, a, e] = plan(id, day, "salt").times;
   const atH = (h: number) => clock(Date.parse(`${day}T00:00:00+08:00`) + h * 3600e3);
-  assertEquals(due(id, atH(m - 0.1), [], null).slot, null, "before the morning time");
-  assertEquals(due(id, atH(m + 0.01), [], null).slot, 1);
-  assertEquals(due(id, atH(m + 0.01), [1], null).slot, null, "morning already sent");
-  assertEquals(due(id, atH(a + 0.01), [1], atH(m).ms).slot, 2);
-  assertEquals(due(id, atH(a + 0.01), [1], atH(a - 1).ms).slot, null, "sent an hour ago (a test, a late run)");
-  assertEquals(due(id, atH(e + 0.01), [1, 2], atH(a).ms).slot, 3);
-  assertEquals(due(id, atH(23.2), [], null).slot, null, "23:00-08:00 is quiet");
-  assertEquals(due(id, atH(7.5), [], null).slot, null);
-  assertEquals(due(id, atH(12.5), [], null).slot, null, "12:00-13:00 gap");
+  const S = "salt";
+  assertEquals(due(id, atH(m - 1 / 60), [], null, S).slot, null, "a minute before the morning time");
+  assertEquals(due(id, atH(m), [], null, S).slot, 1, "on the minute");
+  assertEquals(due(id, atH(m + 0.01), [1], null, S).slot, null, "morning already sent");
+  assertEquals(due(id, atH(a), [1], atH(m).ms, S).slot, 2);
+  assertEquals(due(id, atH(a + 0.01), [1], atH(a - 1).ms, S).slot, null, "sent an hour ago (a test, a late run)");
+  assertEquals(due(id, atH(e), [1, 2], atH(a).ms, S).slot, 3);
+  assertEquals(due(id, atH(23.2), [], null, S).slot, null, "23:00-08:00 is quiet");
+  assertEquals(due(id, atH(7.5), [], null, S).slot, null);
+  assertEquals(due(id, atH(12.5), [], null, S).slot, null, "12:00-13:00 gap");
+  // A skipped window is never due.
+  const off = DAYS.map((d) => ({ d, p: plan(id, d, S) })).find((x) => x.p.skip[0])!;
+  const offAt = clock(Date.parse(`${off.d}T00:00:00+08:00`) + 11.99 * 3600e3);
+  assertEquals(due(id, offAt, [], null, S).slot, null);
 });
 
 // ------------------------------------------------------------- morning ---

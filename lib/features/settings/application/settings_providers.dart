@@ -28,6 +28,12 @@ class AppSettings {
   /// "TiTi tips": TiTi may message me first, once a day at most (titi-nudge).
   bool get titiTips => _b('titi_tips', true);
 
+  /// "Page tips": TiTi's first-visit guides (lib/core/guide). Default on.
+  bool get tipsOn => _b('tips', true);
+
+  /// Guide ids already shown, on any phone (GuideIds).
+  List<String> get guidesSeen => (_m['guides_seen'] as List?)?.whereType<String>().toList() ?? const [];
+
   /// 'auto' (light by day, dark after 7 pm) | 'light' | 'dark'
   /// 'auto' (light 7 am–7 pm, dark otherwise) | 'light' | 'dark'. Older builds saved it as map_theme.
   String get theme => (_m['theme'] as String?) ?? (_m['map_theme'] as String?) ?? 'auto';

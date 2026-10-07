@@ -25,6 +25,18 @@ class ToyRepository {
     }
   }
 
+  /// "Make my toy car": records my OK for Kie.ai on the server
+  /// (`settings.ai_consent.toy`, migration 0125) and books toys for my cars
+  /// that have none. Returns how many were booked.
+  Future<int> allowToyCars() async {
+    try {
+      final res = await _client.rpc('allow_toy_cars');
+      return res is num ? res.toInt() : 0;
+    } on PostgrestException catch (e) {
+      throw AppException(e.message.isNotEmpty ? e.message : 'Could not start the toy. Try again.');
+    }
+  }
+
   /// How many toy renders one of my cars has left today (`car_toy_quota`,
   /// migration 0110).
   Future<ToyQuota> quota(String carId) async {

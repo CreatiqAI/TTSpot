@@ -7,6 +7,7 @@ import '../../../../core/theme/titi.dart';
 import '../../../guides/me_guides.dart' show GarageGuideKeys, guideTarget;
 import '../../domain/car.dart';
 import '../../domain/car_documents.dart';
+import '../../domain/car_toy.dart';
 import '../widgets/toy_car_image.dart';
 import 'garage_facts.dart';
 
@@ -61,6 +62,7 @@ class GarageStudio extends StatefulWidget {
     this.onMakeToday,
     this.onEdit,
     this.onPapers,
+    this.onMakeToy,
     this.onRefresh,
     this.empty,
     this.loading = false,
@@ -91,6 +93,10 @@ class GarageStudio extends StatefulWidget {
   final ValueChanged<Car>? onMakeToday;
   final ValueChanged<Car>? onEdit;
   final ValueChanged<Car>? onPapers;
+
+  /// The owner's "Make my toy car", on a car with no toy while toy cars
+  /// aren't allowed yet (null hides it).
+  final ValueChanged<Car>? onMakeToy;
   final Future<void> Function()? onRefresh;
 
   /// Shown under the header when there are no cars.
@@ -193,6 +199,10 @@ class _GarageStudioState extends State<GarageStudio> {
             ));
           },
         ),
+        if (widget.mine && widget.onMakeToy != null && car.toyUrl == null && !car.toyPending && car.photoCover != null) ...[
+          const SizedBox(height: 12),
+          Center(child: MakeToyChip(onTap: () => widget.onMakeToy!(car))),
+        ],
         if (cars.length > 1) ...[
           const SizedBox(height: 14),
           Padding(
@@ -766,6 +776,46 @@ class _Stat extends StatelessWidget {
       ),
     );
   }
+}
+
+/// "Make my toy car": a small glass pill under the owner's car when it has
+/// no toy because toy cars aren't allowed yet.
+class MakeToyChip extends StatelessWidget {
+  const MakeToyChip({super.key, required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+        button: true,
+        child: Material(
+          key: const ValueKey('make-toy'),
+          color: StudioColors.glass,
+          shape: const StadiumBorder(side: BorderSide(color: StudioColors.glassEdge)),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(AppIcons.sparkle, size: 16, color: StudioColors.text),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      'Make my toy car',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textScaler: _scaler(context),
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: StudioColors.text),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
 }
 
 /// A 52 px pill: white (filled) or glass. A long label shrinks to fit.

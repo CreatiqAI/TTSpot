@@ -1,7 +1,7 @@
 /// Privacy Policy and Terms for TT Spot. Plain text with `#` headings so the
 /// same source renders in the app and on ttspot.my. Drafts: have a lawyer
 /// read them before launch.
-const kLegalUpdated = '1 October 2026';
+const kLegalUpdated = '8 October 2026';
 
 /// Bump when the Terms change materially; every member is asked to accept again.
 const kTermsVersion = '2026-09-15';
@@ -42,6 +42,9 @@ TT Spot ("we", "us") is a car community app for Malaysia. This policy explains w
 - Supabase, which hosts our database and files.
 - Resend, which sends our emails.
 - Partners (workshops and shops) when you redeem their voucher.
+- OpenAI, only after you agree in the app: for TiTi (your messages, photos you send, and your name, cars, points and nearby meets) and for the automatic safety check of posts and moments (their photos and text).
+- Kie.ai, only after you agree in the app: your car's photo, make and model, to make its toy model.
+OpenAI and Kie.ai don't use this data to train their models.
 We do not share your data with advertisers.
 
 # Your rights

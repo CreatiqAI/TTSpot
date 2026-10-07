@@ -39,6 +39,7 @@ class CarPageActions {
     required this.openPost,
     required this.openEvent,
     this.retryToy,
+    this.makeToy,
   });
 
   final VoidCallback back;
@@ -51,6 +52,10 @@ class CarPageActions {
 
   /// The owner's "Try again" after a toy (or repaint) that didn't work.
   final VoidCallback? retryToy;
+
+  /// The owner's "Make my toy car" while toy cars aren't allowed yet (null
+  /// hides it).
+  final VoidCallback? makeToy;
 
   /// Full screen, starting at [index] of [urls].
   final void Function(List<String> urls, int index) openPhoto;
@@ -211,6 +216,7 @@ class _CarPageViewState extends State<CarPageView> {
               topInset: topInset,
               quota: d.toyQuota,
               onRetryToy: a.retryToy,
+              onMakeToy: a.makeToy,
               onLongPress: d.mine ? a.more : null,
             ),
           ),

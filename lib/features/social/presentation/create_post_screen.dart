@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/consent/ai_consent.dart';
 import '../../../core/geo/latlng.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:video_player/video_player.dart';
@@ -315,6 +316,9 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
       _snack('Give the guide a title.');
       return;
     }
+    // First post: the note on the automated safety check (OpenAI). Backing
+    // out sends nothing.
+    if (!await ensureAiConsent(context, ref, AiConsentKind.safety) || !mounted) return;
 
     setState(() => _busy = true);
     try {

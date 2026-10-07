@@ -14,7 +14,7 @@ import '../widgets/toy_car_image.dart';
 /// also reads what is happening to the toy (a repaint that failed, or one
 /// the daily cap holds back). The page's sheet rides up over its bottom edge.
 class CarHero extends StatelessWidget {
-  const CarHero({super.key, required this.car, required this.mine, required this.topInset, this.quota, this.onRetryToy, this.onLongPress});
+  const CarHero({super.key, required this.car, required this.mine, required this.topInset, this.quota, this.onRetryToy, this.onMakeToy, this.onLongPress});
 
   final Car car;
   final bool mine;
@@ -27,6 +27,9 @@ class CarHero extends StatelessWidget {
 
   /// The owner's "Try again" after a toy or repaint that didn't work.
   final VoidCallback? onRetryToy;
+
+  /// The owner's "Make my toy car": no toy yet and toy cars not allowed.
+  final VoidCallback? onMakeToy;
 
   /// The owner's car menu (long press on the toy, like the garage).
   final VoidCallback? onLongPress;
@@ -142,7 +145,7 @@ class CarHero extends StatelessWidget {
                       const SizedBox(height: 10),
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: _ToyNote(text: note.text, action: note.retry ? 'Try again' : null, onAction: onRetryToy),
+                        child: _ToyNote(text: note.text, action: note.action, onAction: note.onAction),
                       ),
                     ],
                   ],
@@ -168,10 +171,14 @@ class CarHero extends StatelessWidget {
   }
 
   /// What the owner should know about the toy, if anything.
-  ({String text, bool retry})? _ownerNote(Car c) {
+  ({String text, String? action, VoidCallback? onAction})? _ownerNote(Car c) {
     if (c.toyPending) return null; // the pill on the toy says it
+    // No toy and toy cars not allowed yet: one tap asks (Kie.ai).
+    if (onMakeToy != null && c.toyUrl == null && c.photoCover != null) {
+      return (text: 'No toy car yet.', action: 'Make my toy car', onAction: onMakeToy);
+    }
     // One toy per car: only a first toy that didn't come out can be retried.
-    if (c.toy == ToyStatus.failed && c.toyUrl == null) return (text: "Your toy car didn't come out this time.", retry: true);
+    if (c.toy == ToyStatus.failed && c.toyUrl == null) return (text: "Your toy car didn't come out this time.", action: 'Try again', onAction: onRetryToy);
     return null;
   }
 }
@@ -193,13 +200,15 @@ class _ToyNote extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: StudioColors.edge),
       ),
-      child: Row(
+      // Side by side when they fit; the button drops under the text when not.
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 10,
+        runSpacing: 8,
         children: [
-          Expanded(
-            child: Text(text, textScaler: ts, style: const TextStyle(fontSize: 13, height: 1.35, color: StudioColors.textSoft)),
-          ),
-          if (action != null && onAction != null) ...[
-            const SizedBox(width: 10),
+          Text(text, textScaler: ts, style: const TextStyle(fontSize: 13, height: 1.35, color: StudioColors.textSoft)),
+          if (action != null && onAction != null)
             Material(
               color: Colors.white,
               shape: const StadiumBorder(),
@@ -208,11 +217,16 @@ class _ToyNote extends StatelessWidget {
                 onTap: onAction,
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                  child: Text(action!, maxLines: 1, textScaler: ts, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: StudioColors.page)),
+                  child: Text(
+                    action!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textScaler: ts,
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: StudioColors.page),
+                  ),
                 ),
               ),
             ),
-          ],
         ],
       ),
     );

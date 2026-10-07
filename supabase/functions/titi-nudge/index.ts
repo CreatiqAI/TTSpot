@@ -14,8 +14,9 @@
 // header x-titi-secret; each run sends to the members whose time has come.
 // Deploy with --no-verify-jwt (config.toml).
 //
-// Who: titi_nudge_candidates(slot): "TiTi tips" on (profiles.settings.titi_tips),
-// a push token, not suspended, nothing yet in this window today, fewer than 8
+// Who: titi_nudge_candidates(slot): said OK to TiTi using OpenAI
+// (profiles.settings.ai_consent.titi, migration 0125), "TiTi tips" on
+// (profiles.settings.titi_tips), a push token, not suspended, nothing yet in this window today, fewer than 8
 // pushes in the last 24 h. Off unless platform_settings.titi_nudges_enabled;
 // at most titi_nudges_daily_budget a day across everyone; BATCH a run.
 //
@@ -317,9 +318,16 @@ Deno.serve(async (req) => {
   // Who.
   let ids: string[];
   let dueInfo = new Map<string, number>();
-  if (dry) ids = (Array.isArray(body.user_ids) ? body.user_ids : []).filter((x: unknown) => typeof x === "string" && UUID.test(x)).slice(0, 20);
-  else if (testUser) ids = [testUser];
-  else {
+  if (dry || testUser) {
+    ids = dry ? (Array.isArray(body.user_ids) ? body.user_ids : []).filter((x: unknown) => typeof x === "string" && UUID.test(x)).slice(0, 20) : [testUser!];
+    // Their context goes to OpenAI here too: only members who said OK to TiTi
+    // (profiles.settings.ai_consent.titi; titi_nudge_candidates checks the same).
+    if (ids.length) {
+      const { data: ok } = await admin.from("profiles").select("id").in("id", ids).not("settings->ai_consent->>titi", "is", null);
+      const allowed = new Set(((ok ?? []) as { id: string }[]).map((r) => r.id));
+      ids = ids.filter((id) => allowed.has(id));
+    }
+  } else {
     const budget = Number(await setting("titi_nudges_daily_budget") ?? 900) || 0;
     const { data: used } = await admin.rpc("titi_nudges_today");
     const left = budget - Number(used ?? 0);

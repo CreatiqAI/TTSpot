@@ -259,6 +259,11 @@ class MapPinFactory {
   /// a stand-in until this is true (see EventPinFactory).
   bool isLoaded(String url) => _images.containsKey(url);
 
+  /// Drops a failed fetch of [url] so the next [image] call tries again.
+  void forgetFailed(String url) {
+    if (_images.containsKey(url) && _images[url] == null) _images.remove(url);
+  }
+
   /// The decoded image for [url] if it is loaded, else null.
   ui.Image? cachedImage(String url) => _images[url];
   TextPainter text(String t, double size, FontWeight weight, Color color) => _text(t, size, weight, color);

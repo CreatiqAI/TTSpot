@@ -1317,12 +1317,26 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   /// My toy's image, fetched once into the pin cache (usually already in
   /// the image cache: AppShell warms it at start); my pin swaps the dot for
   /// the toy as soon as it is in.
+  /// A failed fetch (a network blip) is tried again a few times, so one
+  /// bad moment never leaves me as the dot for the whole visit.
   String? _warmingToy;
+  int _toyRetries = 0;
   void _warmMyToy(String url) {
     if (_warmingToy == url || _pinFactory.isLoaded(url)) return;
     _warmingToy = url;
-    _pinFactory.image(url, targetWidth: kToyImageWidth).then((_) {
-      if (mounted) _updateMe();
+    _pinFactory.image(url, targetWidth: kToyImageWidth).then((img) {
+      if (!mounted) return;
+      if (img == null && _toyRetries < 3) {
+        _toyRetries++;
+        Future<void>.delayed(Duration(seconds: 5 * _toyRetries), () {
+          if (!mounted || _warmingToy != url) return;
+          _pinFactory.forgetFailed(url);
+          _warmingToy = null;
+          _warmMyToy(url);
+        });
+        return;
+      }
+      _updateMe();
     });
   }
 

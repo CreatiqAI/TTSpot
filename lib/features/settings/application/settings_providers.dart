@@ -25,7 +25,7 @@ class AppSettings {
   bool get notifReplies => _b('notif_replies', true);
   bool get notifClubFollows => _b('notif_club_follows', true);
 
-  /// "TiTi tips": TiTi may message me first, once a day at most (titi-nudge).
+  /// "TiTi tips": TiTi may message me first, up to three a day (titi-nudge).
   bool get titiTips => _b('titi_tips', true);
 
   /// "Page tips": TiTi's first-visit guides (lib/core/guide). Default on.

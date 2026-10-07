@@ -7,14 +7,14 @@ import '../../../core/utils/friendly_error.dart';
 import '../application/settings_providers.dart';
 
 /// Settings › "TiTi tips": TiTi's own short heads-up (rain, a meet today,
-/// road tax due…), once a day at most, in his chat and as a push. On by
+/// road tax due…), up to three a day, in his chat and as a push. On by
 /// default; off means the `titi-nudge` function skips me altogether
 /// (profiles.settings.titi_tips = false).
 class TitiTipsSwitch extends ConsumerWidget {
   const TitiTipsSwitch({super.key});
 
   static const title = 'TiTi tips';
-  static const subtitle = 'A short heads-up from TiTi, once a day at most';
+  static const subtitle = 'Short heads-ups from TiTi, up to 3 a day';
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

@@ -933,7 +933,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(color: AppColors.surfaceGray, borderRadius: BorderRadius.circular(AppRadius.md)),
                     child: Text(
-                      'Two quick things every member needs: a phone number and a tick on the Terms. Then you are back on the map.',
+                      // A member who already has a phone is here only because the Terms changed (kTermsVersion).
+                      (ref.watch(accountBasicsProvider).value?.hasPhone ?? false)
+                          ? 'We updated our Terms of Use and Privacy Policy. Have a read, tick to accept, and you are back on the map.'
+                          : 'Two quick things every member needs: a phone number and a tick on the Terms. Then you are back on the map.',
                       style: TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.4),
                     ),
                   ),

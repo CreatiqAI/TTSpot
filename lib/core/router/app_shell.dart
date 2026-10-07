@@ -18,6 +18,11 @@ import '../../features/vendors/application/vendors_providers.dart';
 import '../../features/auth/data/auth_repository.dart';
 import '../../features/auth/application/account_basics.dart';
 import '../push/push_service.dart';
+import '../supabase/supabase_client.dart';
+import '../../features/map/presentation/widgets/car_marker.dart' show kToyImageWidth;
+import '../../features/map/presentation/widgets/map_pins.dart' show MapPinFactory;
+import '../../features/profile/application/profile_providers.dart' show userCarsProvider;
+import '../../features/profile/domain/car.dart';
 
 /// Bottom tabs: Posts · Map · Chats · Me. Creating things happens from the
 /// "+" on the Posts page and the action row on the map.
@@ -58,6 +63,16 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
     ref.invalidate(accountBasicsProvider);
     // Lock-screen meet countdown: end finished ones, start one that's due.
     ref.read(liveActivityServiceProvider).sync();
+  }
+
+  String? _warmToy;
+  void _warmMyToy(List<Car>? cars) {
+    final car = cars?.where((c) => c.isDefault).firstOrNull ?? cars?.firstOrNull;
+    final url = car?.toyUrl;
+    if (url == null || url == _warmToy || !mounted) return;
+    _warmToy = url;
+    final provider = MapPinFactory.networkProvider(url, targetWidth: kToyImageWidth, devicePixelRatio: MediaQuery.devicePixelRatioOf(context));
+    precacheImage(provider, context, onError: (_, _) {}).ignore();
   }
 
   /// Not a branch: the centre + opens the Create sheet.
@@ -114,7 +129,15 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
       }
       WidgetsBinding.instance.addPostFrameCallback((_) => shell.goBranch(_tabsFor(next).first.branch));
     });
-    final unread = (ref.watch(unreadMessagesProvider).value ?? 0) + (account is PersonalAccount ? (ref.watch(unreadNotificationsProvider).value ?? 0) : 0);
+    // My toy car, on the phone before the map is first opened, so my pin
+    // goes straight to it (see MapScreen._mePin).
+    final me = ref.watch(currentUserIdProvider);
+    if (me != null) {
+      ref.listen(userCarsProvider(me), (_, n) => _warmMyToy(n.value));
+      final loaded = ref.read(userCarsProvider(me)).value;
+      if (loaded != null) WidgetsBinding.instance.addPostFrameCallback((_) => _warmMyToy(loaded));
+    }
+    final unread =(ref.watch(unreadMessagesProvider).value ?? 0) + (account is PersonalAccount ? (ref.watch(unreadNotificationsProvider).value ?? 0) : 0);
     var selected = tabs.indexWhere((t) => t.branch == shell.currentIndex);
     if (selected < 0) selected = 0;
     return Scaffold(

@@ -9,6 +9,7 @@ import '../../../core/constants/malaysian_states.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/widgets/picker_field.dart';
+import '../../../core/places/place_label.dart';
 import '../../../core/widgets/place_search_field.dart';
 import '../../map/application/map_providers.dart';
 import '../../../core/theme/app_theme.dart';
@@ -254,7 +255,7 @@ class _PartnerApplyScreenState extends ConsumerState<PartnerApplyScreen> {
               icon: AppIcons.storefront,
               near: here == null ? null : (here.latitude, here.longitude),
               onPicked: (d) {
-                _address.text = d.address.isEmpty ? d.name : '${d.name}, ${d.address}';
+                _address.text = placeLabel(d.name, d.address);
                 _lat = d.lat;
                 _lng = d.lng;
               },

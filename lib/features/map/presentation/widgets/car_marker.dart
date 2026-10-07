@@ -279,7 +279,7 @@ class CarMarkerFactory {
     final cached = _cache[k];
     if (cached != null) return cached;
 
-    final image = await pins.image(toyUrl, targetWidth: 240);
+    final image = await pins.image(toyUrl, targetWidth: kToyImageWidth);
     if (image == null || image.width == 0) return null;
     return _cache[k] = await toyFromImage(image, name: name, color: color, status: status, statusColor: statusColor, headingDeg: headingDeg, dim: dim, me: me);
   }
@@ -547,6 +547,30 @@ void _softDisc(Canvas canvas, Offset centre, double reach, Color color, {require
 
 /// How wide a toy car stands on the map, in logical px.
 const kToyCarWidth = 68.0;
+
+/// The width a toy render is decoded at for a pin (see MapPinFactory.image).
+const kToyImageWidth = 240;
+
+/// What my own pin shows up close.
+enum MePinLook {
+  /// The far-out dot: my cars or my toy are not on the phone yet (or the
+  /// toy could not load). Never the stand-in my toy would then replace.
+  dot,
+
+  /// My toy car over its arrow.
+  toy,
+
+  /// My car's photo badge or the drawn car: only for a car with no toy.
+  standIn,
+}
+
+/// [carsLoaded]: my cars have arrived. [toyUrl]: my default car's toy.
+/// [toyReady]: null while its image loads, false when it failed.
+MePinLook mePinLook({required bool carsLoaded, String? toyUrl, bool? toyReady}) {
+  if (!carsLoaded) return MePinLook.dot;
+  if (toyUrl == null) return MePinLook.standIn;
+  return toyReady == true ? MePinLook.toy : MePinLook.dot;
+}
 
 /// The navigation arrow under a toy car, tip to tail (the white outline
 /// adds 2.5 px all round: about 20 x 22 px on screen).

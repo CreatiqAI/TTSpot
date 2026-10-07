@@ -32,6 +32,7 @@ import 'activity_screen.dart';
 import 'widgets/chat_media.dart' show fmtMs;
 import 'widgets/group_avatar.dart';
 import '../../titi/presentation/titi_inbox_tile.dart';
+import '../../guides/home_guides.dart';
 
 /// Chats tab: DMs, group chats (friends' groups, club chats) and meet chats,
 /// with Activity (likes, requests, TT-now pings, badges) as a second tab.
@@ -51,30 +52,32 @@ class InboxScreen extends ConsumerWidget {
         body: const _ChatList(entity: true),
       );
     }
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
-        appBar: AppBar(
-          automaticallyImplyLeading: false,
-          title: const Text('Chats'),
-          actions: [
-            IconButton(key: const Key('inbox-compose'), tooltip: 'New message', icon: const Icon(AppIcons.notePencil), onPressed: () => _compose(context)),
-          ],
-          bottom: TabBar(
-            labelColor: AppColors.textPrimary,
-            unselectedLabelColor: AppColors.textSecondary,
-            indicatorColor: AppColors.textPrimary,
-            indicatorSize: TabBarIndicatorSize.tab,
-            indicatorWeight: 1.5,
-            dividerColor: AppColors.border,
-            labelStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-            tabs: [
-              Tab(child: _TabLabel('Chats', unreadChats)),
-              Tab(child: _TabLabel('Activity', unreadActivity)),
+    return ChatsGuideGate(
+      child: DefaultTabController(
+        length: 2,
+        child: Scaffold(
+          appBar: AppBar(
+            automaticallyImplyLeading: false,
+            title: const Text('Chats'),
+            actions: [
+              IconButton(key: const Key('inbox-compose'), tooltip: 'New message', icon: const Icon(AppIcons.notePencil), onPressed: () => _compose(context)),
             ],
+            bottom: TabBar(
+              labelColor: AppColors.textPrimary,
+              unselectedLabelColor: AppColors.textSecondary,
+              indicatorColor: AppColors.textPrimary,
+              indicatorSize: TabBarIndicatorSize.tab,
+              indicatorWeight: 1.5,
+              dividerColor: AppColors.border,
+              labelStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+              tabs: [
+                Tab(child: _TabLabel('Chats', unreadChats)),
+                Tab(key: ChatsGuideKeys.activity, child: _TabLabel('Activity', unreadActivity)),
+              ],
+            ),
           ),
+          body: const TabBarView(children: [_ChatList(), ActivityList()]),
         ),
-        body: const TabBarView(children: [_ChatList(), ActivityList()]),
       ),
     );
   }
@@ -182,7 +185,7 @@ class _ChatList extends ConsumerWidget {
             padding: EdgeInsets.only(bottom: GlassTabBar.clearance(context)),
             children: [
               if (!entity) _FriendStrip(friends: strip, live: live, moments: moments, onTap: openDm),
-              if (!entity) const TitiInboxTile(), // TiTi, the assistant: always the first chat
+              if (!entity) KeyedSubtree(key: ChatsGuideKeys.titi, child: const TitiInboxTile()), // TiTi, the assistant: always the first chat
               if (list.isEmpty && friends.isEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 40),

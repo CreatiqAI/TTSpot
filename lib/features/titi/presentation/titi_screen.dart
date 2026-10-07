@@ -8,6 +8,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../core/guide/guide.dart';
+import '../../../core/guide/guide_on_first_view.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/titi.dart';
@@ -19,6 +21,7 @@ import '../domain/titi_message.dart';
 import 'titi_answer.dart';
 import 'titi_background.dart';
 import 'titi_sessions_sheet.dart';
+import '../../guides/home_guides.dart';
 
 /// Chat with TiTi, the app's assistant: meets, spots, clubs, the member's own
 /// points, vouchers, cards, meets and car papers, one-tap actions, photos,
@@ -198,94 +201,100 @@ class _TitiScreenState extends ConsumerState<TitiScreen> {
       _showDown = false;
     }
 
-    return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(icon: const Icon(AppIcons.arrowLeft), onPressed: () => context.pop()),
-        titleSpacing: 0,
-        title: Row(
-          children: [
-            const TitiAvatar(TitiPose.chat, size: 34),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('TiTi', style: AppText.screenTitle),
-                  const _Subtitle(),
-                ],
+    // First chat with TiTi: what he can do, once the history is in.
+    return GuideOnFirstView(
+      id: GuideIds.titiChat,
+      ready: !s.loading,
+      build: () => titiChatGuide(starters: ref.read(titiControllerProvider).messages.isEmpty),
+      child: Scaffold(
+        appBar: AppBar(
+          leading: IconButton(icon: const Icon(AppIcons.arrowLeft), onPressed: () => context.pop()),
+          titleSpacing: 0,
+          title: Row(
+            children: [
+              const TitiAvatar(TitiPose.chat, size: 34),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('TiTi', style: AppText.screenTitle),
+                    const _Subtitle(),
+                  ],
+                ),
               ),
+            ],
+          ),
+          actions: [
+            IconButton(tooltip: 'Past chats', icon: const Icon(AppIcons.clockCounterClockwise), onPressed: () => showTitiSessions(context)),
+            IconButton(
+              tooltip: 'New chat',
+              icon: const Icon(AppIcons.notePencil),
+              onPressed: s.messages.isEmpty && s.sessionId == null ? null : c.newChat,
             ),
           ],
         ),
-        actions: [
-          IconButton(tooltip: 'Past chats', icon: const Icon(AppIcons.clockCounterClockwise), onPressed: () => showTitiSessions(context)),
-          IconButton(
-            tooltip: 'New chat',
-            icon: const Icon(AppIcons.notePencil),
-            onPressed: s.messages.isEmpty && s.sessionId == null ? null : c.newChat,
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            child: TitiBackground(
-              child: Stack(
-                children: [
-                  Positioned.fill(child: _list(s, c)),
-                  // Nothing yet: TiTi says hi, with starters. Fades out on the first question.
-                  Positioned.fill(
-                    child: IgnorePointer(
-                      ignoring: s.messages.isNotEmpty || s.loading,
-                      child: AnimatedOpacity(
-                        opacity: s.messages.isEmpty && !s.loading ? 1 : 0,
-                        duration: const Duration(milliseconds: 220),
-                        child: _Empty(starters: _starters, onPick: _send, error: s.loadError, onReload: c.reload),
+        body: Column(
+          children: [
+            Expanded(
+              child: TitiBackground(
+                child: Stack(
+                  children: [
+                    Positioned.fill(child: _list(s, c)),
+                    // Nothing yet: TiTi says hi, with starters. Fades out on the first question.
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        ignoring: s.messages.isNotEmpty || s.loading,
+                        child: AnimatedOpacity(
+                          opacity: s.messages.isEmpty && !s.loading ? 1 : 0,
+                          duration: const Duration(milliseconds: 220),
+                          child: _Empty(starters: _starters, onPick: _send, error: s.loadError, onReload: c.reload),
+                        ),
                       ),
                     ),
-                  ),
-                  if (s.loading && s.messages.isEmpty) const Center(child: CircularProgressIndicator(strokeWidth: 2)),
-                  // Scrolled up: a quick way back to the newest message.
-                  Positioned(
-                    right: 14,
-                    bottom: 10,
-                    child: IgnorePointer(
-                      ignoring: !_showDown,
-                      child: AnimatedScale(
-                        scale: _showDown ? 1 : 0.6,
-                        duration: const Duration(milliseconds: 180),
-                        child: AnimatedOpacity(
-                          opacity: _showDown ? 1 : 0,
+                    if (s.loading && s.messages.isEmpty) const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                    // Scrolled up: a quick way back to the newest message.
+                    Positioned(
+                      right: 14,
+                      bottom: 10,
+                      child: IgnorePointer(
+                        ignoring: !_showDown,
+                        child: AnimatedScale(
+                          scale: _showDown ? 1 : 0.6,
                           duration: const Duration(milliseconds: 180),
-                          child: Material(
-                            color: AppColors.surface,
-                            shape: CircleBorder(side: BorderSide(color: AppColors.border)),
-                            elevation: 2,
-                            child: InkWell(
-                              customBorder: const CircleBorder(),
-                              onTap: () => _follow(force: true),
-                              child: SizedBox(width: 40, height: 40, child: Icon(AppIcons.arrowDown, size: 18, color: AppColors.textPrimary)),
+                          child: AnimatedOpacity(
+                            opacity: _showDown ? 1 : 0,
+                            duration: const Duration(milliseconds: 180),
+                            child: Material(
+                              color: AppColors.surface,
+                              shape: CircleBorder(side: BorderSide(color: AppColors.border)),
+                              elevation: 2,
+                              child: InkWell(
+                                customBorder: const CircleBorder(),
+                                onTap: () => _follow(force: true),
+                                child: SizedBox(width: 40, height: 40, child: Icon(AppIcons.arrowDown, size: 18, color: AppColors.textPrimary)),
+                              ),
                             ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
-          _Composer(
-            controller: _text,
-            streaming: s.streaming,
-            previews: _previews,
-            canAttach: _photos.length < _maxPhotos,
-            onAttach: _pick,
-            onRemovePhoto: _removePhoto,
-            onSend: _send,
-            onStop: c.stop,
-          ),
-        ],
+            _Composer(
+              controller: _text,
+              streaming: s.streaming,
+              previews: _previews,
+              canAttach: _photos.length < _maxPhotos,
+              onAttach: _pick,
+              onRemovePhoto: _removePhoto,
+              onSend: _send,
+              onStop: c.stop,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -542,6 +551,7 @@ class _Empty extends StatelessWidget {
                 ),
                 const SizedBox(height: 20),
                 Wrap(
+                  key: TitiChatGuideKeys.starters,
                   spacing: 8,
                   runSpacing: 8,
                   alignment: WrapAlignment.center,
@@ -622,6 +632,7 @@ class _Composer extends StatelessWidget {
                         ),
                         Expanded(
                           child: TextField(
+                            key: TitiChatGuideKeys.input,
                             controller: controller,
                             minLines: 1,
                             maxLines: 5,

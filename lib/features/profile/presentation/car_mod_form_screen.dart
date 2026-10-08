@@ -242,6 +242,8 @@ class _CarModFormScreenState extends ConsumerState<CarModFormScreen> {
                 ),
                 const SizedBox(height: 14),
                 TextField(
+                  textInputAction: TextInputAction.done,
+                  keyboardType: TextInputType.text,
                   controller: _notes,
                   maxLength: 500,
                   minLines: 2,

@@ -614,6 +614,8 @@ class _ContestFormScreenState extends ConsumerState<_ContestFormScreen> {
           ),
           const SizedBox(height: 12),
           TextField(
+            textInputAction: TextInputAction.done,
+            keyboardType: TextInputType.text,
             controller: _about,
             maxLength: 500,
             maxLines: 3,

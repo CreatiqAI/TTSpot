@@ -108,7 +108,9 @@ class _CommentComposerState extends ConsumerState<CommentComposer> {
     final me = ref.watch(currentProfileProvider).value;
     final replyTo = _c.replyTo;
     final query = _query;
-    return Container(
+    // Taps on Post, the @ suggestions or the reply strip count as inside the
+    // field, so the app's tap-outside keyboard close leaves them alone.
+    return TextFieldTapRegion(child: Container(
       decoration: BoxDecoration(color: AppColors.bg, border: Border(top: BorderSide(color: AppColors.border, width: 0.5))),
       child: SafeArea(
         top: false,
@@ -153,6 +155,12 @@ class _CommentComposerState extends ConsumerState<CommentComposer> {
                       minLines: 1,
                       maxLines: 4,
                       maxLength: 1000,
+                      // Return posts (same as Post) and closes the keyboard; long text still wraps.
+                      keyboardType: TextInputType.text,
+                      textInputAction: TextInputAction.send,
+                      onSubmitted: (_) {
+                        if (!_busy) _send();
+                      },
                       textCapitalization: TextCapitalization.sentences,
                       decoration: InputDecoration(
                         hintText: replyTo == null ? 'Add a comment…' : 'Add a reply…',
@@ -175,7 +183,7 @@ class _CommentComposerState extends ConsumerState<CommentComposer> {
           ],
         ),
       ),
-    );
+    ));
   }
 }
 

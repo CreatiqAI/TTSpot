@@ -108,6 +108,7 @@ class _NewTradeScreenState extends ConsumerState<NewTradeScreen> {
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
               child: TextField(
+                textInputAction: TextInputAction.search,
                 controller: _search,
                 onChanged: (_) => setState(() {}),
                 decoration: const InputDecoration(hintText: 'Search friends', prefixIcon: Icon(AppIcons.magnifyingGlass, size: 18)),

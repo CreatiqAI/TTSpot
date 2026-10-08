@@ -33,6 +33,8 @@ Future<String?> askClubJoinMessage(BuildContext context, String clubName) async 
           Text('The club owner and admins decide. A line about you and your car helps.', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
           const SizedBox(height: 14),
           TextField(
+            textInputAction: TextInputAction.done,
+            keyboardType: TextInputType.text,
             controller: ctrl,
             autofocus: true,
             maxLength: 200,

@@ -122,6 +122,8 @@ class _ReportSheetState extends ConsumerState<_ReportSheet> {
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
               child: TextField(
+                textInputAction: TextInputAction.done,
+                keyboardType: TextInputType.text,
                 controller: _note,
                 maxLength: 300,
                 maxLines: 2,

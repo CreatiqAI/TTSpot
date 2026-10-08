@@ -360,6 +360,8 @@ class _MediaSendPreviewState extends State<MediaSendPreview> {
                                 padding: const EdgeInsets.symmetric(horizontal: 16),
                                 decoration: BoxDecoration(color: const Color(0xFF22262D), borderRadius: BorderRadius.circular(24)),
                                 child: TextField(
+                                  textInputAction: TextInputAction.done,
+                                  keyboardType: TextInputType.text,
                                   // A fresh field per item: each one keeps its own caption.
                                   key: ObjectKey(d),
                                   controller: d.caption,

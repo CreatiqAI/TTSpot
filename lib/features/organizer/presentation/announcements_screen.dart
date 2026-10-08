@@ -116,6 +116,8 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
             ),
             const SizedBox(height: 10),
             TextField(
+              textInputAction: TextInputAction.done,
+              keyboardType: TextInputType.text,
               controller: _body,
               maxLength: 500,
               maxLines: 4,

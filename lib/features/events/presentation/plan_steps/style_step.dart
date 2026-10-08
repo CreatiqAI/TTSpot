@@ -120,6 +120,8 @@ class _StyleStepState extends State<StyleStep> {
               child: !_more
                   ? const SizedBox(width: double.infinity)
                   : TextField(
+                      textInputAction: TextInputAction.done,
+                      keyboardType: TextInputType.text,
                       key: const Key('plan-notes'),
                       controller: d.notesCtrl,
                       maxLength: 2000,

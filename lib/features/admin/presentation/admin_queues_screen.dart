@@ -132,7 +132,7 @@ class _ReportCard extends ConsumerWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Resolve report'),
-        content: TextField(controller: ctrl, maxLines: 3, autofocus: true, decoration: const InputDecoration(hintText: 'What did you do? (optional)')),
+        content: TextField(controller: ctrl, textInputAction: TextInputAction.done, keyboardType: TextInputType.text, maxLines: 3, autofocus: true, decoration: const InputDecoration(hintText: 'What did you do? (optional)')),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
           FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Resolve')),

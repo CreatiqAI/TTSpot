@@ -655,8 +655,10 @@ class _Composer extends StatelessWidget {
   final VoidCallback onSend;
   final VoidCallback onStop;
 
+  // Taps on Send, Stop or the photo buttons count as inside the field, so
+  // the app's tap-outside keyboard close leaves them alone.
   @override
-  Widget build(BuildContext context) => Container(
+  Widget build(BuildContext context) => TextFieldTapRegion(child: Container(
         decoration: BoxDecoration(color: AppColors.bg, border: Border(top: BorderSide(color: AppColors.border, width: 0.5))),
         child: SafeArea(
           top: false,
@@ -703,8 +705,12 @@ class _Composer extends StatelessWidget {
                             maxLines: 5,
                             maxLength: 1000,
                             textCapitalization: TextCapitalization.sentences,
+                            // Not multiline: return sends (same as Send) and closes the keyboard; long text still wraps.
+                            keyboardType: TextInputType.text,
                             textInputAction: TextInputAction.send,
-                            onSubmitted: (_) => onSend(),
+                            onSubmitted: (_) {
+                              if (canSend) onSend();
+                            },
                             decoration: InputDecoration(
                               hintText: previews.isEmpty ? 'Ask TiTi anything…' : 'Ask about the photo…',
                               counterText: '',
@@ -739,7 +745,7 @@ class _Composer extends StatelessWidget {
             ),
           ),
         ),
-      );
+      ));
 }
 
 /// A picked photo in the composer, with a small ✕ to take it out.

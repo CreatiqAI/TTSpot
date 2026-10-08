@@ -380,6 +380,8 @@ class _NoteDialogState extends State<_NoteDialog> {
   Widget build(BuildContext context) => AlertDialog(
         title: Text('Note on ${widget.name}', maxLines: 2, overflow: TextOverflow.ellipsis),
         content: TextField(
+          textInputAction: TextInputAction.done,
+          keyboardType: TextInputType.text,
           controller: _c,
           autofocus: true,
           maxLength: 300,

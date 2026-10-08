@@ -64,6 +64,10 @@ class AppSettings {
   /// iPhone: the meet countdown on the lock screen / Dynamic Island.
   bool get liveActivities => _b('live_activities', true);
 
+  /// Meets whose Live Activity was already shown (newest last, at most 30).
+  /// They never start again by themselves, so a swipe-away sticks.
+  List<String> get liveActivitiesShown => (_m['la_started'] as List?)?.whereType<String>().toList() ?? const [];
+
   /// "Hide my number plate" when adding car photos (off: the original goes up).
   bool get hidePlate => _b('hide_plate', false);
 

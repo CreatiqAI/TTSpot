@@ -128,6 +128,14 @@ class EventActions {
     unawaited(_ref.read(liveActivityServiceProvider).end(eventId));
   }
 
+  /// Ends a live event now. Everyone else's lock screen activity goes on
+  /// their next app open (the new end time is in the past).
+  Future<void> endNow(String eventId) async {
+    await _repo.endNow(eventId);
+    _refresh(eventId);
+    unawaited(_ref.read(liveActivityServiceProvider).end(eventId));
+  }
+
   Future<String> ttNow({required double lat, required double lng, String? venue, int minutes = 60, List<String>? invitees, String? address, String? carId}) async {
     final v = venue?.trim();
     final id = await _repo.ttNow(lat: lat, lng: lng, venue: v == null || v.isEmpty ? null : v, minutes: minutes, invitees: invitees, address: address, carId: carId);

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/supabase/supabase_client.dart';
+import '../../auth/data/auth_repository.dart';
 import '../../settings/application/settings_providers.dart';
 import '../domain/event.dart';
 import 'my_events_provider.dart';
@@ -58,13 +59,16 @@ class LiveActivityPlan {
 
 /// On app open / resume: keep running activities whose meet is still mine
 /// and not over; end the rest (meet over, cancelled, left, or the switch is
-/// off). With none left, start the soonest meet of mine inside its window.
-/// One at a time, so the lock screen stays clean.
+/// off). With none left, start the soonest meet of mine inside its window
+/// that was never shown before ([shown]): once swiped away on the lock
+/// screen, a meet's activity stays gone. One at a time, so the lock screen
+/// stays clean.
 LiveActivityPlan planLiveActivities({
   required bool enabled,
   required List<Event> mine,
   required Set<String> running,
   required DateTime now,
+  Set<String> shown = const {},
 }) {
   if (!enabled) return LiveActivityPlan(end: running);
   final byId = {for (final e in mine) e.id: e};
@@ -74,7 +78,7 @@ LiveActivityPlan planLiveActivities({
   ];
   final end = running.difference({for (final e in keep) e.id});
   if (keep.isNotEmpty) return LiveActivityPlan(start: keep, end: end);
-  final open = mine.where((e) => liveActivityWindowOpen(e, now)).toList()..sort((a, b) => a.startsAt.compareTo(b.startsAt));
+  final open = mine.where((e) => !shown.contains(e.id) && liveActivityWindowOpen(e, now)).toList()..sort((a, b) => a.startsAt.compareTo(b.startsAt));
   return LiveActivityPlan(start: open.take(1).toList(), end: end);
 }
 
@@ -105,6 +109,16 @@ class LiveActivityChannel {
   Future<void> endAll() => _ch.invokeMethod<int>('endAll');
 }
 
+/// How many shown event ids `profiles.settings.la_started` keeps.
+const kLiveActivityShownMax = 30;
+
+/// The `la_started` list to save: [current] plus [id] last, at most
+/// [kLiveActivityShownMax] (the oldest go first).
+List<String> withLiveActivityShown(List<String> current, String id) {
+  final next = [...current.where((x) => x != id), id];
+  return next.length > kLiveActivityShownMax ? next.sublist(next.length - kLiveActivityShownMax) : next;
+}
+
 /// Starts and ends the meet Live Activity. Every call is best effort: a
 /// failure never reaches the member (the activity is a nice-to-have).
 class LiveActivityService {
@@ -112,6 +126,8 @@ class LiveActivityService {
     required this.enabled,
     required this.loadMine,
     this.loadEntryNo,
+    this.loadShown,
+    this.markShown,
     this.channel = const LiveActivityChannel(),
     bool? platformSupported,
     DateTime Function()? clock,
@@ -126,6 +142,13 @@ class LiveActivityService {
 
   /// My entry number at an event (Expo mode), null when not checked in.
   final Future<int?> Function(String eventId)? loadEntryNo;
+
+  /// Meets whose activity was already shown on this account
+  /// (`settings.la_started`). Those never start again by themselves.
+  final Future<Set<String>> Function()? loadShown;
+
+  /// Remember that [eventId]'s activity was shown.
+  final Future<void> Function(String eventId)? markShown;
   final LiveActivityChannel channel;
   final bool _platform;
   final DateTime Function() _now;
@@ -144,18 +167,22 @@ class LiveActivityService {
   Future<bool> _ready() async => _platform && await channel.supported();
 
   /// App open / resume: end stale ones, refresh or start the right one.
-  Future<void> sync({bool fresh = false}) => _serial(() async {
+  /// [explicit]: the member asked for it (switched Live Activities on), so a
+  /// meet shown before may start again.
+  Future<void> sync({bool fresh = false, bool explicit = false}) => _serial(() async {
         if (!await _ready()) return;
         final running = await channel.active();
         final on = enabled();
         // Nothing to end and the switch is off: skip the fetch.
         if (!on && running.isEmpty) return;
-        final plan = planLiveActivities(enabled: on, mine: on ? await loadMine(fresh: fresh) : const [], running: running, now: _now());
+        final mine = on ? await loadMine(fresh: fresh) : const <Event>[];
+        final shown = on && !explicit ? await _loadShown() : const <String>{};
+        final plan = planLiveActivities(enabled: on, mine: mine, running: running, now: _now(), shown: shown);
         for (final id in plan.end) {
           await channel.end(id);
         }
         for (final e in plan.start) {
-          await channel.start(e, badge: await _badge(e));
+          await _start(e, shown: shown);
         }
       });
 
@@ -191,7 +218,21 @@ class LiveActivityService {
     for (final id in await channel.active()) {
       if (id != e.id) await channel.end(id);
     }
-    await channel.start(e, badge: await _badge(e));
+    await _start(e);
+  }
+
+  Future<Set<String>> _loadShown() async => await loadShown?.call() ?? const <String>{};
+
+  /// Starts (or refreshes) [e] and remembers it, so a swipe-away sticks.
+  Future<void> _start(Event e, {Set<String>? shown}) async {
+    final ok = await channel.start(e, badge: await _badge(e));
+    final mark = markShown;
+    if (!ok || mark == null || (shown ?? await _loadShown()).contains(e.id)) return;
+    try {
+      await mark(e.id);
+    } catch (err) {
+      debugPrint('live activity mark: $err');
+    }
   }
 
   /// "#0427" once I'm checked in. Only asked from the check-in window on
@@ -226,6 +267,15 @@ final liveActivityServiceProvider = Provider<LiveActivityService>((ref) {
       }
       final m = await ref.read(myEventsProvider.future);
       return [...m.upcoming, ...m.past];
+    },
+    loadShown: () async {
+      // The profile first: right after launch or resume it may still be loading.
+      await ref.read(currentProfileProvider.future);
+      return ref.read(settingsProvider).liveActivitiesShown.toSet();
+    },
+    markShown: (eventId) async {
+      final list = withLiveActivityShown(ref.read(settingsProvider).liveActivitiesShown, eventId);
+      await ref.read(settingsActionsProvider).patch({'la_started': list});
     },
     loadEntryNo: (eventId) async {
       final me = ref.read(currentUserIdProvider);

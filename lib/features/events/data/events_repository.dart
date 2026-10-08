@@ -256,7 +256,12 @@ class EventsRepository {
   /// Returns the new state.
   Future<bool> toggleBookmark(String eventId) async => await _client.rpc('toggle_event_bookmark', params: {'p_event': eventId}) as bool;
 
-  Future<void> cancel(String eventId) => _client.from('events').update({'status': 'cancelled'}).eq('id', eventId);
+  /// Host circle (organizer, co-hosts, club officers, admins); the trigger
+  /// tells everyone who joined.
+  Future<void> cancel(String eventId) => _client.rpc('cancel_event', params: {'p_event': eventId});
+
+  /// Ends a live event now (ends_at = now). Host circle only.
+  Future<void> endNow(String eventId) => _client.rpc('end_event_now', params: {'p_event': eventId});
 
   // --------------------------------------------------------------- create ---
 

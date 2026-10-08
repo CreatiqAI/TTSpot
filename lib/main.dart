@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'core/config/update_gate.dart';
 import 'core/env.dart';
 import 'core/router/app_router.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart' show MapboxOptions;
@@ -111,7 +112,10 @@ class _TtSpotAppState extends ConsumerState<TtSpotApp> {
       if (mounted) setState(() {});
       // "Allow all the time" may have been taken away in phone settings.
       ref.read(backgroundLocationProvider.notifier).sync(fromResume: true);
+      // Too old to keep working? (At most every 10 minutes.)
+      ref.read(updateGateProvider.notifier).check();
     });
+    ref.read(updateGateProvider.notifier).check();
     // Location sharing with the app closed follows sign-in/out and Nobody for
     // the app's whole life, not only while Settings is open.
     ref.listenManual(backgroundLocationProvider, (_, _) {});
@@ -144,6 +148,7 @@ class _TtSpotAppState extends ConsumerState<TtSpotApp> {
   @override
   Widget build(BuildContext context) {
     final router = ref.watch(appRouterProvider);
+    final mustUpdate = ref.watch(updateGateProvider);
     final dark = _dark;
     if (AppColors.dark != dark) {
       AppColors.dark = dark;
@@ -172,6 +177,8 @@ class _TtSpotAppState extends ConsumerState<TtSpotApp> {
             ),
           ),
           const InAppNoticeHost(),
+          // An app too old for the server: "Time for an update" over everything.
+          if (mustUpdate) const Positioned.fill(child: UpdateRequiredPage()),
         ],
       ),
     );

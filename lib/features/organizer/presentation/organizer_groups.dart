@@ -6,6 +6,7 @@ import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/dates.dart';
 import '../../events/domain/event.dart';
+import '../../events/presentation/end_event.dart';
 import '../../events/presentation/whos_here_sheet.dart';
 import '../../expo/expo_routes.dart';
 import '../../floorplan/presentation/floorplan_screen.dart' show FloorplanRoutes;
@@ -36,7 +37,7 @@ List<OrganizerGroup> organizerGroupsFor(EventRole r) {
 
 /// One row: opens a route, or runs [action] (a sheet).
 class OrganizerTool {
-  const OrganizerTool({required this.id, required this.icon, required this.title, required this.subtitle, this.route, this.action});
+  const OrganizerTool({required this.id, required this.icon, required this.title, required this.subtitle, this.route, this.action, this.danger = false});
   final String id;
   final IconData icon;
   final String title;
@@ -44,17 +45,22 @@ class OrganizerTool {
   final String? route;
   final void Function(BuildContext context)? action;
 
+  /// Can't be undone (end / cancel): drawn in red.
+  final bool danger;
+
   bool get enabled => route != null || action != null;
 }
 
 /// The rows in [group] for [role]. [event] feeds the door list (and its
-/// count); [draws] the lucky draw line.
+/// count) and the end / cancel row; [draws] the lucky draw line. [now] is
+/// for tests.
 List<OrganizerTool> organizerTools(
   OrganizerGroup group, {
   required String eventId,
   required EventRole role,
   Event? event,
   List<LuckyDraw> draws = const [],
+  DateTime? now,
 }) {
   final host = role.isHostCircle;
   switch (group) {
@@ -180,6 +186,8 @@ List<OrganizerTool> organizerTools(
       ];
     case OrganizerGroup.team:
       if (!host) return const [];
+      final e = event;
+      final close = e == null ? null : eventCloseAction(e, now ?? DateTime.now());
       return [
         OrganizerTool(
           id: 'crew',
@@ -195,6 +203,16 @@ List<OrganizerTool> organizerTools(
           subtitle: 'Verified check-ins, cars by make, arrivals. Share it with sponsors.',
           route: Routes.eventReport(eventId),
         ),
+        // Last: end it while it runs, cancel it before the start.
+        if (e != null && close != null)
+          OrganizerTool(
+            id: 'close-event',
+            icon: eventCloseIcon(close),
+            title: eventCloseLabel(close),
+            subtitle: close == EventCloseAction.end ? 'Close it for everyone. Check-ins stop.' : 'Call it off. Everyone who joined gets told.',
+            action: (context) => closeEventFlow(context, e),
+            danger: true,
+          ),
       ];
   }
 }
@@ -207,15 +225,16 @@ class OrganizerToolTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = tool;
+    final fg = t.danger ? AppColors.danger : AppColors.textPrimary;
     return ListTile(
       key: ValueKey('tool-${t.id}'),
       leading: Container(
         width: 40,
         height: 40,
         decoration: BoxDecoration(color: AppColors.surfaceGray, borderRadius: BorderRadius.circular(AppRadius.md)),
-        child: Icon(t.icon, size: 21, color: AppColors.textPrimary),
+        child: Icon(t.icon, size: 21, color: fg),
       ),
-      title: Text(t.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+      title: Text(t.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: fg)),
       subtitle: Text(t.subtitle, maxLines: 3, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary, height: 1.3)),
       trailing: Icon(AppIcons.caretRight, size: 18, color: AppColors.textMuted),
       onTap: !t.enabled

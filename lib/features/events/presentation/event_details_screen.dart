@@ -37,6 +37,7 @@ import '../application/on_my_way.dart' show onMyWayWindowOpen;
 import '../domain/event.dart';
 import '../domain/event_detail.dart';
 import '../../profile/presentation/widgets/car_picker_sheet.dart';
+import 'end_event.dart';
 import 'event_car_widgets.dart';
 import 'on_my_way_button.dart';
 import 'whos_here_sheet.dart';
@@ -66,6 +67,7 @@ import '../../expo/stamps/presentation/stamps_screen.dart' show StampsBody;
 import '../../floorplan/application/floorplan_providers.dart';
 import '../../floorplan/presentation/floorplan_preview.dart';
 import '../../organizer/application/organizer_providers.dart';
+import '../../organizer/data/organizer_repository.dart';
 import '../../organizer/domain/organizer_models.dart';
 import '../../organizer/presentation/organizer_groups.dart';
 import '../../share/share_card_renderer.dart';
@@ -193,11 +195,33 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
     }
   }
 
+  /// The host circle (organizer, co-hosts, club officers, admins), as the
+  /// server's is_meet_host sees it. The role is usually loaded already
+  /// (the Organizer tools row watches it).
+  Future<bool> _isHost(Event e) async {
+    if (ref.read(currentUserIdProvider) == e.organizerId) return true;
+    final role = ref.read(myEventRoleProvider(e.id)).value;
+    if (role != null) return role.isHostCircle;
+    try {
+      return (await ref.read(organizerRepositoryProvider).myEventRole(e.id)).isHostCircle;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<void> _menu(EventDetail d) async {
     final me = ref.read(currentUserIdProvider);
     final isOrganizer = me == d.event.organizerId;
     // An official, big event is an "event", not a "meet".
     final noun = (ref.read(eventHubProvider(d.event.id)).value?.isBig ?? false) ? 'event' : 'meet';
+    // End it while it runs, cancel it before the start.
+    final close = await _isHost(d.event) ? eventCloseAction(d.event, DateTime.now()) : null;
+    if (!mounted) return;
+    if (isOrganizer && close == null) {
+      // Nothing left to do with my own meet once it's over.
+      _snack(d.event.isCancelled ? 'This $noun was cancelled.' : 'This $noun has ended.');
+      return;
+    }
     final action = await showModalBottomSheet<String>(
       useRootNavigator: true, // above the shell tab bar
       context: context,
@@ -206,11 +230,12 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (isOrganizer && !d.event.isCancelled)
+            if (close != null)
               ListTile(
-                leading: const Icon(AppIcons.xCircle, color: AppColors.danger),
-                title: Text('Cancel this $noun', style: const TextStyle(color: AppColors.danger)),
-                onTap: () => Navigator.pop(ctx, 'cancel'),
+                key: const ValueKey('menu-close-event'),
+                leading: Icon(eventCloseIcon(close), color: AppColors.danger),
+                title: Text(eventCloseLabel(close, noun: noun), style: const TextStyle(color: AppColors.danger)),
+                onTap: () => Navigator.pop(ctx, 'close'),
               ),
             if (!isOrganizer) ...[
               ListTile(
@@ -231,28 +256,8 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
     );
     if (!mounted || action == null) return;
     switch (action) {
-      case 'cancel':
-        final ok = await showDialog<bool>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: Text('Cancel this $noun?'),
-            content: const Text('Everyone who joined will see it as cancelled. This can\'t be undone.'),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Keep it')),
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                child: Text('Cancel $noun', style: const TextStyle(color: AppColors.danger)),
-              ),
-            ],
-          ),
-        );
-        if (ok == true) {
-          try {
-            await ref.read(eventActionsProvider).cancel(d.event.id);
-          } catch (e) {
-            _snack(friendlyError(e));
-          }
-        }
+      case 'close':
+        await closeEventFlow(context, d.event, noun: noun);
       case 'report':
         await showReportSheet(context, target: ReportTarget.event, targetId: d.event.id);
       case 'block':

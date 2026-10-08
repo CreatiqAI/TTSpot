@@ -155,6 +155,26 @@ void main() {
       expect(plan.start.map((e) => e.id), ['next']);
     });
 
+    test('never auto-starts a meet shown before (swiped away stays away)', () {
+      final mine = [_event('soon', startsIn: const Duration(minutes: 20)), _event('later', startsIn: const Duration(hours: 1))];
+      final plan = planLiveActivities(enabled: true, running: {}, now: _now, mine: mine, shown: {'soon'});
+      expect(plan.start.map((e) => e.id), ['later']);
+      final none = planLiveActivities(enabled: true, running: {}, now: _now, mine: mine, shown: {'soon', 'later'});
+      expect(none.isEmpty, isTrue);
+    });
+
+    test('a running one shown before is still refreshed', () {
+      final plan = planLiveActivities(enabled: true, running: {'a'}, now: _now, mine: [_event('a', startsIn: const Duration(minutes: 20))], shown: {'a'});
+      expect(plan.start.map((e) => e.id), ['a']);
+      expect(plan.end, isEmpty);
+    });
+
+    test('a finished one shown before still ends', () {
+      final plan = planLiveActivities(enabled: true, running: {'over'}, now: _now, mine: [_event('over', startsIn: const Duration(hours: -4))], shown: {'over'});
+      expect(plan.end, {'over'});
+      expect(plan.start, isEmpty);
+    });
+
     test('switch off: end everything, start nothing', () {
       final plan = planLiveActivities(enabled: false, running: {'a'}, now: _now, mine: [_event('a', startsIn: const Duration(minutes: 5))]);
       expect(plan.end, {'a'});
@@ -243,6 +263,70 @@ void main() {
       expect(ch.running, {'b'});
       await s.endAll();
       expect(ch.running, isEmpty);
+    });
+
+    test('shown list: newest last, no repeats, keeps the last 30', () {
+      expect(withLiveActivityShown(['a', 'b'], 'a'), ['b', 'a']);
+      final full = [for (var i = 0; i < 30; i++) 'e$i'];
+      final next = withLiveActivityShown(full, 'new');
+      expect(next.length, 30);
+      expect(next.first, 'e1');
+      expect(next.last, 'new');
+    });
+
+    test('auto-starts a meet once: swiped away, it does not come back', () async {
+      final shown = <String>{};
+      final ch = _FakeChannel();
+      final mine = [_event('soon', startsIn: const Duration(minutes: 20))];
+      final s = LiveActivityService(
+        enabled: () => true,
+        loadMine: ({bool fresh = false}) async => mine,
+        loadShown: () async => {...shown},
+        markShown: (id) async => shown.add(id),
+        channel: ch,
+        platformSupported: true,
+        clock: () => _now,
+      );
+      await s.sync();
+      expect(ch.calls, ['start soon']);
+      expect(shown, {'soon'});
+      // Still running: the next sync refreshes it.
+      await s.sync();
+      expect(ch.calls, ['start soon', 'start soon']);
+      // Swiped away on the lock screen: the next opens leave it gone.
+      ch.running.clear();
+      await s.sync();
+      await s.sync();
+      expect(ch.calls, ['start soon', 'start soon']);
+      // Switching Live Activities on again is the member asking: it shows.
+      await s.sync(explicit: true);
+      expect(ch.calls.last, 'start soon');
+      expect(ch.running, {'soon'});
+    });
+
+    test('a join or on-my-way may show a meet shown before, and remembers it', () async {
+      final shown = <String>{'due'};
+      final marked = <String>[];
+      final ch = _FakeChannel();
+      final due = _event('due', startsIn: const Duration(minutes: 30));
+      final s = LiveActivityService(
+        enabled: () => true,
+        loadMine: ({bool fresh = false}) async => [due, _event('way', startsIn: const Duration(hours: 3))],
+        loadShown: () async => {...shown},
+        markShown: (id) async {
+          marked.add(id);
+          shown.add(id);
+        },
+        channel: ch,
+        platformSupported: true,
+        clock: () => _now,
+      );
+      await s.joined('due');
+      expect(ch.calls, ['start due']);
+      expect(marked, isEmpty); // already on the list
+      await s.onMyWay(_event('way', startsIn: const Duration(hours: 3)));
+      expect(ch.calls, ['start due', 'end due', 'start way']);
+      expect(marked, ['way']);
     });
 
     test('a failing phone call never throws to the caller', () async {

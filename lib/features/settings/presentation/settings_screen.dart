@@ -157,7 +157,7 @@ class SettingsScreen extends ConsumerWidget {
               onChanged: (v) async {
                 await set({'live_activities': v});
                 final live = ref.read(liveActivityServiceProvider);
-                unawaited(v ? live.sync(fresh: true) : live.endAll());
+                unawaited(v ? live.sync(fresh: true, explicit: true) : live.endAll());
               },
             ),
 

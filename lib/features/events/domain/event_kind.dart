@@ -5,10 +5,12 @@ import 'event.dart';
 ///
 /// - A big event (any Expo module: floor plan, exhibitors, schedule, stamps
 ///   or a vote): "Event", badge "Expo".
+/// - A listed public event typed meet (a car show): "Event", badge "Public event".
 /// - Hosted by an official club (or typed official): "Official event".
 /// - Otherwise by type: TT session, Meet, Convoy, Track day, Charity drive.
 enum EventKind {
   expo('Event', 'Expo'),
+  publicEvent('Event', 'Public event'),
   official('Official event', 'Official event'),
   tt('TT session', 'TT session'),
   meet('Meet', 'Meet'),
@@ -27,6 +29,8 @@ enum EventKind {
 
 EventKind eventKindOf(Event e, {bool big = false}) {
   if (big) return EventKind.expo;
+  // A listed public event (a show, an expo): never "Meet".
+  if (e.isListing && e.type == EventType.meet) return EventKind.publicEvent;
   if (e.isOfficialClubEvent || e.type == EventType.official) return EventKind.official;
   if (e.isInstant) return EventKind.tt;
   return switch (e.type) {

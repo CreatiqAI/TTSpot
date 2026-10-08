@@ -10,6 +10,15 @@ class ReleaseNote {
 
 const kReleaseNotes = <ReleaseNote>[
   ReleaseNote(
+    version: '0.3.65',
+    date: '9 Oct 2026',
+    title: "What's on: public car events",
+    points: [
+      'Big public events like MIAPEX, MotoGP and Sepang races now show in Events.',
+      'Each one links to its official page, and you can tap Going so friends see you there.',
+    ],
+  ),
+  ReleaseNote(
     version: '0.3.64',
     date: '9 Oct 2026',
     title: 'Chats that keep up',

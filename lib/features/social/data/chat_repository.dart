@@ -240,7 +240,9 @@ class ChatRepository {
     return (url: results[0]!, posterUrl: results[1]);
   }
 
-  RealtimeChannel subscribe(String conversationId, void Function(Message) onMessage) {
+  /// New messages as they arrive. [onSubscribed] runs each time the channel
+  /// (re)joins: after a dropped connection anything sent meanwhile was missed.
+  RealtimeChannel subscribe(String conversationId, void Function(Message) onMessage, {void Function()? onSubscribed}) {
     return _client
         .channel('messages:$conversationId')
         .onPostgresChanges(
@@ -250,7 +252,9 @@ class ChatRepository {
           filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: 'conversation_id', value: conversationId),
           callback: (payload) => onMessage(Message.fromMap(payload.newRecord)),
         )
-        .subscribe();
+        .subscribe((status, _) {
+          if (status == RealtimeSubscribeStatus.subscribed) onSubscribed?.call();
+        });
   }
 
   Future<int> totalUnread(String me) async {

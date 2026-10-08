@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:flutter/widgets.dart' show AppLifecycleListener;
+
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -48,26 +50,73 @@ final sharedInChatProvider = FutureProvider.family<List<Message>, String>((ref, 
 /// loaded page. Null once it's deleted.
 final chatMessageProvider = FutureProvider.family<Message?, String>((ref, id) => ref.watch(chatRepositoryProvider).message(id));
 
-final messagesProvider = StreamProvider.family<List<Message>, String>((ref, conversationId) {
+/// Bumped after I send something, so the open chat shows it at once even
+/// when the realtime connection has dropped.
+class ChatPoke extends Notifier<int> {
+  ChatPoke(this.conversationId);
+  final String conversationId;
+
+  @override
+  int build() => 0;
+
+  void poke() => state++;
+}
+
+final chatPokeProvider = NotifierProvider.family<ChatPoke, int, String>(ChatPoke.new);
+
+/// Live message list: a fresh fetch every time the chat opens, realtime
+/// inserts appended, and a catch-up (newest page merged in) whenever the
+/// realtime channel rejoins, the app comes back to the front, or I send.
+/// The phone drops the socket in the background, so realtime alone misses
+/// messages, my own included.
+final messagesProvider = StreamProvider.autoDispose.family<List<Message>, String>((ref, conversationId) {
   final repo = ref.watch(chatRepositoryProvider);
   final controller = StreamController<List<Message>>();
   var list = <Message>[];
+  var loaded = false;
+
+  void emit() {
+    if (!controller.isClosed) controller.add(List.unmodifiable(list));
+  }
+
+  void merge(Iterable<Message> incoming) {
+    final known = {for (final m in list) m.id};
+    final fresh = [for (final m in incoming) if (!known.contains(m.id)) m];
+    if (fresh.isEmpty) return;
+    list = [...list, ...fresh]..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    emit();
+    ref.invalidate(inboxProvider);
+  }
+
+  Future<void> catchUp() async {
+    if (!loaded || controller.isClosed) return;
+    try {
+      merge(await repo.messages(conversationId, limit: 50));
+    } catch (_) {/* the next catch-up tries again */}
+  }
 
   repo.messages(conversationId).then((initial) {
     list = initial;
-    if (!controller.isClosed) controller.add(List.unmodifiable(list));
+    loaded = true;
+    emit();
   }).catchError((e, st) {
     if (!controller.isClosed) controller.addError(e, st);
   });
 
-  final channel = repo.subscribe(conversationId, (m) {
-    if (list.any((x) => x.id == m.id)) return;
-    list = [...list, m];
-    if (!controller.isClosed) controller.add(List.unmodifiable(list));
-    ref.invalidate(inboxProvider);
-  });
+  var joins = 0;
+  final channel = repo.subscribe(
+    conversationId,
+    (m) => merge([m]),
+    // The first join is the initial load; later ones follow a dropped connection.
+    onSubscribed: () {
+      if (joins++ > 0) catchUp();
+    },
+  );
+  final life = AppLifecycleListener(onResume: catchUp);
+  ref.listen(chatPokeProvider(conversationId), (_, _) => catchUp());
 
   ref.onDispose(() {
+    life.dispose();
     channel.unsubscribe();
     controller.close();
   });
@@ -82,6 +131,9 @@ final unreadMessagesProvider = FutureProvider<int>((ref) async {
 class ChatActions {
   ChatActions(this._ref);
   final Ref _ref;
+
+  /// Show what I just sent in the open chat now (see [messagesProvider]).
+  void _poke(String conversationId) => _ref.read(chatPokeProvider(conversationId).notifier).poke();
 
   String get _me {
     final id = _ref.read(currentUserIdProvider);
@@ -143,12 +195,14 @@ class ChatActions {
   Future<void> send(String conversationId, String body, {String? replyTo}) async {
     if (body.trim().isEmpty) return;
     await _ref.read(chatRepositoryProvider).send(asClub: _actor(conversationId).asClub, asVendor: _actor(conversationId).asVendor, conversationId: conversationId, me: _me, body: body, replyTo: replyTo);
+    _poke(conversationId);
   }
 
   /// Drop a post or moment into a chat, with an optional note.
   Future<void> share(String conversationId, {String? postId, String? storyId, String note = ''}) async {
     final body = note.trim().isEmpty ? (postId != null ? 'Shared a post' : 'Shared a moment') : note;
     await _ref.read(chatRepositoryProvider).send(asClub: _actor(conversationId).asClub, asVendor: _actor(conversationId).asVendor, conversationId: conversationId, me: _me, body: body, postId: postId, storyId: storyId);
+    _poke(conversationId);
     _ref.invalidate(inboxProvider);
   }
 
@@ -168,6 +222,7 @@ class ChatActions {
     final repo = _ref.read(chatRepositoryProvider);
     final url = await repo.uploadPhoto(me: _me, bytes: await file.readAsBytes());
     await repo.send(asClub: _actor(conversationId).asClub, asVendor: _actor(conversationId).asVendor, conversationId: conversationId, me: _me, body: _captionOr(caption, 'Sent a photo'), imageUrl: url, replyTo: replyTo);
+    _poke(conversationId);
     _ref.invalidate(inboxProvider);
   }
 
@@ -175,6 +230,7 @@ class ChatActions {
     final repo = _ref.read(chatRepositoryProvider);
     final url = await repo.uploadMedia(me: _me, bytes: bytes, ext: 'm4a', contentType: 'audio/mp4');
     await repo.send(asClub: _actor(conversationId).asClub, asVendor: _actor(conversationId).asVendor, conversationId: conversationId, me: _me, body: 'Voice note', audioUrl: url, audioMs: ms, replyTo: replyTo, audioWave: wave == null || wave.isEmpty ? null : wave);
+    _poke(conversationId);
     _ref.invalidate(inboxProvider);
   }
 
@@ -187,6 +243,7 @@ class ChatActions {
     final repo = _ref.read(chatRepositoryProvider);
     final up = await repo.uploadVideo(me: _me, bytes: bytes, poster: poster);
     await repo.send(asClub: _actor(conversationId).asClub, asVendor: _actor(conversationId).asVendor, conversationId: conversationId, me: _me, body: _captionOr(caption, 'Sent a video'), videoUrl: up.url, videoPosterUrl: up.posterUrl, videoMs: ms, replyTo: replyTo);
+    _poke(conversationId);
     _ref.invalidate(inboxProvider);
   }
 
@@ -198,12 +255,14 @@ class ChatActions {
 
   Future<void> sendSticker(String conversationId, String key, {String? replyTo}) async {
     await _ref.read(chatRepositoryProvider).send(asClub: _actor(conversationId).asClub, asVendor: _actor(conversationId).asVendor, conversationId: conversationId, me: _me, body: 'Sent a sticker', sticker: key, replyTo: replyTo);
+    _poke(conversationId);
     _ref.invalidate(inboxProvider);
   }
 
   Future<void> attach(String conversationId, {String? eventId, String? placeId, String? carId, String? replyTo}) async {
     final body = eventId != null ? 'Shared a meet' : (placeId != null ? 'Shared a spot' : 'Shared a car');
     await _ref.read(chatRepositoryProvider).send(asClub: _actor(conversationId).asClub, asVendor: _actor(conversationId).asVendor, conversationId: conversationId, me: _me, body: body, eventId: eventId, placeId: placeId, carId: carId, replyTo: replyTo);
+    _poke(conversationId);
     _ref.invalidate(inboxProvider);
   }
 

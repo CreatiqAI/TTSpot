@@ -11,6 +11,7 @@ import '../../../core/widgets/primary_button.dart';
 import '../../../core/widgets/user_avatar.dart';
 import '../../auth/domain/profile.dart';
 import '../../friends/application/friends_providers.dart';
+import '../../safety/application/wallet_pin.dart';
 import '../application/cards_providers.dart';
 import '../domain/cards.dart';
 import 'widgets/card_face.dart';
@@ -61,8 +62,9 @@ class _NewTradeScreenState extends ConsumerState<NewTradeScreen> {
     }
     setState(() => _busy = true);
     try {
-      await ref.read(cardsActionsProvider).proposeTrade(to: friend.id, offer: offer, request: request, message: _message.text.trim().isEmpty ? null : _message.text.trim());
-      if (!mounted) return;
+      final message = _message.text.trim().isEmpty ? null : _message.text.trim();
+      final sent = await runWithWalletPin(context, ref, () => ref.read(cardsActionsProvider).proposeTrade(to: friend.id, offer: offer, request: request, message: message));
+      if (!sent || !mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Offer sent to ${friend.displayName ?? '@${friend.username}'}.')));
       context.pop();
     } catch (e) {
@@ -278,9 +280,13 @@ class _PickRow extends StatelessWidget {
                   children: [
                     RarityPill(rarity: card.rarity, scale: 0.95),
                     const SizedBox(width: 6),
-                    Text(
-                      mine == null ? 'you have $have' : 'they have $have · you have $mine',
-                      style: TextStyle(fontSize: 12, color: mine == 0 ? AppColors.success : AppColors.textSecondary, fontWeight: mine == 0 ? FontWeight.w700 : FontWeight.w400),
+                    Flexible(
+                      child: Text(
+                        mine == null ? 'you have $have' : 'they have $have · you have $mine',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 12, color: mine == 0 ? AppColors.success : AppColors.textSecondary, fontWeight: mine == 0 ? FontWeight.w700 : FontWeight.w400),
+                      ),
                     ),
                   ],
                 ),

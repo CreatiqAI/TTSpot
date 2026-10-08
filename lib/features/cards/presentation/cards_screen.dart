@@ -18,6 +18,7 @@ import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/user_avatar.dart';
 import '../../guides/me_guides.dart';
 import '../../points/application/points_providers.dart';
+import '../../safety/application/wallet_pin.dart';
 import '../application/cards_providers.dart';
 import '../domain/cards.dart';
 import 'widgets/card_face.dart';
@@ -144,8 +145,9 @@ class _CollectionTab extends ConsumerWidget {
     );
     if (ok != true || !context.mounted) return;
     try {
-      final id = await ref.read(cardsActionsProvider).buyBox();
-      if (context.mounted) context.push(Routes.openBox(id));
+      String? id;
+      final ok = await runWithWalletPin(context, ref, () async => id = await ref.read(cardsActionsProvider).buyBox());
+      if (ok && id != null && context.mounted) context.push(Routes.openBox(id!));
     } catch (e) {
       if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
     }
@@ -812,10 +814,11 @@ class _TradeCard extends ConsumerStatefulWidget {
 class _TradeCardState extends ConsumerState<_TradeCard> {
   bool _busy = false;
 
-  Future<void> _run(Future<void> Function() f, {String? done}) async {
+  /// [f] returning false means the member backed out (the PIN sheet).
+  Future<void> _run(Future<Object?> Function() f, {String? done}) async {
     setState(() => _busy = true);
     try {
-      await f();
+      if (await f() == false) return;
       if (mounted && done != null) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(done)));
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
@@ -886,7 +889,7 @@ class _TradeCardState extends ConsumerState<_TradeCard> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: FilledButton(
-                      onPressed: _busy ? null : () => _run(() => ref.read(cardsActionsProvider).decideTrade(t.id, accept: true), done: 'Trade done. The cards are in your collection.'),
+                      onPressed: _busy ? null : () => _run(() => runWithWalletPin(context, ref, () => ref.read(cardsActionsProvider).decideTrade(t.id, accept: true)), done: 'Trade done. The cards are in your collection.'),
                       child: const Text('Accept'),
                     ),
                   ),
@@ -1006,11 +1009,12 @@ class _RewardCardState extends ConsumerState<_RewardCard> {
         ],
       ),
     );
-    if (ok != true) return;
+    if (ok != true || !mounted) return;
     setState(() => _busy = true);
     try {
-      final res = await ref.read(cardsActionsProvider).claimReward(r.id);
-      if (mounted) context.push(Routes.cardPrizeQr(res.id));
+      String? id;
+      final done = await runWithWalletPin(context, ref, () async => id = (await ref.read(cardsActionsProvider).claimReward(r.id)).id);
+      if (done && id != null && mounted) context.push(Routes.cardPrizeQr(id!));
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
     } finally {

@@ -19,6 +19,7 @@ import '../../../core/utils/geo.dart';
 import '../../guides/me_guides.dart';
 import '../../map/application/map_providers.dart';
 import '../../points/application/points_providers.dart';
+import '../../safety/application/wallet_pin.dart';
 import 'widgets/hours_editor.dart';
 import '../application/vendors_providers.dart';
 import '../domain/vendor.dart';
@@ -333,10 +334,13 @@ class _VoucherCardState extends ConsumerState<_VoucherCard> {
       );
       if (ok != true) return;
     }
+    if (!mounted) return;
     setState(() => _busy = true);
     try {
-      final r = await ref.read(vendorActionsProvider).claim(v.id);
-      if (mounted) context.push(Routes.voucherQr(r.id));
+      // Points vouchers need the wallet PIN; free ones only if the server asks.
+      String? id;
+      final done = await runWithWalletPin(context, ref, () async => id = (await ref.read(vendorActionsProvider).claim(v.id)).id, askFirst: v.pointsCost > 0);
+      if (done && id != null && mounted) context.push(Routes.voucherQr(id!));
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
     } finally {

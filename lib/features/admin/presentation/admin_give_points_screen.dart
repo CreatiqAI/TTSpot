@@ -173,6 +173,7 @@ class _AdminGivePointsScreenState extends ConsumerState<AdminGivePointsScreen> {
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
               child: TextField(
+                textInputAction: TextInputAction.search,
                 controller: _q,
                 onChanged: (_) => setState(() {}),
                 decoration: InputDecoration(

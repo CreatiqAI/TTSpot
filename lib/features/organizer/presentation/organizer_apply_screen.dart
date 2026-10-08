@@ -142,6 +142,8 @@ class _OrganizerApplyScreenState extends ConsumerState<OrganizerApplyScreen> {
           ),
           const SizedBox(height: 16),
           TextFormField(
+            textInputAction: TextInputAction.done,
+            keyboardType: TextInputType.text,
             controller: _desc,
             maxLines: 4,
             maxLength: 500,

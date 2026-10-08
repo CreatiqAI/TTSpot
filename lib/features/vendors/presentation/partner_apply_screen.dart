@@ -315,6 +315,8 @@ class _PartnerApplyScreenState extends ConsumerState<PartnerApplyScreen> {
           ],
           const SizedBox(height: 12),
           TextFormField(
+            textInputAction: TextInputAction.done,
+            keyboardType: TextInputType.text,
             controller: _desc,
             maxLines: 3,
             maxLength: 300,

@@ -79,6 +79,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                         Text('At least 6 characters. You\'ll stay signed in on this phone.', style: TextStyle(fontSize: 15, color: AuthDark.text, height: 1.35)),
                         const SizedBox(height: 18),
                         TextFormField(
+                          textInputAction: TextInputAction.next,
                           controller: _p1,
                           style: const TextStyle(fontSize: 16, color: Colors.white),
                           obscureText: !_show,
@@ -96,6 +97,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                         ),
                         const SizedBox(height: 10),
                         TextFormField(
+                          textInputAction: TextInputAction.done,
                           controller: _p2,
                           style: const TextStyle(fontSize: 16, color: Colors.white),
                           obscureText: !_show,

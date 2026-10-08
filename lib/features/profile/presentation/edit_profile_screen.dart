@@ -187,6 +187,8 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
             UsernameField(controller: _username, current: ref.watch(currentProfileProvider).value?.username),
             const SizedBox(height: 14),
             TextField(
+              textInputAction: TextInputAction.done,
+              keyboardType: TextInputType.text,
               controller: _bio,
               maxLength: 300,
               minLines: 2,

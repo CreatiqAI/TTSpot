@@ -357,6 +357,29 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
+    testWidgets('return posts like Post (reply included) and closes the keyboard; an empty box posts nothing', (tester) async {
+      final (repo, controller) = await _pumpComments(tester);
+      final field = tester.widget<TextField>(find.byType(TextField));
+      expect(field.textInputAction, TextInputAction.send);
+      expect(field.keyboardType, TextInputType.text);
+
+      await tester.enterText(find.byType(TextField), '   ');
+      await tester.testTextInput.receiveAction(TextInputAction.send);
+      await tester.pumpAndSettle();
+      expect(repo.added, isEmpty);
+
+      await tester.tap(find.text('Reply').first);
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), '@keith_ek9 TE37 for sure');
+      await tester.testTextInput.receiveAction(TextInputAction.send);
+      await tester.pumpAndSettle();
+      expect(repo.added.single, (body: '@keith_ek9 TE37 for sure', parentId: 'c1'));
+      expect(controller.text.text, isEmpty);
+      expect(controller.focus.hasFocus, isFalse);
+      expect(tester.testTextInput.hasAnyClients, isFalse);
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('cancelling a reply clears an untouched @handle', (tester) async {
       final (repo, controller) = await _pumpComments(tester);
       await tester.tap(find.text('Reply').first);

@@ -1146,7 +1146,8 @@ class _CommentComposer extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final me = ref.watch(currentProfileProvider).value;
-    return Container(
+    // Tapping Post counts as inside the field (no keyboard close on tap down).
+    return TextFieldTapRegion(child: Container(
       decoration: BoxDecoration(
         color: AppColors.bg,
         border: Border(top: BorderSide(color: AppColors.border, width: 0.5)),
@@ -1165,7 +1166,12 @@ class _CommentComposer extends ConsumerWidget {
                   minLines: 1,
                   maxLines: 4,
                   maxLength: 1000,
-                  textInputAction: TextInputAction.newline,
+                  // Return posts (same as Post) and closes the keyboard; long text still wraps.
+                  keyboardType: TextInputType.text,
+                  textInputAction: TextInputAction.send,
+                  onSubmitted: (_) {
+                    if (!busy) onPost();
+                  },
                   decoration: const InputDecoration(
                     hintText: 'Add a comment…',
                     counterText: '',
@@ -1187,7 +1193,7 @@ class _CommentComposer extends ConsumerWidget {
           ),
         ),
       ),
-    );
+    ));
   }
 }
 

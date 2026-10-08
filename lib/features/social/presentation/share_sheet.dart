@@ -87,6 +87,7 @@ class _ShareSheetState extends ConsumerState<_ShareSheet> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
                 child: TextField(
+                  textInputAction: TextInputAction.search,
                   controller: _search,
                   onChanged: (v) => setState(() => _q = v),
                   decoration: const InputDecoration(hintText: 'Search friends', prefixIcon: Icon(AppIcons.magnifyingGlass), isDense: true),

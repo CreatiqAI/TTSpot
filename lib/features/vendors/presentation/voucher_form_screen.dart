@@ -208,6 +208,8 @@ class _VoucherFormScreenState extends ConsumerState<VoucherFormScreen> {
               onTap: _pickEnd,
             ),
             TextFormField(
+              textInputAction: TextInputAction.done,
+              keyboardType: TextInputType.text,
               controller: _desc,
               maxLines: 2,
               maxLength: 200,
@@ -216,6 +218,8 @@ class _VoucherFormScreenState extends ConsumerState<VoucherFormScreen> {
             ),
             const SizedBox(height: 8),
             TextFormField(
+              textInputAction: TextInputAction.done,
+              keyboardType: TextInputType.text,
               controller: _terms,
               maxLines: 2,
               maxLength: 200,

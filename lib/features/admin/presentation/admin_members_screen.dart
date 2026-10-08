@@ -69,6 +69,7 @@ class _AdminMembersScreenState extends ConsumerState<AdminMembersScreen> {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
             child: TextField(
+              textInputAction: TextInputAction.search,
               controller: _q,
               onChanged: (_) => setState(() {}),
               decoration: InputDecoration(

@@ -987,7 +987,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   onChanged: _onNameChanged,
                 ),
                 const _Label('HANDLE'),
-                UsernameField(controller: _username, textInputAction: TextInputAction.next),
+                // The next field is a picker, so return just closes the keyboard.
+                UsernameField(controller: _username, textInputAction: TextInputAction.done),
                 const _Label('HOME STATE'),
                 // One field; the list opens in a sheet.
                 PickerField<String>(
@@ -1004,7 +1005,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 TextFormField(
                   controller: _phone,
                   keyboardType: TextInputType.phone,
-                  textInputAction: TextInputAction.next,
+                  // Last field unless the referral code is open.
+                  textInputAction: !existing && _showReferral ? TextInputAction.next : TextInputAction.done,
                   autofillHints: const [AutofillHints.telephoneNumber],
                   inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9+\-\s]')), MyPhoneFormatter()],
                   decoration: const InputDecoration(

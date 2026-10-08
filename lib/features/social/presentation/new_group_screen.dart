@@ -301,6 +301,7 @@ class _FriendPickerState extends ConsumerState<FriendPicker> {
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
           child: TextField(
+            textInputAction: TextInputAction.search,
             key: const Key('friend-picker-search'),
             onChanged: (v) => setState(() => _q = v.trim().toLowerCase()),
             decoration: const InputDecoration(hintText: 'Search friends', prefixIcon: Icon(AppIcons.magnifyingGlass), isDense: true),

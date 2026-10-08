@@ -172,6 +172,8 @@ class _SuggestSpotScreenState extends ConsumerState<SuggestSpotScreen> {
             ),
             const SizedBox(height: 18),
             TextField(
+              textInputAction: TextInputAction.done,
+              keyboardType: TextInputType.text,
               controller: _note,
               maxLength: 500,
               minLines: 2,

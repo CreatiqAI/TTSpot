@@ -306,6 +306,8 @@ class _AgendaItemFormState extends ConsumerState<AgendaItemForm> {
               ),
               const SizedBox(height: 8),
               TextField(
+                textInputAction: TextInputAction.done,
+                keyboardType: TextInputType.text,
                 controller: _about,
                 maxLength: 500,
                 minLines: 2,

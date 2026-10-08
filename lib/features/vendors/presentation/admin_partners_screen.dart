@@ -164,7 +164,7 @@ class _CardState extends ConsumerState<_Card> {
         context: context,
         builder: (ctx) => AlertDialog(
           title: const Text('Reject application'),
-          content: TextField(controller: c, autofocus: true, maxLines: 2, decoration: const InputDecoration(hintText: 'Reason the applicant will see')),
+          content: TextField(controller: c, textInputAction: TextInputAction.done, keyboardType: TextInputType.text, autofocus: true, maxLines: 2, decoration: const InputDecoration(hintText: 'Reason the applicant will see')),
           actions: [
             TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
             FilledButton(onPressed: () => Navigator.pop(ctx, c.text.trim()), child: const Text('Reject')),

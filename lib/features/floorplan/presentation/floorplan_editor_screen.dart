@@ -913,6 +913,7 @@ class _PartnerPickerSheetState extends ConsumerState<PartnerPickerSheet> {
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
               child: TextField(
+                textInputAction: TextInputAction.search,
                 autofocus: true,
                 decoration: const InputDecoration(prefixIcon: Icon(AppIcons.magnifyingGlass), hintText: 'Search partners'),
                 onChanged: (v) => setState(() => _q = v.trim().toLowerCase()),
@@ -991,6 +992,7 @@ class _ExhibitorPickerState extends ConsumerState<_ExhibitorPicker> {
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
               child: TextField(
+                textInputAction: TextInputAction.search,
                 autofocus: true,
                 decoration: const InputDecoration(prefixIcon: Icon(AppIcons.magnifyingGlass), hintText: 'Search exhibitors'),
                 onChanged: (v) => setState(() => _q = v),

@@ -218,6 +218,8 @@ class _RegistrationFormEditorScreenState extends ConsumerState<RegistrationFormE
                 Text('CONSENT', style: head),
                 const SizedBox(height: 8),
                 TextField(
+                  textInputAction: TextInputAction.done,
+                  keyboardType: TextInputType.text,
                   controller: _consent,
                   maxLength: 300,
                   maxLines: 3,

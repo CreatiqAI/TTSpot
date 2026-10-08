@@ -299,6 +299,8 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
               ),
             const SizedBox(height: 12),
             TextFormField(
+              textInputAction: TextInputAction.done,
+              keyboardType: TextInputType.text,
               controller: _desc,
               maxLength: 300,
               minLines: 2,

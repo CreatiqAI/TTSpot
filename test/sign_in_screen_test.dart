@@ -175,4 +175,25 @@ void main() {
       expect(finishes(tester), [false]);
     });
   }
+
+  // Return on the email goes to the password; return on the password signs in
+  // and the keyboard goes away (the owner: "don't leave it stuck there").
+  testWidgets('return on the password signs in and closes the keyboard', (tester) async {
+    await pump(tester, signUp: false, dark: false, authOk: true);
+    final email = find.byType(EditableText).first;
+    final password = find.byType(EditableText).last;
+    await tester.enterText(email, 'driver@example.com');
+    await tester.testTextInput.receiveAction(TextInputAction.next);
+    await tester.pump();
+    expect(tester.widget<EditableText>(password).focusNode.hasFocus, isTrue);
+
+    await tester.enterText(password, 'Abcdef12!xyz');
+    tester.testTextInput.log.clear();
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pump();
+    expect(tester.widget<EditableText>(password).focusNode.hasFocus, isFalse);
+    expect(FocusManager.instance.primaryFocus?.context?.findAncestorWidgetOfExactType<EditableText>(), isNull);
+    expect(tester.testTextInput.hasAnyClients, isFalse);
+    expect(finishes(tester), [true], reason: 'return submitted, same as the Sign in button');
+  });
 }

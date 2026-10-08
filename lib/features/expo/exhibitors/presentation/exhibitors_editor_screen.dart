@@ -164,6 +164,7 @@ class _ExhibitorsEditorScreenState extends ConsumerState<ExhibitorsEditorScreen>
                             if (all.length > 8) ...[
                               const SizedBox(height: 10),
                               TextField(
+                                textInputAction: TextInputAction.search,
                                 onChanged: (v) => setState(() => _q = v),
                                 decoration: const InputDecoration(
                                   hintText: 'Search name, booth, category',
@@ -317,11 +318,12 @@ class _ExhibitorFormState extends ConsumerState<_ExhibitorForm> {
   Widget _field(TextEditingController c, String label, {String? hint, int maxLength = 120, TextInputType? keyboard, int maxLines = 1, TextCapitalization caps = TextCapitalization.sentences}) => Padding(
         padding: const EdgeInsets.only(bottom: 4),
         child: TextField(
+          textInputAction: TextInputAction.done,
           controller: c,
           maxLength: maxLength,
           maxLines: maxLines,
           minLines: 1,
-          keyboardType: keyboard,
+          keyboardType: keyboard ?? TextInputType.text,
           textCapitalization: caps,
           decoration: InputDecoration(labelText: label, hintText: hint, counterText: maxLines > 1 ? null : ''),
         ),

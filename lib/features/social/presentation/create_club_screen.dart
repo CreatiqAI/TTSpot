@@ -114,7 +114,7 @@ class _CreateClubScreenState extends ConsumerState<CreateClubScreen> {
             decoration: const InputDecoration(labelText: 'Handle', prefixText: '@', hintText: 'myvi_kl', counterText: ''),
           ),
           const SizedBox(height: 14),
-          TextField(controller: _description, maxLength: 500, minLines: 2, maxLines: 5, textCapitalization: TextCapitalization.sentences, decoration: const InputDecoration(labelText: 'About', hintText: 'Who it\'s for, where you meet, house rules', alignLabelWithHint: true)),
+          TextField(controller: _description, textInputAction: TextInputAction.done, keyboardType: TextInputType.text, maxLength: 500, minLines: 2, maxLines: 5, textCapitalization: TextCapitalization.sentences, decoration: const InputDecoration(labelText: 'About', hintText: 'Who it\'s for, where you meet, house rules', alignLabelWithHint: true)),
           const SizedBox(height: 14),
           PickerField<String>(
             label: 'Home state (optional)',

@@ -222,6 +222,7 @@ class _PeoplePickerState extends ConsumerState<_PeoplePicker> {
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
               child: TextField(
+                textInputAction: TextInputAction.search,
                 controller: _q,
                 autofocus: true,
                 onChanged: _onChanged,

@@ -525,6 +525,8 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
             CaptionAssist(
               controller: _caption,
               child: TextField(
+                textInputAction: TextInputAction.done,
+                keyboardType: TextInputType.text,
                 controller: _caption,
                 maxLength: 2200,
                 minLines: _kind == PostKind.guide ? 5 : 3,

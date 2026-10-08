@@ -227,6 +227,7 @@ class _SendSheetState extends ConsumerState<_SendSheet> {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
                   child: TextField(
+                    textInputAction: TextInputAction.search,
                     onChanged: (v) => setState(() => _q = v.trim().toLowerCase()),
                     decoration: const InputDecoration(hintText: 'Search chats and friends', prefixIcon: Icon(AppIcons.magnifyingGlass), isDense: true),
                   ),

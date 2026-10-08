@@ -422,4 +422,54 @@ void main() {
       expect(t.takeException(), isNull);
     });
   }
+
+  // Return: the search key runs the search at once and closes the keyboard;
+  // the caption's return closes it instead of adding a line.
+  bool typing() => FocusManager.instance.primaryFocus?.context?.findAncestorWidgetOfExactType<EditableText>() != null;
+
+  testWidgets('search: the search key runs it now and closes the keyboard', (t) async {
+    final tags = _FakeTags();
+    await _pumpRouter(t, tags, '/search');
+    await _settle(t);
+    await t.enterText(find.byType(TextField), 'myv');
+    expect(t.widget<TextField>(find.byType(TextField)).textInputAction, TextInputAction.search);
+    await t.testTextInput.receiveAction(TextInputAction.search);
+    await _settle(t);
+    expect(tags.searchCalls, [('myv', 0)], reason: 'no wait for the debounce');
+    expect(typing(), isFalse);
+    expect(t.testTextInput.hasAnyClients, isFalse);
+    await t.pump(const Duration(milliseconds: 400));
+    expect(tags.searchCalls, [('myv', 0)], reason: 'the debounce was dropped, not run twice');
+    expect(t.takeException(), isNull);
+  });
+
+  testWidgets('create post: return on the caption closes the keyboard, no new line', (t) async {
+    final tags = _FakeTags();
+    t.view.physicalSize = const Size(1080, 2400);
+    t.view.devicePixelRatio = 3;
+    addTearDown(t.view.reset);
+    await t.pumpWidget(ProviderScope(
+      retry: (_, _) => null,
+      overrides: [
+        ..._overrides(tags).cast(),
+        myEventsProvider.overrideWith((ref) async => const MyEvents(upcoming: [], past: [])),
+        myClubsProvider.overrideWith((ref) async => const <Club>[]),
+      ],
+      child: MaterialApp(theme: AppTheme.current, home: const CreatePostScreen(kind: PostKind.poll)),
+    ));
+    await _settle(t);
+    final caption = find.byWidgetPredicate((w) => w is TextField && w.decoration?.labelText == 'Caption');
+    final field = t.widget<TextField>(caption);
+    expect(field.textInputAction, TextInputAction.done);
+    expect(field.keyboardType, TextInputType.text);
+    expect(field.maxLines, greaterThan(1), reason: 'long captions still wrap onto more lines');
+
+    await t.enterText(caption, 'Which exhaust for the weekend run?');
+    await t.testTextInput.receiveAction(TextInputAction.done);
+    await t.pump();
+    expect(typing(), isFalse);
+    expect(t.testTextInput.hasAnyClients, isFalse);
+    expect(t.widget<TextField>(caption).controller!.text, 'Which exhaust for the weekend run?');
+    expect(t.takeException(), isNull);
+  });
 }

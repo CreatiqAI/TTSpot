@@ -14,6 +14,7 @@ import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart' show MapboxOptions
 
 import 'core/supabase/supabase_client.dart';
 import 'core/theme/app_theme.dart';
+import 'core/widgets/keyboard_dismissal.dart';
 import 'features/settings/application/background_location_controller.dart';
 import 'features/settings/application/settings_providers.dart';
 import 'core/push/firebase_setup.dart';
@@ -162,24 +163,17 @@ class _TtSpotAppState extends ConsumerState<TtSpotApp> {
       theme: AppTheme.current,
       routerConfig: router,
       scaffoldMessengerKey: rootMessengerKey,
-      // iPhone habit: tapping anywhere outside a text field closes the keyboard.
+      // iPhone habit: a tap outside a text field, or dragging a list, closes the keyboard.
       // Over everything: the in-app banner for pushes while the app is open.
-      builder: (context, child) => Stack(
-        children: [
-          Positioned.fill(
-            child: GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onTap: () {
-                final f = FocusManager.instance.primaryFocus;
-                if (f != null && f.context != null) f.unfocus();
-              },
-              child: child,
-            ),
-          ),
-          const InAppNoticeHost(),
-          // An app too old for the server: "Time for an update" over everything.
-          if (mustUpdate) const Positioned.fill(child: UpdateRequiredPage()),
-        ],
+      builder: (context, child) => KeyboardDismissal(
+        child: Stack(
+          children: [
+            Positioned.fill(child: child ?? const SizedBox.shrink()),
+            const InAppNoticeHost(),
+            // An app too old for the server: "Time for an update" over everything.
+            if (mustUpdate) const Positioned.fill(child: UpdateRequiredPage()),
+          ],
+        ),
       ),
     );
   }

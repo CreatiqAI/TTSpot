@@ -38,7 +38,9 @@ class ChatComposer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    // The whole bar counts as "inside" the field: tapping Send, +, camera or
+    // the mic keeps the keyboard up (the app closes it on taps elsewhere).
+    return TextFieldTapRegion(child: Container(
       decoration: BoxDecoration(color: AppColors.bg, border: Border(top: BorderSide(color: AppColors.border, width: 0.5))),
       child: SafeArea(
         top: false,
@@ -59,7 +61,7 @@ class ChatComposer extends StatelessWidget {
           ],
         ),
       ),
-    );
+    ));
   }
 
   Widget _round(IconData icon, VoidCallback? onTap, {String? tooltip}) => Tooltip(
@@ -102,6 +104,9 @@ class ChatComposer extends StatelessWidget {
                               focusNode: focusNode,
                               minLines: 1,
                               maxLines: 5,
+                              // Return sends (same as the Send button) and closes the keyboard; long text still wraps.
+                              keyboardType: TextInputType.text,
+                              textInputAction: TextInputAction.send,
                               textCapitalization: TextCapitalization.sentences,
                               decoration: InputDecoration(
                                 hintText: hint,
@@ -112,7 +117,9 @@ class ChatComposer extends StatelessWidget {
                                 enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(22), borderSide: BorderSide.none),
                                 focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(22), borderSide: BorderSide(color: AppColors.textMuted)),
                               ),
-                              onSubmitted: (_) => onSend(),
+                              onSubmitted: (_) {
+                                if (!sending) onSend();
+                              },
                             ),
                           ),
                           if (!typing && !sending) ...[

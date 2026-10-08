@@ -840,6 +840,8 @@ class _CarFormScreenState extends ConsumerState<CarFormScreen> {
       ),
       const SizedBox(height: 14),
       TextField(
+        textInputAction: TextInputAction.done,
+        keyboardType: TextInputType.text,
         controller: _description,
         maxLength: 500,
         minLines: 3,

@@ -184,7 +184,7 @@ class _VendorEditScreenState extends ConsumerState<VendorEditScreen> {
                 const SizedBox(height: 4),
                 Text('Shopfront, workshop bay, cars you worked on. Up to 6.', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
                 const SizedBox(height: 12),
-                TextField(controller: _desc, maxLines: 3, maxLength: 300, textCapitalization: TextCapitalization.sentences, decoration: const InputDecoration(labelText: 'About the place')),
+                TextField(controller: _desc, textInputAction: TextInputAction.done, keyboardType: TextInputType.text, maxLines: 3, maxLength: 300, textCapitalization: TextCapitalization.sentences, decoration: const InputDecoration(labelText: 'About the place')),
                 const SizedBox(height: 16),
                 PrimaryButton(label: 'Save', loading: _busy, onPressed: _save),
               ],

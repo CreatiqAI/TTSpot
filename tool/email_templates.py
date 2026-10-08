@@ -1,7 +1,7 @@
 """Branded auth emails for TT Spot, pushed to Supabase via the Management API.
 
     python tool/email_templates.py            # push all templates
-    python tool/email_templates.py --preview  # also email a sample to ttspotmy@gmail.com
+    python tool/email_templates.py --preview  # also email a sample to team@ttspot.my
 
 One shell for every email: small logo on white, a title, one line of
 context, then either a big 6-digit code on a grey tile or one red button,
@@ -14,7 +14,7 @@ TOKEN = io.open(r"C:\Users\Admin\.supabase\car-meet-access-token.txt").read().st
 REF = "gsoaoabefjavdaiqhahu"
 LOGO = "https://creatiqai.github.io/TTSpot/logo.png"
 SITE = "https://www.ttspot.my"
-CONTACT = "ttspotmy@gmail.com"
+CONTACT = "team@ttspot.my"
 RED = "#E00008"
 INK = "#101010"
 
@@ -154,4 +154,4 @@ def preview(to):
 if __name__ == "__main__":
     push()
     if "--preview" in sys.argv:
-        preview("ttspotmy@gmail.com")
+        preview("team@ttspot.my")

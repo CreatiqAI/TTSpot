@@ -41,7 +41,7 @@ PRIVATE BY DEFAULT
 
 TT Spot is for drivers aged 18 and over. Drive safe, respect the roads and keep meets legal. Lucky draws are free to enter; prizes are provided by the event organizer.
 
-Questions or ideas: ttspotmy@gmail.com · www.ttspot.my
+Questions or ideas: team@ttspot.my · www.ttspot.my
 
 ## Graphics
 - App icon 512×512: store/play/icon-512.png
@@ -62,6 +62,6 @@ All car photos and the meet cover in the screenshots were generated for TT Spot 
 ## Category and contact
 - App category: **Auto & Vehicles**
 - Tags (pick up to 5): Cars, Community, Maps, Events, Social
-- Email: ttspotmy@gmail.com
+- Email: team@ttspot.my
 - Website: https://www.ttspot.my
 - Privacy policy: https://www.ttspot.my/privacy.html

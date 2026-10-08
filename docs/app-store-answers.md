@@ -153,7 +153,7 @@ The form has changed more than once. If it shows these questions, answer:
 >
 > **Account deletion:** **Settings > Account > Delete account** (type DELETE to confirm) deletes the account and everything posted from the app.
 >
-> **Contact:** ttspotmy@gmail.com
+> **Contact:** team@ttspot.my
 
 ---
 

@@ -66,7 +66,7 @@ car,meet,club,convoy,teh tarik,mamak,cafe,malaysia,myvi,honda,modified,garage,tr
 
 ## App Review Information
 - Sign-in required: yes. Username `testing`, password `12341234`.
-- Contact: Ming Shun Teh, ttspotmy@gmail.com, phone (owner to fill in).
+- Contact: Ming Shun Teh, team@ttspot.my, phone (owner to fill in).
 - Notes: see `docs/app-store-answers.md` section 4.
 
 ## Release

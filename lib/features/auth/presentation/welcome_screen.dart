@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/titi.dart';
+import '../../../core/widgets/brand_logo.dart';
 import '../../../core/widgets/primary_button.dart';
 
 /// The front door: every signed-out cold start lands here. TiTi waves, the
@@ -27,15 +28,7 @@ class WelcomeScreen extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Text.rich(
-                    TextSpan(
-                      style: TextStyle(fontFamily: AppFonts.display, fontSize: 22, fontWeight: FontWeight.w800, letterSpacing: 0.5, color: AppColors.textPrimary, height: 1),
-                      children: const [
-                        TextSpan(text: 'TT', style: TextStyle(color: AppColors.brand)),
-                        TextSpan(text: 'SPOT'),
-                      ],
-                    ),
-                  ),
+                  const BrandLogo(height: 34),
                   const Spacer(),
                   Text('MALAYSIA\'S CAR COMMUNITY', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.5, color: AppColors.textSecondary)),
                 ],

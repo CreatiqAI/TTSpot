@@ -274,7 +274,7 @@ password = the send-only API key kept at `C:/Users/Admin/.supabase/ttspot-resend
 Branded templates (recovery, confirmation, magic link, email change) are pushed with `python tool/email_templates.py`.
 Sender is `TT Spot <onboarding@resend.dev>` until the **ttspot.my** domain is verified in Resend (Domains → Add →
 add the DNS records at the registrar); until then Resend only delivers to the Resend account's own address
-(creatiqai@gmail.com). After verification, change `smtp_admin_email` to `noreply@ttspot.my` (sender name TT Spot; replies and the in-app contact go to ttspotmy@gmail.com, Gmail cannot be a Resend sender) (same PATCH as the
+(creatiqai@gmail.com). After verification, change `smtp_admin_email` to `noreply@ttspot.my` (sender name TT Spot; replies and the in-app contact go to team@ttspot.my, Gmail cannot be a Resend sender) (same PATCH as the
 templates script) and the emails reach everyone. `ttspot.my` is owned; the GitHub Pages site can move there later
 (`docs/CNAME` + a CNAME record for www pointing at creatiqai.github.io).
 

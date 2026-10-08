@@ -21,7 +21,7 @@ Never commit keys: the GitHub repo is public.
   - GitHub repo → Settings → Secrets → Actions: add `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8` (whole file content)
   - → Tell Claude "API key added" → Claude runs the TestFlight workflow
 - [x] When the first build shows in TestFlight: install it yourself (TestFlight app), then
-  - TestFlight → External Testing → new group → beta description, feedback email `ttspotmy@gmail.com`, privacy URL `https://www.ttspot.my/privacy.html`, demo login (username `testing`, password `12341234`)
+  - TestFlight → External Testing → new group → beta description, feedback email `team@ttspot.my`, privacy URL `https://www.ttspot.my/privacy.html`, demo login (username `testing`, password `12341234`)
   - Submit for beta review (≈1 day) → enable **Public Link** → share it
   - Done 2026-09-24 by Claude via API: group "Beta testers", build 3 in beta review, public link https://testflight.apple.com/join/gBszVjXv (works once Apple approves)
 
@@ -29,7 +29,7 @@ Never commit keys: the GitHub repo is public.
 
 - [x] Finish the USD 25 payment (Maybank: turn on online/e-commerce payments and the online limit in MAE, or use another card)
 - [x] Identity verification with your IC/passport (submitted 2026-09-28, Google reviewing; then verify the contact phone number)
-- [x] Borrow an Android phone, install **Play Console** app, sign in as `ttspotmy@gmail.com` (device verification)
+- [x] Borrow an Android phone, install **Play Console** app, sign in as `team@ttspot.my` (device verification)
 - [ ] Create app: name `TT Spot`, app, free
 - [ ] Collect **15-20 Gmail addresses** of Android testers (you need 12 active for 14 days)
 - [ ] → Tell Claude "Play account ready" → Claude prepares the listing text, Data safety answers and content rating answers
@@ -40,7 +40,7 @@ Never commit keys: the GitHub repo is public.
 
 ## 3. Firebase (push notifications + crash reports)
 
-- [x] console.firebase.google.com → Add project `TT Spot` (Google Analytics: off is fine), signed in as `ttspotmy@gmail.com`
+- [x] console.firebase.google.com → Add project `TT Spot` (Google Analytics: off is fine), signed in as `team@ttspot.my`
 - [x] Add app → **Android**, package `my.ttspot.app` → download `google-services.json`
 - [x] Add app → **iOS**, bundle `my.ttspot.app` → download `GoogleService-Info.plist`
 - [x] Project settings → **Cloud Messaging** → Apple app → upload the APNs `.p8` from section 1 (Key ID + Team ID)

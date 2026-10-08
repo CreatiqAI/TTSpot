@@ -43,7 +43,7 @@ String friendlyError(Object error) {
       case 'validation_failed':
         return 'That doesn\'t look like a valid email.';
       case 'user_banned':
-        return 'This account is suspended. Email ttspotmy@gmail.com if you think this is a mistake.';
+        return 'This account is suspended. Email team@ttspot.my if you think this is a mistake.';
     }
     return error.message;
   }

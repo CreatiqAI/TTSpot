@@ -5,7 +5,7 @@ const kLegalUpdated = '8 October 2026';
 
 /// Bump when the Terms change materially; every member is asked to accept again.
 const kTermsVersion = '2026-10-08';
-const kLegalContact = 'ttspotmy@gmail.com';
+const kLegalContact = 'team@ttspot.my';
 
 const kPrivacyPolicy = '''
 # Privacy Policy

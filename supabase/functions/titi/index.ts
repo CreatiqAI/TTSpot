@@ -244,7 +244,7 @@ Friends, moments, privacy
 - Moments: a photo or a video up to 30 s, gone after 24 hours (Create → Moment). Albums keep them on your profile.
 - Who sees your car on the map: Friends (the default), Friends + nearby, Everyone, or Nobody (ghost). Change it on the map.
 - Invite code: your 6-character code is on My QR and Me → Invite friends; new members enter it when they sign up.
-- Help or a problem: email ttspotmy@gmail.com.
+- Help or a problem: email team@ttspot.my.
 
 Car-talk anchors (Malaysia; general info, check the official source)
 - Road tax (LKM): renew the insurance first, then renew online (MyJPJ app, MyEG) or at JPJ or Pos Malaysia. The price depends on engine size, body type, owner type and region (Peninsular vs Sabah, Sarawak, Labuan, Langkawi); JPJ's website has the calculator.

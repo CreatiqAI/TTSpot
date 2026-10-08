@@ -51,6 +51,10 @@ String friendlyError(Object error) {
   if (error is PostgrestException) {
     // The name filter's own short reason ("That name is reserved.").
     if (error.hint == 'name_filter') return error.message;
+    // The wallet PIN's stable codes (20261009000130_wallet_pin.sql).
+    if (error.message == 'PIN_REQUIRED') return 'Unlock your wallet with your PIN first.';
+    if (error.message == 'PIN_SETUP_REQUIRED') return 'Set your wallet PIN first.';
+    if (error.message == 'REAUTH_REQUIRED') return 'For safety, confirm it is you again first.';
     if (error.message.contains('Event is full')) return 'This meet is full.';
     if (error.code == '23505') return 'Already done.';
     if (error.code == '23503') return 'That no longer exists. It may have ended or been removed.';

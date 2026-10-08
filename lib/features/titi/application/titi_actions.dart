@@ -6,6 +6,7 @@ import '../../../core/utils/friendly_error.dart';
 import '../../../core/directions/directions.dart';
 import '../../events/application/event_providers.dart';
 import '../../map/presentation/widgets/place_card.dart' show ttHere;
+import '../../safety/application/wallet_pin.dart';
 import '../../social/application/community_providers.dart';
 import '../../vendors/application/vendors_providers.dart';
 import '../domain/titi_message.dart';
@@ -44,8 +45,14 @@ Future<String?> runTitiAction(BuildContext context, WidgetRef ref, TitiAction a)
       final route = a.route;
       if (route == null || !openTitiRoute(context, route)) throw const AppException('That page can\'t be opened.');
     case 'claim_voucher':
-      final claim = await ref.read(vendorActionsProvider).claim(target());
-      return Routes.voucherQr(claim.id);
+      // Points vouchers need the wallet PIN. When the shop list doesn't know
+      // the price, the server asks (PIN_REQUIRED) and the sheet shows then.
+      final id = target();
+      final cost = ref.read(shopVouchersProvider).value?.where((v) => v.id == id).firstOrNull?.pointsCost;
+      String? claimId;
+      final done = await runWithWalletPin(context, ref, () async => claimId = (await ref.read(vendorActionsProvider).claim(id)).id, askFirst: cost != null && cost > 0);
+      if (!done || claimId == null) throw const AppException('Needs your wallet PIN.');
+      return Routes.voucherQr(claimId!);
     default:
       throw const AppException('Update TT Spot to do that one.');
   }

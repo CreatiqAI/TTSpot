@@ -28,6 +28,7 @@ import '../../friends/application/friends_providers.dart';
 import '../../friends/domain/friend.dart';
 import '../../map/presentation/widgets/visibility_sheet.dart';
 import '../../safety/data/safety_repository.dart';
+import '../../safety/presentation/wallet_pin_tile.dart';
 import '../../social/application/chat_providers.dart';
 import '../../social/application/club_tag_providers.dart';
 import '../../social/domain/chat.dart';
@@ -224,6 +225,9 @@ class SettingsScreen extends ConsumerWidget {
           _Row(icon: AppIcons.envelope, title: 'Contact us', subtitle: kLegalContact, onTap: () => openExternal(context, 'mailto:$kLegalContact?subject=TT%20Spot')),
           _Row(icon: AppIcons.globe, title: 'ttspot.my', onTap: () => openExternal(context, 'https://ttspot.my')),
           _Row(icon: AppIcons.info, title: 'About TT Spot', subtitle: 'Version $kAppVersion · what\'s new', onTap: () => context.push(Routes.about)),
+
+          const _Head('SECURITY'),
+          const WalletPinTile(),
 
           const _Head('ACCOUNT'),
           _Row(

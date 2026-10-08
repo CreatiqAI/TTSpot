@@ -6,6 +6,7 @@ import 'package:car_meet/core/guide/guide_store.dart';
 import 'package:car_meet/core/router/app_router.dart' show Routes;
 import 'package:car_meet/core/router/pop_or_home.dart';
 import 'package:car_meet/core/supabase/supabase_client.dart';
+import 'package:car_meet/core/theme/app_icons.dart';
 import 'package:car_meet/core/theme/app_theme.dart';
 import 'package:car_meet/core/utils/dates.dart';
 import 'package:car_meet/features/auth/data/auth_repository.dart';
@@ -15,6 +16,7 @@ import 'package:car_meet/features/events/application/event_view.dart';
 import 'package:car_meet/features/events/domain/event.dart';
 import 'package:car_meet/features/events/domain/event_detail.dart';
 import 'package:car_meet/features/events/domain/event_kind.dart';
+import 'package:car_meet/features/events/presentation/end_event.dart';
 import 'package:car_meet/features/events/presentation/event_details_screen.dart';
 import 'package:car_meet/features/expo/contest/application/contest_providers.dart';
 import 'package:car_meet/features/expo/dashboard/application/dashboard_providers.dart';
@@ -382,11 +384,31 @@ void main() {
       expect(ids(OrganizerGroup.door, _host), ['checkin-qr', 'door-qr', 'door-list', 'prize-scan', 'checkin-area', 'registration']);
       expect(ids(OrganizerGroup.program, _host), ['schedule', 'draws', 'vote', 'announcements']);
       expect(ids(OrganizerGroup.exhibitors, _host), ['exhibitors', 'booths', 'floorplan']);
-      expect(ids(OrganizerGroup.team, _host), ['crew', 'report']);
+      expect(ids(OrganizerGroup.team, _host), ['crew', 'report', 'close-event']);
       expect(ids(OrganizerGroup.door, _crew), ['checkin-qr', 'door-list', 'prize-scan']);
       for (final g in [OrganizerGroup.dashboard, OrganizerGroup.program, OrganizerGroup.exhibitors, OrganizerGroup.team]) {
         expect(ids(g, _crew), isEmpty, reason: g.label);
       }
+    });
+
+    test('the last Team row ends a live event, cancels one before the start', () {
+      final now = DateTime(2026, 10, 10, 20);
+      OrganizerTool? close(Event e, [EventRole r = _host]) =>
+          organizerTools(OrganizerGroup.team, eventId: _id, role: r, event: e, now: now).where((t) => t.id == 'close-event').firstOrNull;
+      final upcoming = _event(start: now.add(const Duration(minutes: 30)));
+      final live = _event(start: now.subtract(const Duration(hours: 1)), end: now.add(const Duration(hours: 2)));
+      final over = _event(start: now.subtract(const Duration(hours: 5)), end: now.subtract(const Duration(minutes: 1)));
+      final noEnd = _event(start: now.subtract(const Duration(hours: 7)));
+      expect(close(upcoming)?.title, 'Cancel event');
+      expect(close(live)?.title, 'End event now');
+      expect(close(live)?.danger, isTrue);
+      expect(close(over), isNull);
+      expect(close(noEnd), isNull); // no end time: over 6 h after the start
+      expect(close(live, const EventRole(role: 'cohost', tools: true))?.title, 'End event now');
+      expect(eventCloseAction(live, now), EventCloseAction.end);
+      expect(eventCloseAction(upcoming, now), EventCloseAction.cancel);
+      expect(eventCloseAction(_event(start: now), now), EventCloseAction.end);
+      expect(eventCloseLabel(EventCloseAction.cancel, noun: 'meet'), 'Cancel meet');
     });
   });
 
@@ -546,6 +568,40 @@ void main() {
       );
       expect(find.text('Scan the QR at the entrance with TT Spot. You get your pass and a lucky draw number.'), findsOneWidget);
       expect(t.takeException(), isNull);
+    });
+  });
+
+  group('the menu end / cancel row', () {
+    Future<void> openMenu(WidgetTester t) async {
+      await t.tap(find.byIcon(AppIcons.dotsThreeVertical));
+      await t.pump();
+      await t.pump(const Duration(milliseconds: 400));
+    }
+
+    testWidgets('a co-host can end a live meet', (t) async {
+      final now = DateTime.now();
+      await _pump(t, event: _event(start: now.subtract(const Duration(hours: 1)), end: now.add(const Duration(hours: 3))), hub: _hub(big: false), role: const EventRole(role: 'cohost'));
+      await openMenu(t);
+      expect(find.text('End meet now'), findsOneWidget);
+      await t.tap(find.text('End meet now'));
+      await t.pump();
+      await t.pump(const Duration(milliseconds: 400));
+      expect(find.text('End this meet now?'), findsOneWidget);
+      expect(find.text('End now'), findsOneWidget);
+    });
+
+    testWidgets('the organizer cancels a big event before the start', (t) async {
+      await _pump(t, event: _event(organizer: 'u-me'), hub: _hub());
+      await openMenu(t);
+      expect(find.text('Cancel event'), findsOneWidget);
+    });
+
+    testWidgets('a member gets neither', (t) async {
+      final now = DateTime.now();
+      await _pump(t, event: _event(start: now.subtract(const Duration(hours: 1)), end: now.add(const Duration(hours: 3))), hub: _hub(big: false));
+      await openMenu(t);
+      expect(find.byKey(const ValueKey('menu-close-event')), findsNothing);
+      expect(find.text('Report meet'), findsOneWidget);
     });
   });
 

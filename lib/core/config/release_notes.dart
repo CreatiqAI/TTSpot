@@ -10,6 +10,17 @@ class ReleaseNote {
 
 const kReleaseNotes = <ReleaseNote>[
   ReleaseNote(
+    version: '0.3.64',
+    date: '9 Oct 2026',
+    title: 'Chats that keep up',
+    points: [
+      'Chats always show your latest messages, even after the app was in the background.',
+      'Hosts can end an event early, or cancel it before it starts.',
+      'The lock screen countdown no longer comes back after you swipe it away.',
+      'An update screen tells you when this version is too old.',
+    ],
+  ),
+  ReleaseNote(
     version: '0.3.63',
     date: '9 Oct 2026',
     title: 'Clearer event pages, and you choose what AI sees',

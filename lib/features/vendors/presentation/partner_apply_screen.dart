@@ -12,6 +12,7 @@ import '../../../core/widgets/picker_field.dart';
 import '../../../core/places/place_label.dart';
 import '../../../core/widgets/place_search_field.dart';
 import '../../map/application/map_providers.dart';
+import '../../safety/application/name_check.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/titi.dart';
 import '../../../core/utils/dates.dart';
@@ -56,8 +57,22 @@ class _PartnerApplyScreenState extends ConsumerState<PartnerApplyScreen> {
 
   bool get _club => widget.kind == ApplicationKind.club;
 
+  /// The name filter on the club or business name, while typing. A club
+  /// name is checked like the club it becomes (reserved names too).
+  late final LiveNameCheck _nameCheck;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameCheck = LiveNameCheck(controller: _name, kind: _club ? NameKind.name : NameKind.title, check: ref.read(nameCheckProvider))
+      ..addListener(() {
+        if (mounted) setState(() {});
+      });
+  }
+
   @override
   void dispose() {
+    _nameCheck.dispose();
     _name.dispose();
     _address.dispose();
     _phone.dispose();
@@ -67,7 +82,8 @@ class _PartnerApplyScreenState extends ConsumerState<PartnerApplyScreen> {
   }
 
   Future<void> _submit() async {
-    if (!_form.currentState!.validate()) return;
+    await _nameCheck.verify();
+    if (!mounted || !_form.currentState!.validate()) return;
     setState(() => _busy = true);
     try {
       if (!_club && _shopPhoto == null) {
@@ -226,8 +242,8 @@ class _PartnerApplyScreenState extends ConsumerState<PartnerApplyScreen> {
             controller: _name,
             textCapitalization: TextCapitalization.words,
             maxLength: 80,
-            decoration: InputDecoration(labelText: _club ? 'Club name' : 'Business name', hintText: _club ? 'e.g. GR86 Owners Malaysia' : 'e.g. Speedworks Autoparts', counterText: ''),
-            validator: (v) => (v ?? '').trim().length < 2 ? (_club ? 'Give the club a name' : 'Enter your business name') : null,
+            decoration: InputDecoration(labelText: _club ? 'Club name' : 'Business name', hintText: _club ? 'e.g. GR86 Owners Malaysia' : 'e.g. Speedworks Autoparts', counterText: '', errorText: _nameCheck.problem, errorMaxLines: 2),
+            validator: (v) => (v ?? '').trim().length < 2 ? (_club ? 'Give the club a name' : 'Enter your business name') : _nameCheck.problem,
           ),
           const SizedBox(height: 12),
           if (_club)

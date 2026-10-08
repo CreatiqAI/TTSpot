@@ -8,6 +8,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../../core/widgets/user_avatar.dart';
 import '../../friends/application/nicknames.dart';
+import '../../safety/application/name_check.dart';
 import '../application/chat_providers.dart';
 import '../application/community_providers.dart';
 import '../application/group_chat_providers.dart';
@@ -199,21 +200,45 @@ class GroupInfo extends ConsumerWidget {
 
 /// The rename box. It owns its text controller, so the controller outlives the
 /// dialog's closing animation.
-class _RenameDialog extends StatefulWidget {
+class _RenameDialog extends ConsumerStatefulWidget {
   const _RenameDialog({required this.initial});
   final String initial;
 
   @override
-  State<_RenameDialog> createState() => _RenameDialogState();
+  ConsumerState<_RenameDialog> createState() => _RenameDialogState();
 }
 
-class _RenameDialogState extends State<_RenameDialog> {
+class _RenameDialogState extends ConsumerState<_RenameDialog> {
   late final _ctl = TextEditingController(text: widget.initial);
+  /// The name filter, while typing. The current name is always fine.
+  late final LiveNameCheck _check;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _check = LiveNameCheck(controller: _ctl, kind: NameKind.title, check: ref.read(nameCheckProvider), saved: widget.initial)
+      ..addListener(() {
+        if (mounted) setState(() {});
+      });
+  }
 
   @override
   void dispose() {
+    _check.dispose();
     _ctl.dispose();
     super.dispose();
+  }
+
+  Future<void> _save() async {
+    setState(() => _saving = true);
+    final problem = await _check.verify();
+    if (!mounted) return;
+    if (problem != null) {
+      setState(() => _saving = false);
+      return;
+    }
+    Navigator.pop(context, _ctl.text);
   }
 
   @override
@@ -225,11 +250,11 @@ class _RenameDialogState extends State<_RenameDialog> {
           autofocus: true,
           maxLength: kGroupNameMax,
           textCapitalization: TextCapitalization.words,
-          decoration: const InputDecoration(hintText: 'Name the group', helperText: "Leave it blank to show everyone's names.", helperMaxLines: 2),
+          decoration: InputDecoration(hintText: 'Name the group', helperText: "Leave it blank to show everyone's names.", helperMaxLines: 2, errorText: _check.problem, errorMaxLines: 2),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          TextButton(key: const Key('group-rename-save'), onPressed: () => Navigator.pop(context, _ctl.text), child: const Text('Save')),
+          TextButton(key: const Key('group-rename-save'), onPressed: _saving ? null : _save, child: const Text('Save')),
         ],
       );
 }

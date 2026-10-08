@@ -11,6 +11,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/picker_field.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../events/presentation/plan_steps/wizard_parts.dart';
+import '../../safety/application/name_check.dart';
 import '../../vendors/application/vendors_providers.dart';
 import '../../vendors/domain/vendor.dart';
 import '../application/community_providers.dart';
@@ -39,9 +40,26 @@ class _CreateClubScreenState extends ConsumerState<CreateClubScreen> {
   /// Who can join: public (anyone, right away) unless the owner picks private.
   bool _public = true;
   bool _busy = false;
+  /// The name filter on the club name and handle, while typing.
+  late final LiveNameCheck _nameCheck;
+  late final LiveNameCheck _handleCheck;
+
+  @override
+  void initState() {
+    super.initState();
+    final check = ref.read(nameCheckProvider);
+    _nameCheck = LiveNameCheck(controller: _name, kind: NameKind.name, check: check)..addListener(_refresh);
+    _handleCheck = LiveNameCheck(controller: _handle, kind: NameKind.handle, check: check)..addListener(_refresh);
+  }
+
+  void _refresh() {
+    if (mounted) setState(() {});
+  }
 
   @override
   void dispose() {
+    _nameCheck.dispose();
+    _handleCheck.dispose();
     _name.dispose();
     _handle.dispose();
     _description.dispose();
@@ -64,6 +82,12 @@ class _CreateClubScreenState extends ConsumerState<CreateClubScreen> {
     FocusScope.of(context).unfocus();
     if (!_hasLogo) return;
     setState(() => _busy = true);
+    final problems = await Future.wait([_nameCheck.verify(), _handleCheck.verify()]);
+    if (!mounted) return;
+    if (problems.any((p) => p != null)) {
+      setState(() => _busy = false);
+      return;
+    }
     try {
       final club = await ref.read(communityActionsProvider).createClub(
             name: _name.text,
@@ -105,13 +129,13 @@ class _CreateClubScreenState extends ConsumerState<CreateClubScreen> {
         children: [
           ClubLogoPicker(file: _avatar, url: _avatar == null ? _appLogo : null, onTap: _busy ? null : _pickLogo),
           const SizedBox(height: 18),
-          TextField(controller: _name, maxLength: 60, textCapitalization: TextCapitalization.words, decoration: const InputDecoration(labelText: 'Club name', hintText: 'e.g. Myvi Owners KL', counterText: '')),
+          TextField(controller: _name, maxLength: 60, textCapitalization: TextCapitalization.words, decoration: InputDecoration(labelText: 'Club name', hintText: 'e.g. Myvi Owners KL', counterText: '', errorText: _nameCheck.problem, errorMaxLines: 2)),
           const SizedBox(height: 14),
           TextField(
             controller: _handle,
             maxLength: 24,
             inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9_]')), _Lower()],
-            decoration: const InputDecoration(labelText: 'Handle', prefixText: '@', hintText: 'myvi_kl', counterText: ''),
+            decoration: InputDecoration(labelText: 'Handle', prefixText: '@', hintText: 'myvi_kl', counterText: '', errorText: _handleCheck.problem, errorMaxLines: 2),
           ),
           const SizedBox(height: 14),
           TextField(controller: _description, maxLength: 500, minLines: 2, maxLines: 5, textCapitalization: TextCapitalization.sentences, decoration: const InputDecoration(labelText: 'About', hintText: 'Who it\'s for, where you meet, house rules', alignLabelWithHint: true)),

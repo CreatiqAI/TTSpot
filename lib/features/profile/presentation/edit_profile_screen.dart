@@ -16,6 +16,7 @@ import '../../../core/widgets/user_avatar.dart';
 import '../../auth/application/onboarding_controller.dart';
 import '../../auth/presentation/widgets/username_field.dart';
 import '../../auth/data/auth_repository.dart';
+import '../../safety/application/name_check.dart';
 import '../application/profile_providers.dart';
 
 /// Instagram "Edit profile": avatar + Edit picture, Name, Username, Bio, Home state.
@@ -36,9 +37,22 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   /// A picked TiTi default avatar (0..7); saved as its public URL.
   int? _preset;
   bool _prefilled = false;
+  final _form = GlobalKey<FormState>();
+  /// The name filter on Name, while typing.
+  late final LiveNameCheck _nameCheck;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameCheck = LiveNameCheck(controller: _name, kind: NameKind.name, check: ref.read(nameCheckProvider))
+      ..addListener(() {
+        if (mounted) setState(() {});
+      });
+  }
 
   @override
   void dispose() {
+    _nameCheck.dispose();
     _name.dispose();
     _username.dispose();
     _bio.dispose();
@@ -99,6 +113,8 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
   Future<void> _save() async {
     FocusScope.of(context).unfocus();
+    await _nameCheck.verify();
+    if (!mounted || !(_form.currentState?.validate() ?? true)) return;
     await ref.read(onboardingControllerProvider.notifier).submit(
           username: _username.text,
           displayName: _name.text,
@@ -124,6 +140,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     final profile = ref.watch(currentProfileProvider).value;
     if (!_prefilled && profile != null) {
       _prefilled = true;
+      _nameCheck.saved = profile.displayName;
       _name.text = profile.displayName ?? '';
       _username.text = profile.username ?? '';
       _bio.text = profile.bio ?? '';
@@ -144,66 +161,70 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
         ],
       ),
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-          children: [
-            Center(
-              child: Column(
-                children: [
-                  GestureDetector(
-                    onTap: busy ? null : _pickAvatar,
-                    child: _avatar != null
-                        ? Container(
-                            width: 96,
-                            height: 96,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              image: DecorationImage(image: MemoryImage(_avatar!), fit: BoxFit.cover),
-                            ),
-                          )
-                        : _preset != null
-                        ? Container(
-                            width: 96,
-                            height: 96,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              image: DecorationImage(image: AssetImage(DefaultAvatars.asset(_preset!)), fit: BoxFit.cover),
-                            ),
-                          )
-                        : UserAvatar(url: profile?.avatarUrl, name: profile?.displayName ?? profile?.username, seed: profile?.id, size: 96),
-                  ),
-                  TextButton(onPressed: busy ? null : _pickAvatar, child: const Text('Edit picture')),
-                ],
+        child: Form(
+          key: _form,
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+            children: [
+              Center(
+                child: Column(
+                  children: [
+                    GestureDetector(
+                      onTap: busy ? null : _pickAvatar,
+                      child: _avatar != null
+                          ? Container(
+                              width: 96,
+                              height: 96,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                image: DecorationImage(image: MemoryImage(_avatar!), fit: BoxFit.cover),
+                              ),
+                            )
+                          : _preset != null
+                          ? Container(
+                              width: 96,
+                              height: 96,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                image: DecorationImage(image: AssetImage(DefaultAvatars.asset(_preset!)), fit: BoxFit.cover),
+                              ),
+                            )
+                          : UserAvatar(url: profile?.avatarUrl, name: profile?.displayName ?? profile?.username, seed: profile?.id, size: 96),
+                    ),
+                    TextButton(onPressed: busy ? null : _pickAvatar, child: const Text('Edit picture')),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _name,
-              textCapitalization: TextCapitalization.words,
-              maxLength: 40,
-              decoration: const InputDecoration(labelText: 'Name', counterText: ''),
-            ),
-            const SizedBox(height: 14),
-            UsernameField(controller: _username, current: ref.watch(currentProfileProvider).value?.username),
-            const SizedBox(height: 14),
-            TextField(
-              controller: _bio,
-              maxLength: 300,
-              minLines: 2,
-              maxLines: 4,
-              textCapitalization: TextCapitalization.sentences,
-              decoration: const InputDecoration(labelText: 'Bio', hintText: 'What you drive, where you hang out', alignLabelWithHint: true),
-            ),
-            const SizedBox(height: 14),
-            PickerField<String>(
-              label: 'Home state',
-              icon: AppIcons.mapPin,
-              value: _homeState,
-              enabled: !busy,
-              options: [for (final s in malaysianStates) (s, s)],
-              onChanged: (v) => setState(() => _homeState = v),
-            ),
-          ],
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _name,
+                textCapitalization: TextCapitalization.words,
+                maxLength: 40,
+                decoration: InputDecoration(labelText: 'Name', counterText: '', errorText: _nameCheck.problem, errorMaxLines: 2),
+                validator: (_) => _nameCheck.problem,
+              ),
+              const SizedBox(height: 14),
+              UsernameField(controller: _username, current: ref.watch(currentProfileProvider).value?.username),
+              const SizedBox(height: 14),
+              TextField(
+                controller: _bio,
+                maxLength: 300,
+                minLines: 2,
+                maxLines: 4,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: const InputDecoration(labelText: 'Bio', hintText: 'What you drive, where you hang out', alignLabelWithHint: true),
+              ),
+              const SizedBox(height: 14),
+              PickerField<String>(
+                label: 'Home state',
+                icon: AppIcons.mapPin,
+                value: _homeState,
+                enabled: !busy,
+                options: [for (final s in malaysianStates) (s, s)],
+                onChanged: (v) => setState(() => _homeState = v),
+              ),
+            ],
+          ),
         ),
       ),
     );

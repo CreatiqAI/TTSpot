@@ -46,6 +46,7 @@ import '../data/auth_repository.dart';
 import 'garage_setup_screen.dart';
 import 'widgets/onboarding_progress.dart';
 import 'widgets/username_field.dart';
+import '../../safety/application/name_check.dart';
 
 /// First-run setup, guided by TiTi. One route, four pages switched here
 /// (TiTi's welcome is the app's front door now, before sign-in: see
@@ -155,10 +156,15 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   /// The toy car sheet (Kie.ai) was shown this session; it isn't asked twice.
   bool _toyAsked = false;
 
+  /// The name filter on the display name, while typing.
+  late final LiveNameCheck _nameCheck;
+
   @override
   void initState() {
     super.initState();
     _username.addListener(_onUsernameChanged);
+    _nameCheck = LiveNameCheck(controller: _displayName, kind: NameKind.name, check: ref.read(nameCheckProvider))
+      ..addListener(_onNameCheck);
     if (widget.debugStartAt != null) {
       _page = widget.debugStartAt;
       _profileSaved = widget.debugStartAt!.index > OnboardingPage.you.index;
@@ -169,6 +175,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   @override
   void dispose() {
     _suggestTimer?.cancel();
+    _nameCheck.dispose();
     _username.removeListener(_onUsernameChanged);
     _username.dispose();
     _displayName.dispose();
@@ -459,6 +466,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     _username.value = TextEditingValue(text: _autoUsername, selection: TextSelection.collapsed(offset: _autoUsername.length));
   }
 
+  void _onNameCheck() {
+    if (mounted) setState(() {});
+  }
+
   void _onUsernameChanged() {
     if (_username.text != _autoUsername) _usernameTouched = true;
   }
@@ -466,6 +477,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   Future<void> _submit({required bool existing}) async {
     FocusScope.of(context).unfocus();
     setState(() => _validate = true);
+    await _nameCheck.verify();
+    if (!mounted) return;
     final formOk = _formKey.currentState!.validate();
     if (!formOk || _homeState == null) return;
     // The profile is refreshed here, not in the controller, so a new member
@@ -590,6 +603,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     final basics = ref.watch(accountBasicsProvider).value;
     if (!_prefilled && profile != null) {
       _prefilled = true;
+      // A name already saved (Google, Apple) isn't re-checked unless changed.
+      _nameCheck.saved = profile.displayName;
       _displayName.text = profile.displayName ?? '';
       // A saved username is the member's own; otherwise suggest one from a
       // name that's already there (an Apple sign-in name, say).
@@ -982,8 +997,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   textInputAction: TextInputAction.next,
                   textCapitalization: TextCapitalization.words,
                   maxLength: 40,
-                  decoration: const InputDecoration(hintText: 'Your name', counterText: ''),
-                  validator: (v) => (v?.trim().length ?? 0) < 2 ? 'Enter your name' : null,
+                  decoration: InputDecoration(hintText: 'Your name', counterText: '', errorText: _nameCheck.problem, errorMaxLines: 2),
+                  validator: (v) => (v?.trim().length ?? 0) < 2 ? 'Enter your name' : _nameCheck.problem,
                   onChanged: _onNameChanged,
                 ),
                 const _Label('HANDLE'),

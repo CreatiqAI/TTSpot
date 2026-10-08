@@ -49,6 +49,8 @@ String friendlyError(Object error) {
   }
 
   if (error is PostgrestException) {
+    // The name filter's own short reason ("That name is reserved.").
+    if (error.hint == 'name_filter') return error.message;
     if (error.message.contains('Event is full')) return 'This meet is full.';
     if (error.code == '23505') return 'Already done.';
     if (error.code == '23503') return 'That no longer exists. It may have ended or been removed.';

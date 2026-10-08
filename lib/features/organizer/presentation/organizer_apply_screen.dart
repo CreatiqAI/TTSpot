@@ -9,6 +9,7 @@ import '../../../core/theme/titi.dart';
 import '../../../core/utils/dates.dart';
 import '../../../core/utils/friendly_error.dart';
 import '../../../core/widgets/primary_button.dart';
+import '../../safety/application/name_check.dart';
 import '../../vendors/application/vendors_providers.dart';
 import '../../vendors/domain/vendor.dart';
 import '../application/organizer_providers.dart';
@@ -32,9 +33,21 @@ class _OrganizerApplyScreenState extends ConsumerState<OrganizerApplyScreen> {
   String? _size;
   bool _busy = false;
   bool _reapply = false;
+  /// The name filter on the organisation name, while typing.
+  late final LiveNameCheck _nameCheck;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameCheck = LiveNameCheck(controller: _name, kind: NameKind.title, check: ref.read(nameCheckProvider))
+      ..addListener(() {
+        if (mounted) setState(() {});
+      });
+  }
 
   @override
   void dispose() {
+    _nameCheck.dispose();
     _name.dispose();
     _links.dispose();
     _desc.dispose();
@@ -42,7 +55,8 @@ class _OrganizerApplyScreenState extends ConsumerState<OrganizerApplyScreen> {
   }
 
   Future<void> _submit() async {
-    if (!_form.currentState!.validate()) return;
+    await _nameCheck.verify();
+    if (!mounted || !_form.currentState!.validate()) return;
     if (_size == null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pick your typical event size.')));
       return;
@@ -119,8 +133,8 @@ class _OrganizerApplyScreenState extends ConsumerState<OrganizerApplyScreen> {
             controller: _name,
             textCapitalization: TextCapitalization.words,
             maxLength: 80,
-            decoration: const InputDecoration(labelText: 'Organisation or crew name', hintText: 'e.g. Midnight Club KL', counterText: ''),
-            validator: (v) => (v ?? '').trim().length < 2 ? 'Enter the name you run meets under' : null,
+            decoration: InputDecoration(labelText: 'Organisation or crew name', hintText: 'e.g. Midnight Club KL', counterText: '', errorText: _nameCheck.problem, errorMaxLines: 2),
+            validator: (v) => (v ?? '').trim().length < 2 ? 'Enter the name you run meets under' : _nameCheck.problem,
           ),
           const SizedBox(height: 12),
           TextFormField(

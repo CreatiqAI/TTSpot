@@ -17,6 +17,7 @@ import 'package:car_meet/features/auth/presentation/onboarding_screen.dart';
 import 'package:car_meet/features/auth/presentation/widgets/onboarding_progress.dart';
 import 'package:car_meet/features/cards/domain/cards.dart';
 import 'package:car_meet/features/onboarding/application/permissions_step.dart';
+import 'package:car_meet/features/safety/application/name_check.dart';
 import 'package:car_meet/features/onboarding/presentation/permissions_screen.dart';
 import 'package:car_meet/features/settings/application/background_location_controller.dart';
 
@@ -119,6 +120,7 @@ void main() {
         currentProfileProvider.overrideWith((ref) async => profile ?? _newMember()),
         accountBasicsProvider.overrideWith((ref) async => null),
         usernameAvailabilityProvider.overrideWithValue(checker.call),
+        nameCheckProvider.overrideWithValue(_fakeNameCheck),
         permissionsDeviceProvider.overrideWithValue(device),
         backgroundLocationProvider.overrideWith(_FakeBg.new),
       ]);
@@ -190,6 +192,30 @@ void main() {
       await t.pump(const Duration(milliseconds: 500));
       await t.pumpAndSettle();
       expect(find.text('@${usernameText(t)} is yours.'), findsOneWidget);
+    });
+
+    testWidgets('a rude name and a reserved handle are refused under their fields', (t) async {
+      await pump(t);
+      await t.enterText(nameField(), 'Cibai King');
+      await t.pump(const Duration(milliseconds: 500));
+      await t.pumpAndSettle();
+      // Under the name, and under the handle suggested from it.
+      await t.pump(const Duration(milliseconds: 500));
+      await t.pumpAndSettle();
+      expect(find.text(_notAllowed), findsNWidgets(2));
+
+      await t.enterText(nameField(), 'Wei Ling');
+      await t.pump(const Duration(milliseconds: 500));
+      await t.pumpAndSettle();
+      expect(find.text(_notAllowed), findsNothing);
+
+      final userField = find.descendant(of: find.byType(TextFormField), matching: find.byType(EditableText)).at(1);
+      await t.enterText(userField, 'admin123');
+      await t.pump(const Duration(milliseconds: 500));
+      await t.pumpAndSettle();
+      expect(find.text(_reserved), findsOneWidget);
+      expect(find.text('@admin123 is yours.'), findsNothing);
+      expect(t.takeException(), isNull);
     });
 
     testWidgets('a free name goes in as it is, and follows the name until the member edits it', (t) async {
@@ -325,4 +351,15 @@ class _FakeDevice implements PermissionsDevice {
   Future<bool> openNotificationSettings() async => true;
   @override
   Future<bool> requestBackground() async => true;
+}
+
+const _notAllowed = "That name isn't allowed. Try another.";
+const _reserved = 'That name is reserved.';
+
+/// Stands in for check_name: "cibai" is rude, "admin…" is reserved.
+Future<String?> _fakeNameCheck(String text, NameKind kind) async {
+  final t = text.toLowerCase();
+  if (t.contains('cibai')) return _notAllowed;
+  if (kind != NameKind.title && t.startsWith('admin')) return _reserved;
+  return null;
 }

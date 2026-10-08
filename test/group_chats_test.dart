@@ -14,6 +14,7 @@ import 'package:car_meet/features/auth/domain/profile.dart';
 import 'package:car_meet/features/friends/application/friends_providers.dart';
 import 'package:car_meet/features/friends/application/nicknames.dart';
 import 'package:car_meet/features/friends/domain/friend.dart';
+import 'package:car_meet/features/safety/application/name_check.dart';
 import 'package:car_meet/features/safety/data/safety_repository.dart';
 import 'package:car_meet/features/settings/application/settings_providers.dart';
 import 'package:car_meet/features/social/application/chat_providers.dart';
@@ -139,6 +140,7 @@ Future<void> _pump(WidgetTester t, {required double scale, required List<RouteBa
       nicknamesProvider.overrideWithValue(const {'u-aiman': 'Boss'}),
       settingsProvider.overrideWith(_FakeSettings.new),
       blockedUserIdsProvider.overrideWith((ref) async => <String>{}),
+      nameCheckProvider.overrideWithValue((text, kind) async => text.toLowerCase().contains('lanjiao') ? "That name isn't allowed. Try another." : null),
       ...overrides.cast(),
     ],
     child: MaterialApp.router(
@@ -395,9 +397,17 @@ void main() {
       expect(find.text('You'), findsOneWidget);
       expect(t.takeException(), isNull);
 
-      // Rename.
+      // Rename. A rude name is refused inline and the box stays open.
       await t.tap(find.byKey(const Key('group-rename')));
       await t.pumpAndSettle();
+      await t.enterText(find.byKey(const Key('group-rename-field')), 'Lanjiao gang');
+      await t.pump(const Duration(milliseconds: 450));
+      expect(find.text("That name isn't allowed. Try another."), findsOneWidget);
+      await t.tap(find.byKey(const Key('group-rename-save')));
+      await t.pumpAndSettle();
+      // Not sent: the box is still open.
+      expect(find.byKey(const Key('group-rename-field')), findsOneWidget);
+      expect(t.takeException(), isNull);
       await t.enterText(find.byKey(const Key('group-rename-field')), 'Weekend Run');
       await t.tap(find.byKey(const Key('group-rename-save')));
       await t.pumpAndSettle();

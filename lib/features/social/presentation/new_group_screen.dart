@@ -18,6 +18,7 @@ import '../../../core/widgets/user_avatar.dart';
 import '../../auth/domain/profile.dart';
 import '../../friends/application/friends_providers.dart';
 import '../../friends/application/nicknames.dart';
+import '../../safety/application/name_check.dart';
 import '../application/chat_providers.dart';
 import '../application/group_chat_providers.dart';
 import '../domain/group_chat.dart';
@@ -44,9 +45,21 @@ class _NewGroupScreenState extends ConsumerState<NewGroupScreen> {
   XFile? _photo;
   bool _naming = false;
   bool _busy = false;
+  /// The name filter on the group name, while typing.
+  late final LiveNameCheck _nameCheck;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameCheck = LiveNameCheck(controller: _name, kind: NameKind.title, check: ref.read(nameCheckProvider))
+      ..addListener(() {
+        if (mounted) setState(() {});
+      });
+  }
 
   @override
   void dispose() {
+    _nameCheck.dispose();
     _name.dispose();
     super.dispose();
   }
@@ -60,6 +73,10 @@ class _NewGroupScreenState extends ConsumerState<NewGroupScreen> {
 
   Future<void> _create() async {
     setState(() => _busy = true);
+    if (await _nameCheck.verify() != null) {
+      if (mounted) setState(() => _busy = false);
+      return;
+    }
     try {
       final id = await ref.read(groupChatActionsProvider).create(memberIds: List.of(_picked), name: _name.text, photo: _photo);
       if (mounted) context.pushReplacement(Routes.chat(id));
@@ -95,6 +112,7 @@ class _NewGroupScreenState extends ConsumerState<NewGroupScreen> {
         body: _naming
             ? _NameStep(
                 name: _name,
+                nameProblem: _nameCheck.problem,
                 photo: _photo,
                 busy: _busy,
                 members: [for (final f in friends.value ?? const <Profile>[]) if (_picked.contains(f.id)) f],
@@ -129,8 +147,10 @@ class _NewGroupScreenState extends ConsumerState<NewGroupScreen> {
 }
 
 class _NameStep extends StatelessWidget {
-  const _NameStep({required this.name, required this.photo, required this.busy, required this.members, required this.onPhoto, required this.onCreate});
+  const _NameStep({required this.name, this.nameProblem, required this.photo, required this.busy, required this.members, required this.onPhoto, required this.onCreate});
   final TextEditingController name;
+  /// Why the name filter refuses the name, shown under the field.
+  final String? nameProblem;
   final XFile? photo;
   final bool busy;
   final List<Profile> members;
@@ -148,7 +168,7 @@ class _NameStep extends StatelessWidget {
             controller: name,
             maxLength: kGroupNameMax,
             textCapitalization: TextCapitalization.words,
-            decoration: const InputDecoration(labelText: 'Group name (optional)', helperText: "Leave it blank to show everyone's names.", helperMaxLines: 2),
+            decoration: InputDecoration(labelText: 'Group name (optional)', helperText: "Leave it blank to show everyone's names.", helperMaxLines: 2, errorText: nameProblem, errorMaxLines: 2),
           ),
           const SizedBox(height: 14),
           Text('MEMBERS · ${members.length + 1}', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textSecondary)),

@@ -10,6 +10,16 @@ class ReleaseNote {
 
 const kReleaseNotes = <ReleaseNote>[
   ReleaseNote(
+    version: '0.3.66',
+    date: '9 Oct 2026',
+    title: 'Smoother typing',
+    points: [
+      'Return closes the keyboard everywhere. In chats and comments it sends.',
+      'Tap anywhere or scroll to put the keyboard away.',
+      'Names and handles with rude or reserved words are not allowed.',
+    ],
+  ),
+  ReleaseNote(
     version: '0.3.65',
     date: '9 Oct 2026',
     title: "What's on: public car events",

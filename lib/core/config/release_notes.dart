@@ -10,6 +10,16 @@ class ReleaseNote {
 
 const kReleaseNotes = <ReleaseNote>[
   ReleaseNote(
+    version: '0.3.67',
+    date: '9 Oct 2026',
+    title: 'Wallet PIN',
+    points: [
+      'A 6-digit PIN now protects card trades, blind boxes, card prizes and vouchers you buy with points.',
+      'Set it the first time you use one, or in Settings > Security.',
+      'The welcome page shows the TT Spot logo, and our contact email is now team@ttspot.my.',
+    ],
+  ),
+  ReleaseNote(
     version: '0.3.66',
     date: '9 Oct 2026',
     title: 'Smoother typing',

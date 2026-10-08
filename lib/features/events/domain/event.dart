@@ -66,6 +66,9 @@ class Event {
     this.clubTier,
     this.clubAvatarUrl,
     this.hostIsOrganizer = false,
+    this.isListing = false,
+    this.organiserName,
+    this.sourceUrl,
   });
 
   /// Hosted by an official (paid) club: gold badge on the map.
@@ -118,6 +121,37 @@ class Event {
   /// Street address from Google, when the venue was picked by search.
   final String? address;
 
+  /// A public event TT Spot only lists (MIAPEX, MotoGP…). [organizerId] is
+  /// the account that listed it (TiTi), not its host: no host tools, no
+  /// host QR, and lists show [listingHost] instead of the account.
+  final bool isListing;
+
+  /// Who really runs a listing ("Sepang International Circuit").
+  final String? organiserName;
+
+  /// A listing's official page (http/https).
+  final String? sourceUrl;
+
+  /// What lists and the event page call a listing's host: its real
+  /// organiser, else "Public event".
+  String get listingHost {
+    final n = organiserName?.trim() ?? '';
+    return n.isEmpty ? 'Public event' : n;
+  }
+
+  /// A listing's host line: "Public event · by Sepang International
+  /// Circuit", or "Public event" with no organiser name.
+  String get listingLine {
+    final n = organiserName?.trim() ?? '';
+    return n.isEmpty ? 'Public event' : 'Public event · by $n';
+  }
+
+  /// The official page as a link the app can open, or null.
+  Uri? get officialPage {
+    final u = Uri.tryParse(sourceUrl?.trim() ?? '');
+    return u != null && (u.scheme == 'https' || u.scheme == 'http') && u.host.isNotEmpty ? u : null;
+  }
+
   LatLng get latLng => LatLng(lat, lng);
   bool get isCancelled => status == EventStatus.cancelled;
   bool get isFull => maxAttendees != null && attendeeCount >= maxAttendees!;
@@ -164,5 +198,8 @@ class Event {
         clubTier: m['club_tier'] as String?,
         clubAvatarUrl: m['club_avatar_url'] as String?,
         hostIsOrganizer: m['host_is_organizer'] as bool? ?? false,
+        isListing: m['is_listing'] as bool? ?? false,
+        organiserName: m['organiser_name'] as String?,
+        sourceUrl: m['source_url'] as String?,
       );
 }

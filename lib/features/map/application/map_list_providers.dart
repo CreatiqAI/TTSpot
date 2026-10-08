@@ -43,9 +43,10 @@ final allUpcomingMeetsProvider = FutureProvider<List<Event>>((ref) async {
 });
 
 /// Who hosts the meets that have no club or partner on them, by user id.
+/// Listings name their organiser themselves.
 final meetHostNamesProvider = FutureProvider<Map<String, String>>((ref) async {
   final meets = await ref.watch(allUpcomingMeetsProvider.future);
-  final ids = meets.where((e) => e.clubName == null && e.vendorName == null).map((e) => e.organizerId);
+  final ids = meets.where((e) => !e.isListing && e.clubName == null && e.vendorName == null).map((e) => e.organizerId);
   return ref.watch(eventsRepositoryProvider).hostNames(ids);
 });
 

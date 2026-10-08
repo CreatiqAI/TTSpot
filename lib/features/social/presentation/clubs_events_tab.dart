@@ -118,7 +118,8 @@ class _ClubsEventsTabState extends ConsumerState<ClubsEventsTab> with AutomaticK
 
     final q = _query.trim().toLowerCase();
     bool clubMatches(Club c) => q.isEmpty || [c.name, c.handle, c.homeState ?? ''].any((s) => s.toLowerCase().contains(q));
-    String hostOf(Event e) => e.clubName ?? e.vendorName ?? hosts[e.organizerId] ?? '';
+    // A listing shows its real organiser, never the account that listed it.
+    String hostOf(Event e) => e.isListing ? e.listingHost : (e.clubName ?? e.vendorName ?? hosts[e.organizerId] ?? '');
     bool eventMatches(Event e) => q.isEmpty || [e.title, e.venueName, hostOf(e)].any((s) => s.toLowerCase().contains(q));
 
     final wantClubs = _filter != ClubsEventsFilter.events;
@@ -584,6 +585,7 @@ class HostBadge extends StatelessWidget {
 
   /// Null for a member's own meet.
   static HostBadge? of(Event e) {
+    if (e.isListing) return const HostBadge._(text: 'PUBLIC', icon: AppIcons.globe, gold: false);
     if (e.isOfficialClubEvent || e.type == EventType.official) return const HostBadge._(text: 'OFFICIAL', icon: AppIcons.sealCheck, gold: true);
     if (e.vendorId != null) return const HostBadge._(text: 'PARTNER', icon: AppIcons.storefront, gold: false);
     if (e.hostIsOrganizer) return const HostBadge._(text: 'ORGANIZER', icon: AppIcons.megaphone, gold: true);

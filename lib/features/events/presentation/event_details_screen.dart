@@ -212,10 +212,12 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
   Future<void> _menu(EventDetail d) async {
     final me = ref.read(currentUserIdProvider);
     final isOrganizer = me == d.event.organizerId;
-    // An official, big event is an "event", not a "meet".
-    final noun = (ref.read(eventHubProvider(d.event.id)).value?.isBig ?? false) ? 'event' : 'meet';
-    // End it while it runs, cancel it before the start.
-    final close = await _isHost(d.event) ? eventCloseAction(d.event, DateTime.now()) : null;
+    // An official, big event or a public listing is an "event", not a "meet".
+    final noun = d.event.isListing || (ref.read(eventHubProvider(d.event.id)).value?.isBig ?? false) ? 'event' : 'meet';
+    // End it while it runs, cancel it before the start. Not a listing: it
+    // isn't ours to end.
+    final listing = d.event.isListing;
+    final close = !listing && await _isHost(d.event) ? eventCloseAction(d.event, DateTime.now()) : null;
     if (!mounted) return;
     if (isOrganizer && close == null) {
       // Nothing left to do with my own meet once it's over.
@@ -243,11 +245,12 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                 title: Text('Report $noun'),
                 onTap: () => Navigator.pop(ctx, 'report'),
               ),
-              ListTile(
-                leading: const Icon(AppIcons.prohibit, color: AppColors.danger),
-                title: Text('Block ${d.organizer?.displayName ?? 'organizer'}', style: const TextStyle(color: AppColors.danger)),
-                onTap: () => Navigator.pop(ctx, 'block'),
-              ),
+              if (!listing)
+                ListTile(
+                  leading: const Icon(AppIcons.prohibit, color: AppColors.danger),
+                  title: Text('Block ${d.organizer?.displayName ?? 'organizer'}', style: const TextStyle(color: AppColors.danger)),
+                  onTap: () => Navigator.pop(ctx, 'block'),
+                ),
             ],
             const SizedBox(height: 8),
           ],
@@ -276,6 +279,19 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
     final d = ref.read(eventDetailProvider(widget.eventId)).value;
     if (d == null) return eventGuide(_guide, attending: false);
     final host = d.event.organizerId == ref.read(currentUserIdProvider);
+    if (d.event.isListing) {
+      // A public listing: Going, the official page, location check-in.
+      return eventGuide(
+        _guide,
+        attending: d.isAttending,
+        full: d.event.isFull,
+        live: d.event.isLive,
+        onMyWay: d.isAttending && !d.event.isCancelled && onMyWayWindowOpen(startsAt: d.event.startsAt, closesAt: d.event.closesAt, now: DateTime.now()),
+        chat: d.isAttending,
+        listing: true,
+        officialPage: d.event.officialPage != null,
+      );
+    }
     final hub = ref.read(eventHubProvider(widget.eventId)).value;
     if (hub != null && hub.isBig) {
       // A big event opens on its Overview tab: the check-in card (until I'm
@@ -310,7 +326,9 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
     final hubAsync = ref.watch(eventHubProvider(widget.eventId));
     final hub = hubAsync.value;
     final hubPending = hubAsync.isLoading && !hubAsync.hasValue && !hubAsync.hasError;
-    final big = hub?.isBig ?? false;
+    // A listing always gets the one-page layout: the big-event tabs are
+    // for events run in TT Spot.
+    final big = (hub?.isBig ?? false) && !(loaded?.event.isListing ?? false);
     // First meet page of someone who isn't its host, while it's still on.
     final guideReady = loaded != null &&
         !hubPending &&
@@ -331,7 +349,8 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
         actions: [
           if (detail.value != null) ...[
             IconButton(tooltip: 'Share', icon: const Icon(AppIcons.shareFat), onPressed: () => showEventShareOptions(context, detail.value!.event)),
-            IconButton(icon: const Icon(AppIcons.dotsThreeVertical), onPressed: () => _menu(detail.value!)),
+            if (!detail.value!.event.isListing || detail.value!.event.organizerId != ref.watch(currentUserIdProvider))
+              IconButton(icon: const Icon(AppIcons.dotsThreeVertical), onPressed: () => _menu(detail.value!)),
           ],
         ],
       ),
@@ -416,7 +435,7 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                               ),
                             ],
                             const SizedBox(height: 16),
-                            _OrganizerTile(organizer: d.organizer),
+                            ..._hostRows(d, officialKey: _guide.officialPage),
                             const SizedBox(height: 12),
                             _Attendees(detail: d),
                             const SizedBox(height: 16),
@@ -424,8 +443,11 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                               _CheckInCard(key: _guide.checkIn, detail: d, busy: _checkInBusy, onCheckIn: () => _checkIn(d)),
                               const SizedBox(height: 8),
                             ],
-                            EventHubCard(eventId: d.event.id),
-                            LuckyDrawCard(eventId: d.event.id),
+                            // A listing has no host here: no door hub, no draw.
+                            if (!d.event.isListing) ...[
+                              EventHubCard(eventId: d.event.id),
+                              LuckyDrawCard(eventId: d.event.id),
+                            ],
                             Row(
                               children: [
                                 Expanded(child: _RsvpButton(key: _guide.rsvp, detail: d, busy: _rsvpBusy, onPressed: () => _toggleRsvp(d))),
@@ -440,7 +462,7 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                               const SizedBox(height: 8),
                               Row(
                                 children: [
-                                  Expanded(child: SecondaryButton(key: _guide.chat, label: 'Meet chat', icon: AppIcons.chatCircle, onPressed: () => _openChat(d))),
+                                  Expanded(child: SecondaryButton(key: _guide.chat, label: d.event.isListing ? 'Event chat' : 'Meet chat', icon: AppIcons.chatCircle, onPressed: () => _openChat(d))),
                                   if (d.event.isLive && d.event.type == EventType.convoy) ...[
                                     const SizedBox(width: 8),
                                     Expanded(child: SecondaryButton(label: 'Convoy live', icon: AppIcons.broadcast, onPressed: () => context.push(Routes.convoy(d.event.id)))),
@@ -460,8 +482,9 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                               _RecapCard(event: d.event),
                               const SizedBox(height: 20),
                             ],
-                            OrganizerToolsEntry(event: d.event),
-                            if (d.event.organizerId == ref.watch(currentUserIdProvider) &&
+                            if (!d.event.isListing) OrganizerToolsEntry(event: d.event),
+                            if (!d.event.isListing &&
+                                d.event.organizerId == ref.watch(currentUserIdProvider) &&
                                 (d.event.isLive || (d.event.isPast && DateTime.now().difference(d.event.closesAt) < const Duration(hours: 24)))) ...[
                               Material(
                                 color: AppColors.surfaceGray,
@@ -480,7 +503,7 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                               ),
                               const SizedBox(height: 8),
                             ],
-                            if ((d.event.isLive || d.event.isPast) && d.event.organizerId == ref.watch(currentUserIdProvider)) ...[
+                            if (!d.event.isListing && (d.event.isLive || d.event.isPast) && d.event.organizerId == ref.watch(currentUserIdProvider)) ...[
                               Material(
                                 color: AppColors.surfaceGray,
                                 borderRadius: BorderRadius.circular(AppRadius.lg),
@@ -563,7 +586,7 @@ class _Badges extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final kind = eventKindOf(event, big: big);
-    final verified = event.isOfficialClubEvent || event.hostIsOrganizer || (ref.watch(isOrganizerProvider(event.organizerId)).value ?? false);
+    final verified = !event.isListing && (event.isOfficialClubEvent || event.hostIsOrganizer || (ref.watch(isOrganizerProvider(event.organizerId)).value ?? false));
     Widget pill(String text, {Color? bg, Color? fg, String? art, bool seal = false, Key? key}) => Container(
           key: key,
           padding: EdgeInsets.fromLTRB(art == null ? 10 : 6, 4, 10, 4),
@@ -714,6 +737,79 @@ class _OrganizerTile extends StatelessWidget {
   }
 }
 
+/// Who runs it: the organizer tile, or for a listing "Public event · by X",
+/// "Listed by TiTi" and the Official page button.
+List<Widget> _hostRows(EventDetail d, {Key? officialKey}) {
+  final e = d.event;
+  if (!e.isListing) return [_OrganizerTile(organizer: d.organizer)];
+  final page = e.officialPage;
+  return [
+    _ListingHostTile(event: e, lister: d.organizer),
+    if (page != null) ...[
+      const SizedBox(height: 10),
+      _OfficialPageButton(key: officialKey, url: page.toString()),
+    ],
+  ];
+}
+
+/// A listing's host line: the real organiser (not tappable: they aren't on
+/// TT Spot) and, small, the account that listed it (tap: its profile).
+class _ListingHostTile extends StatelessWidget {
+  const _ListingHostTile({required this.event, required this.lister});
+  final Event event;
+  final Profile? lister;
+
+  @override
+  Widget build(BuildContext context) {
+    final by = lister?.displayName ?? lister?.username ?? 'TiTi';
+    final l = lister;
+    return Row(
+      key: const ValueKey('listing-host'),
+      children: [
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(color: AppColors.surfaceGray, shape: BoxShape.circle),
+          child: Icon(AppIcons.globe, size: 22, color: AppColors.textPrimary),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                event.listingLine,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+              ),
+              const SizedBox(height: 1),
+              InkWell(
+                key: const ValueKey('listed-by'),
+                onTap: l == null ? null : () => context.push(Routes.profile(l.id)),
+                borderRadius: BorderRadius.circular(6),
+                child: Text('Listed by $by', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12.5, color: AppColors.textMuted)),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Opens a listing's official page in the browser.
+class _OfficialPageButton extends StatelessWidget {
+  const _OfficialPageButton({super.key, required this.url});
+  final String url;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+        width: double.infinity,
+        child: SecondaryButton(label: 'Official page', icon: AppIcons.arrowSquareOut, onPressed: () => openExternal(context, url)),
+      );
+}
+
 class _Attendees extends StatelessWidget {
   const _Attendees({required this.detail});
   final EventDetail detail;
@@ -783,7 +879,7 @@ class _Attendees extends StatelessWidget {
                         itemBuilder: (_, i) {
                           final p = list[i];
                           final here = checked.contains(p.id);
-                          final host = p.id == e.organizerId;
+                          final host = !e.isListing && p.id == e.organizerId;
                           final car = cars[p.id];
                           final status = Text(
                             [if (host) 'Host', if (here) 'Checked in', '@${p.username ?? ''}'].join(' · '),
@@ -833,7 +929,7 @@ class _RsvpButton extends StatelessWidget {
       return ElevatedButton(onPressed: null, child: const Text('Cancelled'));
     }
     if (e.isPast) {
-      return ElevatedButton(onPressed: null, child: const Text('This meet has ended'));
+      return ElevatedButton(onPressed: null, child: Text(e.isListing ? 'This event has ended' : 'This meet has ended'));
     }
     if (detail.isAttending) {
       return ElevatedButton.icon(
@@ -845,7 +941,7 @@ class _RsvpButton extends StatelessWidget {
     if (e.isFull) {
       return ElevatedButton(onPressed: null, child: const Text('Full'));
     }
-    return FilledButton(onPressed: busy ? null : onPressed, child: busy ? spinner : const Text('Join'));
+    return FilledButton(onPressed: busy ? null : onPressed, child: busy ? spinner : Text(e.isListing ? 'Going' : 'Join'));
   }
 }
 
@@ -1135,7 +1231,9 @@ class _CheckInCard extends ConsumerWidget {
     final mine = ref.watch(myCheckinsProvider).value ?? const <String>{};
     final here = ref.watch(eventCheckedInProvider(e.id)).value ?? const <Profile>[];
     final checkedIn = mine.contains(e.id);
-    final isOrganiser = e.organizerId == ref.watch(currentUserIdProvider);
+    // A listing has no host to show a QR: location check-in only.
+    final listing = e.isListing;
+    final isOrganiser = !listing && e.organizerId == ref.watch(currentUserIdProvider);
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -1168,7 +1266,7 @@ class _CheckInCard extends ConsumerWidget {
                     ? ElevatedButton.icon(onPressed: null, icon: const Icon(AppIcons.checkCircleFill, size: 18, color: AppColors.success), label: Text('You\'re here', style: TextStyle(color: AppColors.textPrimary)))
                     : PrimaryButton(label: 'I\'m here · check in', loading: busy, onPressed: busy ? null : onCheckIn),
               ),
-              if (!checkedIn) ...[
+              if (!checkedIn && !listing) ...[
                 const SizedBox(width: 8),
                 SizedBox(
                   width: 46,
@@ -1194,7 +1292,11 @@ class _CheckInCard extends ConsumerWidget {
             Padding(
               padding: EdgeInsets.only(top: 8),
               child: Text(
-                big ? 'Scan the QR at the entrance with TT Spot. You get your pass and a lucky draw number.' : 'Be at the meet with location on, then scan the organiser\'s QR (works within 300 m). Earns points.',
+                big
+                    ? 'Scan the QR at the entrance with TT Spot. You get your pass and a lucky draw number.'
+                    : listing
+                        ? "Be at the event with location on, then tap I'm here. Earns points."
+                        : 'Be at the meet with location on, then scan the organiser\'s QR (works within 300 m). Earns points.',
                 style: TextStyle(fontSize: 12, color: AppColors.textMuted),
               ),
             ),
@@ -1377,7 +1479,8 @@ class _QuickActions extends StatelessWidget {
 /// the plain link share.
 String _eventShareText(Event event) {
   final when = event.isInstant ? 'now until ${formatTime(event.closesAt)}' : formatEventDateFriendly(event.startsAt);
-  return '${event.title} · ${event.venueName} · $when\nWaze: ${wazeUrl(event.lat, event.lng)}\nJoin on TT Spot: ${shareLink('event', event.id)}';
+  final official = event.isListing ? event.officialPage : null;
+  return '${event.title} · ${event.venueName} · $when\nWaze: ${wazeUrl(event.lat, event.lng)}\nJoin on TT Spot: ${shareLink('event', event.id)}${official == null ? '' : '\nOfficial page: $official'}';
 }
 
 /// Share a meet: send it in a TT Spot chat (as the meet card), WhatsApp,
@@ -1392,7 +1495,7 @@ Future<void> showEventShareOptions(BuildContext context, Event event) {
         icon: AppIcons.image,
         label: 'Story image',
         subtitle: 'A card for Instagram or WhatsApp status',
-        onTap: () => showShareCardSheet(context, MeetInviteShareSpec(event: event, hostInvite: me != null && me == event.organizerId)),
+        onTap: () => showShareCardSheet(context, MeetInviteShareSpec(event: event, hostInvite: !event.isListing && me != null && me == event.organizerId)),
       ),
     ],
   );

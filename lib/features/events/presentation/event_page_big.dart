@@ -342,7 +342,7 @@ class _BigHeader extends ConsumerWidget {
                 ),
               ],
               const SizedBox(height: 12),
-              _OrganizerTile(organizer: detail.organizer),
+              ..._hostRows(detail),
             ],
           ),
         ),

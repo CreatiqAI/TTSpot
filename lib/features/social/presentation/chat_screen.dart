@@ -801,7 +801,11 @@ class _HostingCard extends ConsumerWidget {
     if (d == null) return const SizedBox.shrink();
     final e = d.event;
     final hosting = e.organizerId == me;
-    final who = hosting ? 'You\'re hosting' : 'Hosted by ${e.vendorName ?? d.organizer?.displayName ?? d.organizer?.username ?? 'the organiser'}';
+    final who = e.isListing
+        ? e.listingLine
+        : hosting
+            ? 'You\'re hosting'
+            : 'Hosted by ${e.vendorName ?? d.organizer?.displayName ?? d.organizer?.username ?? 'the organiser'}';
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
       child: Material(

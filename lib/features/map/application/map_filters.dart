@@ -26,9 +26,11 @@ enum PinTier {
 }
 
 /// Which tier an event's pin is. A TT session is always small, whoever hosts
-/// it: it is a casual hangout, not a planned event.
+/// it: it is a casual hangout, not a planned event. A listed public event
+/// (MIAPEX, MotoGP…) is big, whoever listed it.
 PinTier pinTierOf(Event e) {
   if (e.type == EventType.tt || e.isInstant) return PinTier.minor;
+  if (e.isListing) return PinTier.major;
   if (e.isOfficialClubEvent || e.hostIsOrganizer || e.type == EventType.official) return PinTier.major;
   if (e.vendorId != null) return PinTier.partner;
   return PinTier.minor;

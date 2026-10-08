@@ -82,13 +82,18 @@ class EventGuideKeys {
   final checkIn = GlobalKey(debugLabel: 'guide-event-checkin');
   final onMyWay = GlobalKey(debugLabel: 'guide-event-on-my-way');
   final chat = GlobalKey(debugLabel: 'guide-event-chat');
+  /// A listing's "Official page" button.
+  final officialPage = GlobalKey(debugLabel: 'guide-event-official-page');
 }
 
 /// A meet page, for a member who isn't the host. Steps follow what the page
 /// shows: [live] has the check-in card (else a line about the host's QR),
 /// [onMyWay] and [chat] only when those buttons are there. [big]: a big,
 /// official event (its Overview tab), worded as an event, not a meet.
-Guide eventGuide(EventGuideKeys k, {required bool attending, bool full = false, bool live = false, bool onMyWay = false, bool chat = false, bool big = false}) => Guide(
+/// [listing]: a public event TT Spot only lists. There is no host QR: tap
+/// Going, see the official page, check in with location while it's on.
+Guide eventGuide(EventGuideKeys k, {required bool attending, bool full = false, bool live = false, bool onMyWay = false, bool chat = false, bool big = false, bool listing = false, bool officialPage = false}) =>
+    listing ? _listingGuide(k, attending: attending, full: full, live: live, onMyWay: onMyWay, chat: chat, officialPage: officialPage) : Guide(
       id: GuideIds.event,
       steps: [
         // Already going: no "how to leave" tip; start with what to do there.
@@ -118,6 +123,20 @@ Guide eventGuide(EventGuideKeys k, {required bool attending, bool full = false, 
             body: big ? 'Updates and questions, with everyone going.' : 'Plan the drive, share updates, find each other on the day.',
             pose: TitiPose.chat,
           ),
+      ],
+    );
+
+Guide _listingGuide(EventGuideKeys k, {required bool attending, required bool full, required bool live, required bool onMyWay, required bool chat, required bool officialPage}) => Guide(
+      id: GuideIds.event,
+      steps: [
+        if (!attending && !full)
+          GuideStep(target: k.rsvp, title: 'Going?', body: "Tap Going so friends see you're there.", pose: TitiPose.calendar),
+        if (officialPage)
+          GuideStep(target: k.officialPage, title: 'Official page', body: 'Times, tickets and the full details, straight from the organizer.', pose: TitiPose.binoculars),
+        if (live)
+          GuideStep(target: k.checkIn, title: 'Check in here', body: "At the event? Tap I'm here with location on. That's +10 points.", pose: TitiPose.mapPin),
+        if (onMyWay) GuideStep(target: k.onMyWay, title: 'On your way?', body: 'Posts your ETA in the chat, then opens directions.', pose: TitiPose.rolling),
+        if (chat) GuideStep(target: k.chat, title: 'Event chat', body: 'Find friends there and share updates on the day.', pose: TitiPose.chat),
       ],
     );
 

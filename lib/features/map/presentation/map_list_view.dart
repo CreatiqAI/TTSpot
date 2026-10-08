@@ -244,7 +244,7 @@ class _MeetsTabState extends ConsumerState<_MeetsTab> with AutomaticKeepAliveCli
                         for (final e in g.value)
                           _MeetRow(
                             event: e,
-                            host: e.clubName ?? e.vendorName ?? hosts[e.organizerId] ?? '',
+                            host: e.isListing ? e.listingHost : (e.clubName ?? e.vendorName ?? hosts[e.organizerId] ?? ''),
                             km: distanceKm(origin, e.latLng),
                             onTap: () => context.push(Routes.event(e.id)),
                           ),
